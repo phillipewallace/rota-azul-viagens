@@ -30,49 +30,42 @@ export const useTrucks = () => {
     try {
       const data = await apiService.getTrucks();
       setTrucks(data);
+      console.log('Trucks loaded successfully:', data);
     } catch (err) {
       setError('Erro ao carregar caminhões');
       console.error('Error loading trucks:', err);
-      // Dados mockados para desenvolvimento
-      const mockTrucks: Truck[] = [
-        {
-          id: '1',
-          name: 'Caminhão 001',
-          plate: 'ABC-1234',
-          model: 'Volvo FH',
-          year: 2020,
-          status: 'available',
-          lastMaintenance: '2024-05-15',
-          mileage: 85240,
-          location: { lat: -23.5505, lng: -46.6333 }
-        },
-        {
-          id: '2',
-          name: 'Caminhão 002',
-          plate: 'DEF-5678',
-          model: 'Scania R450',
-          year: 2019,
-          status: 'in-route',
-          currentRoute: 'SP → MG',
-          lastMaintenance: '2024-04-20',
-          mileage: 92180,
-          location: { lat: -23.5605, lng: -46.6433 }
-        }
-      ];
-      setTrucks(mockTrucks);
+      setTrucks([]); // Limpa os dados em caso de erro
     } finally {
       setLoading(false);
     }
   };
 
+  const updateTruckLocation = async (truckId: string, lat: number, lng: number) => {
+    try {
+      await apiService.updateTruckLocation(truckId, lat, lng);
+      // Atualiza o estado local
+      setTrucks(prev => prev.map(truck => 
+        truck.id === truckId 
+          ? { ...truck, location: { lat, lng } }
+          : truck
+      ));
+    } catch (err) {
+      console.error('Error updating truck location:', err);
+    }
+  };
+
   useEffect(() => {
     loadTrucks();
+    // Atualiza a cada 30 segundos
+    const interval = setInterval(loadTrucks, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return {
     trucks,
     loading,
     error,
-    loadTrucks
+    loadTrucks,
+    updateTruckLocation
   };
 };

@@ -4,14 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, Truck, Clock } from 'lucide-react';
+import { MapPin, Navigation, Truck, Clock, RefreshCw } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
+import { useTrucks } from '@/hooks/useTrucks';
+import { useRoutes } from '@/hooks/useRoutes';
 
 interface TruckRoute {
   id: string;
   name: string;
   plate: string;
-  currentRoute: {
+  currentRoute?: {
     id: string;
     name: string;
     points: Array<{
@@ -32,95 +34,119 @@ const MobileDriver = () => {
   const [truckData, setTruckData] = useState<TruckRoute | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const { trucks, updateTruckLocation } = useTrucks();
+  const { routes } = useRoutes();
 
   const handlePlateSubmit = async () => {
     if (!plate.trim()) return;
     
     setLoading(true);
-    // Simular busca da rota do caminhão
-    setTimeout(() => {
-      const mockTruckData: TruckRoute = {
-        id: '1',
-        name: 'Caminhão 001',
-        plate: plate.toUpperCase(),
-        currentRoute: {
-          id: '1',
-          name: 'Rota SP-RJ Multi-pontos',
-          currentPointIndex: 1,
-          points: [
-            {
-              id: '1',
-              address: 'São Paulo, SP',
-              lat: -23.5505,
-              lng: -46.6333,
-              order: 1,
-              type: 'origin',
-              completed: true
-            },
-            {
-              id: '2',
-              address: 'Santos, SP',
-              lat: -23.9608,
-              lng: -46.3331,
-              order: 2,
-              type: 'waypoint',
-              completed: false
-            },
-            {
-              id: '3',
-              address: 'Rio de Janeiro, RJ',
-              lat: -22.9068,
-              lng: -43.1729,
-              order: 3,
-              type: 'destination',
-              completed: false
-            }
-          ]
+    setError(null);
+    
+    try {
+      // Busca o caminhão pela placa
+      const truck = trucks.find(t => t.plate.toLowerCase() === plate.toLowerCase());
+      
+      if (!truck) {
+        throw new Error('Caminhão não encontrado');
+      }
+
+      // Busca a rota atual do caminhão
+      let currentRoute = null;
+      if (truck.currentRoute) {
+        const route = routes.find(r => r.name === truck.currentRoute);
+        if (route) {
+          currentRoute = {
+            id: route.id,
+            name: route.name,
+            currentPointIndex: 0,
+            points: route.points.map((point, index) => ({
+              ...point,
+              completed: index === 0 // Primeiro ponto já "concluído" (origem)
+            }))
+          };
         }
+      }
+
+      const truckRouteData: TruckRoute = {
+        id: truck.id,
+        name: truck.name,
+        plate: truck.plate,
+        currentRoute
       };
-      setTruckData(mockTruckData);
+
+      setTruckData(truckRouteData);
+      console.log('Truck data loaded:', truckRouteData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao buscar dados do caminhão');
+      console.error('Error loading truck data:', err);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const getCurrentLocation = async () => {
     try {
-      const position = await Geolocation.getCurrentPosition();
-      setCurrentLocation({
+      const position = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10000
+      });
+      
+      const newLocation = {
         lat: position.coords.latitude,
         lng: position.coords.longitude
-      });
+      };
+      
+      setCurrentLocation(newLocation);
+      
+      // Atualiza a localização do caminhão no servidor
+      if (truckData) {
+        await updateTruckLocation(truckData.id, newLocation.lat, newLocation.lng);
+      }
+      
+      console.log('Location updated:', newLocation);
     } catch (error) {
       console.error('Erro ao obter localização:', error);
-      // Localização mockada para desenvolvimento
-      setCurrentLocation({ lat: -23.5505, lng: -46.6333 });
+      setError('Erro ao obter localização GPS');
     }
   };
 
-  const markPointAsCompleted = (pointId: string) => {
-    if (!truckData) return;
+  const markPointAsCompleted = async (pointId: string) => {
+    if (!truckData?.currentRoute) return;
     
     setTruckData(prev => {
-      if (!prev) return null;
+      if (!prev?.currentRoute) return prev;
+      
+      const updatedPoints = prev.currentRoute.points.map(point =>
+        point.id === pointId ? { ...point, completed: true } : point
+      );
+      
+      const currentIndex = updatedPoints.findIndex(p => p.id === pointId);
+      const nextIndex = currentIndex < updatedPoints.length - 1 ? currentIndex + 1 : currentIndex;
+      
       return {
         ...prev,
         currentRoute: {
           ...prev.currentRoute,
-          points: prev.currentRoute.points.map(point =>
-            point.id === pointId ? { ...point, completed: true } : point
-          ),
-          currentPointIndex: prev.currentRoute.currentPointIndex + 1
+          points: updatedPoints,
+          currentPointIndex: nextIndex
         }
       };
     });
+
+    // Atualiza localização atual
+    await getCurrentLocation();
   };
 
   useEffect(() => {
     getCurrentLocation();
+    
     // Atualizar localização a cada 30 segundos
     const interval = setInterval(getCurrentLocation, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [truckData]);
 
   if (!truckData) {
     return (
@@ -134,6 +160,11 @@ const MobileDriver = () => {
             <p className="text-sm text-gray-600">App do Motorista</p>
           </CardHeader>
           <CardContent className="space-y-4">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                {error}
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Placa do Caminhão</label>
               <Input
@@ -141,6 +172,7 @@ const MobileDriver = () => {
                 value={plate}
                 onChange={(e) => setPlate(e.target.value.toUpperCase())}
                 className="mt-1"
+                disabled={loading}
               />
             </div>
             <Button 
@@ -148,7 +180,14 @@ const MobileDriver = () => {
               className="w-full"
               disabled={loading || !plate.trim()}
             >
-              {loading ? 'Buscando...' : 'Acessar Rota'}
+              {loading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Buscando...
+                </>
+              ) : (
+                'Acessar Rota'
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -156,8 +195,7 @@ const MobileDriver = () => {
     );
   }
 
-  const currentPoint = truckData.currentRoute.points[truckData.currentRoute.currentPointIndex];
-  const nextPoint = truckData.currentRoute.points[truckData.currentRoute.currentPointIndex + 1];
+  const currentPoint = truckData.currentRoute?.points[truckData.currentRoute.currentPointIndex];
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -170,53 +208,66 @@ const MobileDriver = () => {
                 <h1 className="font-semibold">{truckData.name}</h1>
                 <p className="text-sm text-gray-600">{truckData.plate}</p>
               </div>
-              <Badge variant="outline" className="bg-green-50 text-green-700">
-                Em Rota
-              </Badge>
+              <div className="flex gap-2">
+                <Badge variant="outline" className="bg-green-50 text-green-700">
+                  Ativo
+                </Badge>
+                <Button size="sm" variant="ghost" onClick={() => setTruckData(null)}>
+                  Sair
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Rota Atual */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Navigation className="h-5 w-5" />
-              {truckData.currentRoute.name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {truckData.currentRoute.points.map((point, index) => (
-              <div 
-                key={point.id}
-                className={`flex items-center gap-3 p-3 rounded-lg border ${
-                  point.completed 
-                    ? 'bg-green-50 border-green-200' 
-                    : index === truckData.currentRoute.currentPointIndex
-                    ? 'bg-blue-50 border-blue-200'
-                    : 'bg-gray-50 border-gray-200'
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  point.completed 
-                    ? 'bg-green-500 text-white' 
-                    : index === truckData.currentRoute.currentPointIndex
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-300 text-gray-600'
-                }`}>
-                  {point.order}
+        {truckData.currentRoute ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Navigation className="h-5 w-5" />
+                {truckData.currentRoute.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {truckData.currentRoute.points.map((point, index) => (
+                <div 
+                  key={point.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    point.completed 
+                      ? 'bg-green-50 border-green-200' 
+                      : index === truckData.currentRoute!.currentPointIndex
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    point.completed 
+                      ? 'bg-green-500 text-white' 
+                      : index === truckData.currentRoute!.currentPointIndex
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-300 text-gray-600'
+                  }`}>
+                    {point.order}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{point.address}</p>
+                    <p className="text-xs text-gray-600 capitalize">{point.type}</p>
+                  </div>
+                  {point.completed && (
+                    <div className="text-green-500">✓</div>
+                  )}
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{point.address}</p>
-                  <p className="text-xs text-gray-600 capitalize">{point.type}</p>
-                </div>
-                {point.completed && (
-                  <div className="text-green-500">✓</div>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-4 text-center">
+              <p className="text-gray-600">Nenhuma rota ativa encontrada</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Próximo Destino */}
         {currentPoint && (
@@ -251,18 +302,24 @@ const MobileDriver = () => {
         )}
 
         {/* Localização Atual */}
-        {currentLocation && (
-          <Card>
-            <CardContent className="p-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-green-500" />
                 <span className="text-sm">
-                  Localização: {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}
+                  {currentLocation 
+                    ? `GPS: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`
+                    : 'Obtendo localização...'
+                  }
                 </span>
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <Button size="sm" variant="ghost" onClick={getCurrentLocation}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
