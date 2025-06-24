@@ -9,6 +9,7 @@ import Reports from "./pages/Reports";
 import Schedule from "./pages/Schedule";
 import Drivers from "./pages/Drivers";
 import Settings from "./pages/Settings";
+import MobileDriver from "./pages/MobileDriver";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/drivers" element={<Drivers />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/mobile" element={<MobileDriver />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

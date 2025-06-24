@@ -66,7 +66,7 @@ export const useTrucks = () => {
   };
 
   useEffect(() => {
-    loadRoutes();
+    loadTrucks();
   }, []);
 
   return {
