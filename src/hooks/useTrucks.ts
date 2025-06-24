@@ -34,7 +34,7 @@ export const useTrucks = () => {
       setError('Erro ao carregar caminhões');
       console.error('Error loading trucks:', err);
       // Dados mockados para desenvolvimento
-      setTrucks([
+      const mockTrucks: Truck[] = [
         {
           id: '1',
           name: 'Caminhão 001',
@@ -58,14 +58,15 @@ export const useTrucks = () => {
           mileage: 92180,
           location: { lat: -23.5605, lng: -46.6433 }
         }
-      ]);
+      ];
+      setTrucks(mockTrucks);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadTrucks();
+    loadRoutes();
   }, []);
 
   return {

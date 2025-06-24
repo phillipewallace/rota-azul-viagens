@@ -2,13 +2,23 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '@/services/api';
 
+export interface RoutePoint {
+  id: string;
+  address: string;
+  cep: string;
+  lat: number;
+  lng: number;
+  order: number;
+  type: 'origin' | 'destination' | 'waypoint';
+}
+
 export interface Route {
   id: string;
   name: string;
-  origin: string;
-  destination: string;
-  distance: number;
+  points: RoutePoint[];
+  totalDistance: number;
   estimatedTime: string;
+  optimizedOrder: string[];
   description?: string;
   status: 'active' | 'inactive';
   createdAt: string;
@@ -29,28 +39,47 @@ export const useRoutes = () => {
       setError('Erro ao carregar rotas');
       console.error('Error loading routes:', err);
       // Dados mockados para desenvolvimento
-      setRoutes([
+      const mockRoutes: Route[] = [
         {
           id: '1',
-          name: 'Rota SP-RJ',
-          origin: 'São Paulo, SP',
-          destination: 'Rio de Janeiro, RJ',
-          distance: 450,
+          name: 'Rota SP-RJ Multi-pontos',
+          points: [
+            {
+              id: '1',
+              address: 'São Paulo, SP',
+              cep: '01310-100',
+              lat: -23.5505,
+              lng: -46.6333,
+              order: 1,
+              type: 'origin'
+            },
+            {
+              id: '2',
+              address: 'Santos, SP',
+              cep: '11010-001',
+              lat: -23.9608,
+              lng: -46.3331,
+              order: 2,
+              type: 'waypoint'
+            },
+            {
+              id: '3',
+              address: 'Rio de Janeiro, RJ',
+              cep: '20040-020',
+              lat: -22.9068,
+              lng: -43.1729,
+              order: 3,
+              type: 'destination'
+            }
+          ],
+          totalDistance: 450,
           estimatedTime: '6h 30min',
-          status: 'active',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Rota SP-MG',
-          origin: 'São Paulo, SP',
-          destination: 'Belo Horizonte, MG',
-          distance: 320,
-          estimatedTime: '4h 45min',
+          optimizedOrder: ['1', '2', '3'],
           status: 'active',
           createdAt: new Date().toISOString()
         }
-      ]);
+      ];
+      setRoutes(mockRoutes);
     } finally {
       setLoading(false);
     }
@@ -67,6 +96,24 @@ export const useRoutes = () => {
     }
   };
 
+  const optimizeRoute = async (points: RoutePoint[]) => {
+    try {
+      return await apiService.optimizeRoute(points);
+    } catch (err) {
+      setError('Erro ao otimizar rota');
+      throw err;
+    }
+  };
+
+  const getAddressByCep = async (cep: string) => {
+    try {
+      return await apiService.getAddressByCep(cep);
+    } catch (err) {
+      setError('Erro ao buscar endereço');
+      throw err;
+    }
+  };
+
   useEffect(() => {
     loadRoutes();
   }, []);
@@ -76,6 +123,8 @@ export const useRoutes = () => {
     loading,
     error,
     loadRoutes,
-    createRoute
+    createRoute,
+    optimizeRoute,
+    getAddressByCep
   };
 };
