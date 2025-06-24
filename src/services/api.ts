@@ -1,5 +1,6 @@
 import { Route, RoutePoint } from '@/hooks/useRoutes';
 import { Truck } from '@/hooks/useTrucks';
+import { ReportStats, MonthlyPerformance, RouteUsage, MaintenanceData } from '@/hooks/useReports';
 
 // Configurações da API
 const API_BASE_URL = import.meta.env.MODE === 'production' 
@@ -190,6 +191,23 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(maintenanceData),
     });
+  }
+
+  // Relatórios
+  async getReportStats(): Promise<ReportStats> {
+    return this.request<ReportStats>('/reports/stats');
+  }
+
+  async getMonthlyPerformance(): Promise<MonthlyPerformance[]> {
+    return this.request<MonthlyPerformance[]>('/reports/monthly-performance');
+  }
+
+  async getRouteUsage(): Promise<RouteUsage[]> {
+    return this.request<RouteUsage[]>('/reports/route-usage');
+  }
+
+  async getMaintenanceStats(): Promise<MaintenanceData[]> {
+    return this.request<MaintenanceData[]>('/reports/maintenance-stats');
   }
 }
 

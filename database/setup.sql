@@ -116,6 +116,17 @@ CREATE TABLE IF NOT EXISTS maintenance_records (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabela de relatórios de desempenho (nova)
+CREATE TABLE IF NOT EXISTS performance_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    report_date DATE NOT NULL,
+    total_trips INTEGER DEFAULT 0,
+    total_distance DECIMAL(10, 2) DEFAULT 0,
+    total_fuel_cost DECIMAL(10, 2) DEFAULT 0,
+    average_delivery_time INTEGER DEFAULT 0, -- em minutos
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Índices para otimização
 CREATE INDEX IF NOT EXISTS idx_trucks_status ON trucks(status);
 CREATE INDEX IF NOT EXISTS idx_trucks_driver ON trucks(driver_id);
@@ -126,10 +137,13 @@ CREATE INDEX IF NOT EXISTS idx_route_points_order ON route_points(route_id, poin
 CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status);
 CREATE INDEX IF NOT EXISTS idx_trips_truck ON trips(truck_id);
 CREATE INDEX IF NOT EXISTS idx_trips_route ON trips(route_id);
+CREATE INDEX IF NOT EXISTS idx_trips_date ON trips(created_at);
 CREATE INDEX IF NOT EXISTS idx_tracking_truck ON truck_tracking(truck_id);
 CREATE INDEX IF NOT EXISTS idx_tracking_timestamp ON truck_tracking(timestamp);
 CREATE INDEX IF NOT EXISTS idx_maintenance_truck ON maintenance_records(truck_id);
 CREATE INDEX IF NOT EXISTS idx_maintenance_status ON maintenance_records(status);
+CREATE INDEX IF NOT EXISTS idx_maintenance_date ON maintenance_records(scheduled_date);
+CREATE INDEX IF NOT EXISTS idx_performance_date ON performance_reports(report_date);
 
 -- Função para atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -165,17 +179,117 @@ DROP TRIGGER IF EXISTS update_maintenance_updated_at ON maintenance_records;
 CREATE TRIGGER update_maintenance_updated_at BEFORE UPDATE ON maintenance_records 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Dados de exemplo para teste (REMOVA EM PRODUÇÃO)
+-- Views para relatórios
+CREATE OR REPLACE VIEW v_truck_status AS
+SELECT 
+    status,
+    COUNT(*) as count
+FROM trucks 
+GROUP BY status;
+
+CREATE OR REPLACE VIEW v_monthly_performance AS
+SELECT 
+    TO_CHAR(created_at, 'YYYY-MM') as month,
+    COUNT(*) as trips,
+    COALESCE(SUM(actual_distance), 0) as total_km
+FROM trips 
+WHERE status = 'completed'
+    AND created_at >= CURRENT_DATE - INTERVAL '12 months'
+GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+ORDER BY month;
+
+CREATE OR REPLACE VIEW v_route_usage AS
+SELECT 
+    r.name,
+    COUNT(t.id) as usage
+FROM routes r
+LEFT JOIN trips t ON r.id = t.route_id
+WHERE t.status = 'completed'
+    AND t.created_at >= CURRENT_DATE - INTERVAL '6 months'
+GROUP BY r.id, r.name
+ORDER BY usage DESC
+LIMIT 10;
+
+-- Função para estatísticas do dashboard
+CREATE OR REPLACE FUNCTION get_dashboard_stats()
+RETURNS JSON AS $$
+DECLARE
+    result JSON;
+BEGIN
+    SELECT json_build_object(
+        'totalRoutes', (SELECT COUNT(*) FROM routes),
+        'activeRoutes', (SELECT COUNT(*) FROM routes WHERE status = 'active'),
+        'totalTrucks', (SELECT COUNT(*) FROM trucks),
+        'activeTrucks', (SELECT COUNT(*) FROM trucks WHERE status IN ('available', 'in-route')),
+        'totalKm', (
+            SELECT COALESCE(SUM(actual_distance), 0) 
+            FROM trips 
+            WHERE status = 'completed' 
+                AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+        ),
+        'completedTrips', (
+            SELECT COUNT(*) 
+            FROM trips 
+            WHERE status = 'completed'
+                AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+        ),
+        'pendingTrips', (
+            SELECT COUNT(*) 
+            FROM trips 
+            WHERE status IN ('scheduled', 'in-progress')
+        ),
+        'upcomingMaintenance', (
+            SELECT json_agg(
+                json_build_object(
+                    'truckName', t.name,
+                    'maintenanceType', m.maintenance_type,
+                    'scheduledDate', TO_CHAR(m.scheduled_date, 'DD/MM/YYYY'),
+                    'daysRemaining', (m.scheduled_date - CURRENT_DATE)
+                )
+            )
+            FROM maintenance_records m
+            JOIN trucks t ON m.truck_id = t.id
+            WHERE m.status = 'scheduled'
+                AND m.scheduled_date >= CURRENT_DATE
+                AND m.scheduled_date <= CURRENT_DATE + INTERVAL '30 days'
+            ORDER BY m.scheduled_date
+            LIMIT 5
+        )
+    ) INTO result;
+    
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Dados de exemplo para desenvolvimento (REMOVA EM PRODUÇÃO)
 -- Descomente as linhas abaixo apenas para testes iniciais
 
 /*
 INSERT INTO drivers (name, license_number, phone, email) VALUES
 ('João Silva', 'SP123456789', '(11) 99999-1111', 'joao@email.com'),
-('Maria Santos', 'SP987654321', '(11) 99999-2222', 'maria@email.com')
+('Maria Santos', 'SP987654321', '(11) 99999-2222', 'maria@email.com'),
+('Pedro Costa', 'SP456789123', '(11) 99999-3333', 'pedro@email.com')
 ON CONFLICT (license_number) DO NOTHING;
 
 INSERT INTO trucks (name, plate, model, year, mileage, location_lat, location_lng) VALUES
 ('Caminhão 001', 'ABC-1234', 'Volvo FH', 2020, 85240, -23.5505, -46.6333),
-('Caminhão 002', 'DEF-5678', 'Scania R450', 2019, 92180, -23.5605, -46.6433)
+('Caminhão 002', 'DEF-5678', 'Scania R450', 2019, 92180, -23.5605, -46.6433),
+('Caminhão 003', 'GHI-9012', 'Mercedes Actros', 2021, 45300, -23.5405, -46.6233)
 ON CONFLICT (plate) DO NOTHING;
+
+INSERT INTO routes (name, description, total_distance, estimated_time, status) VALUES
+('Rota SP-RJ', 'São Paulo para Rio de Janeiro', 430.5, '6h 30min', 'active'),
+('Rota SP-MG', 'São Paulo para Belo Horizonte', 586.2, '7h 45min', 'active'),
+('Rota SP-PR', 'São Paulo para Curitiba', 408.7, '5h 20min', 'active')
+ON CONFLICT DO NOTHING;
+
+-- Alguns dados de exemplo para viagens
+INSERT INTO trips (route_id, truck_id, driver_id, status, actual_distance, created_at) 
+SELECT 
+    r.id, t.id, d.id, 'completed', 
+    r.total_distance + (random() * 50 - 25), -- variação de ±25km
+    CURRENT_DATE - (random() * 90)::int * INTERVAL '1 day' -- últimos 90 dias
+FROM routes r, trucks t, drivers d 
+WHERE r.name = 'Rota SP-RJ' AND t.plate = 'ABC-1234' AND d.license_number = 'SP123456789'
+LIMIT 1;
 */

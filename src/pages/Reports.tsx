@@ -1,44 +1,113 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, TrendingUp, Truck, Route } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { BarChart3, TrendingUp, Truck, Route, Calendar, MapPin } from 'lucide-react';
+import { useReports } from '@/hooks/useReports';
 
 const Reports = () => {
-  const stats = [
-    { title: 'Total de Rotas', value: '24', icon: Route, color: 'text-blue-500' },
-    { title: 'Caminhões Ativos', value: '12', icon: Truck, color: 'text-green-500' },
-    { title: 'Km Percorridos', value: '15.420', icon: TrendingUp, color: 'text-purple-500' },
-    { title: 'Entregas', value: '89', icon: BarChart3, color: 'text-orange-500' },
-  ];
+  const { stats, monthlyPerformance, routeUsage, maintenanceData, loading } = useReports();
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold mb-8">Relatórios</h1>
+          <div className="animate-pulse space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-24 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="h-80 bg-gray-200 rounded"></div>
+              <div className="h-80 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Relatórios</h1>
         
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          ))}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Rotas</CardTitle>
+              <Route className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.totalRoutes || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.activeRoutes || 0} ativas
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Caminhões Ativos</CardTitle>
+              <Truck className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.activeTrucks || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                de {stats?.totalTrucks || 0} total
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Km Percorridos</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.totalKm?.toLocaleString() || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                este mês
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Viagens Concluídas</CardTitle>
+              <BarChart3 className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.completedTrips || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.pendingTrips || 0} pendentes
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
               <CardTitle>Desempenho Mensal</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                Gráfico de desempenho será implementado aqui
-              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="trips" stroke="#8884d8" name="Viagens" />
+                  <Line type="monotone" dataKey="km" stroke="#82ca9d" name="Km" />
+                </LineChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
 
@@ -47,13 +116,73 @@ const Reports = () => {
               <CardTitle>Rotas Mais Utilizadas</CardTitle>
             </CardHeader>
             <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={routeUsage}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="usage" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Maintenance Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Status de Manutenção</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={maintenanceData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {maintenanceData?.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Próximas Manutenções</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
-                {['SP → RJ', 'SP → MG', 'SP → PR'].map((route, index) => (
-                  <div key={index} className="flex justify-between items-center">
-                    <span>{route}</span>
-                    <span className="font-semibold">{15 - index * 2} viagens</span>
+                {stats?.upcomingMaintenance?.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-4 w-4 text-blue-500" />
+                      <div>
+                        <p className="font-medium">{item.truckName}</p>
+                        <p className="text-sm text-gray-500">{item.maintenanceType}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{item.scheduledDate}</p>
+                      <p className="text-xs text-gray-500">{item.daysRemaining} dias</p>
+                    </div>
                   </div>
-                ))}
+                )) || (
+                  <p className="text-center text-gray-500 py-8">
+                    Nenhuma manutenção agendada
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
