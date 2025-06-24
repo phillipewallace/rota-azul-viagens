@@ -1,13 +1,12 @@
-
 import { Route, RoutePoint } from '@/hooks/useRoutes';
 import { Truck } from '@/hooks/useTrucks';
 
 // Configurações da API
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
+const API_BASE_URL = import.meta.env.MODE === 'production' 
   ? 'https://your-api-domain.com/api' 
   : 'http://localhost:3001/api';
 
-const GOOGLE_MAPS_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 interface AddressResponse {
   address: string;
