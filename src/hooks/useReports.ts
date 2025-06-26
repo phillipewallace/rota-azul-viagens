@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
 
 export interface ReportStats {
@@ -35,41 +36,37 @@ export interface MaintenanceData {
 }
 
 export const useReports = () => {
-  const [stats, setStats] = useState<ReportStats | null>(null);
-  const [monthlyPerformance, setMonthlyPerformance] = useState<MonthlyPerformance[]>([]);
-  const [routeUsage, setRouteUsage] = useState<RouteUsage[]>([]);
-  const [maintenanceData, setMaintenanceData] = useState<MaintenanceData[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
+    queryKey: ['reportStats'],
+    queryFn: () => apiService.getReportStats(),
+    refetchInterval: 30000, // Atualiza a cada 30 segundos
+  });
+
+  const { data: monthlyPerformance = [], isLoading: performanceLoading } = useQuery({
+    queryKey: ['monthlyPerformance'],
+    queryFn: () => apiService.getMonthlyPerformance(),
+    refetchInterval: 60000, // Atualiza a cada minuto
+  });
+
+  const { data: routeUsage = [], isLoading: routeLoading } = useQuery({
+    queryKey: ['routeUsage'],
+    queryFn: () => apiService.getRouteUsage(),
+    refetchInterval: 60000,
+  });
+
+  const { data: maintenanceData = [], isLoading: maintenanceLoading } = useQuery({
+    queryKey: ['maintenanceStats'],
+    queryFn: () => apiService.getMaintenanceStats(),
+    refetchInterval: 60000,
+  });
+
+  const loading = statsLoading || performanceLoading || routeLoading || maintenanceLoading;
+  const error = statsError ? 'Erro ao carregar relatórios' : null;
 
   const loadReports = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [statsData, performanceData, usageData, maintenanceStats] = await Promise.all([
-        apiService.getReportStats(),
-        apiService.getMonthlyPerformance(),
-        apiService.getRouteUsage(),
-        apiService.getMaintenanceStats()
-      ]);
-
-      setStats(statsData);
-      setMonthlyPerformance(performanceData);
-      setRouteUsage(usageData);
-      setMaintenanceData(maintenanceStats);
-      
-      console.log('Reports loaded successfully');
-    } catch (err) {
-      setError('Erro ao carregar relatórios');
-      console.error('Error loading reports:', err);
-    } finally {
-      setLoading(false);
-    }
+    // Esta função agora é desnecessária com o React Query, mas mantemos para compatibilidade
+    console.log('Reports will be automatically refetched by React Query');
   };
-
-  useEffect(() => {
-    loadReports();
-  }, []);
 
   return {
     stats,

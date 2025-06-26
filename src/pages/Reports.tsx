@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { BarChart3, TrendingUp, Truck, Route, Calendar, MapPin } from 'lucide-react';
 import { useReports } from '@/hooks/useReports';
+import PageHeader from '@/components/PageHeader';
 
 const Reports = () => {
   const { stats, monthlyPerformance, routeUsage, maintenanceData, loading } = useReports();
@@ -12,9 +13,9 @@ const Reports = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-8">Relatórios</h1>
+      <div className="min-h-screen bg-background">
+        <PageHeader title="Relatórios" subtitle="Carregando dados..." />
+        <div className="max-w-7xl mx-auto p-6">
           <div className="animate-pulse space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[1, 2, 3, 4].map((i) => (
@@ -32,10 +33,10 @@ const Reports = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Relatórios</h1>
-        
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <PageHeader title="Relatórios" subtitle="Análise de desempenho e estatísticas" />
+      
+      <div className="max-w-7xl mx-auto p-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
