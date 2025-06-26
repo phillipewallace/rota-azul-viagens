@@ -33,7 +33,9 @@ export interface MaintenanceData {
   value: number;
 }
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
 
 const fetchReportStats = async (): Promise<ReportStats> => {
   const response = await fetch(`${API_BASE_URL}/reports/stats`);
@@ -72,24 +74,28 @@ export const useReports = () => {
     queryKey: ['reportStats'],
     queryFn: fetchReportStats,
     refetchInterval: 30000, // Atualiza a cada 30 segundos
+    retry: 2,
   });
 
   const { data: monthlyPerformance = [], isLoading: performanceLoading } = useQuery({
     queryKey: ['monthlyPerformance'],
     queryFn: fetchMonthlyPerformance,
     refetchInterval: 60000, // Atualiza a cada minuto
+    retry: 2,
   });
 
   const { data: routeUsage = [], isLoading: routeLoading } = useQuery({
     queryKey: ['routeUsage'],
     queryFn: fetchRouteUsage,
     refetchInterval: 60000,
+    retry: 2,
   });
 
   const { data: maintenanceData = [], isLoading: maintenanceLoading } = useQuery({
     queryKey: ['maintenanceStats'],
     queryFn: fetchMaintenanceStats,
     refetchInterval: 60000,
+    retry: 2,
   });
 
   const loading = statsLoading || performanceLoading || routeLoading || maintenanceLoading;

@@ -7,6 +7,27 @@ const router = Router();
 // Get report statistics
 router.get('/stats', async (req, res) => {
   try {
+    // Primeiro verifica se as tabelas existem
+    const tablesCheck = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('routes', 'trucks', 'trips', 'maintenance')
+    `);
+
+    if (tablesCheck.rows.length < 4) {
+      return res.json({
+        totalRoutes: 0,
+        activeRoutes: 0,
+        totalTrucks: 0,
+        activeTrucks: 0,
+        totalKm: 0,
+        completedTrips: 0,
+        pendingTrips: 0,
+        upcomingMaintenance: []
+      });
+    }
+
     const result = await pool.query(`
       SELECT 
         (SELECT COUNT(*) FROM routes) as "totalRoutes",
@@ -37,7 +58,17 @@ router.get('/stats', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching report stats:', error);
-    res.status(500).json({ error: 'Erro ao buscar estatísticas' });
+    // Retorna dados vazios em caso de erro
+    res.json({
+      totalRoutes: 0,
+      activeRoutes: 0,
+      totalTrucks: 0,
+      activeTrucks: 0,
+      totalKm: 0,
+      completedTrips: 0,
+      pendingTrips: 0,
+      upcomingMaintenance: []
+    });
   }
 });
 
@@ -58,7 +89,7 @@ router.get('/monthly-performance', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching monthly performance:', error);
-    res.status(500).json({ error: 'Erro ao buscar performance mensal' });
+    res.json([]);
   }
 });
 
@@ -79,7 +110,7 @@ router.get('/route-usage', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching route usage:', error);
-    res.status(500).json({ error: 'Erro ao buscar uso de rotas' });
+    res.json([]);
   }
 });
 
@@ -98,7 +129,7 @@ router.get('/maintenance-stats', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching maintenance stats:', error);
-    res.status(500).json({ error: 'Erro ao buscar estatísticas de manutenção' });
+    res.json([]);
   }
 });
 
