@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
 
 export interface Truck {
@@ -19,52 +19,70 @@ export interface Truck {
   };
 }
 
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
+
+const fetchTrucks = async (): Promise<Truck[]> => {
+  const response = await fetch(`${API_BASE_URL}/trucks`);
+  if (!response.ok) {
+    throw new Error('Erro ao carregar caminhões');
+  }
+  return response.json();
+};
+
+const updateTruckLocationApi = async (truckId: string, lat: number, lng: number): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/trucks/${truckId}/location`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ lat, lng, timestamp: new Date().toISOString() }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Erro ao atualizar localização do caminhão');
+  }
+};
+
 export const useTrucks = () => {
-  const [trucks, setTrucks] = useState<Truck[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data: trucks = [], isLoading: loading, error } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: fetchTrucks,
+    refetchInterval: 30000, // Atualiza a cada 30 segundos
+    retry: 2,
+  });
+
+  const updateLocationMutation = useMutation({
+    mutationFn: ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) =>
+      updateTruckLocationApi(truckId, lat, lng),
+    onSuccess: (_, { truckId, lat, lng }) => {
+      // Atualiza o cache local
+      queryClient.setQueryData(['trucks'], (oldData: Truck[] | undefined) => {
+        if (!oldData) return [];
+        return oldData.map(truck => 
+          truck.id === truckId 
+            ? { ...truck, location: { lat, lng } }
+            : truck
+        );
+      });
+    },
+  });
+
+  const updateTruckLocation = (truckId: string, lat: number, lng: number) => {
+    updateLocationMutation.mutate({ truckId, lat, lng });
+  };
 
   const loadTrucks = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiService.getTrucks();
-      setTrucks(data);
-      console.log('Trucks loaded successfully:', data);
-    } catch (err) {
-      setError('Erro ao carregar caminhões');
-      console.error('Error loading trucks:', err);
-      setTrucks([]); // Limpa os dados em caso de erro
-    } finally {
-      setLoading(false);
-    }
+    queryClient.invalidateQueries({ queryKey: ['trucks'] });
   };
-
-  const updateTruckLocation = async (truckId: string, lat: number, lng: number) => {
-    try {
-      await apiService.updateTruckLocation(truckId, lat, lng);
-      // Atualiza o estado local
-      setTrucks(prev => prev.map(truck => 
-        truck.id === truckId 
-          ? { ...truck, location: { lat, lng } }
-          : truck
-      ));
-    } catch (err) {
-      console.error('Error updating truck location:', err);
-    }
-  };
-
-  useEffect(() => {
-    loadTrucks();
-    // Atualiza a cada 30 segundos
-    const interval = setInterval(loadTrucks, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   return {
     trucks,
     loading,
-    error,
+    error: error ? 'Erro ao carregar caminhões' : null,
     loadTrucks,
     updateTruckLocation
   };

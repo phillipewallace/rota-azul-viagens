@@ -9,6 +9,7 @@ import trucksRouter from './routes/trucks';
 import driversRouter from './routes/drivers';
 import maintenanceRouter from './routes/maintenance';
 import geocodingRouter from './routes/geocoding';
+import reportsRouter from './routes/reports';
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ app.use('/api/trucks', trucksRouter);
 app.use('/api/drivers', driversRouter);
 app.use('/api/maintenance', maintenanceRouter);
 app.use('/api/geocoding', geocodingRouter);
+app.use('/api/reports', reportsRouter);
 
 // Health check
 app.get('/health', (req, res) => {

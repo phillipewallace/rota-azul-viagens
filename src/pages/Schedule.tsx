@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, MapPin, Truck } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 const Schedule = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -54,16 +55,18 @@ const Schedule = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Agenda de Viagens</h1>
-          <Button>
-            <Calendar className="mr-2 h-4 w-4" />
-            Nova Programação
-          </Button>
-        </div>
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <PageHeader 
+        title="Agenda de Viagens" 
+        subtitle="Programação e status das viagens"
+      >
+        <Button>
+          <Calendar className="mr-2 h-4 w-4" />
+          Nova Programação
+        </Button>
+      </PageHeader>
 
+      <div className="max-w-7xl mx-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
             <Card>

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Menu, MapPin, Route, Truck, Wrench, Calendar, BarChart3, Settings, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Map from '@/components/Map';
@@ -18,6 +19,14 @@ const Index = () => {
     { icon: Route, label: 'Criar Rota', action: () => setIsCreateRouteOpen(true) },
     { icon: Truck, label: 'Vincular Rota ao Caminhão', action: () => setIsLinkRouteOpen(true) },
     { icon: Wrench, label: 'Gerenciar Manutenção', action: () => setIsMaintenanceOpen(true) },
+  ];
+
+  const navigationItems = [
+    { icon: MapPin, label: 'Mapa Principal', to: '/' },
+    { icon: BarChart3, label: 'Relatórios', to: '/reports' },
+    { icon: Calendar, label: 'Agenda', to: '/schedule' },
+    { icon: Users, label: 'Motoristas', to: '/drivers' },
+    { icon: Settings, label: 'Configurações', to: '/settings' },
   ];
 
   return (
@@ -57,26 +66,14 @@ const Index = () => {
               <div className="mt-8 pt-8 border-t border-gray-700">
                 <h3 className="text-sm font-semibold text-gray-400 mb-3">NAVEGAÇÃO</h3>
                 <div className="space-y-2">
-                  <Button variant="ghost" className="w-full justify-start text-white hover:bg-gray-800">
-                    <MapPin className="mr-3 h-4 w-4" />
-                    Mapa Principal
-                  </Button>
-                  <Button variant="ghost" className="w-full justify-start text-white hover:bg-gray-800">
-                    <BarChart3 className="mr-3 h-4 w-4" />
-                    Relatórios
-                  </Button>
-                  <Button variant="ghost" className="w-full justify-start text-white hover:bg-gray-800">
-                    <Calendar className="mr-3 h-4 w-4" />
-                    Agenda
-                  </Button>
-                  <Button variant="ghost" className="w-full justify-start text-white hover:bg-gray-800">
-                    <Users className="mr-3 h-4 w-4" />
-                    Motoristas
-                  </Button>
-                  <Button variant="ghost" className="w-full justify-start text-white hover:bg-gray-800">
-                    <Settings className="mr-3 h-4 w-4" />
-                    Configurações
-                  </Button>
+                  {navigationItems.map((item, index) => (
+                    <Button key={index} variant="ghost" className="w-full justify-start text-white hover:bg-gray-800" asChild>
+                      <Link to={item.to}>
+                        <item.icon className="mr-3 h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </Button>
+                  ))}
                 </div>
               </div>
             </div>
