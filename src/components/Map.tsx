@@ -16,13 +16,11 @@ const Map = () => {
     if (!mapContainer.current) return;
 
     try {
-      // Remove script anterior se existir
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
       if (existingScript) {
         existingScript.remove();
       }
 
-      // Carrega Google Maps API
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,places`;
       script.async = true;
@@ -34,6 +32,7 @@ const Map = () => {
         map.current = new window.google.maps.Map(mapContainer.current, {
           center: { lat: -23.5505, lng: -46.6333 },
           zoom: 10,
+          mapTypeControl: false, // Remove controle padrão
           styles: [
             {
               "elementType": "geometry",
@@ -68,6 +67,58 @@ const Map = () => {
             }
           ]
         });
+
+        // Cria controle personalizado para tipo de mapa
+        const mapTypeControl = document.createElement('div');
+        mapTypeControl.style.cssText = `
+          position: absolute;
+          bottom: 20px;
+          left: 20px;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+          overflow: hidden;
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
+        `;
+
+        const roadmapBtn = document.createElement('button');
+        roadmapBtn.innerHTML = 'Mapa';
+        roadmapBtn.style.cssText = `
+          padding: 10px 15px;
+          border: none;
+          background: white;
+          cursor: pointer;
+          font-size: 13px;
+          border-bottom: 1px solid #eee;
+        `;
+
+        const satelliteBtn = document.createElement('button');
+        satelliteBtn.innerHTML = 'Satélite';
+        satelliteBtn.style.cssText = `
+          padding: 10px 15px;
+          border: none;
+          background: white;
+          cursor: pointer;
+          font-size: 13px;
+        `;
+
+        roadmapBtn.onclick = () => {
+          map.current.setMapTypeId('roadmap');
+          roadmapBtn.style.background = '#e3f2fd';
+          satelliteBtn.style.background = 'white';
+        };
+
+        satelliteBtn.onclick = () => {
+          map.current.setMapTypeId('satellite');
+          satelliteBtn.style.background = '#e3f2fd';
+          roadmapBtn.style.background = 'white';
+        };
+
+        mapTypeControl.appendChild(roadmapBtn);
+        mapTypeControl.appendChild(satelliteBtn);
+        mapContainer.current.appendChild(mapTypeControl);
 
         setMapLoaded(true);
         updateMapMarkers();

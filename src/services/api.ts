@@ -1,213 +1,77 @@
-import { Route, RoutePoint } from '@/hooks/useRoutes';
-import { Truck } from '@/hooks/useTrucks';
-import { ReportStats, MonthlyPerformance, RouteUsage, MaintenanceData } from '@/hooks/useReports';
 
-// Configurações da API
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
+import { routesService } from './routes';
+import { trucksService } from './trucks';
+import { geocodingService } from './geocoding';
+import { reportsService } from './reports';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
-
-interface AddressResponse {
-  address: string;
-  lat: number;
-  lng: number;
-  cep: string;
-}
-
-interface OptimizedRouteResponse {
-  optimizedOrder: string[];
-  totalDistance: number;
-  estimatedTime: string;
-  routes: any[];
-}
-
-class ApiService {
-  private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
-    
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      ...options,
-    };
-
-    const response = await fetch(url, config);
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
-  }
-
+// Exporta todos os serviços em uma única classe para compatibilidade
+export class ApiService {
   // Rotas
-  async getRoutes(): Promise<Route[]> {
-    return this.request<Route[]>('/routes');
+  async getRoutes() {
+    return routesService.getRoutes();
   }
 
-  async createRoute(route: Omit<Route, 'id' | 'createdAt'>): Promise<Route> {
-    return this.request<Route>('/routes', {
-      method: 'POST',
-      body: JSON.stringify(route),
-    });
+  async createRoute(route: any) {
+    return routesService.createRoute(route);
   }
 
-  async updateRoute(id: string, route: Partial<Route>): Promise<Route> {
-    return this.request<Route>(`/routes/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(route),
-    });
+  async updateRoute(id: string, route: any) {
+    return routesService.updateRoute(id, route);
   }
 
-  async deleteRoute(id: string): Promise<void> {
-    return this.request<void>(`/routes/${id}`, {
-      method: 'DELETE',
-    });
+  async deleteRoute(id: string) {
+    return routesService.deleteRoute(id);
   }
 
   // Caminhões
-  async getTrucks(): Promise<Truck[]> {
-    return this.request<Truck[]>('/trucks');
+  async getTrucks() {
+    return trucksService.getTrucks();
   }
 
-  async createTruck(truck: Omit<Truck, 'id'>): Promise<Truck> {
-    return this.request<Truck>('/trucks', {
-      method: 'POST',
-      body: JSON.stringify(truck),
-    });
+  async createTruck(truck: any) {
+    return trucksService.createTruck(truck);
   }
 
-  async updateTruck(id: string, truck: Partial<Truck>): Promise<Truck> {
-    return this.request<Truck>(`/trucks/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(truck),
-    });
+  async updateTruck(id: string, truck: any) {
+    return trucksService.updateTruck(id, truck);
   }
 
-  // Busca de endereço por CEP
-  async getAddressByCep(cep: string): Promise<AddressResponse> {
-    // Primeiro tenta buscar via ViaCEP (gratuito)
-    try {
-      const viaCepResponse = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      const viaCepData = await viaCepResponse.json();
-      
-      if (!viaCepData.erro) {
-        // Agora busca coordenadas no Google Maps
-        const address = `${viaCepData.logradouro}, ${viaCepData.bairro}, ${viaCepData.localidade}, ${viaCepData.uf}, Brasil`;
-        const coords = await this.getCoordinatesFromAddress(address);
-        
-        return {
-          address: address,
-          lat: coords.lat,
-          lng: coords.lng,
-          cep: cep
-        };
-      }
-    } catch (error) {
-      console.error('Erro ao buscar CEP via ViaCEP:', error);
-    }
-
-    // Fallback: busca diretamente no Google Maps
-    return this.request<AddressResponse>(`/geocoding/cep/${cep}`);
+  async updateTruckLocation(truckId: string, lat: number, lng: number) {
+    return trucksService.updateTruckLocation(truckId, lat, lng);
   }
 
-  // Geocoding com Google Maps
-  async getCoordinatesFromAddress(address: string): Promise<{ lat: number; lng: number }> {
-    const encodedAddress = encodeURIComponent(address);
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${GOOGLE_MAPS_API_KEY}`;
-    
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status === 'OK' && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
-      return {
-        lat: location.lat,
-        lng: location.lng
-      };
-    }
-
-    throw new Error('Endereço não encontrado');
+  async scheduleMaintenance(truckId: string, maintenanceData: any) {
+    return trucksService.scheduleMaintenance(truckId, maintenanceData);
   }
 
-  // Otimização de rota com Google Maps
-  async optimizeRoute(points: RoutePoint[]): Promise<OptimizedRouteResponse> {
-    if (points.length < 2) {
-      throw new Error('É necessário pelo menos 2 pontos para otimizar a rota');
-    }
-
-    // Separa origem, destino e waypoints
-    const origin = points.find(p => p.type === 'origin') || points[0];
-    const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
-    const waypoints = points.filter(p => p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id));
-
-    // Monta a URL para Google Directions API
-    const waypointsParam = waypoints.length > 0 
-      ? `&waypoints=optimize:true|${waypoints.map(p => `${p.lat},${p.lng}`).join('|')}`
-      : '';
-
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${waypointsParam}&key=${GOOGLE_MAPS_API_KEY}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status === 'OK' && data.routes.length > 0) {
-      const route = data.routes[0];
-      const leg = route.legs[0];
-
-      // Calcula ordem otimizada
-      let optimizedOrder = [origin.id];
-      if (data.routes[0].waypoint_order) {
-        optimizedOrder.push(...data.routes[0].waypoint_order.map((index: number) => waypoints[index].id));
-      }
-      optimizedOrder.push(destination.id);
-
-      return {
-        optimizedOrder,
-        totalDistance: leg.distance.value / 1000, // em km
-        estimatedTime: leg.duration.text,
-        routes: data.routes
-      };
-    }
-
-    throw new Error('Não foi possível otimizar a rota');
+  // Geocoding
+  async getAddressByCep(cep: string) {
+    return geocodingService.getAddressByCep(cep);
   }
 
-  // Rastreamento em tempo real
-  async updateTruckLocation(truckId: string, lat: number, lng: number): Promise<void> {
-    return this.request<void>(`/trucks/${truckId}/location`, {
-      method: 'PUT',
-      body: JSON.stringify({ lat, lng, timestamp: new Date().toISOString() }),
-    });
+  async getCoordinatesFromAddress(address: string) {
+    return geocodingService.getCoordinatesFromAddress(address);
   }
 
-  // Manutenção
-  async scheduleMaintenance(truckId: string, maintenanceData: any): Promise<any> {
-    return this.request(`/trucks/${truckId}/maintenance`, {
-      method: 'POST',
-      body: JSON.stringify(maintenanceData),
-    });
+  async optimizeRoute(points: any[]) {
+    return geocodingService.optimizeRoute(points);
   }
 
   // Relatórios
-  async getReportStats(): Promise<ReportStats> {
-    return this.request<ReportStats>('/reports/stats');
+  async getReportStats() {
+    return reportsService.getReportStats();
   }
 
-  async getMonthlyPerformance(): Promise<MonthlyPerformance[]> {
-    return this.request<MonthlyPerformance[]>('/reports/monthly-performance');
+  async getMonthlyPerformance() {
+    return reportsService.getMonthlyPerformance();
   }
 
-  async getRouteUsage(): Promise<RouteUsage[]> {
-    return this.request<RouteUsage[]>('/reports/route-usage');
+  async getRouteUsage() {
+    return reportsService.getRouteUsage();
   }
 
-  async getMaintenanceStats(): Promise<MaintenanceData[]> {
-    return this.request<MaintenanceData[]>('/reports/maintenance-stats');
+  async getMaintenanceStats() {
+    return reportsService.getMaintenanceStats();
   }
 }
 
