@@ -7,16 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, User, Bell, Shield, Database } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 const Settings = () => {
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 flex items-center gap-2">
-          <SettingsIcon className="h-8 w-8" />
-          Configurações
-        </h1>
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <PageHeader 
+        title="Configurações" 
+        subtitle="Configurações do sistema e preferências"
+      />
 
+      <div className="max-w-4xl mx-auto p-6">
         <Tabs defaultValue="general" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="general">Geral</TabsTrigger>
@@ -165,7 +166,7 @@ const Settings = () => {
                   <Label htmlFor="database-url">URL do Banco de Dados</Label>
                   <Input 
                     id="database-url" 
-                    placeholder="mongodb://localhost:27017/rotaazul"
+                    placeholder="postgresql://localhost:5432/roteirizador01"
                   />
                 </div>
 

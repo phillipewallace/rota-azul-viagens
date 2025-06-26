@@ -1,7 +1,5 @@
 
-import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiService } from '@/services/api';
 
 export interface ReportStats {
   totalRoutes: number;
@@ -35,28 +33,62 @@ export interface MaintenanceData {
   value: number;
 }
 
+const API_BASE_URL = 'http://localhost:3001/api';
+
+const fetchReportStats = async (): Promise<ReportStats> => {
+  const response = await fetch(`${API_BASE_URL}/reports/stats`);
+  if (!response.ok) {
+    throw new Error('Erro ao carregar estatísticas');
+  }
+  return response.json();
+};
+
+const fetchMonthlyPerformance = async (): Promise<MonthlyPerformance[]> => {
+  const response = await fetch(`${API_BASE_URL}/reports/monthly-performance`);
+  if (!response.ok) {
+    throw new Error('Erro ao carregar performance mensal');
+  }
+  return response.json();
+};
+
+const fetchRouteUsage = async (): Promise<RouteUsage[]> => {
+  const response = await fetch(`${API_BASE_URL}/reports/route-usage`);
+  if (!response.ok) {
+    throw new Error('Erro ao carregar uso de rotas');
+  }
+  return response.json();
+};
+
+const fetchMaintenanceStats = async (): Promise<MaintenanceData[]> => {
+  const response = await fetch(`${API_BASE_URL}/reports/maintenance-stats`);
+  if (!response.ok) {
+    throw new Error('Erro ao carregar estatísticas de manutenção');
+  }
+  return response.json();
+};
+
 export const useReports = () => {
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['reportStats'],
-    queryFn: () => apiService.getReportStats(),
+    queryFn: fetchReportStats,
     refetchInterval: 30000, // Atualiza a cada 30 segundos
   });
 
   const { data: monthlyPerformance = [], isLoading: performanceLoading } = useQuery({
     queryKey: ['monthlyPerformance'],
-    queryFn: () => apiService.getMonthlyPerformance(),
+    queryFn: fetchMonthlyPerformance,
     refetchInterval: 60000, // Atualiza a cada minuto
   });
 
   const { data: routeUsage = [], isLoading: routeLoading } = useQuery({
     queryKey: ['routeUsage'],
-    queryFn: () => apiService.getRouteUsage(),
+    queryFn: fetchRouteUsage,
     refetchInterval: 60000,
   });
 
   const { data: maintenanceData = [], isLoading: maintenanceLoading } = useQuery({
     queryKey: ['maintenanceStats'],
-    queryFn: () => apiService.getMaintenanceStats(),
+    queryFn: fetchMaintenanceStats,
     refetchInterval: 60000,
   });
 

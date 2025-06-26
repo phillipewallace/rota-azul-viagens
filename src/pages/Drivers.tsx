@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Users, Search, Phone, Mail, MapPin } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 const Drivers = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,18 +66,17 @@ const Drivers = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Users className="h-8 w-8" />
-            Motoristas
-          </h1>
-          <Button>
-            Cadastrar Motorista
-          </Button>
-        </div>
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <PageHeader 
+        title="Motoristas" 
+        subtitle="Gerenciamento da equipe de motoristas"
+      >
+        <Button>
+          Cadastrar Motorista
+        </Button>
+      </PageHeader>
 
+      <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
