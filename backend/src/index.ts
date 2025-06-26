@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3001;
 // Middlewares
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.CORS_ORIGIN?.split(',') || 'http://localhost:5173',
   credentials: true
 }));
 app.use(express.json());
@@ -38,7 +38,11 @@ app.use('/api/reports', reportsRouter);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    googleMapsConfigured: !!process.env.GOOGLE_MAPS_API_KEY
+  });
 });
 
 // Error handling
@@ -53,4 +57,5 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🗺️  Google Maps API: ${process.env.GOOGLE_MAPS_API_KEY ? 'Configurada' : 'Não configurada'}`);
 });

@@ -1,20 +1,18 @@
-
 import React, { useEffect, useRef, useState } from 'react';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
+
+const GOOGLE_MAPS_API_KEY = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
 
 const Map = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
-  const [googleMapsKey, setGoogleMapsKey] = useState('');
-  const [showTokenInput, setShowTokenInput] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
   
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
 
-  const initializeMap = async (apiKey: string) => {
+  const initializeMap = async () => {
     if (!mapContainer.current) return;
 
     try {
@@ -26,7 +24,7 @@ const Map = () => {
 
       // Carrega Google Maps API
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,places`;
       script.async = true;
       script.defer = true;
       
@@ -71,16 +69,15 @@ const Map = () => {
           ]
         });
 
+        setMapLoaded(true);
         updateMapMarkers();
       };
 
       script.onerror = () => {
         console.error('Erro ao carregar Google Maps API');
-        alert('Erro ao carregar Google Maps. Verifique sua chave da API.');
       };
 
       document.head.appendChild(script);
-      setShowTokenInput(false);
     } catch (error) {
       console.error('Erro ao carregar o Google Maps:', error);
     }
@@ -194,61 +191,23 @@ const Map = () => {
   };
 
   useEffect(() => {
-    if (map.current && !trucksLoading && !routesLoading) {
-      updateMapMarkers();
-    }
-  }, [trucks, routes, trucksLoading, routesLoading]);
-
-  const handleTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (googleMapsKey.trim()) {
-      localStorage.setItem('googleMapsApiKey', googleMapsKey);
-      initializeMap(googleMapsKey);
-    }
-  };
-
-  // Verifica se já existe uma chave salva
-  useEffect(() => {
-    const savedKey = localStorage.getItem('googleMapsApiKey');
-    if (savedKey) {
-      setGoogleMapsKey(savedKey);
-      initializeMap(savedKey);
-    }
+    initializeMap();
   }, []);
 
-  if (showTokenInput) {
-    return (
-      <div className="flex items-center justify-center h-full bg-gray-50">
-        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-          <h2 className="text-xl font-semibold mb-4">Configure o Google Maps</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Para usar o mapa, você precisa inserir sua chave da API do Google Maps.
-            Obtenha sua chave em: <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">Google Cloud Console</a>
-          </p>
-          <form onSubmit={handleTokenSubmit} className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Cole sua chave da API do Google Maps aqui"
-              value={googleMapsKey}
-              onChange={(e) => setGoogleMapsKey(e.target.value)}
-            />
-            <Button type="submit" className="w-full" disabled={!googleMapsKey.trim()}>
-              Carregar Mapa
-            </Button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (map.current && mapLoaded && !trucksLoading && !routesLoading) {
+      updateMapMarkers();
+    }
+  }, [trucks, routes, trucksLoading, routesLoading, mapLoaded]);
 
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="absolute inset-0" />
-      {(trucksLoading || routesLoading) && (
+      {(trucksLoading || routesLoading || !mapLoaded) && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white px-4 py-2 rounded-lg shadow-lg">
           <div className="flex items-center gap-2 text-sm">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            Carregando dados...
+            Carregando mapa...
           </div>
         </div>
       )}

@@ -7,7 +7,7 @@ const API_BASE_URL = import.meta.env.MODE === 'production'
   ? 'https://your-api-domain.com/api' 
   : 'http://localhost:3001/api';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
 
 interface AddressResponse {
   address: string;

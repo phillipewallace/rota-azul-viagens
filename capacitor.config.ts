@@ -1,5 +1,5 @@
 
-import type { CapacitorConfig } from '@capacitor/cli';
+import { CapacitorConfig } from '@capacitor/core';
 
 const config: CapacitorConfig = {
   appId: 'app.lovable.e145d80f177c4eb9987fd67c392fc5de',
@@ -11,7 +11,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     Geolocation: {
-      permissions: ["location"]
+      permissions: {
+        location: "always"
+      }
     }
   }
 };
