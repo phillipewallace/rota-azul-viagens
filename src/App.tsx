@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +8,7 @@ import Index from "./pages/Index";
 import Reports from "./pages/Reports";
 import Schedule from "./pages/Schedule";
 import Drivers from "./pages/Drivers";
+import Management from "./pages/Management";
 import Settings from "./pages/Settings";
 import MobileDriver from "./pages/MobileDriver";
 import NotFound from "./pages/NotFound";
@@ -34,6 +34,7 @@ const App = () => (
             <Route path="/reports" element={<Reports />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/drivers" element={<Drivers />} />
+            <Route path="/management" element={<Management />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/mobile" element={<MobileDriver />} />
             <Route path="*" element={<NotFound />} />

@@ -9,8 +9,8 @@ const MobileNavigation = () => {
 
   const navigationItems = [
     { icon: MapPin, label: 'Mapa', to: '/' },
+    { icon: Settings, label: 'Gerenciar', to: '/management' },
     { icon: BarChart3, label: 'Relatórios', to: '/reports' },
-    { icon: Calendar, label: 'Agenda', to: '/schedule' },
     { icon: Users, label: 'Motoristas', to: '/drivers' },
     { icon: Smartphone, label: 'Mobile', to: '/mobile' },
   ];

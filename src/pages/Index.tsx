@@ -23,6 +23,7 @@ const Index = () => {
 
   const navigationItems = [
     { icon: MapPin, label: 'Mapa Principal', to: '/' },
+    { icon: Settings, label: 'Gerenciamento', to: '/management' },
     { icon: BarChart3, label: 'Relatórios', to: '/reports' },
     { icon: Calendar, label: 'Agenda', to: '/schedule' },
     { icon: Users, label: 'Motoristas', to: '/drivers' },
