@@ -5,12 +5,13 @@ import * as dotenv from 'dotenv';
 // Carrega as variáveis de ambiente primeiro
 dotenv.config();
 
-// Configuração para conectar ao PostgreSQL sem especificar um banco
+// Configuração para conectar ao PostgreSQL sem especificar um banco (para criar o banco)
 const createDbConfig = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
+  database: 'postgres' // Conecta ao banco padrão 'postgres' para criar outros bancos
 };
 
 // Pool principal para o banco da aplicação
@@ -25,17 +26,21 @@ const pool = new Pool({
 
 export const setupDatabase = async () => {
   try {
+    console.log(`🔄 Configurando banco de dados: ${process.env.DB_NAME}`);
+    
     // Primeiro, cria o banco se não existir
     const client = new Client(createDbConfig);
     await client.connect();
+    console.log('✅ Conectado ao PostgreSQL (postgres)');
     
     try {
-      await client.query(`CREATE DATABASE ${process.env.DB_NAME}`);
+      await client.query(`CREATE DATABASE "${process.env.DB_NAME}"`);
       console.log(`✅ Banco de dados '${process.env.DB_NAME}' criado com sucesso`);
     } catch (err: any) {
       if (err.code === '42P04') {
         console.log(`✅ Banco de dados '${process.env.DB_NAME}' já existe`);
       } else {
+        console.error('❌ Erro ao criar banco:', err.message);
         throw err;
       }
     }
@@ -44,12 +49,15 @@ export const setupDatabase = async () => {
 
     // Agora conecta ao banco da aplicação e cria as tabelas
     const appClient = await pool.connect();
-    console.log('✅ Conectado ao banco de dados PostgreSQL');
+    console.log(`✅ Conectado ao banco de dados '${process.env.DB_NAME}'`);
+    
+    // Cria extensão para UUIDs
+    await appClient.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     
     // Cria as tabelas se não existirem
     await appClient.query(`
       CREATE TABLE IF NOT EXISTS routes (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         name VARCHAR(255) NOT NULL,
         description TEXT,
         points JSONB NOT NULL DEFAULT '[]',
@@ -63,7 +71,7 @@ export const setupDatabase = async () => {
 
     await appClient.query(`
       CREATE TABLE IF NOT EXISTS trucks (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         name VARCHAR(255) NOT NULL,
         plate VARCHAR(20) UNIQUE NOT NULL,
         model VARCHAR(255) NOT NULL,
@@ -81,7 +89,7 @@ export const setupDatabase = async () => {
 
     await appClient.query(`
       CREATE TABLE IF NOT EXISTS drivers (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         name VARCHAR(255) NOT NULL,
         license VARCHAR(50) UNIQUE NOT NULL,
         phone VARCHAR(20),
@@ -95,7 +103,7 @@ export const setupDatabase = async () => {
 
     await appClient.query(`
       CREATE TABLE IF NOT EXISTS maintenance (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         truck_id UUID REFERENCES trucks(id),
         maintenance_type VARCHAR(100) NOT NULL,
         description TEXT,
@@ -109,7 +117,7 @@ export const setupDatabase = async () => {
 
     await appClient.query(`
       CREATE TABLE IF NOT EXISTS trips (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         route_id UUID REFERENCES routes(id),
         truck_id UUID REFERENCES trucks(id),
         driver_id UUID REFERENCES drivers(id),

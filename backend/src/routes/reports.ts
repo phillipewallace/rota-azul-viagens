@@ -7,68 +7,27 @@ const router = Router();
 // Get report statistics
 router.get('/stats', async (req, res) => {
   try {
-    // Primeiro verifica se as tabelas existem
-    const tablesCheck = await pool.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      AND table_name IN ('routes', 'trucks', 'trips', 'maintenance')
-    `);
+    const [routesResult, trucksResult, tripsResult, maintenanceResult] = await Promise.all([
+      pool.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status = $1) as active FROM routes', ['active']),
+      pool.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE status = $1) as available FROM trucks', ['available']),
+      pool.query('SELECT COUNT(*) as total, SUM(distance_km) as total_km FROM trips WHERE status = $1', ['completed']),
+      pool.query('SELECT COUNT(*) as pending FROM maintenance WHERE status = $1', ['scheduled'])
+    ]);
 
-    if (tablesCheck.rows.length < 4) {
-      return res.json({
-        totalRoutes: 0,
-        activeRoutes: 0,
-        totalTrucks: 0,
-        activeTrucks: 0,
-        totalKm: 0,
-        completedTrips: 0,
-        pendingTrips: 0,
-        upcomingMaintenance: []
-      });
-    }
+    const stats = {
+      totalRoutes: parseInt(routesResult.rows[0].total) || 0,
+      activeRoutes: parseInt(routesResult.rows[0].active) || 0,
+      totalTrucks: parseInt(trucksResult.rows[0].total) || 0,
+      availableTrucks: parseInt(trucksResult.rows[0].available) || 0,
+      completedTrips: parseInt(tripsResult.rows[0].total) || 0,
+      totalKm: parseFloat(tripsResult.rows[0].total_km) || 0,
+      pendingMaintenance: parseInt(maintenanceResult.rows[0].pending) || 0
+    };
 
-    const result = await pool.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM routes) as "totalRoutes",
-        (SELECT COUNT(*) FROM routes WHERE status = 'active') as "activeRoutes",
-        (SELECT COUNT(*) FROM trucks) as "totalTrucks",
-        (SELECT COUNT(*) FROM trucks WHERE status = 'active') as "activeTrucks",
-        (SELECT COALESCE(SUM(distance_km), 0) FROM trips WHERE created_at >= date_trunc('month', CURRENT_DATE)) as "totalKm",
-        (SELECT COUNT(*) FROM trips WHERE status = 'completed') as "completedTrips",
-        (SELECT COUNT(*) FROM trips WHERE status = 'pending') as "pendingTrips"
-    `);
-
-    const upcomingMaintenance = await pool.query(`
-      SELECT 
-        t.name as "truckName",
-        m.maintenance_type as "maintenanceType",
-        m.scheduled_date::text as "scheduledDate",
-        (m.scheduled_date - CURRENT_DATE) as "daysRemaining"
-      FROM maintenance m
-      JOIN trucks t ON m.truck_id = t.id
-      WHERE m.scheduled_date >= CURRENT_DATE
-      ORDER BY m.scheduled_date
-      LIMIT 5
-    `);
-
-    res.json({
-      ...result.rows[0],
-      upcomingMaintenance: upcomingMaintenance.rows
-    });
+    res.json(stats);
   } catch (error) {
     console.error('Error fetching report stats:', error);
-    // Retorna dados vazios em caso de erro
-    res.json({
-      totalRoutes: 0,
-      activeRoutes: 0,
-      totalTrucks: 0,
-      activeTrucks: 0,
-      totalKm: 0,
-      completedTrips: 0,
-      pendingTrips: 0,
-      upcomingMaintenance: []
-    });
+    res.status(500).json({ error: 'Erro ao buscar estatísticas' });
   }
 });
 
@@ -77,19 +36,26 @@ router.get('/monthly-performance', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        TO_CHAR(date_trunc('month', created_at), 'Mon') as month,
+        TO_CHAR(created_at, 'YYYY-MM') as month,
         COUNT(*) as trips,
-        COALESCE(SUM(distance_km), 0) as km
-      FROM trips
-      WHERE created_at >= CURRENT_DATE - INTERVAL '6 months'
-      GROUP BY date_trunc('month', created_at)
-      ORDER BY date_trunc('month', created_at)
+        COALESCE(SUM(distance_km), 0) as total_km
+      FROM trips 
+      WHERE status = 'completed'
+        AND created_at >= CURRENT_DATE - INTERVAL '12 months'
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+      ORDER BY month
     `);
 
-    res.json(result.rows);
+    const performance = result.rows.map(row => ({
+      month: row.month,
+      trips: parseInt(row.trips) || 0,
+      totalKm: parseFloat(row.total_km) || 0
+    }));
+
+    res.json(performance);
   } catch (error) {
     console.error('Error fetching monthly performance:', error);
-    res.json([]);
+    res.status(500).json({ error: 'Erro ao buscar performance mensal' });
   }
 });
 
@@ -101,16 +67,22 @@ router.get('/route-usage', async (req, res) => {
         r.name,
         COUNT(t.id) as usage
       FROM routes r
-      LEFT JOIN trips t ON r.id = t.route_id
+      LEFT JOIN trips t ON r.id = t.route_id AND t.status = 'completed'
+      WHERE t.created_at >= CURRENT_DATE - INTERVAL '6 months' OR t.created_at IS NULL
       GROUP BY r.id, r.name
       ORDER BY usage DESC
       LIMIT 10
     `);
 
-    res.json(result.rows);
+    const usage = result.rows.map(row => ({
+      name: row.name,
+      usage: parseInt(row.usage) || 0
+    }));
+
+    res.json(usage);
   } catch (error) {
     console.error('Error fetching route usage:', error);
-    res.json([]);
+    res.status(500).json({ error: 'Erro ao buscar uso de rotas' });
   }
 });
 
@@ -119,17 +91,25 @@ router.get('/maintenance-stats', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        maintenance_type as name,
-        COUNT(*) as value
+        maintenance_type,
+        COUNT(*) as count,
+        AVG(cost) as avg_cost
       FROM maintenance
-      WHERE scheduled_date >= CURRENT_DATE - INTERVAL '3 months'
+      WHERE created_at >= CURRENT_DATE - INTERVAL '12 months'
       GROUP BY maintenance_type
+      ORDER BY count DESC
     `);
 
-    res.json(result.rows);
+    const stats = result.rows.map(row => ({
+      type: row.maintenance_type,
+      count: parseInt(row.count) || 0,
+      averageCost: parseFloat(row.avg_cost) || 0
+    }));
+
+    res.json(stats);
   } catch (error) {
     console.error('Error fetching maintenance stats:', error);
-    res.json([]);
+    res.status(500).json({ error: 'Erro ao buscar estatísticas de manutenção' });
   }
 });
 
