@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
@@ -8,9 +9,40 @@ const Map = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
+
+  const getUserLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocalização não é suportada pelo navegador');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        setUserLocation(location);
+        console.log('Localização do usuário obtida:', location);
+      },
+      (error) => {
+        console.error('Erro ao obter localização:', error);
+        setLocationError('Erro ao obter localização GPS');
+        // Fallback para São Paulo se não conseguir obter localização
+        setUserLocation({ lat: -23.5505, lng: -46.6333 });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 minutos
+      }
+    );
+  };
 
   const initializeMap = async () => {
     if (!mapContainer.current) return;
@@ -29,10 +61,13 @@ const Map = () => {
       script.onload = () => {
         if (!mapContainer.current) return;
 
+        // Usa a localização do usuário ou fallback para São Paulo
+        const center = userLocation || { lat: -23.5505, lng: -46.6333 };
+
         map.current = new window.google.maps.Map(mapContainer.current, {
-          center: { lat: -23.5505, lng: -46.6333 },
-          zoom: 10,
-          mapTypeControl: false, // Remove controle padrão
+          center: center,
+          zoom: userLocation ? 15 : 10, // Zoom maior se tiver localização do usuário
+          mapTypeControl: false,
           styles: [
             {
               "elementType": "geometry",
@@ -67,6 +102,35 @@ const Map = () => {
             }
           ]
         });
+
+        // Adiciona marcador da localização do usuário se disponível
+        if (userLocation) {
+          new window.google.maps.Marker({
+            position: userLocation,
+            map: map.current,
+            title: 'Sua localização',
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 12,
+              fillColor: '#4285f4',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 3
+            }
+          });
+
+          // Adiciona círculo de precisão
+          new window.google.maps.Circle({
+            center: userLocation,
+            radius: 100, // 100 metros
+            map: map.current,
+            fillColor: '#4285f4',
+            fillOpacity: 0.1,
+            strokeColor: '#4285f4',
+            strokeOpacity: 0.3,
+            strokeWeight: 1
+          });
+        }
 
         // Cria controle personalizado para tipo de mapa
         const mapTypeControl = document.createElement('div');
@@ -183,7 +247,6 @@ const Map = () => {
       });
     });
 
-    // Adiciona rotas no mapa
     routes.forEach(route => {
       if (route.points.length < 2) return;
 
@@ -201,7 +264,6 @@ const Map = () => {
 
       routeLine.setMap(map.current);
 
-      // Adiciona marcadores para pontos da rota
       route.points.forEach((point, index) => {
         const marker = new window.google.maps.Marker({
           position: { lat: point.lat, lng: point.lng },
@@ -242,8 +304,14 @@ const Map = () => {
   };
 
   useEffect(() => {
-    initializeMap();
+    getUserLocation();
   }, []);
+
+  useEffect(() => {
+    if (userLocation) {
+      initializeMap();
+    }
+  }, [userLocation]);
 
   useEffect(() => {
     if (map.current && mapLoaded && !trucksLoading && !routesLoading) {
@@ -258,15 +326,24 @@ const Map = () => {
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white px-4 py-2 rounded-lg shadow-lg">
           <div className="flex items-center gap-2 text-sm">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            Carregando mapa...
+            {!userLocation ? 'Obtendo localização...' : 'Carregando mapa...'}
           </div>
+        </div>
+      )}
+      {locationError && (
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded-lg shadow-lg text-sm">
+          {locationError}
+        </div>
+      )}
+      {userLocation && (
+        <div className="absolute bottom-4 right-4 bg-white px-3 py-2 rounded-lg shadow-lg text-xs">
+          📍 Sua localização: {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
         </div>
       )}
     </div>
   );
 };
 
-// Declara tipos para Google Maps
 declare global {
   interface Window {
     google: any;

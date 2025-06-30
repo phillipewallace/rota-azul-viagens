@@ -11,7 +11,6 @@ import maintenanceRouter from './routes/maintenance';
 import geocodingRouter from './routes/geocoding';
 import reportsRouter from './routes/reports';
 
-// Carrega as variáveis de ambiente primeiro
 dotenv.config();
 
 const app = express();
@@ -53,11 +52,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// Inicializa o banco de dados e depois inicia o servidor
 const startServer = async () => {
   try {
     console.log('🚀 Iniciando servidor...');
-    console.log(`📊 Banco: ${process.env.DB_NAME} em ${process.env.DB_HOST}:${process.env.DB_PORT}`);
+    console.log(`📊 Conectando ao banco: ${process.env.DB_NAME} em ${process.env.DB_HOST}:${process.env.DB_PORT}`);
     console.log(`👤 Usuário: ${process.env.DB_USER}`);
     
     await setupDatabase();
@@ -66,7 +64,7 @@ const startServer = async () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
       console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🗺️  Google Maps API: ${process.env.GOOGLE_MAPS_API_KEY ? 'Configurada' : 'Não configurada'}`);
-      console.log(`📊 Banco de dados: ${process.env.DB_NAME}`);
+      console.log(`📊 Banco de dados conectado: ${process.env.DB_NAME}`);
     });
   } catch (error) {
     console.error('❌ Falha ao iniciar o servidor:', error);
