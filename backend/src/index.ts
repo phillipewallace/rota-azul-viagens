@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { setupDatabase } from './config/database';
+
 import routesRouter from './routes/routes';
 import trucksRouter from './routes/trucks';
 import driversRouter from './routes/drivers';
@@ -11,7 +11,7 @@ import maintenanceRouter from './routes/maintenance';
 import geocodingRouter from './routes/geocoding';
 import reportsRouter from './routes/reports';
 
-dotenv.config();
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,8 +25,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Setup database
-setupDatabase();
+
 
 // Routes
 app.use('/api/routes', routesRouter);
