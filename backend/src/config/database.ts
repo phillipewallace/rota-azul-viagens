@@ -1,10 +1,19 @@
 
-import { Pool } from 'pg';
+import { Pool, Client } from 'pg';
 import * as dotenv from 'dotenv';
 
 // Carrega as variáveis de ambiente primeiro
 dotenv.config();
 
+// Configuração para conectar ao PostgreSQL sem especificar um banco
+const createDbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+};
+
+// Pool principal para o banco da aplicação
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT || '5432'),
@@ -16,12 +25,29 @@ const pool = new Pool({
 
 export const setupDatabase = async () => {
   try {
-    // Testa a conexão
-    const client = await pool.connect();
+    // Primeiro, cria o banco se não existir
+    const client = new Client(createDbConfig);
+    await client.connect();
+    
+    try {
+      await client.query(`CREATE DATABASE ${process.env.DB_NAME}`);
+      console.log(`✅ Banco de dados '${process.env.DB_NAME}' criado com sucesso`);
+    } catch (err: any) {
+      if (err.code === '42P04') {
+        console.log(`✅ Banco de dados '${process.env.DB_NAME}' já existe`);
+      } else {
+        throw err;
+      }
+    }
+    
+    await client.end();
+
+    // Agora conecta ao banco da aplicação e cria as tabelas
+    const appClient = await pool.connect();
     console.log('✅ Conectado ao banco de dados PostgreSQL');
     
-    // Verifica se as tabelas existem, se não, cria elas
-    await client.query(`
+    // Cria as tabelas se não existirem
+    await appClient.query(`
       CREATE TABLE IF NOT EXISTS routes (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
@@ -35,7 +61,7 @@ export const setupDatabase = async () => {
       );
     `);
 
-    await client.query(`
+    await appClient.query(`
       CREATE TABLE IF NOT EXISTS trucks (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
@@ -47,12 +73,13 @@ export const setupDatabase = async () => {
         driver VARCHAR(255),
         last_maintenance DATE,
         mileage INTEGER DEFAULT 0,
-        location JSONB,
+        location_lat DECIMAL(10,8),
+        location_lng DECIMAL(11,8),
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    await client.query(`
+    await appClient.query(`
       CREATE TABLE IF NOT EXISTS drivers (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
@@ -60,15 +87,17 @@ export const setupDatabase = async () => {
         phone VARCHAR(20),
         email VARCHAR(255),
         status VARCHAR(20) DEFAULT 'available',
+        current_route VARCHAR(255),
+        total_trips INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    await client.query(`
+    await appClient.query(`
       CREATE TABLE IF NOT EXISTS maintenance (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         truck_id UUID REFERENCES trucks(id),
-        type VARCHAR(100) NOT NULL,
+        maintenance_type VARCHAR(100) NOT NULL,
         description TEXT,
         scheduled_date DATE NOT NULL,
         completed_date DATE,
@@ -78,10 +107,23 @@ export const setupDatabase = async () => {
       );
     `);
 
-    client.release();
+    await appClient.query(`
+      CREATE TABLE IF NOT EXISTS trips (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        route_id UUID REFERENCES routes(id),
+        truck_id UUID REFERENCES trucks(id),
+        driver_id UUID REFERENCES drivers(id),
+        distance_km DECIMAL(10,2) DEFAULT 0,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    appClient.release();
     console.log('✅ Tabelas do banco de dados verificadas/criadas');
   } catch (err) {
-    console.error('❌ Erro ao conectar com o banco de dados:', err);
+    console.error('❌ Erro ao configurar o banco de dados:', err);
+    throw err;
   }
 };
 

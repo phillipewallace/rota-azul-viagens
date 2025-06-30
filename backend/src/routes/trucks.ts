@@ -34,7 +34,25 @@ router.get('/', async (req, res) => {
     res.json(trucks);
   } catch (error) {
     console.error('Error fetching trucks:', error);
-    res.json([]);
+    res.status(500).json({ error: 'Erro ao buscar caminhões' });
+  }
+});
+
+// Create new truck
+router.post('/', async (req, res) => {
+  try {
+    const { name, plate, model, year, driver } = req.body;
+
+    const result = await pool.query(`
+      INSERT INTO trucks (name, plate, model, year, driver)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `, [name, plate, model, year, driver]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating truck:', error);
+    res.status(500).json({ error: 'Erro ao criar caminhão' });
   }
 });
 
@@ -45,7 +63,7 @@ router.put('/:id/location', async (req, res) => {
     const { lat, lng } = req.body;
 
     await pool.query(
-      'UPDATE trucks SET location_lat = $1, location_lng = $2, updated_at = NOW() WHERE id = $3',
+      'UPDATE trucks SET location_lat = $1, location_lng = $2 WHERE id = $3',
       [lat, lng, id]
     );
 
