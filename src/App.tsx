@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +11,8 @@ import Schedule from "./pages/Schedule";
 import Drivers from "./pages/Drivers";
 import Management from "./pages/Management";
 import Settings from "./pages/Settings";
+import Trucks from "./pages/Trucks";
+import Routes from "./pages/Routes";
 import MobileDriver from "./pages/MobileDriver";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +38,8 @@ const App = () => (
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/drivers" element={<Drivers />} />
             <Route path="/management" element={<Management />} />
+            <Route path="/trucks" element={<Trucks />} />
+            <Route path="/routes" element={<Routes />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/mobile" element={<MobileDriver />} />
             <Route path="*" element={<NotFound />} />

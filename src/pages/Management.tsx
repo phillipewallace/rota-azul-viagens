@@ -14,14 +14,14 @@ import { useTrucksCRUD } from '@/hooks/useTrucksCRUD';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import { TruckForm } from '@/components/TruckForm';
 import { RouteForm } from '@/components/RouteForm';
-import { Truck } from '@/hooks/useTrucks';
-import { Route } from '@/hooks/useRoutes';
+import { Truck as TruckType } from '@/hooks/useTrucks';
+import { Route as RouteType } from '@/hooks/useRoutes';
 
 const Management = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'trucks' | 'routes'>('trucks');
-  const [editingTruck, setEditingTruck] = useState<Truck | null>(null);
-  const [editingRoute, setEditingRoute] = useState<Route | null>(null);
+  const [editingTruck, setEditingTruck] = useState<TruckType | null>(null);
+  const [editingRoute, setEditingRoute] = useState<RouteType | null>(null);
   const [showTruckForm, setShowTruckForm] = useState(false);
   const [showRouteForm, setShowRouteForm] = useState(false);
 
@@ -30,7 +30,7 @@ const Management = () => {
   const { createTruck, updateTruck, deleteTruck, isLoading: truckCrudLoading } = useTrucksCRUD();
   const { updateRoute, deleteRoute, isLoading: routeCrudLoading } = useRoutesCRUD();
 
-  const handleCreateTruck = async (data: Omit<Truck, 'id'>) => {
+  const handleCreateTruck = async (data: Omit<TruckType, 'id'>) => {
     try {
       await createTruck(data);
       setShowTruckForm(false);
@@ -40,7 +40,7 @@ const Management = () => {
     }
   };
 
-  const handleUpdateTruck = async (data: Omit<Truck, 'id'>) => {
+  const handleUpdateTruck = async (data: Omit<TruckType, 'id'>) => {
     if (!editingTruck) return;
     try {
       await updateTruck({ id: editingTruck.id, truck: data });
@@ -62,7 +62,7 @@ const Management = () => {
     }
   };
 
-  const handleUpdateRoute = async (data: Partial<Route>) => {
+  const handleUpdateRoute = async (data: Partial<RouteType>) => {
     if (!editingRoute) return;
     try {
       await updateRoute({ id: editingRoute.id, route: data });
@@ -214,7 +214,7 @@ const Management = () => {
                       <TableHead>Descrição</TableHead>
                       <TableHead>Pontos</TableHead>
                       <TableHead>Distância</TableHead>
-                      <TableHead>Tempo Estimado</TableHead>
+                      <TableHead>Tempo Estimado</TableHead>  
                       <TableHead>Status</TableHead>
                       <TableHead>Ações</TableHead>
                     </TableRow>

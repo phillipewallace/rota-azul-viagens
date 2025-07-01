@@ -4,44 +4,55 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Users, Search, Phone, Mail, MapPin } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Users, Search, Phone, Mail, MapPin, Plus, Edit, Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
+import { useDrivers } from '@/hooks/useDrivers';
+import { useDriversCRUD } from '@/hooks/useDriversCRUD';
+import { DriverForm } from '@/components/DriverForm';
+import { Driver } from '@/hooks/useDrivers';
 
 const Drivers = () => {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [showDriverForm, setShowDriverForm] = useState(false);
 
-  const drivers = [
-    {
-      id: 1,
-      name: 'João Silva',
-      phone: '(11) 99999-9999',
-      email: 'joao@example.com',
-      license: 'CNH123456',
-      status: 'available',
-      currentRoute: null,
-      totalTrips: 45
-    },
-    {
-      id: 2,
-      name: 'Maria Santos',
-      phone: '(11) 88888-8888',
-      email: 'maria@example.com',
-      license: 'CNH234567',
-      status: 'on-route',
-      currentRoute: 'SP → MG',
-      totalTrips: 67
-    },
-    {
-      id: 3,
-      name: 'Pedro Costa',
-      phone: '(11) 77777-7777',
-      email: 'pedro@example.com',
-      license: 'CNH345678',
-      status: 'available',
-      currentRoute: null,
-      totalTrips: 23
+  const { drivers, loading } = useDrivers();
+  const { createDriver, updateDriver, deleteDriver, isLoading: driverCrudLoading } = useDriversCRUD();
+
+  const handleCreateDriver = async (data: Omit<Driver, 'id' | 'totalTrips'>) => {
+    try {
+      await createDriver(data);
+      setShowDriverForm(false);
+      toast({ title: 'Motorista criado com sucesso!' });
+    } catch (error) {
+      toast({ title: 'Erro ao criar motorista', variant: 'destructive' });
     }
-  ];
+  };
+
+  const handleUpdateDriver = async (data: Omit<Driver, 'id' | 'totalTrips'>) => {
+    if (!editingDriver) return;
+    try {
+      await updateDriver({ id: editingDriver.id, driver: data });
+      setEditingDriver(null);
+      toast({ title: 'Motorista atualizado com sucesso!' });
+    } catch (error) {
+      toast({ title: 'Erro ao atualizar motorista', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteDriver = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este motorista?')) {
+      try {
+        await deleteDriver(id);
+        toast({ title: 'Motorista excluído com sucesso!' });
+      } catch (error) {
+        toast({ title: 'Erro ao excluir motorista', variant: 'destructive' });
+      }
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -71,7 +82,8 @@ const Drivers = () => {
         title="Motoristas" 
         subtitle="Gerenciamento da equipe de motoristas"
       >
-        <Button>
+        <Button onClick={() => setShowDriverForm(true)}>
+          <Plus className="mr-2 h-4 w-4" />
           Cadastrar Motorista
         </Button>
       </PageHeader>
@@ -89,53 +101,92 @@ const Drivers = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDrivers.map((driver) => (
-            <Card key={driver.id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{driver.name}</CardTitle>
-                  <Badge className={getStatusColor(driver.status)}>
-                    {getStatusText(driver.status)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-gray-500" />
-                    <span>{driver.phone}</span>
+        {loading ? (
+          <div className="text-center py-8">Carregando motoristas...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredDrivers.map((driver) => (
+              <Card key={driver.id}>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-lg">{driver.name}</CardTitle>
+                    <Badge className={getStatusColor(driver.status)}>
+                      {getStatusText(driver.status)}
+                    </Badge>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-gray-500" />
-                    <span>{driver.email}</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium">CNH:</span> {driver.license}
-                  </div>
-                  {driver.currentRoute && (
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-blue-500" />
-                      <span>Rota atual: {driver.currentRoute}</span>
+                      <Phone className="h-4 w-4 text-gray-500" />
+                      <span>{driver.phone}</span>
                     </div>
-                  )}
-                  <div className="text-sm text-gray-600">
-                    Total de viagens: {driver.totalTrips}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-gray-500" />
+                      <span>{driver.email}</span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">CNH:</span> {driver.license}
+                    </div>
+                    {driver.currentRoute && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="h-4 w-4 text-blue-500" />
+                        <span>Rota atual: {driver.currentRoute}</span>
+                      </div>
+                    )}
+                    <div className="text-sm text-gray-600">
+                      Total de viagens: {driver.totalTrips}
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => setEditingDriver(driver)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="destructive" 
+                        onClick={() => handleDeleteDriver(driver.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      Editar
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
-                      Contato
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Driver Form Dialog */}
+      <Dialog open={showDriverForm || !!editingDriver} onOpenChange={(open) => {
+        if (!open) {
+          setShowDriverForm(false);
+          setEditingDriver(null);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingDriver ? 'Editar Motorista' : 'Novo Motorista'}
+            </DialogTitle>
+          </DialogHeader>
+          <DriverForm
+            driver={editingDriver || undefined}
+            onSubmit={editingDriver ? handleUpdateDriver : handleCreateDriver}
+            onCancel={() => {
+              setShowDriverForm(false);
+              setEditingDriver(null);
+            }}
+            isLoading={driverCrudLoading}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,70 +1,47 @@
 
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
-import dotenv from 'dotenv';
-import { setupDatabase } from './config/database';
-import routesRouter from './routes/routes';
-import trucksRouter from './routes/trucks';
-import driversRouter from './routes/drivers';
-import maintenanceRouter from './routes/maintenance';
-import geocodingRouter from './routes/geocoding';
-import reportsRouter from './routes/reports';
-
-dotenv.config();
+import { createTables } from './config/database';
+import trucksRoutes from './routes/trucks';
+import routesRoutes from './routes/routes';
+import driversRoutes from './routes/drivers';
+import schedulesRoutes from './routes/schedules';
+import maintenanceRoutes from './routes/maintenance';
+import geocodingRoutes from './routes/geocoding';
+import reportsRoutes from './routes/reports';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middlewares
-app.use(helmet());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || 'http://localhost:5173',
-  credentials: true
-}));
+// Middleware
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Test route
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Rota Azul API funcionando!' });
+});
 
 // Routes
-app.use('/api/routes', routesRouter);
-app.use('/api/trucks', trucksRouter);
-app.use('/api/drivers', driversRouter);
-app.use('/api/maintenance', maintenanceRouter);
-app.use('/api/geocoding', geocodingRouter);
-app.use('/api/reports', reportsRouter);
+app.use('/api/trucks', trucksRoutes);
+app.use('/api/routes', routesRoutes);
+app.use('/api/drivers', driversRoutes);
+app.use('/api/schedules', schedulesRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/geocoding', geocodingRoutes);
+app.use('/api/reports', reportsRoutes);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    googleMapsConfigured: !!process.env.GOOGLE_MAPS_API_KEY,
-    database: process.env.DB_NAME
-  });
-});
-
-// Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('❌ Erro no servidor:', err.stack);
-  res.status(500).json({ 
-    error: 'Algo deu errado!',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
-
+// Initialize database and start server
 const startServer = async () => {
   try {
-    console.log('🚀 Iniciando servidor...');
-    console.log(`📊 Conectando ao banco: ${process.env.DB_NAME} em ${process.env.DB_HOST}:${process.env.DB_PORT}`);
-    console.log(`👤 Usuário: ${process.env.DB_USER}`);
-    
-    await setupDatabase();
+    console.log('🔧 Configurando banco de dados...');
+    await createTables();
+    console.log('✅ Banco de dados configurado com sucesso!');
     
     app.listen(PORT, () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
-      console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🗺️  Google Maps API: ${process.env.GOOGLE_MAPS_API_KEY ? 'Configurada' : 'Não configurada'}`);
-      console.log(`📊 Banco de dados conectado: ${process.env.DB_NAME}`);
+      console.log(`📍 Health check: http://localhost:${PORT}/health`);
+      console.log(`🗄️  API Base: http://localhost:${PORT}/api`);
     });
   } catch (error) {
     console.error('❌ Falha ao iniciar o servidor:', error);
