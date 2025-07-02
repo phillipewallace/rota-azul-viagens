@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -7,7 +8,7 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, name, plate, model, year, status, current_route, driver, 
+      SELECT id, name, plate, model, year, status, current_route_id, driver_id, 
              last_maintenance, mileage, location_lat, location_lng
       FROM trucks
       ORDER BY name
@@ -20,8 +21,8 @@ router.get('/', async (req, res) => {
       model: row.model,
       year: row.year,
       status: row.status,
-      currentRoute: row.current_route,
-      driver: row.driver,
+      currentRoute: row.current_route_id,
+      driver: row.driver_id,
       lastMaintenance: row.last_maintenance,
       mileage: row.mileage,
       location: row.location_lat && row.location_lng ? {
@@ -43,7 +44,7 @@ router.post('/', async (req, res) => {
     const { name, plate, model, year, driver } = req.body;
 
     const result = await pool.query(`
-      INSERT INTO trucks (name, plate, model, year, driver)
+      INSERT INTO trucks (name, plate, model, year, driver_id)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `, [name, plate, model, year, driver]);
@@ -68,7 +69,7 @@ router.put('/:id', async (req, res) => {
           model = COALESCE($3, model),
           year = COALESCE($4, year),
           status = COALESCE($5, status),
-          driver = COALESCE($6, driver),
+          driver_id = COALESCE($6, driver_id),
           mileage = COALESCE($7, mileage),
           last_maintenance = COALESCE($8, last_maintenance)
       WHERE id = $9
@@ -87,8 +88,8 @@ router.put('/:id', async (req, res) => {
       model: truck.model,
       year: truck.year,
       status: truck.status,
-      currentRoute: truck.current_route,
-      driver: truck.driver,
+      currentRoute: truck.current_route_id,
+      driver: truck.driver_id,
       lastMaintenance: truck.last_maintenance,
       mileage: truck.mileage,
       location: truck.location_lat && truck.location_lng ? {
