@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MapPin, BarChart3, Calendar, Users, Settings, Smartphone } from 'lucide-react';
+import { MapPin, BarChart3, Calendar, Users, Settings, Smartphone, Truck, Route } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const MobileNavigation = () => {
@@ -9,8 +9,8 @@ const MobileNavigation = () => {
 
   const navigationItems = [
     { icon: MapPin, label: 'Mapa', to: '/' },
-    { icon: Settings, label: 'Gerenciar', to: '/management' },
-    { icon: BarChart3, label: 'Relatórios', to: '/reports' },
+    { icon: Route, label: 'Rotas', to: '/routes' },
+    { icon: Truck, label: 'Caminhões', to: '/trucks' },
     { icon: Users, label: 'Motoristas', to: '/drivers' },
     { icon: Smartphone, label: 'Mobile', to: '/mobile' },
   ];

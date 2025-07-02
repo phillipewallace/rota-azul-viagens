@@ -6,23 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Map from '@/components/Map';
 import TrackingPanel from '@/components/TrackingPanel';
-import CreateRouteModal from '@/components/CreateRouteModal';
 import LinkRouteModal from '@/components/LinkRouteModal';
 import MaintenanceModal from '@/components/MaintenanceModal';
 
 const Index = () => {
-  const [isCreateRouteOpen, setIsCreateRouteOpen] = useState(false);
   const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
 
   const menuItems = [
-    { icon: Route, label: 'Criar Rota', action: () => setIsCreateRouteOpen(true) },
     { icon: Truck, label: 'Vincular Rota ao Caminhão', action: () => setIsLinkRouteOpen(true) },
     { icon: Wrench, label: 'Gerenciar Manutenção', action: () => setIsMaintenanceOpen(true) },
   ];
 
   const navigationItems = [
     { icon: MapPin, label: 'Mapa Principal', to: '/' },
+    { icon: Route, label: 'Rotas', to: '/routes' },
+    { icon: Truck, label: 'Caminhões', to: '/trucks' },
     { icon: Settings, label: 'Gerenciamento', to: '/management' },
     { icon: BarChart3, label: 'Relatórios', to: '/reports' },
     { icon: Calendar, label: 'Agenda', to: '/schedule' },
@@ -89,7 +88,6 @@ const Index = () => {
       </div>
 
       {/* Modals */}
-      <CreateRouteModal open={isCreateRouteOpen} onOpenChange={setIsCreateRouteOpen} />
       <LinkRouteModal open={isLinkRouteOpen} onOpenChange={setIsLinkRouteOpen} />
       <MaintenanceModal open={isMaintenanceOpen} onOpenChange={setIsMaintenanceOpen} />
     </div>

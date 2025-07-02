@@ -1,150 +1,294 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Route as RouteIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import PageHeader from '@/components/PageHeader';
+import { Plus, Edit, Trash2, MapPin, Navigation, Eye } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
-import { RouteForm } from '@/components/RouteForm';
-import { Route as RouteType } from '@/hooks/useRoutes';
+import RouteForm from '@/components/RouteForm';
+import CreateRouteModal from '@/components/CreateRouteModal';
+import { toast } from 'sonner';
 
 const Routes = () => {
-  const { toast } = useToast();
-  const [editingRoute, setEditingRoute] = useState<RouteType | null>(null);
-  const [showRouteForm, setShowRouteForm] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRoute, setEditingRoute] = useState<any>(null);
+  const [viewingRoute, setViewingRoute] = useState<any>(null);
 
-  const { routes, loading: routesLoading } = useRoutes();
-  const { updateRoute, deleteRoute, isLoading: routeCrudLoading } = useRoutesCRUD();
+  const { routes, loading, refetch } = useRoutes();
+  const { deleteRoute } = useRoutesCRUD();
 
-  const handleUpdateRoute = async (data: Partial<RouteType>) => {
-    if (!editingRoute) return;
-    try {
-      await updateRoute({ id: editingRoute.id, route: data });
-      setEditingRoute(null);
-      toast({ title: 'Rota atualizada com sucesso!' });
-    } catch (error) {
-      toast({ title: 'Erro ao atualizar rota', variant: 'destructive' });
-    }
+  const handleEdit = (route: any) => {
+    setEditingRoute(route);
+    setIsFormOpen(true);
   };
 
-  const handleDeleteRoute = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta rota?')) {
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir esta rota?')) {
       try {
         await deleteRoute(id);
-        toast({ title: 'Rota excluída com sucesso!' });
+        toast.success('Rota excluída com sucesso!');
+        refetch();
       } catch (error) {
-        toast({ title: 'Erro ao excluir rota', variant: 'destructive' });
+        toast.error('Erro ao excluir rota');
       }
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      active: 'default',
-      inactive: 'secondary'
-    } as const;
-    const labels = {
-      active: 'Ativa',
-      inactive: 'Inativa'
-    };
-    return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
+  const handleView = (route: any) => {
+    setViewingRoute(route);
   };
 
-  return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <PageHeader 
-        title="Rotas" 
-        subtitle="Gerenciamento de rotas de entrega"
-      >
-        <Button onClick={() => setShowRouteForm(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Rota
-        </Button>
-      </PageHeader>
+  const handleCloseModal = () => {
+    setIsFormOpen(false);
+    setEditingRoute(null);
+    setViewingRoute(null);
+    refetch();
+  };
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Card>
-          <CardContent className="p-6">
-            {routesLoading ? (
-              <div className="text-center py-8">Carregando rotas...</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Pontos</TableHead>
-                    <TableHead>Distância</TableHead>
-                    <TableHead>Tempo Estimado</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {routes.map((route) => (
-                    <TableRow key={route.id}>
-                      <TableCell className="font-medium">{route.name}</TableCell>
-                      <TableCell>{route.description || '-'}</TableCell>
-                      <TableCell>{route.points.length} pontos</TableCell>
-                      <TableCell>{route.totalDistance.toFixed(1)} km</TableCell>
-                      <TableCell>{route.estimatedTime || '-'}</TableCell>
-                      <TableCell>{getStatusBadge(route.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingRoute(route)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteRoute(route.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando rotas...</p>
+        </div>
       </div>
+    );
+  }
 
-      {/* Route Form Dialog */}
-      <Dialog open={showRouteForm || !!editingRoute} onOpenChange={(open) => {
-        if (!open) {
-          setShowRouteForm(false);
-          setEditingRoute(null);
-        }
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingRoute ? 'Editar Rota' : 'Nova Rota'}
-            </DialogTitle>
-          </DialogHeader>
-          <RouteForm
-            route={editingRoute || undefined}
-            onSubmit={handleUpdateRoute}
-            onCancel={() => {
-              setShowRouteForm(false);
-              setEditingRoute(null);
-            }}
-            isLoading={routeCrudLoading}
-          />
-        </DialogContent>
-      </Dialog>
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Rotas</h1>
+            <p className="text-gray-600 mt-2">Gerencie as rotas do sistema</p>
+          </div>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Criar Rota Completa
+            </Button>
+            <Button 
+              onClick={() => setIsFormOpen(true)}
+              variant="outline"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Rota Simples
+            </Button>
+          </div>
+        </div>
+
+        {/* Lista de Rotas */}
+        {routes.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Navigation className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhuma rota encontrada</h3>
+              <p className="text-gray-600 mb-6">Comece criando sua primeira rota</p>
+              <Button onClick={() => setIsCreateModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Primeira Rota
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {routes.map((route) => (
+              <Card key={route.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Navigation className="h-5 w-5 text-blue-600" />
+                    {route.name}
+                  </CardTitle>
+                  {route.description && (
+                    <p className="text-sm text-gray-600">{route.description}</p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Status:</span>
+                      <Badge variant={route.status === 'active' ? 'default' : 'secondary'}>
+                        {route.status === 'active' ? 'Ativa' : 'Inativa'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Pontos:</span>
+                      <span className="text-sm">{route.points?.length || 0} locais</span>
+                    </div>
+                    
+                    {route.totalDistance && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Distância:</span>
+                        <span className="text-sm">{route.totalDistance.toFixed(2)} km</span>
+                      </div>
+                    )}
+                    
+                    {route.estimatedTime && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Tempo est.:</span>
+                        <span className="text-sm">{route.estimatedTime}</span>
+                      </div>
+                    )}
+
+                    {route.points && route.points.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2">Pontos principais:</p>
+                        <div className="space-y-1">
+                          {route.points.slice(0, 2).map((point, index) => (
+                            <div key={point.id} className="flex items-center gap-2 text-xs text-gray-600">
+                              <MapPin className="h-3 w-3" />
+                              <span className="truncate">{point.address}</span>
+                            </div>
+                          ))}
+                          {route.points.length > 2 && (
+                            <p className="text-xs text-gray-500">
+                              +{route.points.length - 2} pontos adicionais
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleView(route)}
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Ver
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(route)}
+                      className="flex-1"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(route.id)}
+                      className="text-red-600 hover:text-red-700 hover:border-red-300"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Modais */}
+        <CreateRouteModal 
+          open={isCreateModalOpen} 
+          onOpenChange={setIsCreateModalOpen} 
+        />
+
+        {isFormOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-semibold mb-4">
+                {editingRoute ? 'Editar Rota' : 'Nova Rota'}
+              </h2>
+              <RouteForm
+                route={editingRoute}
+                onSuccess={handleCloseModal}
+                onCancel={handleCloseModal}
+              />
+            </div>
+          </div>
+        )}
+
+        {viewingRoute && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Detalhes da Rota</h2>
+                <Button variant="outline" onClick={() => setViewingRoute(null)}>
+                  Fechar
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-lg">{viewingRoute.name}</h3>
+                  {viewingRoute.description && (
+                    <p className="text-gray-600">{viewingRoute.description}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="font-medium">Status:</p>
+                    <Badge variant={viewingRoute.status === 'active' ? 'default' : 'secondary'}>
+                      {viewingRoute.status === 'active' ? 'Ativa' : 'Inativa'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="font-medium">Total de Pontos:</p>
+                    <p>{viewingRoute.points?.length || 0}</p>
+                  </div>
+                  {viewingRoute.totalDistance && (
+                    <div>
+                      <p className="font-medium">Distância Total:</p>
+                      <p>{viewingRoute.totalDistance.toFixed(2)} km</p>
+                    </div>
+                  )}
+                  {viewingRoute.estimatedTime && (
+                    <div>
+                      <p className="font-medium">Tempo Estimado:</p>
+                      <p>{viewingRoute.estimatedTime}</p>
+                    </div>
+                  )}
+                </div>
+
+                {viewingRoute.points && viewingRoute.points.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3">Pontos da Rota:</h4>
+                    <div className="space-y-2">
+                      {viewingRoute.points
+                        .sort((a: any, b: any) => a.order - b.order)
+                        .map((point: any, index: number) => (
+                        <div key={point.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                            point.type === 'origin' ? 'bg-green-500' :
+                            point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium">{point.address}</p>
+                            <p className="text-sm text-gray-600 capitalize">{point.type}</p>
+                            {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Espaço para navegação mobile */}
+      <div className="h-20 md:hidden" />
     </div>
   );
 };
