@@ -13,6 +13,7 @@ import Management from "./pages/Management";
 import Settings from "./pages/Settings";
 import Trucks from "./pages/Trucks";
 import RoutesPage from "./pages/Routes";
+import Maintenance from "./pages/Maintenance";
 import MobileDriver from "./pages/MobileDriver";
 import NotFound from "./pages/NotFound";
 
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/management" element={<Management />} />
             <Route path="/trucks" element={<Trucks />} />
             <Route path="/routes" element={<RoutesPage />} />
+            <Route path="/maintenance" element={<Maintenance />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/mobile" element={<MobileDriver />} />
             <Route path="*" element={<NotFound />} />

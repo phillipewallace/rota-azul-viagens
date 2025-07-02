@@ -1,21 +1,18 @@
 
 import React, { useState } from 'react';
-import { Menu, MapPin, Route, Truck, Wrench, Calendar, BarChart3, Settings, Users } from 'lucide-react';
+import { Menu, MapPin, Route, Truck, Calendar, BarChart3, Settings, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Map from '@/components/Map';
 import TrackingPanel from '@/components/TrackingPanel';
 import LinkRouteModal from '@/components/LinkRouteModal';
-import MaintenanceModal from '@/components/MaintenanceModal';
 
 const Index = () => {
   const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
-  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
 
   const menuItems = [
     { icon: Truck, label: 'Vincular Rota ao Caminhão', action: () => setIsLinkRouteOpen(true) },
-    { icon: Wrench, label: 'Gerenciar Manutenção', action: () => setIsMaintenanceOpen(true) },
   ];
 
   const navigationItems = [
@@ -89,7 +86,6 @@ const Index = () => {
 
       {/* Modals */}
       <LinkRouteModal open={isLinkRouteOpen} onOpenChange={setIsLinkRouteOpen} />
-      <MaintenanceModal open={isMaintenanceOpen} onOpenChange={setIsMaintenanceOpen} />
     </div>
   );
 };

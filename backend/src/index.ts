@@ -1,7 +1,7 @@
 
 import express from 'express';
 import cors from 'cors';
-import { createTables } from './config/database';
+import { setupDatabase } from './config/database';
 import trucksRoutes from './routes/trucks';
 import routesRoutes from './routes/routes';
 import driversRoutes from './routes/drivers';
@@ -37,7 +37,7 @@ app.use('/api/mobile', mobileRoutes);
 const startServer = async () => {
   try {
     console.log('🔧 Configurando banco de dados...');
-    await createTables();
+    await setupDatabase();
     console.log('✅ Banco de dados configurado com sucesso!');
     
     app.listen(PORT, () => {

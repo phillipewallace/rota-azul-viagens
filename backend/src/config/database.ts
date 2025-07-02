@@ -1,4 +1,3 @@
-
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 
@@ -105,5 +104,8 @@ export const setupDatabase = async () => {
     throw err;
   }
 };
+
+// Export setupDatabase as createTables for compatibility
+export const createTables = setupDatabase;
 
 export { pool };

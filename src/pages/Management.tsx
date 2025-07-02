@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Truck, Route as RouteIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Truck, Route as RouteIcon, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,7 +19,7 @@ import { Route as RouteType } from '@/hooks/useRoutes';
 
 const Management = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'trucks' | 'routes'>('trucks');
+  const [activeTab, setActiveTab] = useState<'trucks' | 'routes' | 'maintenance'>('trucks');
   const [editingTruck, setEditingTruck] = useState<TruckType | null>(null);
   const [editingRoute, setEditingRoute] = useState<RouteType | null>(null);
   const [showTruckForm, setShowTruckForm] = useState(false);
@@ -114,7 +114,7 @@ const Management = () => {
     <div className="min-h-screen bg-background">
       <PageHeader 
         title="Gerenciamento" 
-        subtitle="Gerencie caminhões e rotas do sistema"
+        subtitle="Gerencie caminhões, rotas e manutenções do sistema"
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -132,6 +132,13 @@ const Management = () => {
           >
             <RouteIcon className="w-4 h-4 mr-2" />
             Rotas
+          </Button>
+          <Button
+            variant={activeTab === 'maintenance' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('maintenance')}
+          >
+            <Wrench className="w-4 h-4 mr-2" />
+            Manutenções
           </Button>
         </div>
 
@@ -251,6 +258,26 @@ const Management = () => {
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'maintenance' && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center py-12">
+                <Wrench className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Manutenções</h3>
+                <p className="text-gray-600 mb-6">
+                  Para gerenciar manutenções completas, acesse a página dedicada
+                </p>
+                <Button asChild>
+                  <a href="/maintenance">
+                    <Wrench className="w-4 h-4 mr-2" />
+                    Ir para Manutenções
+                  </a>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
