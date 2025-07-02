@@ -6,38 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation, Truck, Clock, RefreshCw } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
-import { useTrucks } from '@/hooks/useTrucks';
-import { useRoutes } from '@/hooks/useRoutes';
-
-interface TruckRoute {
-  id: string;
-  name: string;
-  plate: string;
-  currentRoute?: {
-    id: string;
-    name: string;
-    points: Array<{
-      id: string;
-      address: string;
-      lat: number;
-      lng: number;
-      order: number;
-      type: 'origin' | 'destination' | 'waypoint';
-      completed: boolean;
-    }>;
-    currentPointIndex: number;
-  };
-}
+import { useMobile, TruckMobileData } from '@/hooks/useMobile';
+import { toast } from 'sonner';
 
 const MobileDriver = () => {
   const [plate, setPlate] = useState('');
-  const [truckData, setTruckData] = useState<TruckRoute | null>(null);
+  const [truckData, setTruckData] = useState<TruckMobileData | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { trucks, updateTruckLocation } = useTrucks();
-  const { routes } = useRoutes();
+  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, isUpdatingLocation } = useMobile();
 
   const handlePlateSubmit = async () => {
     if (!plate.trim()) return;
@@ -46,41 +25,13 @@ const MobileDriver = () => {
     setError(null);
     
     try {
-      // Busca o caminhão pela placa
-      const truck = trucks.find(t => t.plate.toLowerCase() === plate.toLowerCase());
-      
-      if (!truck) {
-        throw new Error('Caminhão não encontrado');
-      }
-
-      // Busca a rota atual do caminhão
-      let currentRoute = null;
-      if (truck.currentRoute) {
-        const route = routes.find(r => r.name === truck.currentRoute);
-        if (route) {
-          currentRoute = {
-            id: route.id,
-            name: route.name,
-            currentPointIndex: 0,
-            points: route.points.map((point, index) => ({
-              ...point,
-              completed: index === 0 // Primeiro ponto já "concluído" (origem)
-            }))
-          };
-        }
-      }
-
-      const truckRouteData: TruckRoute = {
-        id: truck.id,
-        name: truck.name,
-        plate: truck.plate,
-        currentRoute
-      };
-
-      setTruckData(truckRouteData);
-      console.log('Truck data loaded:', truckRouteData);
+      const data = await getTruckByPlate(plate);
+      setTruckData(data);
+      toast.success('Caminhão encontrado!');
+      console.log('Truck data loaded:', data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar dados do caminhão');
+      toast.error('Erro ao buscar caminhão');
       console.error('Error loading truck data:', err);
     } finally {
       setLoading(false);
@@ -103,41 +54,55 @@ const MobileDriver = () => {
       
       // Atualiza a localização do caminhão no servidor
       if (truckData) {
-        await updateTruckLocation(truckData.id, newLocation.lat, newLocation.lng);
+        await updateTruckLocation({
+          truckId: truckData.id,
+          lat: newLocation.lat,
+          lng: newLocation.lng
+        });
+        toast.success('Localização atualizada');
       }
       
       console.log('Location updated:', newLocation);
     } catch (error) {
       console.error('Erro ao obter localização:', error);
       setError('Erro ao obter localização GPS');
+      toast.error('Erro ao obter localização GPS');
     }
   };
 
   const markPointAsCompleted = async (pointId: string) => {
     if (!truckData?.currentRoute) return;
     
-    setTruckData(prev => {
-      if (!prev?.currentRoute) return prev;
+    try {
+      await updateRoutePoint({
+        truckId: truckData.id,
+        pointId,
+        completed: true
+      });
       
-      const updatedPoints = prev.currentRoute.points.map(point =>
-        point.id === pointId ? { ...point, completed: true } : point
-      );
-      
-      const currentIndex = updatedPoints.findIndex(p => p.id === pointId);
-      const nextIndex = currentIndex < updatedPoints.length - 1 ? currentIndex + 1 : currentIndex;
-      
-      return {
-        ...prev,
-        currentRoute: {
-          ...prev.currentRoute,
-          points: updatedPoints,
-          currentPointIndex: nextIndex
-        }
-      };
-    });
+      // Atualiza o estado local
+      setTruckData(prev => {
+        if (!prev?.currentRoute) return prev;
+        
+        const updatedPoints = prev.currentRoute.points.map(point =>
+          point.id === pointId ? { ...point, completed: true } : point
+        );
+        
+        return {
+          ...prev,
+          currentRoute: {
+            ...prev.currentRoute,
+            points: updatedPoints
+          }
+        };
+      });
 
-    // Atualiza localização atual
-    await getCurrentLocation();
+      toast.success('Ponto marcado como concluído!');
+      await getCurrentLocation();
+    } catch (error) {
+      toast.error('Erro ao marcar ponto como concluído');
+      console.error('Error updating route point:', error);
+    }
   };
 
   useEffect(() => {
@@ -195,7 +160,7 @@ const MobileDriver = () => {
     );
   }
 
-  const currentPoint = truckData.currentRoute?.points[truckData.currentRoute.currentPointIndex];
+  const currentPoint = truckData.currentRoute?.points.find(p => !p.completed);
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -236,7 +201,7 @@ const MobileDriver = () => {
                   className={`flex items-center gap-3 p-3 rounded-lg border ${
                     point.completed 
                       ? 'bg-green-50 border-green-200' 
-                      : index === truckData.currentRoute!.currentPointIndex
+                      : point === currentPoint
                       ? 'bg-blue-50 border-blue-200'
                       : 'bg-gray-50 border-gray-200'
                   }`}
@@ -244,7 +209,7 @@ const MobileDriver = () => {
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     point.completed 
                       ? 'bg-green-500 text-white' 
-                      : index === truckData.currentRoute!.currentPointIndex
+                      : point === currentPoint
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-300 text-gray-600'
                   }`}>
@@ -314,8 +279,13 @@ const MobileDriver = () => {
                   }
                 </span>
               </div>
-              <Button size="sm" variant="ghost" onClick={getCurrentLocation}>
-                <RefreshCw className="h-4 w-4" />
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={getCurrentLocation}
+                disabled={isUpdatingLocation}
+              >
+                <RefreshCw className={`h-4 w-4 ${isUpdatingLocation ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </CardContent>

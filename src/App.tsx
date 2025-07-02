@@ -12,7 +12,7 @@ import Drivers from "./pages/Drivers";
 import Management from "./pages/Management";
 import Settings from "./pages/Settings";
 import Trucks from "./pages/Trucks";
-import Routes from "./pages/Routes";
+import RoutesPage from "./pages/Routes";
 import MobileDriver from "./pages/MobileDriver";
 import NotFound from "./pages/NotFound";
 
@@ -39,7 +39,7 @@ const App = () => (
             <Route path="/drivers" element={<Drivers />} />
             <Route path="/management" element={<Management />} />
             <Route path="/trucks" element={<Trucks />} />
-            <Route path="/routes" element={<Routes />} />
+            <Route path="/routes" element={<RoutesPage />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/mobile" element={<MobileDriver />} />
             <Route path="*" element={<NotFound />} />

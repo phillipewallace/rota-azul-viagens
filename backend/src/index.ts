@@ -9,6 +9,7 @@ import schedulesRoutes from './routes/schedules';
 import maintenanceRoutes from './routes/maintenance';
 import geocodingRoutes from './routes/geocoding';
 import reportsRoutes from './routes/reports';
+import mobileRoutes from './routes/mobile';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +31,7 @@ app.use('/api/schedules', schedulesRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/geocoding', geocodingRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/mobile', mobileRoutes);
 
 // Initialize database and start server
 const startServer = async () => {
