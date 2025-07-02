@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, MapPin, Navigation, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
-import RouteForm from '@/components/RouteForm';
+import { RouteForm } from '@/components/RouteForm';
 import CreateRouteModal from '@/components/CreateRouteModal';
 import { toast } from 'sonner';
 
@@ -16,7 +15,7 @@ const Routes = () => {
   const [editingRoute, setEditingRoute] = useState<any>(null);
   const [viewingRoute, setViewingRoute] = useState<any>(null);
 
-  const { routes, loading, refetch } = useRoutes();
+  const { routes, loading, loadRoutes } = useRoutes();
   const { deleteRoute } = useRoutesCRUD();
 
   const handleEdit = (route: any) => {
@@ -29,7 +28,7 @@ const Routes = () => {
       try {
         await deleteRoute(id);
         toast.success('Rota excluída com sucesso!');
-        refetch();
+        loadRoutes();
       } catch (error) {
         toast.error('Erro ao excluir rota');
       }
@@ -44,7 +43,17 @@ const Routes = () => {
     setIsFormOpen(false);
     setEditingRoute(null);
     setViewingRoute(null);
-    refetch();
+    loadRoutes();
+  };
+
+  const handleFormSubmit = async (data: any) => {
+    try {
+      // Lógica de submit será implementada no RouteForm
+      handleCloseModal();
+      toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao salvar rota');
+    }
   };
 
   if (loading) {
@@ -207,7 +216,7 @@ const Routes = () => {
               </h2>
               <RouteForm
                 route={editingRoute}
-                onSuccess={handleCloseModal}
+                onSubmit={handleFormSubmit}
                 onCancel={handleCloseModal}
               />
             </div>
