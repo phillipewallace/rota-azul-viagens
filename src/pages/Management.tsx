@@ -1,335 +1,388 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Truck, Route as RouteIcon, Wrench } from 'lucide-react';
+import { Plus, Edit, Trash2, Wrench, Calendar, DollarSign, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import { useTrucks } from '@/hooks/useTrucks';
-import { useRoutes } from '@/hooks/useRoutes';
-import { useTrucksCRUD } from '@/hooks/useTrucksCRUD';
-import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
-import { TruckForm } from '@/components/TruckForm';
-import { RouteForm } from '@/components/RouteForm';
-import { Truck as TruckType } from '@/hooks/useTrucks';
-import { Route as RouteType } from '@/hooks/useRoutes';
+import { useForm } from 'react-hook-form';
+
+interface MaintenanceRecord {
+  id: string;
+  truckId: string;
+  truckName: string;
+  maintenanceType: string;
+  description: string;
+  scheduledDate: string;
+  completedDate?: string;
+  cost?: number;
+  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  notes?: string;
+}
+
+interface MaintenanceFormData {
+  truckId: string;
+  maintenanceType: string;
+  description: string;
+  scheduledDate: string;
+  cost?: number;
+  notes?: string;
+}
 
 const Management = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'trucks' | 'routes' | 'maintenance'>('trucks');
-  const [editingTruck, setEditingTruck] = useState<TruckType | null>(null);
-  const [editingRoute, setEditingRoute] = useState<RouteType | null>(null);
-  const [showTruckForm, setShowTruckForm] = useState(false);
-  const [showRouteForm, setShowRouteForm] = useState(false);
+  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
+  const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecord | null>(null);
+  const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const { trucks, loading: trucksLoading } = useTrucks();
-  const { routes, loading: routesLoading } = useRoutes();
-  const { createTruck, updateTruck, deleteTruck, isLoading: truckCrudLoading } = useTrucksCRUD();
-  const { updateRoute, deleteRoute, isLoading: routeCrudLoading } = useRoutesCRUD();
+  const { trucks } = useTrucks();
+  const { register, handleSubmit, setValue, watch, reset } = useForm<MaintenanceFormData>();
 
-  const handleCreateTruck = async (data: Omit<TruckType, 'id'>) => {
+  const truckId = watch('truckId');
+
+  const handleCreateMaintenance = async (data: MaintenanceFormData) => {
+    setLoading(true);
     try {
-      await createTruck(data);
-      setShowTruckForm(false);
-      toast({ title: 'Caminhão criado com sucesso!' });
-    } catch (error) {
-      toast({ title: 'Erro ao criar caminhão', variant: 'destructive' });
-    }
-  };
-
-  const handleUpdateTruck = async (data: Omit<TruckType, 'id'>) => {
-    if (!editingTruck) return;
-    try {
-      await updateTruck({ id: editingTruck.id, truck: data });
-      setEditingTruck(null);
-      toast({ title: 'Caminhão atualizado com sucesso!' });
-    } catch (error) {
-      toast({ title: 'Erro ao atualizar caminhão', variant: 'destructive' });
-    }
-  };
-
-  const handleDeleteTruck = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este caminhão?')) {
-      try {
-        await deleteTruck(id);
-        toast({ title: 'Caminhão excluído com sucesso!' });
-      } catch (error) {
-        toast({ title: 'Erro ao excluir caminhão', variant: 'destructive' });
-      }
-    }
-  };
-
-  const handleUpdateRoute = async (data: Partial<RouteType>) => {
-    if (!editingRoute) return;
-    try {
-      await updateRoute({ id: editingRoute.id, route: data });
-      setEditingRoute(null);
-      toast({ title: 'Rota atualizada com sucesso!' });
-    } catch (error) {
-      toast({ title: 'Erro ao atualizar rota', variant: 'destructive' });
-    }
-  };
-
-  const handleDeleteRoute = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta rota?')) {
-      try {
-        await deleteRoute(id);
-        toast({ title: 'Rota excluída com sucesso!' });
-      } catch (error) {
-        toast({ title: 'Erro ao excluir rota', variant: 'destructive' });
-      }
-    }
-  };
-
-  const getStatusBadge = (status: string, type: 'truck' | 'route') => {
-    if (type === 'truck') {
-      const variants = {
-        available: 'default',
-        'in-route': 'secondary',
-        maintenance: 'destructive'
-      } as const;
-      const labels = {
-        available: 'Disponível',
-        'in-route': 'Em Rota',
-        maintenance: 'Manutenção'
+      const truck = trucks.find(t => t.id === data.truckId);
+      const newMaintenance: MaintenanceRecord = {
+        id: Date.now().toString(),
+        truckId: data.truckId,
+        truckName: truck?.name || 'Desconhecido',
+        maintenanceType: data.maintenanceType,
+        description: data.description,
+        scheduledDate: data.scheduledDate,
+        cost: data.cost,
+        status: 'scheduled',
+        notes: data.notes
       };
-      return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
+      
+      setMaintenanceRecords(prev => [...prev, newMaintenance]);
+      setShowMaintenanceForm(false);
+      reset();
+      toast({ title: 'Manutenção agendada com sucesso!' });
+    } catch (error) {
+      toast({ title: 'Erro ao agendar manutenção', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateMaintenance = async (data: MaintenanceFormData) => {
+    if (!editingMaintenance) return;
+    
+    setLoading(true);
+    try {
+      const truck = trucks.find(t => t.id === data.truckId);
+      const updatedMaintenance: MaintenanceRecord = {
+        ...editingMaintenance,
+        truckId: data.truckId,
+        truckName: truck?.name || 'Desconhecido',
+        maintenanceType: data.maintenanceType,
+        description: data.description,
+        scheduledDate: data.scheduledDate,
+        cost: data.cost,
+        notes: data.notes
+      };
+      
+      setMaintenanceRecords(prev => 
+        prev.map(m => m.id === editingMaintenance.id ? updatedMaintenance : m)
+      );
+      setEditingMaintenance(null);
+      reset();
+      toast({ title: 'Manutenção atualizada com sucesso!' });
+    } catch (error) {
+      toast({ title: 'Erro ao atualizar manutenção', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteMaintenance = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir esta manutenção?')) {
+      setMaintenanceRecords(prev => prev.filter(m => m.id !== id));
+      toast({ title: 'Manutenção excluída com sucesso!' });
+    }
+  };
+
+  const handleStatusChange = (id: string, status: MaintenanceRecord['status']) => {
+    setMaintenanceRecords(prev => 
+      prev.map(m => m.id === id ? { 
+        ...m, 
+        status,
+        completedDate: status === 'completed' ? new Date().toISOString().split('T')[0] : undefined
+      } : m)
+    );
+    toast({ title: 'Status atualizado com sucesso!' });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants = {
+      'scheduled': 'default',
+      'in-progress': 'secondary',
+      'completed': 'default',
+      'cancelled': 'destructive'
+    } as const;
+    
+    const labels = {
+      'scheduled': 'Agendada',
+      'in-progress': 'Em Andamento',
+      'completed': 'Concluída',
+      'cancelled': 'Cancelada'
+    };
+    
+    return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
+  };
+
+  const openForm = (maintenance?: MaintenanceRecord) => {
+    if (maintenance) {
+      setEditingMaintenance(maintenance);
+      setValue('truckId', maintenance.truckId);
+      setValue('maintenanceType', maintenance.maintenanceType);
+      setValue('description', maintenance.description);
+      setValue('scheduledDate', maintenance.scheduledDate);
+      setValue('cost', maintenance.cost);
+      setValue('notes', maintenance.notes);
     } else {
-      const variants = {
-        active: 'default',
-        inactive: 'secondary'
-      } as const;
-      const labels = {
-        active: 'Ativa',
-        inactive: 'Inativa'
-      };
-      return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
+      setShowMaintenanceForm(true);
+      reset();
     }
+  };
+
+  const closeForm = () => {
+    setShowMaintenanceForm(false);
+    setEditingMaintenance(null);
+    reset();
+  };
+
+  const stats = {
+    total: maintenanceRecords.length,
+    scheduled: maintenanceRecords.filter(m => m.status === 'scheduled').length,
+    inProgress: maintenanceRecords.filter(m => m.status === 'in-progress').length,
+    completed: maintenanceRecords.filter(m => m.status === 'completed').length,
+    totalCost: maintenanceRecords.reduce((sum, m) => sum + (m.cost || 0), 0)
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       <PageHeader 
-        title="Gerenciamento" 
-        subtitle="Gerencie caminhões, rotas e manutenções do sistema"
-      />
+        title="Gerenciamento de Manutenções" 
+        subtitle="Agende e gerencie todas as manutenções da frota"
+      >
+        <Button onClick={() => openForm()}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Manutenção
+        </Button>
+      </PageHeader>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex gap-2 mb-6">
-          <Button
-            variant={activeTab === 'trucks' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('trucks')}
-          >
-            <Truck className="w-4 h-4 mr-2" />
-            Caminhões
-          </Button>
-          <Button
-            variant={activeTab === 'routes' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('routes')}
-          >
-            <RouteIcon className="w-4 h-4 mr-2" />
-            Rotas
-          </Button>
-          <Button
-            variant={activeTab === 'maintenance' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('maintenance')}
-          >
-            <Wrench className="w-4 h-4 mr-2" />
-            Manutenções
-          </Button>
-        </div>
-
-        {activeTab === 'trucks' && (
+        {/* Estatísticas */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Caminhões</CardTitle>
-              <Button onClick={() => setShowTruckForm(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Novo Caminhão
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {trucksLoading ? (
-                <div className="text-center py-8">Carregando caminhões...</div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Placa</TableHead>
-                      <TableHead>Modelo</TableHead>
-                      <TableHead>Ano</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Motorista</TableHead>
-                      <TableHead>Km</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {trucks.map((truck) => (
-                      <TableRow key={truck.id}>
-                        <TableCell className="font-medium">{truck.name}</TableCell>
-                        <TableCell>{truck.plate}</TableCell>
-                        <TableCell>{truck.model}</TableCell>
-                        <TableCell>{truck.year}</TableCell>
-                        <TableCell>{getStatusBadge(truck.status, 'truck')}</TableCell>
-                        <TableCell>{truck.driver || '-'}</TableCell>
-                        <TableCell>{truck.mileage.toLocaleString()}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditingTruck(truck)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteTruck(truck.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {activeTab === 'routes' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Rotas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {routesLoading ? (
-                <div className="text-center py-8">Carregando rotas...</div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Pontos</TableHead>
-                      <TableHead>Distância</TableHead>
-                      <TableHead>Tempo Estimado</TableHead>  
-                      <TableHead>Status</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {routes.map((route) => (
-                      <TableRow key={route.id}>
-                        <TableCell className="font-medium">{route.name}</TableCell>
-                        <TableCell>{route.description || '-'}</TableCell>
-                        <TableCell>{route.points.length} pontos</TableCell>
-                        <TableCell>{route.totalDistance.toFixed(1)} km</TableCell>
-                        <TableCell>{route.estimatedTime || '-'}</TableCell>
-                        <TableCell>{getStatusBadge(route.status, 'route')}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditingRoute(route)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteRoute(route.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {activeTab === 'maintenance' && (
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center py-12">
-                <Wrench className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Manutenções</h3>
-                <p className="text-gray-600 mb-6">
-                  Para gerenciar manutenções completas, acesse a página dedicada
-                </p>
-                <Button asChild>
-                  <a href="/maintenance">
-                    <Wrench className="w-4 h-4 mr-2" />
-                    Ir para Manutenções
-                  </a>
-                </Button>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-blue-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
-        )}
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-yellow-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Agendadas</p>
+                  <p className="text-2xl font-bold">{stats.scheduled}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-orange-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Em Andamento</p>
+                  <p className="text-2xl font-bold">{stats.inProgress}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-5 bg-green-500 rounded-full" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Concluídas</p>
+                  <p className="text-2xl font-bold">{stats.completed}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Custo Total</p>
+                  <p className="text-2xl font-bold">R$ {stats.totalCost.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabela de Manutenções */}
+        <Card>
+          <CardContent className="p-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Caminhão</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Data Agendada</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Custo</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {maintenanceRecords.map((maintenance) => (
+                  <TableRow key={maintenance.id}>
+                    <TableCell className="font-medium">{maintenance.truckName}</TableCell>
+                    <TableCell>{maintenance.maintenanceType}</TableCell>
+                    <TableCell>{new Date(maintenance.scheduledDate).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Select 
+                        value={maintenance.status} 
+                        onValueChange={(value) => handleStatusChange(maintenance.id, value as MaintenanceRecord['status'])}
+                      >
+                        <SelectTrigger className="w-32">
+                          {getStatusBadge(maintenance.status)}
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scheduled">Agendada</SelectItem>
+                          <SelectItem value="in-progress">Em Andamento</SelectItem>
+                          <SelectItem value="completed">Concluída</SelectItem>
+                          <SelectItem value="cancelled">Cancelada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>R$ {(maintenance.cost || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openForm(maintenance)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteMaintenance(maintenance.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Truck Form Dialog */}
-      <Dialog open={showTruckForm || !!editingTruck} onOpenChange={(open) => {
-        if (!open) {
-          setShowTruckForm(false);
-          setEditingTruck(null);
-        }
-      }}>
+      {/* Modal de Formulário */}
+      <Dialog open={showMaintenanceForm || !!editingMaintenance} onOpenChange={closeForm}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingTruck ? 'Editar Caminhão' : 'Novo Caminhão'}
+              {editingMaintenance ? 'Editar Manutenção' : 'Nova Manutenção'}
             </DialogTitle>
           </DialogHeader>
-          <TruckForm
-            truck={editingTruck || undefined}
-            onSubmit={editingTruck ? handleUpdateTruck : handleCreateTruck}
-            onCancel={() => {
-              setShowTruckForm(false);
-              setEditingTruck(null);
-            }}
-            isLoading={truckCrudLoading}
-          />
-        </DialogContent>
-      </Dialog>
+          <form onSubmit={handleSubmit(editingMaintenance ? handleUpdateMaintenance : handleCreateMaintenance)} className="space-y-4">
+            <div>
+              <Label htmlFor="truckId">Caminhão</Label>
+              <Select value={truckId} onValueChange={(value) => setValue('truckId', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um caminhão" />
+                </SelectTrigger>
+                <SelectContent>
+                  {trucks.map((truck) => (
+                    <SelectItem key={truck.id} value={truck.id}>
+                      {truck.name} - {truck.plate}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      {/* Route Form Dialog */}
-      <Dialog open={showRouteForm || !!editingRoute} onOpenChange={(open) => {
-        if (!open) {
-          setShowRouteForm(false);
-          setEditingRoute(null);
-        }
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingRoute ? 'Editar Rota' : 'Nova Rota'}
-            </DialogTitle>
-          </DialogHeader>
-          <RouteForm
-            route={editingRoute || undefined}
-            onSubmit={handleUpdateRoute}
-            onCancel={() => {
-              setShowRouteForm(false);
-              setEditingRoute(null);
-            }}
-            isLoading={routeCrudLoading}
-          />
+            <div>
+              <Label htmlFor="maintenanceType">Tipo de Manutenção</Label>
+              <Select onValueChange={(value) => setValue('maintenanceType', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Preventiva">Preventiva</SelectItem>
+                  <SelectItem value="Corretiva">Corretiva</SelectItem>
+                  <SelectItem value="Revisão">Revisão</SelectItem>
+                  <SelectItem value="Troca de Óleo">Troca de Óleo</SelectItem>
+                  <SelectItem value="Pneus">Pneus</SelectItem>
+                  <SelectItem value="Freios">Freios</SelectItem>
+                  <SelectItem value="Motor">Motor</SelectItem>
+                  <SelectItem value="Elétrica">Elétrica</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Descrição</Label>
+              <Textarea {...register('description', { required: true })} placeholder="Descreva a manutenção..." />
+            </div>
+
+            <div>
+              <Label htmlFor="scheduledDate">Data Agendada</Label>
+              <Input type="date" {...register('scheduledDate', { required: true })} />
+            </div>
+
+            <div>
+              <Label htmlFor="cost">Custo Estimado (R$)</Label>
+              <Input type="number" step="0.01" {...register('cost', { valueAsNumber: true })} placeholder="0,00" />
+            </div>
+
+            <div>
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea {...register('notes')} placeholder="Observações adicionais..." />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button type="submit" disabled={loading}>
+                {editingMaintenance ? 'Atualizar' : 'Agendar'} Manutenção
+              </Button>
+              <Button type="button" variant="outline" onClick={closeForm}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

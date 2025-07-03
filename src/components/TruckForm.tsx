@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Truck } from '@/hooks/useTrucks';
+import { useDrivers } from '@/hooks/useDrivers';
 
 interface TruckFormProps {
   truck?: Truck;
@@ -15,6 +16,7 @@ interface TruckFormProps {
 }
 
 export const TruckForm = ({ truck, onSubmit, onCancel, isLoading }: TruckFormProps) => {
+  const { drivers } = useDrivers();
   const { register, handleSubmit, setValue, watch } = useForm<Omit<Truck, 'id'>>({
     defaultValues: truck ? {
       name: truck.name,
@@ -38,6 +40,7 @@ export const TruckForm = ({ truck, onSubmit, onCancel, isLoading }: TruckFormPro
   });
 
   const status = watch('status');
+  const selectedDriver = watch('driver');
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -82,7 +85,19 @@ export const TruckForm = ({ truck, onSubmit, onCancel, isLoading }: TruckFormPro
 
       <div>
         <Label htmlFor="driver">Motorista</Label>
-        <Input {...register('driver')} placeholder="Nome do motorista (opcional)" />
+        <Select value={selectedDriver} onValueChange={(value) => setValue('driver', value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um motorista" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Nenhum motorista</SelectItem>
+            {drivers.map((driver) => (
+              <SelectItem key={driver.id} value={driver.name}>
+                {driver.name} - {driver.license}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>

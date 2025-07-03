@@ -14,13 +14,12 @@ import Settings from "./pages/Settings";
 import Trucks from "./pages/Trucks";
 import RoutesPage from "./pages/Routes";
 import Maintenance from "./pages/Maintenance";
-import MobileDriver from "./pages/MobileDriver";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       retry: 2,
     },
   },
@@ -43,7 +42,6 @@ const App = () => (
             <Route path="/routes" element={<RoutesPage />} />
             <Route path="/maintenance" element={<Maintenance />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/mobile" element={<MobileDriver />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <MobileNavigation />
