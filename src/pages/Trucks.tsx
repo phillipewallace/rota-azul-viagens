@@ -4,19 +4,18 @@ import { Plus, Edit, Trash2, Truck as TruckIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useTrucksCRUD } from '@/hooks/useTrucksCRUD';
-import { TruckForm } from '@/components/TruckForm';
+import { TruckModal } from '@/components/TruckModal';
 import { Truck as TruckType } from '@/hooks/useTrucks';
 
 const Trucks = () => {
   const { toast } = useToast();
   const [editingTruck, setEditingTruck] = useState<TruckType | null>(null);
-  const [showTruckForm, setShowTruckForm] = useState(false);
+  const [showTruckModal, setShowTruckModal] = useState(false);
 
   const { trucks, loading: trucksLoading } = useTrucks();
   const { createTruck, updateTruck, deleteTruck, isLoading: truckCrudLoading } = useTrucksCRUD();
@@ -24,7 +23,7 @@ const Trucks = () => {
   const handleCreateTruck = async (data: Omit<TruckType, 'id'>) => {
     try {
       await createTruck(data);
-      setShowTruckForm(false);
+      setShowTruckModal(false);
       toast({ title: 'Caminhão criado com sucesso!' });
     } catch (error) {
       toast({ title: 'Erro ao criar caminhão', variant: 'destructive' });
@@ -67,13 +66,18 @@ const Trucks = () => {
     return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
   };
 
+  const handleCloseModal = () => {
+    setShowTruckModal(false);
+    setEditingTruck(null);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <PageHeader 
         title="Caminhões" 
         subtitle="Gerenciamento da frota de caminhões"
       >
-        <Button onClick={() => setShowTruckForm(true)}>
+        <Button onClick={() => setShowTruckModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Novo Caminhão
         </Button>
@@ -135,30 +139,16 @@ const Trucks = () => {
         </Card>
       </div>
 
-      {/* Truck Form Dialog */}
-      <Dialog open={showTruckForm || !!editingTruck} onOpenChange={(open) => {
-        if (!open) {
-          setShowTruckForm(false);
-          setEditingTruck(null);
-        }
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingTruck ? 'Editar Caminhão' : 'Novo Caminhão'}
-            </DialogTitle>
-          </DialogHeader>
-          <TruckForm
-            truck={editingTruck || undefined}
-            onSubmit={editingTruck ? handleUpdateTruck : handleCreateTruck}
-            onCancel={() => {
-              setShowTruckForm(false);
-              setEditingTruck(null);
-            }}
-            isLoading={truckCrudLoading}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Truck Modal */}
+      <TruckModal
+        open={showTruckModal || !!editingTruck}
+        onOpenChange={(open) => {
+          if (!open) handleCloseModal();
+        }}
+        truck={editingTruck || undefined}
+        onSubmit={editingTruck ? handleUpdateTruck : handleCreateTruck}
+        isLoading={truckCrudLoading}
+      />
     </div>
   );
 };

@@ -1,10 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRoutes, RoutePoint } from "@/hooks/useRoutes";
 import { Plus, X, MapPin } from "lucide-react";
@@ -17,15 +16,25 @@ interface CreateRouteModalProps {
 const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
   const { toast } = useToast();
   const { createRoute, getAddressByCep, optimizeRoute } = useRoutes();
-  const [formData, setFormData] = useState({
-    name: '',
-    description: ''
-  });
-  const [points, setPoints] = useState<RoutePoint[]>([
+  
+  // Estado inicial
+  const initialFormData = { name: '', description: '' };
+  const initialPoints = [
     { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
     { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
-  ]);
+  ];
+
+  const [formData, setFormData] = useState(initialFormData);
+  const [points, setPoints] = useState<RoutePoint[]>(initialPoints);
   const [loading, setLoading] = useState(false);
+
+  // Limpar formulário quando modal abrir/fechar
+  useEffect(() => {
+    if (!open) {
+      setFormData(initialFormData);
+      setPoints(initialPoints);
+    }
+  }, [open]);
 
   const addWaypoint = () => {
     const newPoint: RoutePoint = {
@@ -37,11 +46,15 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
       order: points.length + 1,
       type: 'waypoint'
     };
+    // Inserir antes do último ponto (destino)
     setPoints(prev => [...prev.slice(0, -1), newPoint, prev[prev.length - 1]]);
   };
 
   const removeWaypoint = (id: string) => {
-    setPoints(prev => prev.filter(p => p.id !== id));
+    setPoints(prev => prev.filter(p => p.id !== id).map((p, index) => ({
+      ...p,
+      order: index + 1
+    })));
   };
 
   const updatePoint = (id: string, field: keyof RoutePoint, value: any) => {
@@ -108,12 +121,6 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
         description: `A rota ${formData.name} foi otimizada e está pronta para uso.`,
       });
 
-      // Reset form
-      setFormData({ name: '', description: '' });
-      setPoints([
-        { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' },
-        { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' }
-      ]);
       onOpenChange(false);
     } catch (error) {
       toast({
@@ -124,6 +131,10 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancel = () => {
+    onOpenChange(false);
   };
 
   const getPointLabel = (point: RoutePoint, index: number) => {
@@ -190,7 +201,7 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
                       variant="ghost"
                       size="sm"
                       onClick={() => removeWaypoint(point.id)}
-                      className="text-red-500 hover:text-red-700"
+                      className="text-red-500 hover:text-red-700 h-8 w-8 p-0"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -230,7 +241,7 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={handleCancel}>
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>

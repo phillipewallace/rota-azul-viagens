@@ -76,22 +76,29 @@ const Map = () => {
         zoom: 15,
         mapTypeControl: true,
         fullscreenControl: true,
-        streetViewControl: false,
+        streetViewControl: true,
         zoomControl: true,
+        mapTypeControlOptions: {
+          position: window.google.maps.ControlPosition.BOTTOM_RIGHT,
+          style: window.google.maps.MapTypeControlStyle.HORIZONTAL_BAR
+        },
+        zoomControlOptions: {
+          position: window.google.maps.ControlPosition.BOTTOM_RIGHT
+        }
       });
 
-      // Marcador da localização do usuário
+      // Marcador da localização do usuário (Base/Galpão)
       new window.google.maps.Marker({
         position: userLocation,
         map: map.current,
-        title: 'Sua localização atual',
+        title: 'Base/Galpão - AlchemyRotas',
         icon: {
           path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 12,
+          scale: 15,
           fillColor: '#4285f4',
           fillOpacity: 1,
           strokeColor: '#ffffff',
-          strokeWeight: 3
+          strokeWeight: 4
         },
       });
 
@@ -125,7 +132,7 @@ const Map = () => {
         title: truck.name,
         icon: {
           path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 10,
+          scale: 12,
           fillColor: statusColors[truck.status as keyof typeof statusColors] || '#6b7280',
           fillOpacity: 1,
           strokeColor: '#ffffff',
@@ -200,6 +207,8 @@ const Map = () => {
 
   useEffect(() => {
     getCurrentLocation();
+    const locationInterval = setInterval(getCurrentLocation, 30000);
+    return () => clearInterval(locationInterval);
   }, []);
 
   useEffect(() => {

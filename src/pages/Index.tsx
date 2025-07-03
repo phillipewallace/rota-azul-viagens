@@ -41,7 +41,7 @@ const Index = () => {
         <SheetContent side="left" className="w-80 p-0">
           <div className="flex flex-col h-full bg-gray-900 text-white">
             <div className="p-6 border-b border-gray-700">
-              <h2 className="text-xl font-bold text-blue-400">Rota Azul Viagens</h2>
+              <h2 className="text-xl font-bold text-blue-400">AlchemyRotas</h2>
               <p className="text-sm text-gray-400">Sistema de Roteirização</p>
             </div>
             

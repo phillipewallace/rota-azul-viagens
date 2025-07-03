@@ -21,6 +21,7 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:3002',
+    'http://localhost:8080',
     'https://e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com'
   ],
   credentials: true
