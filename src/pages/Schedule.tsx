@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,13 +17,14 @@ const Schedule = () => {
   const [editingSchedule, setEditingSchedule] = useState<ScheduleType | null>(null);
   const [showScheduleForm, setShowScheduleForm] = useState(false);
 
-  const { schedules, loading } = useSchedule();
+  const { schedules, loading, refetch } = useSchedule();
   const { createSchedule, updateSchedule, deleteSchedule, isLoading: scheduleCrudLoading } = useScheduleCRUD();
 
   const handleCreateSchedule = async (data: Omit<ScheduleType, 'id'>) => {
     try {
       await createSchedule(data);
       setShowScheduleForm(false);
+      refetch();
       toast({ title: 'Agendamento criado com sucesso!' });
     } catch (error) {
       toast({ title: 'Erro ao criar agendamento', variant: 'destructive' });
@@ -36,6 +36,7 @@ const Schedule = () => {
     try {
       await updateSchedule({ id: editingSchedule.id, schedule: data });
       setEditingSchedule(null);
+      refetch();
       toast({ title: 'Agendamento atualizado com sucesso!' });
     } catch (error) {
       toast({ title: 'Erro ao atualizar agendamento', variant: 'destructive' });
@@ -46,6 +47,7 @@ const Schedule = () => {
     if (confirm('Tem certeza que deseja excluir este agendamento?')) {
       try {
         await deleteSchedule(id);
+        refetch();
         toast({ title: 'Agendamento excluído com sucesso!' });
       } catch (error) {
         toast({ title: 'Erro ao excluir agendamento', variant: 'destructive' });

@@ -27,7 +27,7 @@ const fetchSchedules = async (): Promise<Schedule[]> => {
 };
 
 export const useSchedule = () => {
-  const { data: schedules = [], isLoading: loading, error } = useQuery({
+  const { data: schedules = [], isLoading: loading, error, refetch } = useQuery({
     queryKey: ['schedules'],
     queryFn: fetchSchedules,
     retry: 2,
@@ -37,5 +37,6 @@ export const useSchedule = () => {
     schedules,
     loading,
     error: error ? 'Erro ao carregar agendamentos' : null,
+    refetch,
   };
 };

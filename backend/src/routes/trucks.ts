@@ -103,6 +103,39 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Link route to truck
+router.post('/link-route', async (req, res) => {
+  try {
+    const { truckId, routeId } = req.body;
+
+    // Update truck with route
+    const truckResult = await pool.query(`
+      UPDATE trucks 
+      SET current_route_id = $1, status = 'in-route', route_started_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *
+    `, [routeId, truckId]);
+
+    if (truckResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Caminhão não encontrado' });
+    }
+
+    // Insert into truck_routes table
+    await pool.query(`
+      INSERT INTO truck_routes (truck_id, route_id, status, assigned_at)
+      VALUES ($1, $2, 'assigned', CURRENT_TIMESTAMP)
+      ON CONFLICT (truck_id, route_id) DO UPDATE SET
+        status = 'assigned',
+        assigned_at = CURRENT_TIMESTAMP
+    `, [truckId, routeId]);
+
+    res.json({ success: true, message: 'Rota vinculada com sucesso' });
+  } catch (error) {
+    console.error('Error linking route to truck:', error);
+    res.status(500).json({ error: 'Erro ao vincular rota' });
+  }
+});
+
 // Delete truck
 router.delete('/:id', async (req, res) => {
   try {

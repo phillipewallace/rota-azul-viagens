@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useTrucks } from '@/hooks/useTrucks';
+import { useRoutes } from '@/hooks/useRoutes';
 
 interface LinkRouteModalProps {
   open: boolean;
@@ -15,37 +17,56 @@ const LinkRouteModal = ({ open, onOpenChange }: LinkRouteModalProps) => {
   const { toast } = useToast();
   const [selectedTruck, setSelectedTruck] = useState('');
   const [selectedRoute, setSelectedRoute] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const trucks = [
-    { id: '1', name: 'Caminhão 001', status: 'Disponível' },
-    { id: '2', name: 'Caminhão 002', status: 'Em rota' },
-    { id: '3', name: 'Caminhão 003', status: 'Disponível' },
-    { id: '4', name: 'Caminhão 004', status: 'Manutenção' }
-  ];
+  const { trucks, loading: trucksLoading } = useTrucks();
+  const { routes, loading: routesLoading } = useRoutes();
 
-  const routes = [
-    { id: '1', name: 'Rota SP-RJ', distance: '450 km', time: '6h 30min' },
-    { id: '2', name: 'Rota SP-MG', distance: '320 km', time: '4h 45min' },
-    { id: '3', name: 'Rota SP-PR', distance: '280 km', time: '4h 15min' },
-    { id: '4', name: 'Rota RJ-ES', distance: '180 km', time: '2h 30min' }
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTruck || !selectedRoute) return;
 
-    const truck = trucks.find(t => t.id === selectedTruck);
-    const route = routes.find(r => r.id === selectedRoute);
+    setIsLoading(true);
+    try {
+      // Fazer a requisição para vincular rota ao caminhão
+      const response = await fetch('http://localhost:3001/api/trucks/link-route', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          truckId: selectedTruck,
+          routeId: selectedRoute,
+        }),
+      });
 
-    toast({
-      title: "Rota vinculada com sucesso!",
-      description: `${truck?.name} foi vinculado à ${route?.name}. O veículo está pronto para iniciar a jornada.`,
-    });
+      if (!response.ok) {
+        throw new Error('Erro ao vincular rota');
+      }
 
-    setSelectedTruck('');
-    setSelectedRoute('');
-    onOpenChange(false);
+      const truck = trucks.find(t => t.id === selectedTruck);
+      const route = routes.find(r => r.id === selectedRoute);
+
+      toast({
+        title: "Rota vinculada com sucesso!",
+        description: `${truck?.name} foi vinculado à ${route?.name}. O veículo está pronto para iniciar a jornada.`,
+      });
+
+      setSelectedTruck('');
+      setSelectedRoute('');
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "Erro ao vincular rota",
+        description: "Tente novamente ou verifique se os dados estão corretos.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const availableTrucks = trucks.filter(truck => truck.status === 'available');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -57,21 +78,17 @@ const LinkRouteModal = ({ open, onOpenChange }: LinkRouteModalProps) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <Label htmlFor="truck">Selecionar Caminhão</Label>
-            <Select value={selectedTruck} onValueChange={setSelectedTruck}>
+            <Select value={selectedTruck} onValueChange={setSelectedTruck} disabled={trucksLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Escolha um caminhão" />
+                <SelectValue placeholder={trucksLoading ? "Carregando..." : "Escolha um caminhão"} />
               </SelectTrigger>
               <SelectContent>
-                {trucks.map((truck) => (
+                {availableTrucks.map((truck) => (
                   <SelectItem key={truck.id} value={truck.id}>
                     <div className="flex items-center justify-between w-full">
-                      <span>{truck.name}</span>
-                      <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                        truck.status === 'Disponível' ? 'bg-green-100 text-green-800' :
-                        truck.status === 'Em rota' ? 'bg-blue-100 text-blue-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {truck.status}
+                      <span>{truck.name} - {truck.plate}</span>
+                      <span className="ml-2 px-2 py-1 rounded text-xs bg-green-100 text-green-800">
+                        {truck.status === 'available' ? 'Disponível' : truck.status}
                       </span>
                     </div>
                   </SelectItem>
@@ -82,16 +99,18 @@ const LinkRouteModal = ({ open, onOpenChange }: LinkRouteModalProps) => {
 
           <div>
             <Label htmlFor="route">Selecionar Rota</Label>
-            <Select value={selectedRoute} onValueChange={setSelectedRoute}>
+            <Select value={selectedRoute} onValueChange={setSelectedRoute} disabled={routesLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Escolha uma rota" />
+                <SelectValue placeholder={routesLoading ? "Carregando..." : "Escolha uma rota"} />
               </SelectTrigger>
               <SelectContent>
                 {routes.map((route) => (
                   <SelectItem key={route.id} value={route.id}>
                     <div className="flex flex-col">
                       <span className="font-medium">{route.name}</span>
-                      <span className="text-sm text-gray-500">{route.distance} • {route.time}</span>
+                      <span className="text-sm text-gray-500">
+                        {route.points?.length || 0} pontos • {route.totalDistance?.toFixed(1)}km
+                      </span>
                     </div>
                   </SelectItem>
                 ))}
@@ -100,11 +119,11 @@ const LinkRouteModal = ({ open, onOpenChange }: LinkRouteModalProps) => {
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={!selectedTruck || !selectedRoute}>
-              Vincular Rota
+            <Button type="submit" disabled={!selectedTruck || !selectedRoute || isLoading}>
+              {isLoading ? 'Vinculando...' : 'Vincular Rota'}
             </Button>
           </div>
         </form>

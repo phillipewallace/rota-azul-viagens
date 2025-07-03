@@ -18,13 +18,25 @@ router.get('/cep/:cep', async (req, res) => {
 
     const address = `${viaCepData.logradouro}, ${viaCepData.bairro}, ${viaCepData.localidade}, ${viaCepData.uf}, Brasil`;
     
-    // Aqui você pode integrar com Google Maps para obter coordenadas
-    // Por agora, retornando dados básicos
+    // Use Google Maps Geocoding API para obter coordenadas
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
+    const geocodeResponse = await fetch(geocodeUrl);
+    const geocodeData = await geocodeResponse.json();
+    
+    let lat = -23.5505; // Coordenadas padrão (São Paulo)
+    let lng = -46.6333;
+    
+    if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
+      const location = geocodeData.results[0].geometry.location;
+      lat = location.lat;
+      lng = location.lng;
+    }
+
     res.json({
       address: address,
       cep: cep,
-      lat: -23.5505, // Coordenadas padrão (São Paulo)
-      lng: -46.6333
+      lat: lat,
+      lng: lng
     });
   } catch (error) {
     console.error('Error fetching address by CEP:', error);
@@ -41,17 +53,52 @@ router.post('/optimize', async (req, res) => {
       return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
     }
 
-    // Simulação de otimização - em produção, usar Google Maps Directions API
-    const optimizedOrder = points.map((_: any, index: number) => index.toString());
-    const totalDistance = points.length * 10; // Distância simulada
-    const estimatedTime = `${Math.floor(totalDistance / 60)}h ${totalDistance % 60}min`;
+    const origin = points.find((p: any) => p.type === 'origin') || points[0];
+    const destination = points.find((p: any) => p.type === 'destination') || points[points.length - 1];
+    const waypoints = points.filter((p: any) => p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id));
 
-    res.json({
-      optimizedOrder,
-      totalDistance,
-      estimatedTime,
-      routes: []
-    });
+    const waypointsParam = waypoints.length > 0 
+      ? `&waypoints=optimize:true|${waypoints.map((p: any) => `${p.lat},${p.lng}`).join('|')}`
+      : '';
+
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${waypointsParam}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.routes.length > 0) {
+      const route = data.routes[0];
+      const totalDistance = route.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0) / 1000;
+      const totalDuration = route.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
+      const hours = Math.floor(totalDuration / 3600);
+      const minutes = Math.floor((totalDuration % 3600) / 60);
+      const estimatedTime = `${hours}h ${minutes}min`;
+
+      let optimizedOrder = [origin.id];
+      if (route.waypoint_order && route.waypoint_order.length > 0) {
+        optimizedOrder.push(...route.waypoint_order.map((index: number) => waypoints[index].id));
+      }
+      optimizedOrder.push(destination.id);
+
+      res.json({
+        optimizedOrder,
+        totalDistance,
+        estimatedTime,
+        routes: [route]
+      });
+    } else {
+      // Fallback para quando não há rota disponível
+      const optimizedOrder = points.map((_: any, index: number) => index.toString());
+      const totalDistance = points.length * 10; // Distância simulada
+      const estimatedTime = `${Math.floor(totalDistance / 60)}h ${totalDistance % 60}min`;
+
+      res.json({
+        optimizedOrder,
+        totalDistance,
+        estimatedTime,
+        routes: []
+      });
+    }
   } catch (error) {
     console.error('Error optimizing route:', error);
     res.status(500).json({ error: 'Erro ao otimizar rota' });

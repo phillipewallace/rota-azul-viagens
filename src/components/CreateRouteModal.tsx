@@ -11,30 +11,51 @@ import { Plus, X, MapPin } from "lucide-react";
 interface CreateRouteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  editingRoute?: any;
 }
 
-const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
+const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModalProps) => {
   const { toast } = useToast();
   const { createRoute, getAddressByCep, optimizeRoute } = useRoutes();
   
   // Estado inicial
-  const initialFormData = { name: '', description: '' };
-  const initialPoints = [
-    { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
-    { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
-  ];
+  const getInitialFormData = () => ({
+    name: editingRoute?.name || '',
+    description: editingRoute?.description || ''
+  });
 
-  const [formData, setFormData] = useState(initialFormData);
-  const [points, setPoints] = useState<RoutePoint[]>(initialPoints);
+  const getInitialPoints = () => {
+    if (editingRoute?.points && editingRoute.points.length > 0) {
+      return editingRoute.points.map((point: any, index: number) => ({
+        ...point,
+        id: point.id || (index + 1).toString(),
+        order: index + 1
+      }));
+    }
+    return [
+      { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
+      { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
+    ];
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData);
+  const [points, setPoints] = useState<RoutePoint[]>(getInitialPoints);
   const [loading, setLoading] = useState(false);
 
-  // Limpar formulário quando modal abrir/fechar
+  // Limpar/resetar formulário quando modal abrir/fechar
   useEffect(() => {
-    if (!open) {
-      setFormData(initialFormData);
-      setPoints(initialPoints);
+    if (open) {
+      setFormData(getInitialFormData());
+      setPoints(getInitialPoints());
+    } else {
+      // Limpar quando fechar
+      setFormData({ name: '', description: '' });
+      setPoints([
+        { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
+        { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
+      ]);
     }
-  }, [open]);
+  }, [open, editingRoute]);
 
   const addWaypoint = () => {
     const newPoint: RoutePoint = {
@@ -43,18 +64,31 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
       cep: '',
       lat: 0,
       lng: 0,
-      order: points.length + 1,
+      order: points.length,
       type: 'waypoint'
     };
     // Inserir antes do último ponto (destino)
-    setPoints(prev => [...prev.slice(0, -1), newPoint, prev[prev.length - 1]]);
+    const newPoints = [...points];
+    newPoints.splice(-1, 0, newPoint);
+    // Reordenar
+    const reorderedPoints = newPoints.map((p, index) => ({ ...p, order: index + 1 }));
+    setPoints(reorderedPoints);
   };
 
   const removeWaypoint = (id: string) => {
-    setPoints(prev => prev.filter(p => p.id !== id).map((p, index) => ({
-      ...p,
-      order: index + 1
-    })));
+    const pointToRemove = points.find(p => p.id === id);
+    if (pointToRemove && (pointToRemove.type === 'origin' || pointToRemove.type === 'destination')) {
+      toast({
+        title: "Não é possível remover",
+        description: "Não é possível remover o ponto de origem ou destino.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const filteredPoints = points.filter(p => p.id !== id);
+    const reorderedPoints = filteredPoints.map((p, index) => ({ ...p, order: index + 1 }));
+    setPoints(reorderedPoints);
   };
 
   const updatePoint = (id: string, field: keyof RoutePoint, value: any) => {
@@ -101,7 +135,7 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
     try {
       setLoading(true);
       
-      // Otimiza a rota antes de criar
+      // Otimiza a rota antes de criar/atualizar
       const optimizedData = await optimizeRoute(points);
       
       const routeData = {
@@ -117,14 +151,14 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
       await createRoute(routeData);
       
       toast({
-        title: "Rota criada com sucesso!",
-        description: `A rota ${formData.name} foi otimizada e está pronta para uso.`,
+        title: editingRoute ? "Rota atualizada com sucesso!" : "Rota criada com sucesso!",
+        description: `A rota ${formData.name} foi ${editingRoute ? 'atualizada' : 'otimizada'} e está pronta para uso.`,
       });
 
       onOpenChange(false);
     } catch (error) {
       toast({
-        title: "Erro ao criar rota",
+        title: editingRoute ? "Erro ao atualizar rota" : "Erro ao criar rota",
         description: "Tente novamente ou verifique os dados inseridos.",
         variant: "destructive"
       });
@@ -147,7 +181,9 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Criar Nova Rota Multi-pontos</DialogTitle>
+          <DialogTitle>
+            {editingRoute ? 'Editar Rota Multi-pontos' : 'Criar Nova Rota Multi-pontos'}
+          </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -245,7 +281,7 @@ const CreateRouteModal = ({ open, onOpenChange }: CreateRouteModalProps) => {
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Processando...' : 'Criar e Otimizar Rota'}
+              {loading ? 'Processando...' : (editingRoute ? 'Atualizar Rota' : 'Criar e Otimizar Rota')}
             </Button>
           </div>
         </form>

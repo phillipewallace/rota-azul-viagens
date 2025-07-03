@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Schedule } from '@/hooks/useSchedule';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useDrivers } from '@/hooks/useDrivers';
+import { useRoutes } from '@/hooks/useRoutes';
 
 interface ScheduleFormProps {
   schedule?: Schedule;
@@ -20,6 +21,7 @@ interface ScheduleFormProps {
 export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: ScheduleFormProps) => {
   const { trucks } = useTrucks();
   const { drivers } = useDrivers();
+  const { routes } = useRoutes();
   
   const { register, handleSubmit, setValue, watch } = useForm<Omit<Schedule, 'id'>>({
     defaultValues: schedule ? {
@@ -48,6 +50,7 @@ export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: Schedu
   const status = watch('status');
   const selectedTruckId = watch('truckId');
   const selectedDriverId = watch('driverId');
+  const selectedRoute = watch('route');
 
   const handleTruckChange = (truckId: string) => {
     const truck = trucks.find(t => t.id === truckId);
@@ -63,6 +66,10 @@ export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: Schedu
       setValue('driverId', driverId);
       setValue('driver', driver.name);
     }
+  };
+
+  const handleRouteChange = (routeName: string) => {
+    setValue('route', routeName);
   };
 
   return (
@@ -101,7 +108,18 @@ export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: Schedu
 
       <div>
         <Label htmlFor="route">Rota</Label>
-        <Input {...register('route', { required: true })} placeholder="Ex: SP → RJ" />
+        <Select value={selectedRoute} onValueChange={handleRouteChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione uma rota" />
+          </SelectTrigger>
+          <SelectContent>
+            {routes.map((route) => (
+              <SelectItem key={route.id} value={route.name}>
+                {route.name} - {route.points?.length || 0} pontos
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
