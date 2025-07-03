@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, MapPin, Navigation, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import { RouteForm } from '@/components/RouteForm';
@@ -10,6 +12,7 @@ import CreateRouteModal from '@/components/CreateRouteModal';
 import { toast } from 'sonner';
 
 const Routes = () => {
+  const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
@@ -72,9 +75,20 @@ const Routes = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Rotas</h1>
-            <p className="text-gray-600 mt-2">Gerencie as rotas do sistema</p>
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Rotas</h1>
+              <p className="text-gray-600 mt-2">Gerencie as rotas do sistema</p>
+            </div>
           </div>
           <div className="flex gap-3">
             <Button 

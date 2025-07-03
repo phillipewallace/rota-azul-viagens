@@ -1,43 +1,57 @@
 
 import express from 'express';
 import cors from 'cors';
-import { setupDatabase } from './config/database';
-import trucksRoutes from './routes/trucks';
-import routesRoutes from './routes/routes';
-import driversRoutes from './routes/drivers';
-import schedulesRoutes from './routes/schedules';
-import maintenanceRoutes from './routes/maintenance';
-import geocodingRoutes from './routes/geocoding';
-import reportsRoutes from './routes/reports';
-import mobileRoutes from './routes/mobile';
+import { pool, createTables } from './config/database';
+
+// Import routes
+import trucksRouter from './routes/trucks';
+import driversRouter from './routes/drivers';
+import routesRouter from './routes/routes';
+import reportsRouter from './routes/reports';
+import maintenanceRouter from './routes/maintenance';
+import schedulesRouter from './routes/schedules';
+import geocodingRouter from './routes/geocoding';
+import mobileRouter from './routes/mobile';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3002',
+    'https://e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com'
+  ],
+  credentials: true
+}));
+
 app.use(express.json());
 
-// Test route
+// Routes
+app.use('/api/trucks', trucksRouter);
+app.use('/api/drivers', driversRouter);
+app.use('/api/routes', routesRouter);
+app.use('/api/reports', reportsRouter);
+app.use('/api/maintenance', maintenanceRouter);
+app.use('/api/schedules', schedulesRouter);
+app.use('/api/geocoding', geocodingRouter);
+app.use('/api/mobile', mobileRouter);
+
+// Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Rota Azul API funcionando!' });
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    database: 'connected'
+  });
 });
 
-// Routes
-app.use('/api/trucks', trucksRoutes);
-app.use('/api/routes', routesRoutes);
-app.use('/api/drivers', driversRoutes);
-app.use('/api/schedules', schedulesRoutes);
-app.use('/api/maintenance', maintenanceRoutes);
-app.use('/api/geocoding', geocodingRoutes);
-app.use('/api/reports', reportsRoutes);
-app.use('/api/mobile', mobileRoutes);
-
-// Initialize database and start server
+// Start server
 const startServer = async () => {
   try {
     console.log('🔧 Configurando banco de dados...');
-    await setupDatabase();
+    await createTables();
     console.log('✅ Banco de dados configurado com sucesso!');
     
     app.listen(PORT, () => {

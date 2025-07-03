@@ -8,7 +8,7 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, name, phone, email, license, status, current_route, total_trips
+      SELECT id, name, phone, email, license_number, status, current_route, total_trips
       FROM drivers
       ORDER BY name
     `);
@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
     const { name, license, phone, email, status, currentRoute } = req.body;
 
     const result = await pool.query(`
-      INSERT INTO drivers (name, license, phone, email, status, current_route, total_trips)
+      INSERT INTO drivers (name, license_number, phone, email, status, current_route, total_trips)
       VALUES ($1, $2, $3, $4, $5, $6, 0)
       RETURNING *
     `, [name, license, phone, email, status || 'available', currentRoute]);
@@ -37,7 +37,7 @@ router.post('/', async (req, res) => {
       name: driver.name,
       phone: driver.phone,
       email: driver.email,
-      license: driver.license,
+      license: driver.license_number,
       status: driver.status,
       currentRoute: driver.current_route,
       totalTrips: driver.total_trips
@@ -57,7 +57,7 @@ router.put('/:id', async (req, res) => {
     const result = await pool.query(`
       UPDATE drivers 
       SET name = COALESCE($1, name),
-          license = COALESCE($2, license),
+          license_number = COALESCE($2, license_number),
           phone = COALESCE($3, phone),
           email = COALESCE($4, email),
           status = COALESCE($5, status),
@@ -76,7 +76,7 @@ router.put('/:id', async (req, res) => {
       name: driver.name,
       phone: driver.phone,
       email: driver.email,
-      license: driver.license,
+      license: driver.license_number,
       status: driver.status,
       currentRoute: driver.current_route,
       totalTrips: driver.total_trips

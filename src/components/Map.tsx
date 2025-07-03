@@ -35,6 +35,7 @@ const Map = () => {
       (error) => {
         console.error('❌ Erro GPS:', error);
         setLocationError('Erro ao obter localização GPS');
+        // Fallback para São Paulo se não conseguir obter localização
         setUserLocation({ lat: -23.5505, lng: -46.6333 });
       },
       {
@@ -45,35 +46,31 @@ const Map = () => {
     );
   };
 
-  const initializeMap = () => {
-    if (!mapContainer.current || !userLocation || mapLoaded) return;
+  const loadGoogleMapsScript = () => {
+    return new Promise<void>((resolve, reject) => {
+      if (window.google && window.google.maps) {
+        resolve();
+        return;
+      }
 
-    if (window.google) {
-      createMap();
-      return;
-    }
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Erro ao carregar Google Maps'));
 
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/js/v3/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry`;
-    script.async = true;
-    script.defer = true;
-    
-    script.onload = () => {
-      createMap();
-    };
-
-    script.onerror = () => {
-      console.error('❌ Erro ao carregar Google Maps API');
-      setLocationError('Erro ao carregar o mapa');
-    };
-
-    document.head.appendChild(script);
+      document.head.appendChild(script);
+    });
   };
 
-  const createMap = () => {
-    if (!mapContainer.current || !userLocation || !window.google) return;
+  const initializeMap = async () => {
+    if (!mapContainer.current || !userLocation || mapLoaded) return;
 
     try {
+      await loadGoogleMapsScript();
+      
       map.current = new window.google.maps.Map(mapContainer.current, {
         center: userLocation,
         zoom: 15,
@@ -102,8 +99,8 @@ const Map = () => {
       console.log('🗺️ Mapa inicializado com sucesso');
       updateMapMarkers();
     } catch (error) {
-      console.error('❌ Erro ao criar mapa:', error);
-      setLocationError('Erro ao inicializar o mapa');
+      console.error('❌ Erro ao inicializar mapa:', error);
+      setLocationError('Erro ao carregar o mapa');
     }
   };
 
@@ -177,7 +174,7 @@ const Map = () => {
         map: map.current
       });
 
-      validPoints.forEach((point, index) => {
+      validPoints.forEach((point) => {
         const pointColors = {
           origin: '#10b981',
           destination: '#ef4444',
