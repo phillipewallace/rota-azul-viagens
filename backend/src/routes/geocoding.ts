@@ -44,7 +44,7 @@ router.get('/cep/:cep', async (req, res) => {
   }
 });
 
-// Optimize route
+// Optimize route - Melhorada com TSP (Traveling Salesman Problem)
 router.post('/optimize', async (req, res) => {
   try {
     const { points } = req.body;
@@ -53,30 +53,51 @@ router.post('/optimize', async (req, res) => {
       return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
     }
 
+    // Identificar origem e destino
     const origin = points.find((p: any) => p.type === 'origin') || points[0];
     const destination = points.find((p: any) => p.type === 'destination') || points[points.length - 1];
     const waypoints = points.filter((p: any) => p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id));
 
-    const waypointsParam = waypoints.length > 0 
-      ? `&waypoints=optimize:true|${waypoints.map((p: any) => `${p.lat},${p.lng}`).join('|')}`
-      : '';
+    let optimizedRoute;
+    let totalDistance = 0;
+    let totalDuration = 0;
 
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${waypointsParam}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
+    // Se temos waypoints, otimizar a rota
+    if (waypoints.length > 0) {
+      const waypointsParam = `optimize:true|${waypoints.map((p: any) => `${p.lat},${p.lng}`).join('|')}`;
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&waypoints=${waypointsParam}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
 
-    const response = await fetch(url);
-    const data = await response.json();
+      const response = await fetch(url);
+      const data = await response.json();
 
-    if (data.status === 'OK' && data.routes.length > 0) {
-      const route = data.routes[0];
-      const totalDistance = route.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0) / 1000;
-      const totalDuration = route.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
+      if (data.status === 'OK' && data.routes.length > 0) {
+        optimizedRoute = data.routes[0];
+        totalDistance = optimizedRoute.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0) / 1000;
+        totalDuration = optimizedRoute.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
+      }
+    } else {
+      // Rota simples entre dois pontos
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.routes.length > 0) {
+        optimizedRoute = data.routes[0];
+        totalDistance = optimizedRoute.legs[0].distance.value / 1000;
+        totalDuration = optimizedRoute.legs[0].duration.value;
+      }
+    }
+
+    if (optimizedRoute) {
       const hours = Math.floor(totalDuration / 3600);
       const minutes = Math.floor((totalDuration % 3600) / 60);
       const estimatedTime = `${hours}h ${minutes}min`;
 
+      // Criar ordem otimizada
       let optimizedOrder = [origin.id];
-      if (route.waypoint_order && route.waypoint_order.length > 0) {
-        optimizedOrder.push(...route.waypoint_order.map((index: number) => waypoints[index].id));
+      if (optimizedRoute.waypoint_order && optimizedRoute.waypoint_order.length > 0) {
+        optimizedOrder.push(...optimizedRoute.waypoint_order.map((index: number) => waypoints[index].id));
       }
       optimizedOrder.push(destination.id);
 
@@ -84,19 +105,20 @@ router.post('/optimize', async (req, res) => {
         optimizedOrder,
         totalDistance,
         estimatedTime,
-        routes: [route]
+        routes: [optimizedRoute],
+        polyline: optimizedRoute.overview_polyline.points
       });
     } else {
       // Fallback para quando não há rota disponível
-      const optimizedOrder = points.map((_: any, index: number) => index.toString());
-      const totalDistance = points.length * 10; // Distância simulada
-      const estimatedTime = `${Math.floor(totalDistance / 60)}h ${totalDistance % 60}min`;
+      const estimatedDistance = points.length * 10;
+      const estimatedTime = `${Math.floor(estimatedDistance / 60)}h ${estimatedDistance % 60}min`;
 
       res.json({
-        optimizedOrder,
-        totalDistance,
+        optimizedOrder: points.map((p: any) => p.id),
+        totalDistance: estimatedDistance,
         estimatedTime,
-        routes: []
+        routes: [],
+        polyline: null
       });
     }
   } catch (error) {

@@ -1,17 +1,14 @@
-
 import express from 'express';
 import cors from 'cors';
 import { pool, createTables } from './config/database';
 
 // Import routes
-import trucksRouter from './routes/trucks';
-import driversRouter from './routes/drivers';
-import routesRouter from './routes/routes';
-import reportsRouter from './routes/reports';
-import maintenanceRouter from './routes/maintenance';
-import schedulesRouter from './routes/schedules';
-import geocodingRouter from './routes/geocoding';
-import mobileRouter from './routes/mobile';
+import driverRoutes from './routes/drivers';
+import truckRoutes from './routes/trucks';
+import routeRoutes from './routes/routes';
+import scheduleRoutes from './routes/schedules';
+import geocodingRoutes from './routes/geocoding';
+import mobileRoutes from './routes/mobile';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,14 +27,12 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
-app.use('/api/trucks', trucksRouter);
-app.use('/api/drivers', driversRouter);
-app.use('/api/routes', routesRouter);
-app.use('/api/reports', reportsRouter);
-app.use('/api/maintenance', maintenanceRouter);
-app.use('/api/schedules', schedulesRouter);
-app.use('/api/geocoding', geocodingRouter);
-app.use('/api/mobile', mobileRouter);
+app.use('/api/drivers', driverRoutes);
+app.use('/api/trucks', truckRoutes);
+app.use('/api/routes', routeRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/geocoding', geocodingRoutes);
+app.use('/api/mobile', mobileRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

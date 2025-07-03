@@ -18,42 +18,41 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
   const { toast } = useToast();
   const { createRoute, getAddressByCep, optimizeRoute } = useRoutes();
   
-  // Estado inicial
-  const getInitialFormData = () => ({
-    name: editingRoute?.name || '',
-    description: editingRoute?.description || ''
+  const [formData, setFormData] = useState({
+    name: '',
+    description: ''
   });
-
-  const getInitialPoints = () => {
-    if (editingRoute?.points && editingRoute.points.length > 0) {
-      return editingRoute.points.map((point: any, index: number) => ({
-        ...point,
-        id: point.id || (index + 1).toString(),
-        order: index + 1
-      }));
-    }
-    return [
-      { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
-      { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
-    ];
-  };
-
-  const [formData, setFormData] = useState(getInitialFormData);
-  const [points, setPoints] = useState<RoutePoint[]>(getInitialPoints);
+  
+  const [points, setPoints] = useState<RoutePoint[]>([
+    { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
+    { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
+  ]);
+  
   const [loading, setLoading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
 
-  // Limpar/resetar formulário quando modal abrir/fechar
+  // Reset form when modal opens/closes
   useEffect(() => {
     if (open) {
-      setFormData(getInitialFormData());
-      setPoints(getInitialPoints());
-    } else {
-      // Limpar quando fechar
-      setFormData({ name: '', description: '' });
-      setPoints([
-        { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
-        { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
-      ]);
+      if (editingRoute) {
+        setFormData({
+          name: editingRoute.name || '',
+          description: editingRoute.description || ''
+        });
+        setPoints(editingRoute.points || [
+          { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
+          { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
+        ]);
+      } else {
+        setFormData({ name: '', description: '' });
+        setPoints([
+          { id: '1', address: '', cep: '', lat: 0, lng: 0, order: 1, type: 'origin' as const },
+          { id: '2', address: '', cep: '', lat: 0, lng: 0, order: 2, type: 'destination' as const }
+        ]);
+      }
+      setShowPreview(false);
+      setPreviewData(null);
     }
   }, [open, editingRoute]);
 
@@ -67,10 +66,8 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
       order: points.length,
       type: 'waypoint'
     };
-    // Inserir antes do último ponto (destino)
     const newPoints = [...points];
     newPoints.splice(-1, 0, newPoint);
-    // Reordenar
     const reorderedPoints = newPoints.map((p, index) => ({ ...p, order: index + 1 }));
     setPoints(reorderedPoints);
   };
@@ -120,9 +117,7 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleOptimizeAndPreview = async () => {
     if (!formData.name || points.some(p => !p.address)) {
       toast({
         title: "Dados incompletos",
@@ -134,31 +129,17 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
 
     try {
       setLoading(true);
-      
-      // Otimiza a rota antes de criar/atualizar
       const optimizedData = await optimizeRoute(points);
-      
-      const routeData = {
+      setPreviewData({
+        ...optimizedData,
         name: formData.name,
         description: formData.description,
-        points: points,
-        totalDistance: optimizedData.totalDistance,
-        estimatedTime: optimizedData.estimatedTime,
-        optimizedOrder: optimizedData.optimizedOrder,
-        status: 'active' as const
-      };
-
-      await createRoute(routeData);
-      
-      toast({
-        title: editingRoute ? "Rota atualizada com sucesso!" : "Rota criada com sucesso!",
-        description: `A rota ${formData.name} foi ${editingRoute ? 'atualizada' : 'otimizada'} e está pronta para uso.`,
+        points: points
       });
-
-      onOpenChange(false);
+      setShowPreview(true);
     } catch (error) {
       toast({
-        title: editingRoute ? "Erro ao atualizar rota" : "Erro ao criar rota",
+        title: "Erro ao otimizar rota",
         description: "Tente novamente ou verifique os dados inseridos.",
         variant: "destructive"
       });
@@ -167,8 +148,39 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
     }
   };
 
-  const handleCancel = () => {
-    onOpenChange(false);
+  const handleCreateRoute = async () => {
+    if (!previewData) return;
+
+    try {
+      setLoading(true);
+      
+      const routeData = {
+        name: previewData.name,
+        description: previewData.description,
+        points: previewData.points,
+        totalDistance: previewData.totalDistance,
+        estimatedTime: previewData.estimatedTime,
+        optimizedOrder: previewData.optimizedOrder,
+        status: 'active' as const
+      };
+
+      await createRoute(routeData);
+      
+      toast({
+        title: "Rota criada com sucesso!",
+        description: `A rota ${previewData.name} foi otimizada e está pronta para uso.`,
+      });
+
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "Erro ao criar rota",
+        description: "Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getPointLabel = (point: RoutePoint, index: number) => {
@@ -177,16 +189,84 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
     return `Ponto ${index}`;
   };
 
+  if (showPreview && previewData) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Prévia da Rota Otimizada</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-semibold text-lg">{previewData.name}</h3>
+                {previewData.description && (
+                  <p className="text-gray-600">{previewData.description}</p>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-gray-600">Distância Total</div>
+                <div className="text-xl font-bold text-blue-600">{previewData.totalDistance.toFixed(2)} km</div>
+                <div className="text-sm text-gray-600">Tempo Estimado</div>
+                <div className="text-lg font-semibold text-green-600">{previewData.estimatedTime}</div>
+              </div>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-3">Sequência Otimizada:</h4>
+              <div className="space-y-2">
+                {previewData.points
+                  .sort((a: any, b: any) => a.order - b.order)
+                  .map((point: any, index: number) => (
+                  <div key={point.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                      point.type === 'origin' ? 'bg-green-500' :
+                      point.type === 'destination' ? 'bg-red-500' : 'bg-blue-500'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{point.address}</p>
+                      <p className="text-xs text-gray-600 capitalize">{point.type}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowPreview(false)}
+              >
+                Voltar para Edição
+              </Button>
+              <Button 
+                onClick={handleCreateRoute}
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {loading ? 'Criando...' : 'Criar Rota'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {editingRoute ? 'Editar Rota Multi-pontos' : 'Criar Nova Rota Multi-pontos'}
+            {editingRoute ? 'Editar Rota' : 'Criar Nova Rota'}
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="name">Nome da Rota *</Label>
@@ -277,14 +357,22 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={handleCancel}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Processando...' : (editingRoute ? 'Atualizar Rota' : 'Criar e Otimizar Rota')}
+            <Button 
+              onClick={handleOptimizeAndPreview}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? 'Otimizando...' : 'Otimizar e Visualizar'}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

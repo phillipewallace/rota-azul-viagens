@@ -8,20 +8,22 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT s.*, t.name as truck_name, d.name as driver_name
+      SELECT s.*, t.name as truck_name, t.plate as truck_plate,
+             d.name as driver_name, r.name as route_name
       FROM schedules s
-      LEFT JOIN trucks t ON s.truck_id = t.id
-      LEFT JOIN drivers d ON s.driver_id = d.id
-      ORDER BY s.scheduled_date DESC, s.scheduled_time ASC
+      LEFT JOIN trucks t ON s.truck_id::text = t.id::text
+      LEFT JOIN drivers d ON s.driver_id::text = d.id::text
+      LEFT JOIN routes r ON s.route_name = r.name
+      ORDER BY s.scheduled_date DESC, s.scheduled_time DESC
     `);
 
     const schedules = result.rows.map(row => ({
       id: row.id,
       truckId: row.truck_id,
-      truck: row.truck_name || 'N/A',
-      route: row.route,
+      truck: row.truck_name,
+      route: row.route_name,
       driverId: row.driver_id,
-      driver: row.driver_name || 'N/A',
+      driver: row.driver_name,
       scheduledDate: row.scheduled_date,
       scheduledTime: row.scheduled_time,
       status: row.status,
@@ -41,23 +43,22 @@ router.post('/', async (req, res) => {
     const { truckId, truck, route, driverId, driver, scheduledDate, scheduledTime, status, notes } = req.body;
 
     const result = await pool.query(`
-      INSERT INTO schedules (truck_id, route, driver_id, scheduled_date, scheduled_time, status, notes)
+      INSERT INTO schedules (truck_id, route_name, driver_id, scheduled_date, scheduled_time, status, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `, [truckId, route, driverId, scheduledDate, scheduledTime, status || 'scheduled', notes]);
 
-    const schedule = result.rows[0];
     res.json({
-      id: schedule.id,
-      truckId: schedule.truck_id,
-      truck: truck,
-      route: schedule.route,
-      driverId: schedule.driver_id,
-      driver: driver,
-      scheduledDate: schedule.scheduled_date,
-      scheduledTime: schedule.scheduled_time,
-      status: schedule.status,
-      notes: schedule.notes
+      id: result.rows[0].id,
+      truckId: result.rows[0].truck_id,
+      truck,
+      route,
+      driverId: result.rows[0].driver_id,
+      driver,
+      scheduledDate: result.rows[0].scheduled_date,
+      scheduledTime: result.rows[0].scheduled_time,
+      status: result.rows[0].status,
+      notes: result.rows[0].notes
     });
   } catch (error) {
     console.error('Error creating schedule:', error);
@@ -69,12 +70,12 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { truckId, truck, route, driverId, driver, scheduledDate, scheduledTime, status, notes } = req.body;
+    const { truckId, route, driverId, scheduledDate, scheduledTime, status, notes } = req.body;
 
     const result = await pool.query(`
       UPDATE schedules 
       SET truck_id = COALESCE($1, truck_id),
-          route = COALESCE($2, route),
+          route_name = COALESCE($2, route_name),
           driver_id = COALESCE($3, driver_id),
           scheduled_date = COALESCE($4, scheduled_date),
           scheduled_time = COALESCE($5, scheduled_time),
@@ -88,19 +89,7 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Agendamento não encontrado' });
     }
 
-    const schedule = result.rows[0];
-    res.json({
-      id: schedule.id,
-      truckId: schedule.truck_id,
-      truck: truck,
-      route: schedule.route,
-      driverId: schedule.driver_id,
-      driver: driver,
-      scheduledDate: schedule.scheduled_date,
-      scheduledTime: schedule.scheduled_time,
-      status: schedule.status,
-      notes: schedule.notes
-    });
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating schedule:', error);
     res.status(500).json({ error: 'Erro ao atualizar agendamento' });

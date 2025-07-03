@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -8,10 +7,15 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, name, plate, model, year, status, current_route_id, driver_id, 
-             last_maintenance, mileage, location_lat, location_lng
-      FROM trucks
-      ORDER BY name
+      SELECT t.id, t.name, t.plate, t.model, t.year, t.status, 
+             t.current_route_id, t.driver_id, t.last_maintenance, 
+             t.mileage, t.location_lat, t.location_lng,
+             d.name as driver_name,
+             r.name as route_name
+      FROM trucks t
+      LEFT JOIN drivers d ON t.driver_id::text = d.id::text
+      LEFT JOIN routes r ON t.current_route_id::text = r.id::text
+      ORDER BY t.name
     `);
 
     const trucks = result.rows.map(row => ({
@@ -22,13 +26,15 @@ router.get('/', async (req, res) => {
       year: row.year,
       status: row.status,
       currentRoute: row.current_route_id,
+      currentRouteName: row.route_name,
       driver: row.driver_id,
+      driverName: row.driver_name,
       lastMaintenance: row.last_maintenance,
       mileage: row.mileage,
       location: row.location_lat && row.location_lng ? {
         lat: parseFloat(row.location_lat),
         lng: parseFloat(row.location_lng)
-      } : undefined
+      } : null
     }));
 
     res.json(trucks);
@@ -41,15 +47,31 @@ router.get('/', async (req, res) => {
 // Create new truck
 router.post('/', async (req, res) => {
   try {
-    const { name, plate, model, year, driver } = req.body;
+    const { name, plate, model, year, driver, mileage, lastMaintenance } = req.body;
 
     const result = await pool.query(`
-      INSERT INTO trucks (name, plate, model, year, driver_id)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO trucks (name, plate, model, year, driver_id, mileage, last_maintenance)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [name, plate, model, year, driver]);
+    `, [name, plate, model, year, driver || null, mileage || 0, lastMaintenance || null]);
 
-    res.json(result.rows[0]);
+    const truck = result.rows[0];
+    res.json({
+      id: truck.id,
+      name: truck.name,
+      plate: truck.plate,
+      model: truck.model,
+      year: truck.year,
+      status: truck.status,
+      currentRoute: truck.current_route_id,
+      driver: truck.driver_id,
+      lastMaintenance: truck.last_maintenance,
+      mileage: truck.mileage,
+      location: truck.location_lat && truck.location_lng ? {
+        lat: parseFloat(truck.location_lat),
+        lng: parseFloat(truck.location_lng)
+      } : null
+    });
   } catch (error) {
     console.error('Error creating truck:', error);
     res.status(500).json({ error: 'Erro ao criar caminhão' });
@@ -95,7 +117,7 @@ router.put('/:id', async (req, res) => {
       location: truck.location_lat && truck.location_lng ? {
         lat: parseFloat(truck.location_lat),
         lng: parseFloat(truck.location_lng)
-      } : undefined
+      } : null
     });
   } catch (error) {
     console.error('Error updating truck:', error);
@@ -133,6 +155,32 @@ router.post('/link-route', async (req, res) => {
   } catch (error) {
     console.error('Error linking route to truck:', error);
     res.status(500).json({ error: 'Erro ao vincular rota' });
+  }
+});
+
+// Finish route
+router.post('/finish-route', async (req, res) => {
+  try {
+    const { truckId } = req.body;
+
+    // Update truck status and remove current route
+    await pool.query(`
+      UPDATE trucks 
+      SET current_route_id = NULL, status = 'available', route_started_at = NULL
+      WHERE id = $1
+    `, [truckId]);
+
+    // Update route status to completed
+    await pool.query(`
+      UPDATE truck_routes
+      SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+      WHERE truck_id = $1 AND status = 'assigned'
+    `, [truckId]);
+
+    res.json({ success: true, message: 'Rota finalizada com sucesso' });
+  } catch (error) {
+    console.error('Error finishing route:', error);
+    res.status(500).json({ error: 'Erro ao finalizar rota' });
   }
 });
 
