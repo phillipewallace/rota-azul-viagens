@@ -6,17 +6,26 @@ const API_BASE_URL = import.meta.env.MODE === 'production'
   ? 'https://your-api-domain.com/api' 
   : 'http://localhost:3001/api';
 
+export interface DriverDependencies {
+  trucks: Array<{ id: string; name: string; plate: string }>;
+  tripsCount: number;
+  canDelete: boolean;
+}
+
 export const useDriversCRUD = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: async (driver: Omit<Driver, 'id' | 'totalTrips' | 'status'>) => {
+    mutationFn: async (driver: Omit<Driver, 'id' | 'totalTrips' | 'truckCount'>) => {
       const response = await fetch(`${API_BASE_URL}/drivers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(driver),
       });
-      if (!response.ok) throw new Error('Erro ao criar motorista');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao criar motorista');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -31,7 +40,10 @@ export const useDriversCRUD = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(driver),
       });
-      if (!response.ok) throw new Error('Erro ao atualizar motorista');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao atualizar motorista');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -39,12 +51,26 @@ export const useDriversCRUD = () => {
     },
   });
 
+  const checkDependenciesMutation = useMutation({
+    mutationFn: async (id: string): Promise<DriverDependencies> => {
+      const response = await fetch(`${API_BASE_URL}/drivers/${id}/dependencies`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao verificar dependências');
+      }
+      return response.json();
+    },
+  });
+
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`${API_BASE_URL}/drivers/${id}`, {
+    mutationFn: async ({ id, force = false }: { id: string; force?: boolean }) => {
+      const response = await fetch(`${API_BASE_URL}/drivers/${id}?force=${force}`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error('Erro ao excluir motorista');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao excluir motorista');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -56,6 +82,7 @@ export const useDriversCRUD = () => {
     createDriver: createMutation.mutateAsync,
     updateDriver: updateMutation.mutateAsync,
     deleteDriver: deleteMutation.mutateAsync,
-    isLoading: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending,
+    checkDependencies: checkDependenciesMutation.mutateAsync,
+    isLoading: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending || checkDependenciesMutation.isPending,
   };
 };

@@ -149,26 +149,68 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete driver
-router.delete('/:id', async (req, res) => {
+// Check driver dependencies before deletion
+router.get('/:id/dependencies', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Check if driver is assigned to any truck
-    const truckCheck = await pool.query('SELECT id FROM trucks WHERE current_driver_id = $1', [id]);
+    const trucksQuery = await pool.query('SELECT id, name, plate FROM trucks WHERE current_driver_id = $1', [id]);
+    const tripsQuery = await pool.query('SELECT COUNT(*) as count FROM trips WHERE driver_id = $1', [id]);
     
-    if (truckCheck.rows.length > 0) {
-      return res.status(400).json({ error: 'Não é possível excluir motorista que está atribuído a um caminhão' });
-    }
+    const dependencies = {
+      trucks: trucksQuery.rows,
+      tripsCount: parseInt(tripsQuery.rows[0].count) || 0,
+      canDelete: trucksQuery.rows.length === 0
+    };
     
-    const result = await pool.query('DELETE FROM drivers WHERE id = $1 RETURNING *', [id]);
+    res.json(dependencies);
+  } catch (error) {
+    console.error('❌ Error checking dependencies:', error);
+    res.status(500).json({ error: 'Erro ao verificar dependências' });
+  }
+});
+
+// Delete driver with smart handling
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { force = false } = req.query;
     
-    if (result.rows.length === 0) {
+    console.log(`🗑️ Attempting to delete driver ${id}, force: ${force}`);
+    
+    // Check if driver exists
+    const driverCheck = await pool.query('SELECT name FROM drivers WHERE id = $1', [id]);
+    if (driverCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Motorista não encontrado' });
     }
     
+    // Check for truck dependencies
+    const truckCheck = await pool.query('SELECT id, name, plate FROM trucks WHERE current_driver_id = $1', [id]);
+    
+    if (truckCheck.rows.length > 0) {
+      if (force === 'true') {
+        // Remove driver assignment from trucks first
+        await pool.query('UPDATE trucks SET current_driver_id = NULL WHERE current_driver_id = $1', [id]);
+        console.log(`🔄 Unassigned driver from ${truckCheck.rows.length} trucks`);
+      } else {
+        return res.status(400).json({ 
+          error: 'Motorista está vinculado a caminhões',
+          details: {
+            trucks: truckCheck.rows,
+            message: 'Para excluir, primeiro desvincule o motorista dos caminhões ou use force=true'
+          }
+        });
+      }
+    }
+    
+    // Delete the driver
+    const result = await pool.query('DELETE FROM drivers WHERE id = $1 RETURNING *', [id]);
+    
     console.log('✅ Driver deleted:', result.rows[0].name);
-    res.json({ message: 'Motorista excluído com sucesso' });
+    res.json({ 
+      message: 'Motorista excluído com sucesso',
+      unassignedTrucks: truckCheck.rows.length 
+    });
   } catch (error) {
     console.error('❌ Error deleting driver:', error);
     res.status(500).json({ error: 'Erro ao excluir motorista' });

@@ -5,22 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Users, Search, Phone, Mail, MapPin, Plus, Edit, Trash2 } from 'lucide-react';
+import { Users, Search, Phone, Mail, Plus, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import { useDrivers } from '@/hooks/useDrivers';
 import { useDriversCRUD } from '@/hooks/useDriversCRUD';
 import { DriverForm } from '@/components/DriverForm';
+import { DriverDeleteDialog } from '@/components/DriverDeleteDialog';
 import { Driver } from '@/hooks/useDrivers';
+import { DriverDependencies } from '@/hooks/useDriversCRUD';
 
 const Drivers = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [showDriverForm, setShowDriverForm] = useState(false);
+  const [deletingDriver, setDeletingDriver] = useState<Driver | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [dependencies, setDependencies] = useState<DriverDependencies | null>(null);
 
   const { drivers, loading } = useDrivers();
-  const { createDriver, updateDriver, deleteDriver, isLoading: driverCrudLoading } = useDriversCRUD();
+  const { createDriver, updateDriver, deleteDriver, checkDependencies, isLoading: driverCrudLoading } = useDriversCRUD();
 
   const handleCreateDriver = async (data: Omit<Driver, 'id'>) => {
     try {
@@ -45,15 +50,42 @@ const Drivers = () => {
     }
   };
 
-  const handleDeleteDriver = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este motorista?')) {
-      try {
-        await deleteDriver(id);
+  const handleDeleteDriverClick = async (driver: Driver) => {
+    try {
+      setDeletingDriver(driver);
+      setShowDeleteDialog(true);
+      setDependencies(null);
+      
+      // Check dependencies
+      const deps = await checkDependencies(driver.id);
+      setDependencies(deps);
+    } catch (error) {
+      console.error('Error checking dependencies:', error);
+      toast({ title: 'Erro ao verificar dependências', variant: 'destructive' });
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handleConfirmDelete = async (force: boolean) => {
+    if (!deletingDriver) return;
+    
+    try {
+      await deleteDriver({ id: deletingDriver.id, force });
+      setShowDeleteDialog(false);
+      setDeletingDriver(null);
+      setDependencies(null);
+      
+      if (force && dependencies?.trucks.length) {
+        toast({ 
+          title: 'Motorista excluído com sucesso!', 
+          description: `Desvinculado de ${dependencies.trucks.length} caminhão(ões)` 
+        });
+      } else {
         toast({ title: 'Motorista excluído com sucesso!' });
-      } catch (error) {
-        console.error('Error deleting driver:', error);
-        toast({ title: 'Erro ao excluir motorista', variant: 'destructive' });
       }
+    } catch (error) {
+      console.error('Error deleting driver:', error);
+      toast({ title: 'Erro ao excluir motorista', variant: 'destructive' });
     }
   };
 
@@ -135,6 +167,11 @@ const Drivers = () => {
                     <div className="text-sm">
                       <span className="font-medium">CNH:</span> {driver.license}
                     </div>
+                    {driver.truckCount !== undefined && driver.truckCount > 0 && (
+                      <div className="text-sm text-blue-600">
+                        <span className="font-medium">Caminhões:</span> {driver.truckCount}
+                      </div>
+                    )}
                     <div className="flex gap-2 mt-4">
                       <Button 
                         size="sm" 
@@ -148,7 +185,7 @@ const Drivers = () => {
                       <Button 
                         size="sm" 
                         variant="destructive" 
-                        onClick={() => handleDeleteDriver(driver.id)}
+                        onClick={() => handleDeleteDriverClick(driver)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -185,6 +222,22 @@ const Drivers = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DriverDeleteDialog
+        open={showDeleteDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowDeleteDialog(false);
+            setDeletingDriver(null);
+            setDependencies(null);
+          }
+        }}
+        driverName={deletingDriver?.name || ''}
+        dependencies={dependencies}
+        onConfirm={handleConfirmDelete}
+        isLoading={driverCrudLoading}
+      />
     </div>
   );
 };
