@@ -284,44 +284,82 @@ const MobileDriver = () => {
 
   if (!truckData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-xl">
-          <CardHeader className="text-center pb-6">
-            <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Truck className="w-10 h-10 text-white" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Background decorative elements */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-20 left-10 w-32 h-32 bg-blue-400 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-24 h-24 bg-indigo-400 rounded-full blur-2xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-cyan-400 rounded-full blur-xl animate-pulse delay-500"></div>
+        </div>
+
+        <Card className="w-full max-w-md shadow-2xl backdrop-blur-sm bg-white/95 border-0 rounded-3xl overflow-hidden">
+          <CardHeader className="text-center pb-2 pt-8 px-8">
+            <div className="relative mx-auto mb-6">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform rotate-3">
+                <Truck className="w-12 h-12 text-white" />
+              </div>
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-white animate-pulse"></div>
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">AlchemyRotas</CardTitle>
-            <p className="text-gray-600">App do Motorista</p>
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-2">
+              AlchemyRotas
+            </CardTitle>
+            <p className="text-slate-600 font-medium">App do Motorista</p>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+          
+          <CardContent className="space-y-6 px-8 pb-8">
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-slate-700 mb-3">
                 Placa do Caminhão
               </label>
-              <Input
-                type="text"
-                placeholder="ABC-1234"
-                value={plate}
-                onChange={(e) => setPlate(e.target.value.toUpperCase())}
-                className="text-center text-lg font-mono"
-                maxLength={8}
-              />
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="ABC-1234"
+                  value={plate}
+                  onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                  className="text-center text-xl font-mono tracking-widest bg-slate-50 border-2 border-slate-200 rounded-2xl h-14 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
+                  maxLength={8}
+                />
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                  <div className="w-8 h-5 bg-blue-600 rounded-sm flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">BR</span>
+                  </div>
+                </div>
+              </div>
             </div>
             
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                {error}
+              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-2xl text-red-700">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div className="text-sm font-medium">{error}</div>
               </div>
             )}
             
             <Button 
               onClick={handlePlateSubmit}
               disabled={loading || !plate.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-3"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-lg font-semibold py-4 rounded-2xl shadow-lg transform transition-all duration-300 hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:transform-none"
             >
-              {loading ? 'Buscando...' : 'Acessar Caminhão'}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Carregando...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Truck className="w-5 h-5" />
+                  Acessar Caminhão
+                </div>
+              )}
             </Button>
+
+            <div className="text-center pt-4">
+              <p className="text-xs text-slate-500">
+                Versão 2.0 • Powered by Alchemy
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -334,25 +372,42 @@ const MobileDriver = () => {
   const isLastPoint = currentPointIndex === points.length - 1;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-4 py-3">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Header with gradient */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-lg">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">{truckData.name}</h1>
-              <p className="text-sm text-gray-600">{truckData.plate}</p>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                <Truck className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">{truckData.name}</h1>
+                <p className="text-blue-100 font-mono text-sm">{truckData.plate}</p>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={routeStarted ? "default" : "secondary"}>
-                {routeStarted ? 'Em Rota' : 'Parado'}
+            <div className="flex items-center gap-3">
+              <Badge 
+                variant={routeStarted ? "default" : "secondary"}
+                className={`px-3 py-1 rounded-full font-semibold ${
+                  routeStarted 
+                    ? 'bg-green-500 text-white shadow-lg' 
+                    : 'bg-white/20 text-white backdrop-blur-sm'
+                }`}
+              >
+                {routeStarted ? '🚛 Em Rota' : '⏸️ Parado'}
               </Badge>
-              <Button size="sm" variant="ghost" onClick={() => {
-                setTruckData(null);
-                setRouteStarted(false);
-                setCurrentPointIndex(0);
-                setPlate('');
-              }}>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={() => {
+                  setTruckData(null);
+                  setRouteStarted(false);
+                  setCurrentPointIndex(0);
+                  setPlate('');
+                }}
+                className="text-white hover:bg-white/20 rounded-xl"
+              >
                 Sair
               </Button>
             </div>
@@ -361,59 +416,71 @@ const MobileDriver = () => {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Map */}
+        {/* Map with modern styling */}
         {route && (
-          <Card>
+          <Card className="overflow-hidden rounded-2xl shadow-lg border-0">
             <CardContent className="p-0">
-              <div ref={mapRef} className="w-full h-64 rounded-lg bg-gray-200" />
+              <div ref={mapRef} className="w-full h-64 bg-gradient-to-br from-slate-200 to-slate-300" />
             </CardContent>
           </Card>
         )}
 
-        {/* Route Info */}
+        {/* Route Info with modern card design */}
         {route ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Navigation className="w-5 h-5 text-blue-600" />
-                {route.name}
+          <Card className="rounded-2xl shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                  <Navigation className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-800">{route.name}</div>
+                  <div className="text-sm text-slate-500 font-normal">Rota Ativa</div>
+                </div>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl">
+                  <div className="text-3xl font-bold text-blue-600 mb-1">
                     {points.length}
                   </div>
-                  <div className="text-sm text-gray-600">Paradas</div>
+                  <div className="text-sm text-slate-600 font-medium">Total de Paradas</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
+                <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl">
+                  <div className="text-3xl font-bold text-green-600 mb-1">
                     {currentPointIndex + 1}
                   </div>
-                  <div className="text-sm text-gray-600">Atual</div>
+                  <div className="text-sm text-slate-600 font-medium">Parada Atual</div>
                 </div>
               </div>
 
               {!routeStarted ? (
                 <Button 
                   onClick={startRoute}
-                  className="w-full bg-green-600 hover:bg-green-700 text-lg py-3"
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-lg font-semibold py-4 rounded-2xl shadow-lg transform transition-all duration-300 hover:scale-105"
                 >
-                  <Play className="w-5 h-5 mr-2" />
+                  <Play className="w-6 h-6 mr-3" />
                   Iniciar Rota
                 </Button>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {currentPoint && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <MapPin className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div className="p-5 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 rounded-2xl">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <MapPin className="w-6 h-6 text-white" />
+                        </div>
                         <div className="flex-1">
-                          <h4 className="font-medium text-blue-900">
-                            Próximo Destino ({currentPointIndex + 1}/{points.length})
+                          <h4 className="font-bold text-slate-800 text-lg mb-2">
+                            Próximo Destino
                           </h4>
-                          <p className="text-sm text-blue-700 mt-1">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+                              {currentPointIndex + 1} de {points.length}
+                            </Badge>
+                          </div>
+                          <p className="text-slate-700 font-medium">
                             {currentPoint.address}
                           </p>
                         </div>
@@ -421,31 +488,31 @@ const MobileDriver = () => {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-3">
                     <Button
                       onClick={openInGoogleMaps}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center justify-center gap-3 py-4 rounded-2xl border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-300"
                     >
-                      <ExternalLink className="w-4 h-4" />
-                      Google Maps
+                      <ExternalLink className="w-5 h-5" />
+                      <span className="font-semibold">Abrir no Google Maps</span>
                     </Button>
                     
                     {!isLastPoint ? (
                       <Button
                         onClick={markPointCompleted}
-                        className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
+                        className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-4 rounded-2xl shadow-lg font-semibold flex items-center justify-center gap-3 transform transition-all duration-300 hover:scale-105"
                       >
-                        <CheckCircle className="w-4 h-4" />
-                        Ponto Concluído
+                        <CheckCircle className="w-5 h-5" />
+                        Marcar como Concluído
                       </Button>
                     ) : (
                       <Button
                         onClick={handleFinishRoute}
                         disabled={loading}
-                        className="bg-red-600 hover:bg-red-700 flex items-center gap-2"
+                        className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white py-4 rounded-2xl shadow-lg font-semibold flex items-center justify-center gap-3 transform transition-all duration-300 hover:scale-105 disabled:opacity-50"
                       >
-                        <CheckCircle className="w-4 w-4" />
+                        <CheckCircle className="w-5 h-5" />
                         {loading ? 'Finalizando...' : 'Finalizar Rota'}
                       </Button>
                     )}
@@ -455,52 +522,54 @@ const MobileDriver = () => {
             </CardContent>
           </Card>
         ) : (
-          <Card className="text-center py-8">
+          <Card className="text-center py-12 rounded-2xl shadow-lg border-0 bg-white/80 backdrop-blur-sm">
             <CardContent>
-              <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma rota atribuída</h3>
-              <p className="text-gray-600">Este caminhão não possui uma rota ativa no momento.</p>
+              <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-3">Nenhuma rota atribuída</h3>
+              <p className="text-slate-600">Este caminhão não possui uma rota ativa no momento.</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Route Points List */}
+        {/* Route Points List with enhanced design */}
         {route && routeStarted && (
-          <Card>
+          <Card className="rounded-2xl shadow-lg border-0 bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Sequência de Paradas</CardTitle>
+              <CardTitle className="text-lg font-bold text-slate-800">Sequência de Paradas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {points.map((point, index) => (
                   <div 
                     key={point.id} 
-                    className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 ${
                       index === currentPointIndex 
-                        ? 'bg-blue-50 border-blue-200' 
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-md' 
                         : index < currentPointIndex 
-                        ? 'bg-green-50 border-green-200' 
-                        : 'bg-gray-50 border-gray-200'
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' 
+                        : 'bg-slate-50 border-slate-200'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-bold shadow-sm ${
                       index === currentPointIndex
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
                         : index < currentPointIndex
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-400 text-white'
+                        ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white'
+                        : 'bg-gradient-to-br from-slate-400 to-slate-500 text-white'
                     }`}>
                       {index < currentPointIndex ? '✓' : index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{point.address}</p>
-                      <p className="text-xs text-gray-600 capitalize">
-                        {point.type === 'origin' ? 'Origem' : 
-                         point.type === 'destination' ? 'Destino' : 'Parada'}
+                      <p className="font-semibold text-slate-800 truncate">{point.address}</p>
+                      <p className="text-sm text-slate-600 capitalize mt-1">
+                        {point.type === 'origin' ? '🚀 Origem' : 
+                         point.type === 'destination' ? '🏁 Destino' : '📍 Parada'}
                       </p>
                     </div>
                     {index < currentPointIndex && (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <CheckCircle className="w-6 h-6 text-green-600" />
                     )}
                   </div>
                 ))}

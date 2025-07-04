@@ -1,20 +1,27 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import MobileNavigation from "@/components/MobileNavigation";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
+
+// Pages
 import Index from "./pages/Index";
-import Reports from "./pages/Reports";
-import Schedule from "./pages/Schedule";
-import Drivers from "./pages/Drivers";
-import Management from "./pages/Management";
-import Settings from "./pages/Settings";
 import Trucks from "./pages/Trucks";
-import RoutesPage from "./pages/Routes";
+import Drivers from "./pages/Drivers";
+import Routes from "./pages/Routes";
+import Schedule from "./pages/Schedule";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
+import Management from "./pages/Management";
 import Maintenance from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
+import MobileDriver from "./pages/MobileDriver";
+
+// Components
+import ProtectedRoute from "./components/ProtectedRoute";
+
+import "./App.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,30 +32,98 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <div className="min-h-screen bg-background">
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/schedule" element={<Schedule />} />
-            <Route path="/drivers" element={<Drivers />} />
-            <Route path="/management" element={<Management />} />
-            <Route path="/trucks" element={<Trucks />} />
-            <Route path="/routes" element={<RoutesPage />} />
-            <Route path="/maintenance" element={<Maintenance />} />
-            <Route path="/settings" element={<Settings />} />
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/mobile" element={<MobileDriver />} />
+            
+            {/* Protected Routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/trucks"
+              element={
+                <ProtectedRoute>
+                  <Trucks />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/drivers"
+              element={
+                <ProtectedRoute>
+                  <Drivers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/routes"
+              element={
+                <ProtectedRoute>
+                  <Routes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/schedule"
+              element={
+                <ProtectedRoute>
+                  <Schedule />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <Reports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/management"
+              element={
+                <ProtectedRoute>
+                  <Management />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/maintenance"
+              element={
+                <ProtectedRoute>
+                  <Maintenance />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* 404 Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <MobileNavigation />
-        </div>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
