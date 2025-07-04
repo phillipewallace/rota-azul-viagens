@@ -28,6 +28,7 @@ const Drivers = () => {
       setShowDriverForm(false);
       toast({ title: 'Motorista criado com sucesso!' });
     } catch (error) {
+      console.error('Error creating driver:', error);
       toast({ title: 'Erro ao criar motorista', variant: 'destructive' });
     }
   };
@@ -39,6 +40,7 @@ const Drivers = () => {
       setEditingDriver(null);
       toast({ title: 'Motorista atualizado com sucesso!' });
     } catch (error) {
+      console.error('Error updating driver:', error);
       toast({ title: 'Erro ao atualizar motorista', variant: 'destructive' });
     }
   };
@@ -49,6 +51,7 @@ const Drivers = () => {
         await deleteDriver(id);
         toast({ title: 'Motorista excluído com sucesso!' });
       } catch (error) {
+        console.error('Error deleting driver:', error);
         toast({ title: 'Erro ao excluir motorista', variant: 'destructive' });
       }
     }
@@ -59,6 +62,8 @@ const Drivers = () => {
       case 'available': return 'bg-green-500';
       case 'on-route': return 'bg-blue-500';
       case 'off-duty': return 'bg-gray-500';
+      case 'active': return 'bg-green-500';
+      case 'inactive': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
   };
@@ -68,6 +73,8 @@ const Drivers = () => {
       case 'available': return 'Disponível';
       case 'on-route': return 'Em Rota';
       case 'off-duty': return 'Folga';
+      case 'active': return 'Ativo';
+      case 'inactive': return 'Inativo';
       default: return 'Indefinido';
     }
   };
