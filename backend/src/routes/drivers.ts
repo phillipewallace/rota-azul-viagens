@@ -7,7 +7,7 @@ const router = Router();
 // Get all drivers
 router.get('/', async (req, res) => {
   try {
-    console.log('👥 Fetching all drivers...');
+    console.log('👥 [DRIVERS GET] Iniciando busca por todos os motoristas...');
     
     const query = `
       SELECT 
@@ -29,7 +29,9 @@ router.get('/', async (req, res) => {
       ORDER BY d.created_at DESC
     `;
     
+    console.log('🔍 [DRIVERS GET] Executando query no banco de dados...');
     const result = await pool.query(query);
+    console.log(`📊 [DRIVERS GET] Query executada com sucesso, ${result.rows.length} registros encontrados`);
     
     const drivers = result.rows.map(driver => ({
       id: driver.id,
@@ -45,10 +47,15 @@ router.get('/', async (req, res) => {
       truckCount: parseInt(driver.truck_count) || 0
     }));
 
-    console.log(`✅ Found ${drivers.length} drivers`);
+    console.log(`✅ [DRIVERS GET] Dados processados e enviados: ${drivers.length} motoristas`);
+    drivers.forEach(driver => {
+      console.log(`   📋 Motorista: ${driver.name} (ID: ${driver.id}) - Status: ${driver.status} - Caminhões: ${driver.truckCount}`);
+    });
+    
     res.json(drivers);
   } catch (error) {
-    console.error('❌ Error fetching drivers:', error);
+    console.error('❌ [DRIVERS GET] Erro ao buscar motoristas:', error);
+    console.error('🔍 [DRIVERS GET] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao buscar motoristas' });
   }
 });
@@ -57,6 +64,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`👤 [DRIVER GET] Buscando motorista por ID: ${id}`);
     
     const query = `
       SELECT 
@@ -70,15 +78,18 @@ router.get('/:id', async (req, res) => {
       GROUP BY d.id
     `;
     
+    console.log('🔍 [DRIVER GET] Executando query no banco...');
     const result = await pool.query(query, [id]);
     
     if (result.rows.length === 0) {
+      console.log(`❌ [DRIVER GET] Motorista não encontrado: ${id}`);
       return res.status(404).json({ error: 'Motorista não encontrado' });
     }
     
+    console.log(`✅ [DRIVER GET] Motorista encontrado: ${result.rows[0].name}`);
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('❌ Error fetching driver:', error);
+    console.error(`❌ [DRIVER GET] Erro ao buscar motorista ${req.params.id}:`, error);
     res.status(500).json({ error: 'Erro ao buscar motorista' });
   }
 });
@@ -86,14 +97,18 @@ router.get('/:id', async (req, res) => {
 // Create new driver
 router.post('/', async (req, res) => {
   try {
-    console.log('👥 Creating new driver...');
+    console.log('👥 [DRIVER CREATE] Iniciando criação de novo motorista...');
+    console.log('📝 [DRIVER CREATE] Dados recebidos:', { ...req.body, password: '***' });
     
     const { name, license, phone, email, status } = req.body;
     
     // Validate required fields
     if (!name || !license || !phone || !email) {
+      console.log('❌ [DRIVER CREATE] Validação falhou - campos obrigatórios faltando');
       return res.status(400).json({ error: 'Campos obrigatórios: nome, CNH, telefone e email' });
     }
+    
+    console.log('✅ [DRIVER CREATE] Validação dos campos passou');
     
     const query = `
       INSERT INTO drivers (name, license_number, phone, email, status, hire_date)
@@ -101,6 +116,7 @@ router.post('/', async (req, res) => {
       RETURNING *
     `;
     
+    console.log('🔍 [DRIVER CREATE] Executando INSERT no banco...');
     const result = await pool.query(query, [
       name,
       license,
@@ -109,11 +125,12 @@ router.post('/', async (req, res) => {
       status || 'active'
     ]);
     
-    console.log('✅ Driver created:', result.rows[0].name);
+    console.log(`✅ [DRIVER CREATE] Motorista criado com sucesso: ${result.rows[0].name} (ID: ${result.rows[0].id})`);
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('❌ Error creating driver:', error);
+    console.error('❌ [DRIVER CREATE] Erro ao criar motorista:', error);
     if (error.code === '23505') {
+      console.log('🔍 [DRIVER CREATE] Erro de duplicação - CNH já cadastrada');
       return res.status(400).json({ error: 'Número de CNH já cadastrado' });
     }
     res.status(500).json({ error: 'Erro ao criar motorista' });
@@ -123,9 +140,10 @@ router.post('/', async (req, res) => {
 // Update driver
 router.put('/:id', async (req, res) => {
   try {
-    console.log('👥 Updating driver:', req.params.id);
-    
     const { id } = req.params;
+    console.log(`👥 [DRIVER UPDATE] Iniciando atualização do motorista: ${id}`);
+    console.log('📝 [DRIVER UPDATE] Dados recebidos:', req.body);
+    
     const { name, license, phone, email, status } = req.body;
     
     const query = `
@@ -135,16 +153,18 @@ router.put('/:id', async (req, res) => {
       RETURNING *
     `;
     
+    console.log('🔍 [DRIVER UPDATE] Executando UPDATE no banco...');
     const result = await pool.query(query, [name, license, phone, email, status, id]);
     
     if (result.rows.length === 0) {
+      console.log(`❌ [DRIVER UPDATE] Motorista não encontrado: ${id}`);
       return res.status(404).json({ error: 'Motorista não encontrado' });
     }
     
-    console.log('✅ Driver updated:', result.rows[0].name);
+    console.log(`✅ [DRIVER UPDATE] Motorista atualizado: ${result.rows[0].name}`);
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('❌ Error updating driver:', error);
+    console.error(`❌ [DRIVER UPDATE] Erro ao atualizar motorista ${req.params.id}:`, error);
     res.status(500).json({ error: 'Erro ao atualizar motorista' });
   }
 });
@@ -153,9 +173,13 @@ router.put('/:id', async (req, res) => {
 router.get('/:id/dependencies', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`🔍 [DRIVER DEPS] Verificando dependências do motorista: ${id}`);
     
     const trucksQuery = await pool.query('SELECT id, name, plate FROM trucks WHERE current_driver_id = $1', [id]);
     const tripsQuery = await pool.query('SELECT COUNT(*) as count FROM trips WHERE driver_id = $1', [id]);
+    
+    console.log(`📊 [DRIVER DEPS] Caminhões vinculados: ${trucksQuery.rows.length}`);
+    console.log(`📊 [DRIVER DEPS] Viagens registradas: ${tripsQuery.rows[0]?.count || 0}`);
     
     const dependencies = {
       trucks: trucksQuery.rows,
@@ -163,9 +187,10 @@ router.get('/:id/dependencies', async (req, res) => {
       canDelete: trucksQuery.rows.length === 0
     };
     
+    console.log(`✅ [DRIVER DEPS] Dependências verificadas - Pode excluir: ${dependencies.canDelete}`);
     res.json(dependencies);
   } catch (error) {
-    console.error('❌ Error checking dependencies:', error);
+    console.error(`❌ [DRIVER DEPS] Erro ao verificar dependências ${req.params.id}:`, error);
     res.status(500).json({ error: 'Erro ao verificar dependências' });
   }
 });
@@ -179,28 +204,41 @@ router.delete('/:id', async (req, res) => {
     const { force } = req.query;
     const forceDelete = force === 'true';
     
-    console.log(`🗑️ Attempting to delete driver ${id}, force: ${forceDelete}`);
+    console.log(`🗑️ [DRIVER DELETE] Iniciando exclusão do motorista ${id}, force: ${forceDelete}`);
     
     // Start transaction
+    console.log('🔄 [DRIVER DELETE] Iniciando transação...');
     await client.query('BEGIN');
     
     // Check if driver exists
+    console.log('🔍 [DRIVER DELETE] Verificando se motorista existe...');
     const driverCheck = await client.query('SELECT name FROM drivers WHERE id = $1', [id]);
     if (driverCheck.rows.length === 0) {
+      console.log(`❌ [DRIVER DELETE] Motorista não encontrado: ${id}`);
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Motorista não encontrado' });
     }
     
+    const driverName = driverCheck.rows[0].name;
+    console.log(`✅ [DRIVER DELETE] Motorista encontrado: ${driverName}`);
+    
     // Check for truck dependencies
+    console.log('🔍 [DRIVER DELETE] Verificando dependências de caminhões...');
     const truckCheck = await client.query('SELECT id, name, plate FROM trucks WHERE current_driver_id = $1', [id]);
+    console.log(`📊 [DRIVER DELETE] Caminhões vinculados encontrados: ${truckCheck.rows.length}`);
     
     if (truckCheck.rows.length > 0) {
       if (forceDelete) {
         // Remove driver assignment from trucks first
-        console.log(`🔄 Unlinking driver from ${truckCheck.rows.length} trucks...`);
+        console.log(`🔄 [DRIVER DELETE] Forçando desvinculação de ${truckCheck.rows.length} caminhões...`);
+        truckCheck.rows.forEach(truck => {
+          console.log(`   🚛 Desvinculando: ${truck.name} (${truck.plate})`);
+        });
+        
         await client.query('UPDATE trucks SET current_driver_id = NULL WHERE current_driver_id = $1', [id]);
-        console.log(`✅ Driver unlinked from ${truckCheck.rows.length} trucks`);
+        console.log(`✅ [DRIVER DELETE] ${truckCheck.rows.length} caminhões desvinculados com sucesso`);
       } else {
+        console.log(`❌ [DRIVER DELETE] Exclusão cancelada - motorista vinculado a caminhões`);
         await client.query('ROLLBACK');
         return res.status(400).json({ 
           error: 'Motorista está vinculado a caminhões',
@@ -214,22 +252,31 @@ router.delete('/:id', async (req, res) => {
     }
     
     // Now safe to delete the driver
+    console.log('🗑️ [DRIVER DELETE] Executando exclusão do motorista...');
     const result = await client.query('DELETE FROM drivers WHERE id = $1 RETURNING *', [id]);
     
     // Commit transaction
+    console.log('✅ [DRIVER DELETE] Confirmando transação...');
     await client.query('COMMIT');
     
-    console.log('✅ Driver deleted:', result.rows[0].name);
+    console.log(`✅ [DRIVER DELETE] Motorista excluído com sucesso: ${result.rows[0].name}`);
+    if (truckCheck.rows.length > 0) {
+      console.log(`📊 [DRIVER DELETE] Caminhões desvinculados: ${truckCheck.rows.length}`);
+    }
+    
     res.json({ 
       message: 'Motorista excluído com sucesso',
       unassignedTrucks: truckCheck.rows.length 
     });
   } catch (error) {
     // Rollback transaction on error
+    console.log('🔄 [DRIVER DELETE] Erro detectado, fazendo rollback...');
     await client.query('ROLLBACK');
-    console.error('❌ Error deleting driver:', error);
+    console.error(`❌ [DRIVER DELETE] Erro ao excluir motorista ${req.params.id}:`, error);
+    console.error('🔍 [DRIVER DELETE] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao excluir motorista' });
   } finally {
+    console.log('🔓 [DRIVER DELETE] Liberando conexão do banco...');
     client.release();
   }
 });

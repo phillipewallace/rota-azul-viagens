@@ -7,7 +7,7 @@ const router = Router();
 // Get all trucks with driver and route information
 router.get('/', async (req, res) => {
   try {
-    console.log('🚛 Fetching all trucks...');
+    console.log('🚛 [TRUCKS GET] Iniciando busca por todos os caminhões...');
     
     const query = `
       SELECT 
@@ -31,7 +31,9 @@ router.get('/', async (req, res) => {
       ORDER BY t.created_at DESC
     `;
     
+    console.log('🔍 [TRUCKS GET] Executando query no banco de dados...');
     const result = await pool.query(query);
+    console.log(`📊 [TRUCKS GET] Query executada com sucesso, ${result.rows.length} registros encontrados`);
     
     const trucks = result.rows.map(truck => ({
       id: truck.id,
@@ -52,10 +54,15 @@ router.get('/', async (req, res) => {
       } : null
     }));
 
-    console.log(`✅ Found ${trucks.length} trucks`);
+    console.log(`✅ [TRUCKS GET] Dados processados e enviados: ${trucks.length} caminhões`);
+    trucks.forEach(truck => {
+      console.log(`   🚛 Caminhão: ${truck.name} (${truck.plate}) - Status: ${truck.status} - Motorista: ${truck.driver || 'Nenhum'}`);
+    });
+    
     res.json(trucks);
   } catch (error) {
-    console.error('❌ Error fetching trucks:', error);
+    console.error('❌ [TRUCKS GET] Erro ao buscar caminhões:', error);
+    console.error('🔍 [TRUCKS GET] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao buscar caminhões' });
   }
 });
@@ -65,26 +72,33 @@ router.post('/link-route', async (req, res) => {
   try {
     const { truckId, routeId } = req.body;
     
-    console.log(`🔗 Linking route ${routeId} to truck ${truckId}`);
+    console.log(`🔗 [TRUCK LINK] Iniciando vinculação de rota ${routeId} ao caminhão ${truckId}`);
+    console.log('📝 [TRUCK LINK] Dados recebidos:', req.body);
     
     if (!truckId || !routeId) {
+      console.log('❌ [TRUCK LINK] Validação falhou - IDs obrigatórios faltando');
       return res.status(400).json({ error: 'Truck ID and Route ID are required' });
     }
     
+    console.log('✅ [TRUCK LINK] Validação dos IDs passou');
+    
     // Update truck with route
+    console.log('🔍 [TRUCK LINK] Executando UPDATE no banco...');
     const result = await pool.query(
       'UPDATE trucks SET current_route_id = $1, current_route = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
       [routeId, routeId, 'in-route', truckId]
     );
     
     if (result.rows.length === 0) {
+      console.log(`❌ [TRUCK LINK] Caminhão não encontrado: ${truckId}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
     
-    console.log('✅ Route linked successfully');
+    console.log(`✅ [TRUCK LINK] Rota vinculada com sucesso - Caminhão: ${result.rows[0].name}`);
     res.json({ success: true, message: 'Rota vinculada com sucesso' });
   } catch (error) {
-    console.error('❌ Error linking route:', error);
+    console.error('❌ [TRUCK LINK] Erro ao vincular rota:', error);
+    console.error('🔍 [TRUCK LINK] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao vincular rota' });
   }
 });
@@ -93,6 +107,7 @@ router.post('/link-route', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`🚛 [TRUCK GET] Buscando caminhão por ID: ${id}`);
     
     const query = `
       SELECT 
@@ -105,15 +120,18 @@ router.get('/:id', async (req, res) => {
       WHERE t.id = $1
     `;
     
+    console.log('🔍 [TRUCK GET] Executando query no banco...');
     const result = await pool.query(query, [id]);
     
     if (result.rows.length === 0) {
+      console.log(`❌ [TRUCK GET] Caminhão não encontrado: ${id}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
     
+    console.log(`✅ [TRUCK GET] Caminhão encontrado: ${result.rows[0].name} (${result.rows[0].plate})`);
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('❌ Error fetching truck:', error);
+    console.error(`❌ [TRUCK GET] Erro ao buscar caminhão ${req.params.id}:`, error);
     res.status(500).json({ error: 'Erro ao buscar caminhão' });
   }
 });
@@ -121,14 +139,18 @@ router.get('/:id', async (req, res) => {
 // Create new truck
 router.post('/', async (req, res) => {
   try {
-    console.log('🚛 Creating new truck...', req.body);
+    console.log('🚛 [TRUCK CREATE] Iniciando criação de novo caminhão...');
+    console.log('📝 [TRUCK CREATE] Dados recebidos:', req.body);
     
     const { name, plate, model, year, status, driver, currentRoute, mileage, lastMaintenance } = req.body;
     
     // Validate required fields
     if (!name || !plate || !model || !year) {
+      console.log('❌ [TRUCK CREATE] Validação falhou - campos obrigatórios faltando');
       return res.status(400).json({ error: 'Campos obrigatórios: nome, placa, modelo e ano' });
     }
+    
+    console.log('✅ [TRUCK CREATE] Validação dos campos passou');
     
     const query = `
       INSERT INTO trucks (name, plate, model, year, status, driver, current_route, mileage, last_maintenance)
@@ -136,9 +158,12 @@ router.post('/', async (req, res) => {
       RETURNING *
     `;
     
+    const plateUpper = plate.toUpperCase();
+    console.log(`🔍 [TRUCK CREATE] Executando INSERT no banco... Placa: ${plateUpper}`);
+    
     const result = await pool.query(query, [
       name,
-      plate.toUpperCase(),
+      plateUpper,
       model,
       year,
       status || 'available',
@@ -148,11 +173,12 @@ router.post('/', async (req, res) => {
       lastMaintenance || null
     ]);
     
-    console.log('✅ Truck created:', result.rows[0].name);
+    console.log(`✅ [TRUCK CREATE] Caminhão criado com sucesso: ${result.rows[0].name} (ID: ${result.rows[0].id}, Placa: ${result.rows[0].plate})`);
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('❌ Error creating truck:', error);
+    console.error('❌ [TRUCK CREATE] Erro ao criar caminhão:', error);
     if (error.code === '23505') {
+      console.log('🔍 [TRUCK CREATE] Erro de duplicação - Placa já cadastrada');
       return res.status(400).json({ error: 'Placa já cadastrada' });
     }
     res.status(500).json({ error: 'Erro ao criar caminhão' });
@@ -163,14 +189,18 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('🚛 Updating truck:', id, req.body);
+    console.log(`🚛 [TRUCK UPDATE] Iniciando atualização do caminhão: ${id}`);
+    console.log('📝 [TRUCK UPDATE] Dados recebidos:', req.body);
     
     const { name, plate, model, year, status, driver, currentRoute, mileage, lastMaintenance } = req.body;
     
     // Validate required fields
     if (!name || !plate || !model || !year) {
+      console.log('❌ [TRUCK UPDATE] Validação falhou - campos obrigatórios faltando');
       return res.status(400).json({ error: 'Campos obrigatórios: nome, placa, modelo e ano' });
     }
+    
+    console.log('✅ [TRUCK UPDATE] Validação dos campos passou');
     
     const query = `
       UPDATE trucks 
@@ -181,9 +211,12 @@ router.put('/:id', async (req, res) => {
       RETURNING *
     `;
     
+    const plateUpper = plate.toUpperCase();
+    console.log(`🔍 [TRUCK UPDATE] Executando UPDATE no banco... Placa: ${plateUpper}`);
+    
     const result = await pool.query(query, [
       name,
-      plate.toUpperCase(),
+      plateUpper,
       model,
       year,
       status,
@@ -195,16 +228,19 @@ router.put('/:id', async (req, res) => {
     ]);
     
     if (result.rows.length === 0) {
+      console.log(`❌ [TRUCK UPDATE] Caminhão não encontrado: ${id}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
     
-    console.log('✅ Truck updated:', result.rows[0].name);
+    console.log(`✅ [TRUCK UPDATE] Caminhão atualizado: ${result.rows[0].name} (${result.rows[0].plate})`);
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('❌ Error updating truck:', error);
+    console.error(`❌ [TRUCK UPDATE] Erro ao atualizar caminhão ${req.params.id}:`, error);
     if (error.code === '23505') {
+      console.log('🔍 [TRUCK UPDATE] Erro de duplicação - Placa já cadastrada');
       return res.status(400).json({ error: 'Placa já cadastrada' });
     }
+    console.error('🔍 [TRUCK UPDATE] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao atualizar caminhão' });
   }
 });
@@ -215,22 +251,26 @@ router.put('/:id/location', async (req, res) => {
     const { id } = req.params;
     const { lat, lng } = req.body;
     
+    console.log(`📍 [TRUCK LOCATION] Atualizando localização do caminhão ${id}: ${lat}, ${lng}`);
+    
     // Update truck location
+    console.log('🔍 [TRUCK LOCATION] Atualizando tabela trucks...');
     await pool.query(
       'UPDATE trucks SET location_lat = $1, location_lng = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
       [lat, lng, id]
     );
     
     // Insert location history
+    console.log('🔍 [TRUCK LOCATION] Inserindo no histórico de localização...');
     await pool.query(
       'INSERT INTO truck_location_history (truck_id, lat, lng) VALUES ($1, $2, $3)',
       [id, lat, lng]
     );
     
-    console.log(`📍 Location updated for truck ${id}: ${lat}, ${lng}`);
+    console.log(`✅ [TRUCK LOCATION] Localização atualizada com sucesso para caminhão ${id}`);
     res.json({ success: true });
   } catch (error) {
-    console.error('❌ Error updating truck location:', error);
+    console.error(`❌ [TRUCK LOCATION] Erro ao atualizar localização do caminhão ${req.params.id}:`, error);
     res.status(500).json({ error: 'Erro ao atualizar localização' });
   }
 });
@@ -239,17 +279,21 @@ router.put('/:id/location', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`🗑️ [TRUCK DELETE] Iniciando exclusão do caminhão: ${id}`);
     
+    console.log('🔍 [TRUCK DELETE] Executando DELETE no banco...');
     const result = await pool.query('DELETE FROM trucks WHERE id = $1 RETURNING *', [id]);
     
     if (result.rows.length === 0) {
+      console.log(`❌ [TRUCK DELETE] Caminhão não encontrado: ${id}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
     
-    console.log('✅ Truck deleted:', result.rows[0].name);
+    console.log(`✅ [TRUCK DELETE] Caminhão excluído: ${result.rows[0].name} (${result.rows[0].plate})`);
     res.json({ message: 'Caminhão excluído com sucesso' });
   } catch (error) {
-    console.error('❌ Error deleting truck:', error);
+    console.error(`❌ [TRUCK DELETE] Erro ao excluir caminhão ${req.params.id}:`, error);
+    console.error('🔍 [TRUCK DELETE] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao excluir caminhão' });
   }
 });
