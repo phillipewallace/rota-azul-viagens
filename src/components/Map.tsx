@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
@@ -10,6 +9,7 @@ const MapComponent = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [currentMapType, setCurrentMapType] = useState<'roadmap' | 'satellite' | 'hybrid' | 'terrain'>('roadmap');
   const directionsRenderers = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
   
@@ -22,6 +22,13 @@ const MapComponent = () => {
     '#8b5cf6', '#ec4899', '#10b981', '#f97316',
     '#06b6d4', '#84cc16', '#f43f5e', '#6366f1'
   ];
+
+  const mapTypes = [
+    { id: 'roadmap', label: 'Mapa' },
+    { id: 'satellite', label: 'Satélite' },
+    { id: 'hybrid', label: 'Híbrido' },
+    { id: 'terrain', label: 'Terreno' }
+  ] as const;
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -65,17 +72,11 @@ const MapComponent = () => {
       map.current = new window.google.maps.Map(mapContainer.current, {
         center: userLocation,
         zoom: 12,
-        mapTypeControl: true,
+        mapTypeControl: false,
         fullscreenControl: true,
         streetViewControl: true,
-        zoomControl: true,
-        mapTypeControlOptions: {
-          position: window.google.maps.ControlPosition.BOTTOM_RIGHT,
-          style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU
-        },
-        zoomControlOptions: {
-          position: window.google.maps.ControlPosition.BOTTOM_RIGHT
-        },
+        zoomControl: false,
+        mapTypeId: currentMapType,
         styles: [
           {
             featureType: 'poi',
@@ -105,6 +106,18 @@ const MapComponent = () => {
     } catch (error) {
       console.error('❌ Erro ao inicializar mapa:', error);
       setLocationError('Erro ao carregar o mapa');
+    }
+  };
+
+  const changeMapType = () => {
+    const currentIndex = mapTypes.findIndex(type => type.id === currentMapType);
+    const nextIndex = (currentIndex + 1) % mapTypes.length;
+    const nextMapType = mapTypes[nextIndex].id;
+    
+    setCurrentMapType(nextMapType);
+    
+    if (map.current) {
+      map.current.setMapTypeId(nextMapType);
     }
   };
 
@@ -298,6 +311,16 @@ const MapComponent = () => {
   return (
     <div className="relative w-full h-full bg-gray-100">
       <div ref={mapContainer} className="absolute inset-0" />
+      
+      {/* Botão de mudança de tipo de mapa - canto inferior esquerdo */}
+      {mapLoaded && (
+        <button
+          onClick={changeMapType}
+          className="absolute bottom-4 left-4 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors z-10"
+        >
+          {mapTypes.find(type => type.id === currentMapType)?.label}
+        </button>
+      )}
       
       {!mapLoaded && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg border z-10">
