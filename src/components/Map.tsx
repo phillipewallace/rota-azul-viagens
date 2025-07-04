@@ -15,6 +15,9 @@ const Map = () => {
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
 
+  // Cores para diferentes caminhões/rotas
+  const truckColors = ['#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#10b981', '#f97316'];
+
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
       setLocationError('Geolocalização não suportada');
@@ -30,7 +33,6 @@ const Map = () => {
         };
         setUserLocation(newLocation);
         setLocationError(null);
-        console.log('📍 Localização atualizada:', newLocation);
       },
       (error) => {
         console.error('❌ Erro GPS:', error);
@@ -104,39 +106,35 @@ const Map = () => {
     directionsRenderers.current = [];
   };
 
+  const createTruckIcon = (color: string) => {
+    return {
+      path: 'M29.395,0H17.636c-3.117,0-5.643,3.467-5.643,6.584v34.804c0,3.116,2.526,5.644,5.643,5.644h11.759 c3.116,0,5.644-2.527,5.644-5.644V6.584C35.037,3.467,32.511,0,29.395,0z M34.05,14.188v11.665l-2.729,0.351v-4.806L34.05,14.188z M32.618,10.773c-1.016,3.9-2.219,8.51-2.219,8.51H16.631c0,0-1.203-4.61-2.219-8.51 C14.412,10.773,23.293,7.755,32.618,10.773z M15.741,21.284v4.806l-2.73-0.351V14.188L15.741,21.284z M13.011,37.94 c-0.685-2.225-1.216-4.75-1.216-4.75v-27.47c0-2.794,1.965-5.064,4.397-5.735v34.863C15.598,35.477,14.131,36.659,13.011,37.94z M18.72,39.968c-2.048-1.322-3.329-3.635-3.329-6.176v-0.83c0-0.185,0.148-0.334,0.334-0.334h2.995V39.968z M18.72,30.389h-2.995 c-0.185,0-0.334-0.148-0.334-0.334v-8.704c0-0.185,0.148-0.334,0.334-0.334h2.995V30.389z M25.207,33.82c0,0.934-0.757,1.691-1.691,1.691 c-0.934,0-1.691-0.757-1.691-1.691c0-0.934,0.757-1.691,1.691-1.691C24.45,32.129,25.207,32.886,25.207,33.82z M28.691,3.056 c3.814,0,6.904,3.09,6.904,6.904s-3.09,6.904-6.904,6.904s-6.904-3.09-6.904-6.904S24.877,3.056,28.691,3.056z M28.691,39.968 V32.628h2.995c0.185,0,0.334,0.148,0.334,0.334v0.83c0,2.541-1.281,4.854-3.329,6.176V39.968z M28.691,30.389V21.017h2.995 c0.185,0,0.334,0.148,0.334,0.334v8.704c0,0.185-0.148,0.334-0.334,0.334H28.691z M32.618,37.94 c-1.12-1.281-2.587-2.463-3.181-3.032V0.843c2.432,0.671,4.397,2.941,4.397,5.735v27.47C33.834,33.19,33.303,35.715,32.618,37.94z',
+      fillColor: color,
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      scale: 0.8,
+      anchor: new window.google.maps.Point(23, 46)
+    };
+  };
+
   const updateMapMarkers = async () => {
     if (!map.current || !window.google || !mapLoaded) return;
 
     console.log('🎯 Atualizando marcadores:', { trucks: trucks.length, routes: routes.length });
 
-    // Limpar renderers anteriores
     clearDirectionsRenderers();
-
-    // Cores para diferentes caminhões/rotas
-    const truckColors = ['#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6'];
     
-    // Marcadores dos caminhões
     trucks.forEach((truck, index) => {
       if (!truck.location) return;
 
       const truckColor = truckColors[index % truckColors.length];
       
-      // Ícone customizado de caminhão
-      const truckIcon = {
-        path: 'M2,18 L2,11 L0,11 L0,6 L17,6 L17,8 L20,8 L20,18 L18,18 L18,20 L16,20 L16,18 L6,18 L6,20 L4,20 L4,18 L2,18 Z M2,8 L2,16 L16,16 L16,8 L2,8 Z M18,10 L18,16 L20,16 L20,10 L18,10 Z M3,13 L3,15 L5,15 L5,13 L3,13 Z M17,13 L17,15 L19,15 L19,13 L17,13 Z',
-        fillColor: truckColor,
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-        scale: 1.2,
-        anchor: new window.google.maps.Point(10, 10)
-      };
-
       const marker = new window.google.maps.Marker({
         position: { lat: truck.location.lat, lng: truck.location.lng },
         map: map.current,
         title: truck.name,
-        icon: truckIcon,
+        icon: createTruckIcon(truckColor),
       });
 
       const infoWindow = new window.google.maps.InfoWindow({
@@ -145,9 +143,9 @@ const Map = () => {
             <h3 style="margin: 0 0 8px 0; color: ${truckColor};">🚛 ${truck.name}</h3>
             <div style="font-size: 13px; line-height: 1.4;">
               <div><strong>Placa:</strong> ${truck.plate}</div>
-              <div><strong>Status:</strong> ${truck.status}</div>
-              ${truck.currentRoute ? `<div><strong>Rota:</strong> ${truck.currentRoute}</div>` : ''}
-              ${truck.driver ? `<div><strong>Motorista:</strong> ${truck.driver}</div>` : ''}
+              <div><strong>Status:</strong> ${truck.status === 'available' ? 'Disponível' : truck.status === 'in-route' ? 'Em Rota' : 'Manutenção'}</div>
+              ${truck.currentRouteName ? `<div><strong>Rota:</strong> ${truck.currentRouteName}</div>` : ''}
+              ${truck.driverName ? `<div><strong>Motorista:</strong> ${truck.driverName}</div>` : ''}
             </div>
           </div>
         `
@@ -159,7 +157,7 @@ const Map = () => {
 
       // Se o caminhão tem uma rota ativa, desenhar a rota
       if (truck.currentRoute && truck.status === 'in-route') {
-        const route = routes.find(r => r.name === truck.currentRoute);
+        const route = routes.find(r => r.id === truck.currentRoute);
         if (route && route.points && route.points.length >= 2) {
           drawTruckRoute(route, truckColor);
         }
@@ -170,11 +168,11 @@ const Map = () => {
     routes.forEach((route, index) => {
       if (route.status !== 'active') return;
       
-      const routeInUse = trucks.some(truck => truck.currentRoute === route.name);
-      if (routeInUse) return; // Já foi desenhada acima
+      const routeInUse = trucks.some(truck => truck.currentRoute === route.id);
+      if (routeInUse) return;
       
       if (route.points && route.points.length >= 2) {
-        drawTruckRoute(route, '#6b7280'); // Cor cinza para rotas não ativas
+        drawTruckRoute(route, '#6b7280');
       }
     });
   };
@@ -203,7 +201,9 @@ const Map = () => {
         destination: new window.google.maps.LatLng(destination.lat, destination.lng),
         waypoints: waypoints,
         travelMode: window.google.maps.TravelMode.DRIVING,
-        optimizeWaypoints: false
+        optimizeWaypoints: false,
+        avoidHighways: false,
+        avoidTolls: false
       }, (result: any, status: string) => {
         if (status === 'OK') {
           const directionsRenderer = new window.google.maps.DirectionsRenderer({
@@ -212,13 +212,13 @@ const Map = () => {
             suppressMarkers: false,
             polylineOptions: {
               strokeColor: color,
-              strokeWeight: 4,
+              strokeWeight: 5,
               strokeOpacity: 0.8
             },
             markerOptions: {
               icon: {
                 path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 6,
+                scale: 8,
                 fillColor: color,
                 fillOpacity: 1,
                 strokeColor: '#ffffff',

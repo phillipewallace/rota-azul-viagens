@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +19,15 @@ const Routes = () => {
   const [viewingRoute, setViewingRoute] = useState<any>(null);
 
   const { routes, loading, loadRoutes } = useRoutes();
-  const { deleteRoute } = useRoutesCRUD();
+  const { deleteRoute, updateRoute } = useRoutesCRUD();
 
   const handleEdit = (route: any) => {
+    if (route.status === 'completed') {
+      toast.error('Não é possível editar uma rota concluída');
+      return;
+    }
     setEditingRoute(route);
-    setIsFormOpen(true);
+    setIsCreateModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -38,12 +42,23 @@ const Routes = () => {
     }
   };
 
+  const handleReactivate = async (route: any) => {
+    try {
+      await updateRoute(route.id, { status: 'active' });
+      toast.success('Rota reativada com sucesso!');
+      loadRoutes();
+    } catch (error) {
+      toast.error('Erro ao reativar rota');
+    }
+  };
+
   const handleView = (route: any) => {
     setViewingRoute(route);
   };
 
   const handleCloseModal = () => {
     setIsFormOpen(false);
+    setIsCreateModalOpen(false);
     setEditingRoute(null);
     setViewingRoute(null);
     loadRoutes();
@@ -51,12 +66,25 @@ const Routes = () => {
 
   const handleFormSubmit = async (data: any) => {
     try {
-      // Lógica de submit será implementada no RouteForm
       handleCloseModal();
       toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
     } catch (error) {
       toast.error('Erro ao salvar rota');
     }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants = {
+      active: 'default',
+      inactive: 'secondary',
+      completed: 'outline'
+    } as const;
+    const labels = {
+      active: 'Ativa',
+      inactive: 'Inativa',
+      completed: 'Concluída'
+    };
+    return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
   };
 
   if (loading) {
@@ -96,14 +124,7 @@ const Routes = () => {
               className="bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Criar Rota Completa
-            </Button>
-            <Button 
-              onClick={() => setIsFormOpen(true)}
-              variant="outline"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Rota Simples
+              Nova Rota
             </Button>
           </div>
         </div>
@@ -126,23 +147,19 @@ const Routes = () => {
             {routes.map((route) => (
               <Card key={route.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Navigation className="h-5 w-5 text-blue-600" />
-                    {route.name}
-                  </CardTitle>
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="flex items-center gap-2">
+                      <Navigation className="h-5 w-5 text-blue-600" />
+                      {route.name}
+                    </CardTitle>
+                    {getStatusBadge(route.status)}
+                  </div>
                   {route.description && (
                     <p className="text-sm text-gray-600">{route.description}</p>
                   )}
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Status:</span>
-                      <Badge variant={route.status === 'active' ? 'default' : 'secondary'}>
-                        {route.status === 'active' ? 'Ativa' : 'Inativa'}
-                      </Badge>
-                    </div>
-                    
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Pontos:</span>
                       <span className="text-sm">{route.points?.length || 0} locais</span>
@@ -192,15 +209,27 @@ const Routes = () => {
                       <Eye className="h-4 w-4 mr-1" />
                       Ver
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(route)}
-                      className="flex-1"
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Editar
-                    </Button>
+                    {route.status === 'completed' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleReactivate(route)}
+                        className="flex-1 text-green-600 hover:text-green-700"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Reativar
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(route)}
+                        className="flex-1"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -219,23 +248,10 @@ const Routes = () => {
         {/* Modais */}
         <CreateRouteModal 
           open={isCreateModalOpen} 
-          onOpenChange={setIsCreateModalOpen} 
+          onOpenChange={setIsCreateModalOpen}
+          route={editingRoute}
+          onSuccess={handleCloseModal}
         />
-
-        {isFormOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-semibold mb-4">
-                {editingRoute ? 'Editar Rota' : 'Nova Rota'}
-              </h2>
-              <RouteForm
-                route={editingRoute}
-                onSubmit={handleFormSubmit}
-                onCancel={handleCloseModal}
-              />
-            </div>
-          </div>
-        )}
 
         {viewingRoute && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -258,9 +274,7 @@ const Routes = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="font-medium">Status:</p>
-                    <Badge variant={viewingRoute.status === 'active' ? 'default' : 'secondary'}>
-                      {viewingRoute.status === 'active' ? 'Ativa' : 'Inativa'}
-                    </Badge>
+                    {getStatusBadge(viewingRoute.status)}
                   </div>
                   <div>
                     <p className="font-medium">Total de Pontos:</p>
@@ -310,7 +324,6 @@ const Routes = () => {
         )}
       </div>
       
-      {/* Espaço para navegação mobile */}
       <div className="h-20 md:hidden" />
     </div>
   );

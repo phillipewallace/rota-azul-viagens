@@ -1,6 +1,5 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '@/services/api';
 
 export interface Truck {
   id: string;
@@ -10,7 +9,9 @@ export interface Truck {
   year: number;
   status: 'available' | 'in-route' | 'maintenance';
   currentRoute?: string;
+  currentRouteName?: string;
   driver?: string;
+  driverName?: string;
   lastMaintenance: string;
   mileage: number;
   location?: {
@@ -48,10 +49,10 @@ const updateTruckLocationApi = async (truckId: string, lat: number, lng: number)
 export const useTrucks = () => {
   const queryClient = useQueryClient();
 
-  const { data: trucks = [], isLoading: loading, error } = useQuery({
+  const { data: trucks = [], isLoading: loading, error, refetch } = useQuery({
     queryKey: ['trucks'],
     queryFn: fetchTrucks,
-    refetchInterval: 30000, // Atualiza a cada 30 segundos
+    refetchInterval: 30000,
     retry: 2,
   });
 
@@ -59,7 +60,6 @@ export const useTrucks = () => {
     mutationFn: ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) =>
       updateTruckLocationApi(truckId, lat, lng),
     onSuccess: (_, { truckId, lat, lng }) => {
-      // Atualiza o cache local
       queryClient.setQueryData(['trucks'], (oldData: Truck[] | undefined) => {
         if (!oldData) return [];
         return oldData.map(truck => 
@@ -84,6 +84,7 @@ export const useTrucks = () => {
     loading,
     error: error ? 'Erro ao carregar caminhões' : null,
     loadTrucks,
-    updateTruckLocation
+    updateTruckLocation,
+    refetch
   };
 };
