@@ -181,9 +181,9 @@ CREATE TRIGGER update_maintenance_records_updated_at BEFORE UPDATE ON maintenanc
 -- Insert sample data
 
 -- Insert admin user (username: phillipe.sodre, password: @Wallace44)
--- Hash gerado com bcrypt para a senha @Wallace44
+-- Hash para a senha @Wallace44: $2b$10$FZzE5mE5WtR6QbZSFxsLWu3pV6Kc9VnWuJzLKsQzDpMk5qW7Xx8Pu
 INSERT INTO users (username, password_hash, name, email, role) VALUES 
-('phillipe.sodre', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Phillipe Sodré', 'phillipe.sodre@alchemyrotas.com', 'admin');
+('phillipe.sodre', '$2b$10$FZzE5mE5WtR6QbZSFxsLWu3pV6Kc9VnWuJzLKsQzDpMk5qW7Xx8Pu', 'Phillipe Sodré', 'phillipe.sodre@alchemyrotas.com', 'admin');
 
 -- Insert sample drivers
 INSERT INTO drivers (name, license_number, license_category, phone, email, hire_date, status) VALUES 

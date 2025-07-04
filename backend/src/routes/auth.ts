@@ -12,7 +12,10 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    console.log('🔐 Tentativa de login:', { username, password: '***' });
+
     if (!username || !password) {
+      console.log('❌ Username ou password faltando');
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
@@ -20,15 +23,23 @@ router.post('/login', async (req, res) => {
     const userQuery = 'SELECT * FROM users WHERE username = $1 AND active = true';
     const userResult = await pool.query(userQuery, [username]);
 
+    console.log('👤 Usuário encontrado:', userResult.rows.length > 0);
+
     if (userResult.rows.length === 0) {
+      console.log('❌ Usuário não encontrado ou inativo');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const user = userResult.rows[0];
+    console.log('🔍 Dados do usuário:', { id: user.id, username: user.username, role: user.role });
 
     // Verificar senha
+    console.log('🔐 Verificando senha...');
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    console.log('✅ Senha correta:', passwordMatch);
+
     if (!passwordMatch) {
+      console.log('❌ Senha incorreta');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -46,13 +57,15 @@ router.post('/login', async (req, res) => {
     // Retornar dados do usuário (sem a senha)
     const { password_hash, ...userWithoutPassword } = user;
 
+    console.log('✅ Login realizado com sucesso para:', username);
+
     res.json({
       token,
       user: userWithoutPassword
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ Erro no login:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
