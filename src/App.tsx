@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Index from "./pages/Index";
 import Trucks from "./pages/Trucks";
 import Drivers from "./pages/Drivers";
-import Routes from "./pages/Routes";
+import RoutesPage from "./pages/Routes";
 import Schedule from "./pages/Schedule";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -72,7 +72,7 @@ function App() {
               path="/routes"
               element={
                 <ProtectedRoute>
-                  <Routes />
+                  <RoutesPage />
                 </ProtectedRoute>
               }
             />
