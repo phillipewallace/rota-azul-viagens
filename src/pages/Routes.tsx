@@ -17,7 +17,7 @@ const Routes = () => {
   const [viewingRoute, setViewingRoute] = useState<any>(null);
 
   const { routes, loading, loadRoutes } = useRoutes();
-  const { deleteRoute, updateRoute } = useRoutesCRUD();
+  const { deleteRoute, updateRoute, isLoading } = useRoutesCRUD();
 
   const handleEdit = (route: any) => {
     if (route.status === 'completed') {
@@ -35,6 +35,7 @@ const Routes = () => {
         toast.success('Rota excluída com sucesso!');
         loadRoutes();
       } catch (error) {
+        console.error('Error deleting route:', error);
         toast.error('Erro ao excluir rota');
       }
     }
@@ -46,6 +47,7 @@ const Routes = () => {
       toast.success('Rota reativada com sucesso!');
       loadRoutes();
     } catch (error) {
+      console.error('Error reactivating route:', error);
       toast.error('Erro ao reativar rota');
     }
   };
@@ -203,6 +205,7 @@ const Routes = () => {
                         size="sm"
                         onClick={() => handleReactivate(route)}
                         className="flex-1 text-green-600 hover:text-green-700"
+                        disabled={isLoading}
                       >
                         <RefreshCw className="h-4 w-4 mr-1" />
                         Reativar
@@ -223,6 +226,7 @@ const Routes = () => {
                       size="sm"
                       onClick={() => handleDelete(route.id)}
                       className="text-red-600 hover:text-red-700 hover:border-red-300"
+                      disabled={isLoading}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
