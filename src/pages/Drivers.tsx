@@ -1,192 +1,204 @@
 
 import React, { useState } from 'react';
+import { Plus, Edit, Trash2, ArrowLeft, User, Phone, Mail, UserCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Users, Search, Phone, Mail, MapPin, Plus, Edit, Trash2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import PageHeader from '@/components/PageHeader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useNavigate } from 'react-router-dom';
 import { useDrivers } from '@/hooks/useDrivers';
 import { useDriversCRUD } from '@/hooks/useDriversCRUD';
 import { DriverForm } from '@/components/DriverForm';
-import { Driver } from '@/hooks/useDrivers';
+import { toast } from 'sonner';
 
 const Drivers = () => {
-  const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
-  const [showDriverForm, setShowDriverForm] = useState(false);
+  const navigate = useNavigate();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<any>(null);
 
-  const { drivers, loading } = useDrivers();
-  const { createDriver, updateDriver, deleteDriver, isLoading: driverCrudLoading } = useDriversCRUD();
+  const { drivers, loading, loadDrivers } = useDrivers();
+  const { createDriver, updateDriver, deleteDriver, isLoading } = useDriversCRUD();
 
-  const handleCreateDriver = async (data: Omit<Driver, 'id' | 'totalTrips'>) => {
-    try {
-      await createDriver(data);
-      setShowDriverForm(false);
-      toast({ title: 'Motorista criado com sucesso!' });
-    } catch (error) {
-      toast({ title: 'Erro ao criar motorista', variant: 'destructive' });
-    }
+  const handleEdit = (driver: any) => {
+    setEditingDriver(driver);
+    setIsModalOpen(true);
   };
 
-  const handleUpdateDriver = async (data: Omit<Driver, 'id' | 'totalTrips'>) => {
-    if (!editingDriver) return;
-    try {
-      await updateDriver({ id: editingDriver.id, driver: data });
-      setEditingDriver(null);
-      toast({ title: 'Motorista atualizado com sucesso!' });
-    } catch (error) {
-      toast({ title: 'Erro ao atualizar motorista', variant: 'destructive' });
-    }
-  };
-
-  const handleDeleteDriver = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este motorista?')) {
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este motorista?')) {
       try {
         await deleteDriver(id);
-        toast({ title: 'Motorista excluído com sucesso!' });
+        toast.success('Motorista excluído com sucesso!');
+        loadDrivers();
       } catch (error) {
-        toast({ title: 'Erro ao excluir motorista', variant: 'destructive' });
+        console.error('Error deleting driver:', error);
+        toast.error('Erro ao excluir motorista');
       }
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'available': return 'bg-green-500';
-      case 'on-route': return 'bg-blue-500';
-      case 'off-duty': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+  const handleSubmit = async (data: any) => {
+    try {
+      if (editingDriver) {
+        await updateDriver({ id: editingDriver.id, driver: data });
+        toast.success('Motorista atualizado com sucesso!');
+      } else {
+        await createDriver(data);
+        toast.success('Motorista criado com sucesso!');
+      }
+      setIsModalOpen(false);
+      setEditingDriver(null);
+      loadDrivers();
+    } catch (error) {
+      console.error('Error saving driver:', error);
+      toast.error('Erro ao salvar motorista');
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'available': return 'Disponível';
-      case 'on-route': return 'Em Rota';
-      case 'off-duty': return 'Folga';
-      default: return 'Indefinido';
-    }
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingDriver(null);
   };
 
-  const filteredDrivers = drivers.filter(driver =>
-    driver.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getStatusBadge = (status: string) => {
+    return (
+      <Badge variant={status === 'active' ? 'default' : 'secondary'}>
+        {status === 'active' ? 'Ativo' : 'Inativo'}
+      </Badge>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando motoristas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <PageHeader 
-        title="Motoristas" 
-        subtitle="Gerenciamento da equipe de motoristas"
-      >
-        <Button onClick={() => setShowDriverForm(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Cadastrar Motorista
-        </Button>
-      </PageHeader>
-
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Buscar motoristas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Motoristas</h1>
+              <p className="text-gray-600 mt-2">Gerencie os motoristas do sistema</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Motorista
+            </Button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">Carregando motoristas...</div>
+        {/* Lista de Motoristas */}
+        {drivers.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <User className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum motorista encontrado</h3>
+              <p className="text-gray-600 mb-6">Comece adicionando seu primeiro motorista</p>
+              <Button onClick={() => setIsModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Primeiro Motorista
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDrivers.map((driver) => (
-              <Card key={driver.id}>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {drivers.map((driver) => (
+              <Card key={driver.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{driver.name}</CardTitle>
-                    <Badge className={getStatusColor(driver.status)}>
-                      {getStatusText(driver.status)}
-                    </Badge>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-blue-600" />
+                      {driver.name}
+                    </CardTitle>
+                    {getStatusBadge(driver.status)}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-gray-500" />
-                      <span>{driver.phone}</span>
+                      <span className="text-sm">{driver.phone}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
+                    
+                    <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-gray-500" />
-                      <span>{driver.email}</span>
+                      <span className="text-sm">{driver.email}</span>
                     </div>
-                    <div className="text-sm">
-                      <span className="font-medium">CNH:</span> {driver.license}
+                    
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm">CNH: {driver.license}</span>
                     </div>
-                    {driver.currentRoute && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <MapPin className="h-4 w-4 text-blue-500" />
-                        <span>Rota atual: {driver.currentRoute}</span>
-                      </div>
-                    )}
-                    <div className="text-sm text-gray-600">
-                      Total de viagens: {driver.totalTrips}
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => setEditingDriver(driver)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        onClick={() => handleDeleteDriver(driver.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(driver)}
+                      className="flex-1"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(driver.id)}
+                      className="text-red-600 hover:text-red-700 hover:border-red-300"
+                      disabled={isLoading}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
-      </div>
 
-      {/* Driver Form Dialog */}
-      <Dialog open={showDriverForm || !!editingDriver} onOpenChange={(open) => {
-        if (!open) {
-          setShowDriverForm(false);
-          setEditingDriver(null);
-        }
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingDriver ? 'Editar Motorista' : 'Novo Motorista'}
-            </DialogTitle>
-          </DialogHeader>
-          <DriverForm
-            driver={editingDriver || undefined}
-            onSubmit={editingDriver ? handleUpdateDriver : handleCreateDriver}
-            onCancel={() => {
-              setShowDriverForm(false);
-              setEditingDriver(null);
-            }}
-            isLoading={driverCrudLoading}
-          />
-        </DialogContent>
-      </Dialog>
+        {/* Modal para criar/editar motorista */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingDriver ? 'Editar Motorista' : 'Novo Motorista'}
+              </DialogTitle>
+            </DialogHeader>
+            <DriverForm
+              driver={editingDriver}
+              onSubmit={handleSubmit}
+              onCancel={handleCloseModal}
+              isLoading={isLoading}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+      
+      <div className="h-20 md:hidden" />
     </div>
   );
 };

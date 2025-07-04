@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, MapPin, Calculator, Clock, Route as RouteIcon } from 'lucide-react';
+import { Plus, X, MapPin, Calculator, Route as RouteIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { geocodingService } from '@/services/geocoding';
 import { googleMapsService } from '@/services/googleMaps';
+import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 
 interface RoutePoint {
   id: string;
@@ -27,7 +28,7 @@ interface RoutePoint {
 interface CreateRouteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRouteCreated: (route: any) => void;
+  onRouteCreated: () => void;
 }
 
 const CreateRouteModal = ({ open, onOpenChange, onRouteCreated }: CreateRouteModalProps) => {
@@ -42,6 +43,7 @@ const CreateRouteModal = ({ open, onOpenChange, onRouteCreated }: CreateRouteMod
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationResult, setOptimizationResult] = useState<any>(null);
   const { toast } = useToast();
+  const { createRoute, isLoading } = useRoutesCRUD();
 
   const addPoint = async () => {
     if (!newPointName.trim() || !newPointCep.trim()) {
@@ -98,7 +100,7 @@ const CreateRouteModal = ({ open, onOpenChange, onRouteCreated }: CreateRouteMod
     }
   };
 
-  const createRoute = () => {
+  const handleCreateRoute = async () => {
     if (!routeName.trim()) {
       toast({ title: 'Digite um nome para a rota', variant: 'destructive' });
       return;
@@ -109,19 +111,25 @@ const CreateRouteModal = ({ open, onOpenChange, onRouteCreated }: CreateRouteMod
       return;
     }
 
-    const route = {
-      name: routeName,
-      description,
-      status,
-      points: points,
-      totalDistance: optimizationResult?.totalDistance || 0,
-      estimatedTime: optimizationResult?.estimatedTime || '0h 0min',
-      optimizedOrder: optimizationResult?.optimizedOrder || points.map(p => p.id),
-      polyline: optimizationResult?.polyline || ''
-    };
+    try {
+      const route = {
+        name: routeName,
+        description,
+        status,
+        points: points,
+        totalDistance: optimizationResult?.totalDistance || 0,
+        estimatedTime: optimizationResult?.estimatedTime || '0h 0min',
+        optimizedOrder: optimizationResult?.optimizedOrder || points.map(p => p.id),
+        polyline: optimizationResult?.polyline || ''
+      };
 
-    onRouteCreated(route);
-    resetForm();
+      await createRoute(route);
+      toast({ title: 'Rota criada com sucesso!' });
+      resetForm();
+      onRouteCreated();
+    } catch (error) {
+      toast({ title: 'Erro ao criar rota', variant: 'destructive' });
+    }
   };
 
   const resetForm = () => {
@@ -299,7 +307,7 @@ const CreateRouteModal = ({ open, onOpenChange, onRouteCreated }: CreateRouteMod
         </div>
 
         <div className="flex gap-2 pt-4 border-t">
-          <Button onClick={createRoute} disabled={points.length < 2}>
+          <Button onClick={handleCreateRoute} disabled={points.length < 2 || isLoading}>
             <RouteIcon className="w-4 h-4 mr-2" />
             Criar Rota
           </Button>
