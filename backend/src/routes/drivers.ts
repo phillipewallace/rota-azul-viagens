@@ -86,21 +86,27 @@ router.get('/:id', async (req, res) => {
 // Create new driver
 router.post('/', async (req, res) => {
   try {
-    const { name, license_number, license_category, phone, email, hire_date } = req.body;
+    console.log('👥 Creating new driver...');
+    
+    const { name, license, phone, email, status } = req.body;
+    
+    // Validate required fields
+    if (!name || !license || !phone || !email) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nome, CNH, telefone e email' });
+    }
     
     const query = `
-      INSERT INTO drivers (name, license_number, license_category, phone, email, hire_date)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO drivers (name, license_number, phone, email, status, hire_date)
+      VALUES ($1, $2, $3, $4, $5, CURRENT_DATE)
       RETURNING *
     `;
     
     const result = await pool.query(query, [
       name,
-      license_number,
-      license_category || 'D',
+      license,
       phone,
       email,
-      hire_date || new Date().toISOString().split('T')[0]
+      status || 'active'
     ]);
     
     console.log('✅ Driver created:', result.rows[0].name);
@@ -108,7 +114,7 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('❌ Error creating driver:', error);
     if (error.code === '23505') {
-      return res.status(400).json({ error: 'Número de licença já cadastrado' });
+      return res.status(400).json({ error: 'Número de CNH já cadastrado' });
     }
     res.status(500).json({ error: 'Erro ao criar motorista' });
   }
@@ -117,18 +123,19 @@ router.post('/', async (req, res) => {
 // Update driver
 router.put('/:id', async (req, res) => {
   try {
+    console.log('👥 Updating driver:', req.params.id);
+    
     const { id } = req.params;
-    const { name, license_number, license_category, phone, email, status } = req.body;
+    const { name, license, phone, email, status } = req.body;
     
     const query = `
       UPDATE drivers 
-      SET name = $1, license_number = $2, license_category = $3, 
-          phone = $4, email = $5, status = $6, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7
+      SET name = $1, license_number = $2, phone = $3, email = $4, status = $5, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6
       RETURNING *
     `;
     
-    const result = await pool.query(query, [name, license_number, license_category, phone, email, status, id]);
+    const result = await pool.query(query, [name, license, phone, email, status, id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Motorista não encontrado' });
