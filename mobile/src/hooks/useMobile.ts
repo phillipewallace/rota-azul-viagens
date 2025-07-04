@@ -15,14 +15,23 @@ export interface TruckMobileData {
   id: string;
   name: string;
   plate: string;
-  model: string;
-  year: number;
   status: string;
-  driver?: string;
   currentRoute?: {
-    id: string;
     name: string;
-    points: RoutePoint[];
+    points: Array<{
+      id: string;
+      address: string;
+      lat: number;
+      lng: number;
+      order: number;
+      type: 'origin' | 'destination' | 'waypoint';
+      pointType?: 'limpeza' | 'entrega' | 'recolhimento';
+      completed: boolean;
+    }>;
+  };
+  location?: {
+    lat: number;
+    lng: number;
   };
 }
 

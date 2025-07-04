@@ -1,79 +1,41 @@
-
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, MapPin, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Plus, Trash2, Search } from 'lucide-react';
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { useRoutes, RoutePoint } from '@/hooks/useRoutes';
-import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
-import RoutePreviewModal from './RoutePreviewModal';
-import { toast } from 'sonner';
 
 interface CreateRouteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingRoute?: any;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
-const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
-  open,
-  onOpenChange,
-  editingRoute,
-  onSuccess
-}) => {
-  const [step, setStep] = useState(1);
-  const [routeName, setRouteName] = useState('');
-  const [routeDescription, setRouteDescription] = useState('');
+const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: CreateRouteModalProps) => {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [points, setPoints] = useState<RoutePoint[]>([]);
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [searchingAddress, setSearchingAddress] = useState<number | null>(null);
-
-  const { getAddressByCep, optimizeRoute } = useRoutes();
-  const { createRoute, updateRoute } = useRoutesCRUD();
-
-  const isEditing = !!editingRoute;
+  const { toast } = useToast();
+  const { createRoute, updateRoute, getAddressByCep } = useRoutes();
 
   useEffect(() => {
-    if (editingRoute && open) {
-      setRouteName(editingRoute.name || '');
-      setRouteDescription(editingRoute.description || '');
+    if (editingRoute) {
+      setName(editingRoute.name);
+      setDescription(editingRoute.description || '');
       setPoints(editingRoute.points || []);
-      setStep(2);
-    } else if (!editingRoute && open) {
-      resetForm();
+    } else {
+      setName('');
+      setDescription('');
+      setPoints([]);
     }
-  }, [editingRoute, open]);
-
-  const resetForm = () => {
-    setStep(1);
-    setRouteName('');
-    setRouteDescription('');
-    setPoints([]);
-    setPreviewData(null);
-    setShowPreview(false);
-    setLoading(false);
-    setSearchingAddress(null);
-  };
-
-  const handleClose = () => {
-    onOpenChange(false);
-    setTimeout(resetForm, 300);
-  };
-
-  const nextStep = () => {
-    if (step === 1 && routeName.trim()) {
-      setStep(2);
-      if (points.length === 0) {
-        addPoint();
-      }
-    }
-  };
+  }, [editingRoute]);
 
   const addPoint = () => {
     const newPoint: RoutePoint = {
@@ -83,340 +45,254 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       lat: 0,
       lng: 0,
       order: points.length,
-      type: points.length === 0 ? 'origin' : 'waypoint'
+      type: points.length === 0 ? 'origin' : 'waypoint',
+      pointType: 'entrega'
     };
     setPoints([...points, newPoint]);
   };
 
-  const removePoint = (id: string) => {
-    if (points.length <= 1) {
-      toast.error('Deve haver pelo menos um ponto na rota');
+  const updatePoint = (index: number, field: string, value: any) => {
+    const newPoints = [...points];
+    newPoints[index][field] = value;
+    setPoints(newPoints);
+  };
+
+  const removePoint = (index: number) => {
+    if (points.length <= 2) {
+      toast({
+        title: 'Uma rota deve ter ao menos dois pontos',
+        description: 'Não é possível remover mais pontos.',
+        variant: 'destructive',
+      });
       return;
     }
-    
-    const filteredPoints = points.filter(p => p.id !== id);
-    const reorderedPoints = filteredPoints.map((point, index) => ({
-      ...point,
-      order: index,
-      type: index === 0 ? 'origin' : 
-            index === filteredPoints.length - 1 && filteredPoints.length > 1 ? 'destination' : 'waypoint'
-    })) as RoutePoint[];
-    setPoints(reorderedPoints);
+    const newPoints = [...points];
+    newPoints.splice(index, 1);
+    setPoints(newPoints);
   };
 
-  const searchAddressByCep = async (pointId: string, cep: string) => {
-    if (!cep || cep.length < 8) return;
-
+  const handleCepSearch = async (index: number) => {
+    setLoading(true);
     try {
-      setSearchingAddress(points.findIndex(p => p.id === pointId));
+      const cep = points[index].cep;
       const addressData = await getAddressByCep(cep);
-      
-      setPoints(prev => prev.map(point => 
-        point.id === pointId 
-          ? { 
-              ...point, 
-              cep: cep,
-              address: addressData.address,
-              lat: addressData.lat,
-              lng: addressData.lng
-            }
-          : point
-      ));
-      
-      toast.success('Endereço encontrado!');
-    } catch (error) {
-      console.error('Error searching address by CEP:', error);
-      toast.error('CEP não encontrado');
-    } finally {
-      setSearchingAddress(null);
-    }
-  };
 
-  const searchAddressByText = async (pointId: string, address: string) => {
-    if (!address || address.length < 5) return;
-
-    try {
-      setSearchingAddress(points.findIndex(p => p.id === pointId));
-      
-      if (!window.google || !window.google.maps) {
-        toast.error('Google Maps não está disponível');
-        return;
-      }
-
-      const geocoder = new window.google.maps.Geocoder();
-      const results = await new Promise<any>((resolve, reject) => {
-        geocoder.geocode({ address: address }, (results, status) => {
-          if (status === 'OK' && results && results[0]) {
-            resolve(results[0]);
-          } else {
-            reject(new Error('Endereço não encontrado'));
-          }
-        });
-      });
-
-      const location = results.geometry.location;
-      const formattedAddress = results.formatted_address;
-
-      setPoints(prev => prev.map(point => 
-        point.id === pointId 
-          ? { 
-              ...point, 
-              address: formattedAddress,
-              lat: location.lat(),
-              lng: location.lng(),
-              cep: point.cep || ''
-            }
-          : point
-      ));
-      
-      toast.success('Endereço encontrado!');
-    } catch (error) {
-      console.error('Error searching address:', error);
-      toast.error('Endereço não encontrado');
-    } finally {
-      setSearchingAddress(null);
-    }
-  };
-
-  const updatePointAddress = (pointId: string, address: string) => {
-    setPoints(prev => prev.map(point => 
-      point.id === pointId ? { ...point, address } : point
-    ));
-  };
-
-  const updatePointCep = async (pointId: string, cep: string) => {
-    const cleanCep = cep.replace(/\D/g, '');
-    
-    setPoints(prev => prev.map(point => 
-      point.id === pointId ? { ...point, cep: cleanCep } : point
-    ));
-
-    if (cleanCep.length === 8) {
-      await searchAddressByCep(pointId, cleanCep);
-    }
-  };
-
-  const generatePreview = async () => {
-    try {
-      setLoading(true);
-      
-      const validPoints = points.filter(p => p.lat && p.lng && p.address);
-      if (validPoints.length < 2) {
-        toast.error('É necessário pelo menos 2 pontos válidos para gerar a rota');
-        return;
-      }
-
-      const optimizedData = await optimizeRoute(validPoints);
-      
-      const preview = {
-        name: routeName,
-        description: routeDescription,
-        points: validPoints,
-        totalDistance: optimizedData.totalDistance,
-        estimatedTime: optimizedData.estimatedTime,
-        status: 'active'
-      };
-
-      setPreviewData(preview);
-      setShowPreview(true);
-    } catch (error) {
-      console.error('Error generating preview:', error);
-      toast.error('Erro ao gerar preview da rota');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!previewData) return;
-
-    try {
-      setLoading(true);
-      
-      if (isEditing) {
-        await updateRoute(editingRoute.id, previewData);
-        toast.success('Rota atualizada com sucesso!');
+      if (addressData) {
+        updatePoint(index, 'address', addressData.address);
+        updatePoint(index, 'lat', addressData.lat);
+        updatePoint(index, 'lng', addressData.lng);
       } else {
-        await createRoute(previewData);
-        toast.success('Rota criada com sucesso!');
+        toast({
+          title: 'CEP não encontrado',
+          description: 'Não foi possível encontrar o endereço para o CEP informado.',
+          variant: 'destructive',
+        });
       }
-      
-      onSuccess();
-      handleClose();
     } catch (error) {
-      console.error('Error saving route:', error);
-      toast.error('Erro ao salvar rota');
+      console.error('Error searching CEP:', error);
+      toast({
+        title: 'Erro ao buscar CEP',
+        description: 'Ocorreu um erro ao buscar o endereço pelo CEP.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBackToEdit = () => {
-    setShowPreview(false);
-    setPreviewData(null);
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      toast({
+        title: 'Nome da rota é obrigatório',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (points.length < 2) {
+      toast({
+        title: 'Adicione ao menos dois pontos à rota',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const routeData = {
+      name: name,
+      description: description,
+      points: points,
+      totalDistance: 0,
+      estimatedTime: '00:00',
+      optimizedOrder: [],
+      status: 'active'
+    };
+
+    try {
+      if (editingRoute) {
+        await updateRoute(editingRoute.id, routeData);
+        toast({
+          title: 'Rota atualizada com sucesso!',
+        });
+      } else {
+        await createRoute(routeData);
+        toast({
+          title: 'Rota criada com sucesso!',
+        });
+      }
+      onSuccess?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error creating/updating route:', error);
+      toast({
+        title: 'Erro ao criar/atualizar rota',
+        description: 'Ocorreu um erro ao salvar a rota. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
-    <>
-      <Dialog open={open && !showPreview} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {isEditing ? 'Editar Rota' : 'Nova Rota'} - Passo {step} de 2
-            </DialogTitle>
-          </DialogHeader>
-          
-          {step === 1 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="routeName">Nome da Rota *</Label>
-                <Input
-                  id="routeName"
-                  value={routeName}
-                  onChange={(e) => setRouteName(e.target.value)}
-                  placeholder="Ex: Rota Centro - Zona Sul"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="routeDescription">Descrição (opcional)</Label>
-                <Textarea
-                  id="routeDescription"
-                  value={routeDescription}
-                  onChange={(e) => setRouteDescription(e.target.value)}
-                  placeholder="Descreva a rota..."
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleClose}>
-                  Cancelar
-                </Button>
-                <Button onClick={nextStep} disabled={!routeName.trim()}>
-                  Próximo
-                </Button>
-              </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{editingRoute ? 'Editar Rota' : 'Criar Nova Rota'}</DialogTitle>
+          <DialogDescription>
+            Preencha os campos abaixo para {editingRoute ? 'editar' : 'criar'} uma nova rota.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="grid gap-6">
+          {/* Nome e Descrição */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="name">Nome da Rota</Label>
+              <Input
+                id="name"
+                placeholder="Ex: Rota Centro"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
-          )}
+            <div>
+              <Label htmlFor="description">Descrição</Label>
+              <Input
+                id="description"
+                placeholder="Ex: Rota que passa pelo centro da cidade"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+          </div>
 
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Pontos da Rota</h3>
-                <Button onClick={addPoint} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Ponto
-                </Button>
+          {/* Pontos da Rota */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Pontos da Rota</h3>
+              <Button type="button" onClick={addPoint} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Ponto
+              </Button>
+            </div>
+
+            {points.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Nenhum ponto adicionado. Clique em "Adicionar Ponto" para começar.
               </div>
-              
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+            ) : (
+              <div className="space-y-4">
                 {points.map((point, index) => (
-                  <Card key={point.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                          point.type === 'origin' ? 'bg-green-500' : 'bg-blue-500'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        
-                        <div className="flex-1 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label>CEP (opcional)</Label>
-                              <Input
-                                value={point.cep}
-                                onChange={(e) => updatePointCep(point.id, e.target.value)}
-                                placeholder="00000-000"
-                                maxLength={9}
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label>Tipo</Label>
-                              <div className="text-sm p-2 bg-gray-50 rounded border">
-                                {point.type === 'origin' ? 'Origem' : 'Parada Intermediária'}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label>Endereço *</Label>
-                            <div className="flex gap-2">
-                              <Input
-                                value={point.address}
-                                onChange={(e) => updatePointAddress(point.id, e.target.value)}
-                                placeholder="Digite o endereço completo..."
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => searchAddressByText(point.id, point.address)}
-                                disabled={!point.address || searchingAddress === index}
-                              >
-                                <Search className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          {point.lat && point.lng && (
-                            <div className="flex items-center gap-2 text-sm text-green-600">
-                              <MapPin className="h-4 w-4" />
-                              Localização confirmada
-                            </div>
-                          )}
-                        </div>
-                        
-                        {points.length > 1 && (
+                  <Card key={point.id} className="p-4">
+                    <div className="grid gap-4">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Ponto {index + 1}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={
+                            point.type === 'origin' ? 'default' : 
+                            point.type === 'destination' ? 'destructive' : 'secondary'
+                          }>
+                            {point.type === 'origin' ? 'Origem' :
+                             point.type === 'destination' ? 'Destino' : 'Parada'}
+                          </Badge>
                           <Button
+                            type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => removePoint(point.id)}
-                            className="text-red-600 hover:text-red-700"
+                            onClick={() => removePoint(index)}
+                            disabled={points.length <= 2}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
+                        </div>
                       </div>
-                    </CardContent>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>CEP</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="00000-000"
+                              value={point.cep}
+                              onChange={(e) => updatePoint(index, 'cep', e.target.value)}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleCepSearch(index)}
+                              disabled={loading || !point.cep}
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Label>Tipo</Label>
+                          <Select
+                            value={point.pointType || 'entrega'}
+                            onValueChange={(value: 'limpeza' | 'entrega' | 'recolhimento') => 
+                              updatePoint(index, 'pointType', value)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="entrega">Entrega</SelectItem>
+                              <SelectItem value="recolhimento">Recolhimento</SelectItem>
+                              <SelectItem value="limpeza">Limpeza</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Endereço</Label>
+                        <Input
+                          placeholder="Digite o endereço completo"
+                          value={point.address}
+                          onChange={(e) => updatePoint(index, 'address', e.target.value)}
+                        />
+                      </div>
+                    </div>
                   </Card>
                 ))}
               </div>
-              
-              <div className="flex justify-between gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setStep(1)}>
-                  Voltar
-                </Button>
-                
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleClose}>
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={generatePreview}
-                    disabled={loading || points.filter(p => p.lat && p.lng).length < 2}
-                  >
-                    {loading ? 'Gerando...' : 'Gerar Preview'}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </div>
 
-      <RoutePreviewModal
-        open={showPreview}
-        onOpenChange={setShowPreview}
-        previewData={previewData}
-        onSave={handleSave}
-        onBack={handleBackToEdit}
-        loading={loading}
-        isEditing={isEditing}
-      />
-    </>
+          {/* Footer */}
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSubmit} disabled={loading}>
+              {editingRoute ? 'Salvar Alterações' : 'Criar Rota'}
+            </Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

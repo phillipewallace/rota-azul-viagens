@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -474,7 +473,7 @@ const MobileDriver = () => {
               <div className="space-y-2">
                 {points.map((point, index) => (
                   <div 
-                    key={point.id} 
+                    key={point.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border ${
                       index === currentPointIndex 
                         ? 'bg-blue-50 border-blue-200' 
@@ -494,14 +493,25 @@ const MobileDriver = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{point.address}</p>
-                      <p className="text-xs text-gray-600 capitalize">
-                        {point.type === 'origin' ? 'Origem' : 
-                         point.type === 'destination' ? 'Destino' : 'Parada'}
-                      </p>
+                      <div className="flex gap-2 items-center text-xs text-gray-600">
+                        <span className="capitalize">
+                          {point.type === 'origin' ? 'Origem' : 
+                           point.type === 'destination' ? 'Destino' : 'Parada'}
+                        </span>
+                        {point.pointType && (
+                          <>
+                            <span>•</span>
+                            <span className={`capitalize px-2 py-1 rounded text-xs ${
+                              point.pointType === 'entrega' ? 'bg-blue-100 text-blue-700' :
+                              point.pointType === 'recolhimento' ? 'bg-orange-100 text-orange-700' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {point.pointType}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    {index < currentPointIndex && (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    )}
                   </div>
                 ))}
               </div>

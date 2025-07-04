@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { googleMapsService } from '@/services/googleMaps';
 import { routesService } from '@/services/routes';
@@ -11,6 +10,7 @@ export interface RoutePoint {
   lng: number;
   order: number;
   type: 'origin' | 'destination' | 'waypoint';
+  pointType?: 'limpeza' | 'entrega' | 'recolhimento';
 }
 
 export interface Route {
