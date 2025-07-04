@@ -31,10 +31,16 @@ const API_BASE_URL = import.meta.env.MODE === 'production'
   : 'http://localhost:3001/api';
 
 export const useMobile = () => {
+  const [truckData, setTruckData] = useState<TruckMobileData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
 
-  const getTruckByPlate = async (plate: string): Promise<TruckMobileData> => {
+  const getTruckByPlate = async (plate: string): Promise<boolean> => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`);
       
       if (!response.ok) {
@@ -43,14 +49,18 @@ export const useMobile = () => {
       }
       
       const data = await response.json();
-      return data;
+      setTruckData(data);
+      return true;
     } catch (error) {
       console.error('Error fetching truck by plate:', error);
-      throw error;
+      setError(error instanceof Error ? error.message : 'Erro ao buscar caminhão');
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateTruckLocation = async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
+  const updateLocation = async (truckId: string, lat: number, lng: number) => {
     try {
       setIsUpdatingLocation(true);
       
@@ -68,14 +78,14 @@ export const useMobile = () => {
       
       return await response.json();
     } catch (error) {
-      console.error('Error updating truck location:', error);
+      console.error('Error updating location:', error);
       throw error;
     } finally {
       setIsUpdatingLocation(false);
     }
   };
 
-  const updateRoutePoint = async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
+  const updateRoutePoint = async (truckId: string, pointId: string, completed: boolean) => {
     try {
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
@@ -96,7 +106,7 @@ export const useMobile = () => {
     }
   };
 
-  const finishRoute = async (truckId: string) => {
+  const finishRoute = async (truckId: string): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
         method: 'POST',
@@ -110,18 +120,21 @@ export const useMobile = () => {
         throw new Error(errorData.error || 'Erro ao finalizar rota');
       }
       
-      return await response.json();
+      return true;
     } catch (error) {
       console.error('Error finishing route:', error);
-      throw error;
+      return false;
     }
   };
 
   return {
+    truckData,
+    loading,
+    error,
+    isUpdatingLocation,
     getTruckByPlate,
-    updateTruckLocation,
+    updateLocation,
     updateRoutePoint,
-    finishRoute,
-    isUpdatingLocation
+    finishRoute
   };
 };

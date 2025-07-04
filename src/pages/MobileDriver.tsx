@@ -6,8 +6,36 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation, Truck, Clock, RefreshCw } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
-import { useMobile, TruckMobileData } from '@/hooks/useMobile';
 import { toast } from 'sonner';
+
+interface RoutePoint {
+  id: string;
+  address: string;
+  lat: number;
+  lng: number;
+  order: number;
+  type: 'origin' | 'destination' | 'waypoint';
+  completed?: boolean;
+}
+
+interface TruckMobileData {
+  id: string;
+  name: string;
+  plate: string;
+  model: string;
+  year: number;
+  status: string;
+  driver?: string;
+  currentRoute?: {
+    id: string;
+    name: string;
+    points: RoutePoint[];
+  };
+}
+
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
 
 const MobileDriver = () => {
   const [plate, setPlate] = useState('');
@@ -15,26 +43,108 @@ const MobileDriver = () => {
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, isUpdatingLocation } = useMobile();
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+
+  const getTruckByPlate = async (plate: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao buscar caminhão');
+      }
+      
+      const data = await response.json();
+      setTruckData(data);
+      return true;
+    } catch (error) {
+      console.error('Error fetching truck by plate:', error);
+      setError(error instanceof Error ? error.message : 'Erro ao buscar caminhão');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateLocation = async (truckId: string, lat: number, lng: number) => {
+    try {
+      setIsUpdatingLocation(true);
+      
+      const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ lat, lng }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar localização');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating location:', error);
+      throw error;
+    } finally {
+      setIsUpdatingLocation(false);
+    }
+  };
+
+  const updateRoutePoint = async (truckId: string, pointId: string, completed: boolean) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ completed }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar ponto da rota');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating route point:', error);
+      throw error;
+    }
+  };
+
+  const finishRoute = async (truckId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao finalizar rota');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error finishing route:', error);
+      return false;
+    }
+  };
 
   const handlePlateSubmit = async () => {
     if (!plate.trim()) return;
     
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const data = await getTruckByPlate(plate);
-      setTruckData(data);
+    const success = await getTruckByPlate(plate);
+    if (success) {
       toast.success('Caminhão encontrado!');
-      console.log('Truck data loaded:', data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao buscar dados do caminhão');
+      console.log('Truck data loaded:', truckData);
+    } else {
       toast.error('Erro ao buscar caminhão');
-      console.error('Error loading truck data:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -54,11 +164,7 @@ const MobileDriver = () => {
       
       // Atualiza a localização do caminhão no servidor
       if (truckData) {
-        await updateTruckLocation({
-          truckId: truckData.id,
-          lat: newLocation.lat,
-          lng: newLocation.lng
-        });
+        await updateLocation(truckData.id, newLocation.lat, newLocation.lng);
         toast.success('Localização atualizada');
       }
       
@@ -74,11 +180,7 @@ const MobileDriver = () => {
     if (!truckData?.currentRoute) return;
     
     try {
-      await updateRoutePoint({
-        truckId: truckData.id,
-        pointId,
-        completed: true
-      });
+      await updateRoutePoint(truckData.id, pointId, true);
       
       // Atualiza o estado local
       setTruckData(prev => {
