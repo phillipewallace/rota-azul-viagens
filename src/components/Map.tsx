@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
 import { googleMapsService } from '@/services/googleMaps';
+import { trafficService } from '@/services/traffic';
 
 const MapComponent = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
