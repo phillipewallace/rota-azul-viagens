@@ -13,6 +13,7 @@ const MapComponent = () => {
   const [currentMapType, setCurrentMapType] = useState<'roadmap' | 'satellite' | 'hybrid' | 'terrain'>('roadmap');
   const directionsRenderers = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
+  const userLocationMarker = useRef<any>(null);
   
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
@@ -130,6 +131,33 @@ const MapComponent = () => {
     markersRef.current = [];
   };
 
+  const updateUserLocationMarker = () => {
+    if (!map.current || !userLocation || !window.google) return;
+
+    // Remove existing user location marker
+    if (userLocationMarker.current) {
+      userLocationMarker.current.setMap(null);
+    }
+
+    // Create new user location marker (blue dot)
+    userLocationMarker.current = new window.google.maps.Marker({
+      position: userLocation,
+      map: map.current,
+      title: 'Sua localização atual',
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#3b82f6',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 3
+      },
+      zIndex: 1000
+    });
+
+    console.log('📍 Marcador de localização atualizado');
+  };
+
   const createTruckIcon = (color: string) => {
     return {
       path: 'M23.5 7c.276 0 .5.224.5.5v9c0 .276-.224.5-.5.5h-2.5v2c0 .828-.672 1.5-1.5 1.5h-1c-.828 0-1.5-.672-1.5-1.5v-2h-8v2c0 .828-.672 1.5-1.5 1.5h-1c-.828 0-1.5-.672-1.5-1.5v-2H3.5c-.276 0-.5-.224-.5-.5v-9c0-.276.224-.5.5-.5h1v-2c0-.552.448-1 1-1h14c.552 0 1 .448 1 1v2h1zm-2-2H5.5v1.5h16V5zM5 8.5v6h14v-6H5zm2.5 7.5c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1zm9 0c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1z',
@@ -149,6 +177,9 @@ const MapComponent = () => {
 
     clearDirectionsRenderers();
     clearMarkers();
+    
+    // Update user location marker
+    updateUserLocationMarker();
     
     if (!Array.isArray(trucks)) return;
     
@@ -256,6 +287,7 @@ const MapComponent = () => {
             });
 
             directionsRenderers.current.push(directionsRenderer);
+            console.log('✅ Rota desenhada com sucesso para:', route.name);
           } catch (error) {
             console.error('Error creating directions renderer:', error);
           }
@@ -287,11 +319,20 @@ const MapComponent = () => {
     }
   }, [trucks, routes, trucksLoading, routesLoading, mapLoaded]);
 
+  useEffect(() => {
+    if (mapLoaded && userLocation) {
+      updateUserLocationMarker();
+    }
+  }, [userLocation, mapLoaded]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       clearDirectionsRenderers();
       clearMarkers();
+      if (userLocationMarker.current) {
+        userLocationMarker.current.setMap(null);
+      }
     };
   }, []);
 
