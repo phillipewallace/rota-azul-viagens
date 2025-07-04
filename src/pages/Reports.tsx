@@ -1,23 +1,15 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { BarChart3, TrendingUp, Truck, Route, Calendar, MapPin, Download, Filter } from 'lucide-react';
+import { BarChart3, TrendingUp, Truck, Route, Calendar, MapPin } from 'lucide-react';
 import { useReports } from '@/hooks/useReports';
-import { PDFGenerator } from '@/components/PDFGenerator';
 import PageHeader from '@/components/PageHeader';
 
 const Reports = () => {
   const { stats, monthlyPerformance, routeUsage, maintenanceData, loading } = useReports();
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
-  const generateSystemReportPDF = () => {
-    PDFGenerator.generateSystemReport(stats, monthlyPerformance, selectedMonth);
-  };
 
   if (loading) {
     return (
@@ -42,47 +34,9 @@ const Reports = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <PageHeader title="Relatórios" subtitle="Análise de desempenho e estatísticas">
-        <div className="flex gap-2">
-          <Button onClick={generateSystemReportPDF} variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Gerar PDF
-          </Button>
-        </div>
-      </PageHeader>
+      <PageHeader title="Relatórios" subtitle="Análise de desempenho e estatísticas" />
       
       <div className="max-w-7xl mx-auto p-6">
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <Filter className="w-5 h-5 text-gray-500" />
-              <div>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Selecione o mês" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os meses</SelectItem>
-                    <SelectItem value="2024-01">Janeiro 2024</SelectItem>
-                    <SelectItem value="2024-02">Fevereiro 2024</SelectItem>
-                    <SelectItem value="2024-03">Março 2024</SelectItem>
-                    <SelectItem value="2024-04">Abril 2024</SelectItem>
-                    <SelectItem value="2024-05">Maio 2024</SelectItem>
-                    <SelectItem value="2024-06">Junho 2024</SelectItem>
-                    <SelectItem value="2024-07">Julho 2024</SelectItem>
-                    <SelectItem value="2024-08">Agosto 2024</SelectItem>
-                    <SelectItem value="2024-09">Setembro 2024</SelectItem>
-                    <SelectItem value="2024-10">Outubro 2024</SelectItem>
-                    <SelectItem value="2024-11">Novembro 2024</SelectItem>
-                    <SelectItem value="2024-12">Dezembro 2024</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>

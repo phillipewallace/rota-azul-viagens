@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Wrench, Calendar, DollarSign, Clock, Download, Filter } from 'lucide-react';
+import { Plus, Edit, Trash2, Wrench, Calendar, DollarSign, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,7 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useForm } from 'react-hook-form';
-import { PDFGenerator } from '@/components/PDFGenerator';
 
 interface MaintenanceRecord {
   id: string;
@@ -44,23 +43,11 @@ const Management = () => {
   const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecord | null>(null);
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const { trucks } = useTrucks();
   const { register, handleSubmit, setValue, watch, reset } = useForm<MaintenanceFormData>();
 
   const truckId = watch('truckId');
-
-  // Filter maintenance records
-  const filteredRecords = maintenanceRecords.filter(record => {
-    const monthMatch = selectedMonth === 'all' || 
-      new Date(record.scheduledDate).toISOString().substr(0, 7) === selectedMonth;
-    
-    const statusMatch = statusFilter === 'all' || record.status === statusFilter;
-    
-    return monthMatch && statusMatch;
-  });
 
   const handleCreateMaintenance = async (data: MaintenanceFormData) => {
     setLoading(true);
@@ -137,10 +124,6 @@ const Management = () => {
     toast({ title: 'Status atualizado com sucesso!' });
   };
 
-  const generatePDF = () => {
-    PDFGenerator.generateMaintenanceReport(filteredRecords, selectedMonth);
-  };
-
   const getStatusBadge = (status: string) => {
     const variants = {
       'scheduled': 'default',
@@ -181,11 +164,11 @@ const Management = () => {
   };
 
   const stats = {
-    total: filteredRecords.length,
-    scheduled: filteredRecords.filter(m => m.status === 'scheduled').length,
-    inProgress: filteredRecords.filter(m => m.status === 'in-progress').length,
-    completed: filteredRecords.filter(m => m.status === 'completed').length,
-    totalCost: filteredRecords.reduce((sum, m) => sum + (m.cost || 0), 0)
+    total: maintenanceRecords.length,
+    scheduled: maintenanceRecords.filter(m => m.status === 'scheduled').length,
+    inProgress: maintenanceRecords.filter(m => m.status === 'in-progress').length,
+    completed: maintenanceRecords.filter(m => m.status === 'completed').length,
+    totalCost: maintenanceRecords.reduce((sum, m) => sum + (m.cost || 0), 0)
   };
 
   return (
@@ -194,69 +177,13 @@ const Management = () => {
         title="Gerenciamento de Manutenções" 
         subtitle="Agende e gerencie todas as manutenções da frota"
       >
-        <div className="flex gap-2">
-          <Button onClick={generatePDF} variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Gerar PDF
-          </Button>
-          <Button onClick={() => openForm()}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Manutenção
-          </Button>
-        </div>
+        <Button onClick={() => openForm()}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Manutenção
+        </Button>
       </PageHeader>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <Filter className="w-5 h-5 text-gray-500" />
-              <div className="flex gap-4 flex-1">
-                <div>
-                  <Label>Mês</Label>
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os meses</SelectItem>
-                      <SelectItem value="2024-01">Janeiro 2024</SelectItem>
-                      <SelectItem value="2024-02">Fevereiro 2024</SelectItem>
-                      <SelectItem value="2024-03">Março 2024</SelectItem>
-                      <SelectItem value="2024-04">Abril 2024</SelectItem>
-                      <SelectItem value="2024-05">Maio 2024</SelectItem>
-                      <SelectItem value="2024-06">Junho 2024</SelectItem>
-                      <SelectItem value="2024-07">Julho 2024</SelectItem>
-                      <SelectItem value="2024-08">Agosto 2024</SelectItem>
-                      <SelectItem value="2024-09">Setembro 2024</SelectItem>
-                      <SelectItem value="2024-10">Outubro 2024</SelectItem>
-                      <SelectItem value="2024-11">Novembro 2024</SelectItem>
-                      <SelectItem value="2024-12">Dezembro 2024</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label>Status</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="scheduled">Agendada</SelectItem>
-                      <SelectItem value="in-progress">Em Andamento</SelectItem>
-                      <SelectItem value="completed">Concluída</SelectItem>
-                      <SelectItem value="cancelled">Cancelada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <Card>
@@ -335,7 +262,7 @@ const Management = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRecords.map((maintenance) => (
+                {maintenanceRecords.map((maintenance) => (
                   <TableRow key={maintenance.id}>
                     <TableCell className="font-medium">{maintenance.truckName}</TableCell>
                     <TableCell>{maintenance.maintenanceType}</TableCell>
@@ -379,13 +306,6 @@ const Management = () => {
                 ))}
               </TableBody>
             </Table>
-
-            {filteredRecords.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Wrench className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhuma manutenção encontrada para os filtros selecionados</p>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

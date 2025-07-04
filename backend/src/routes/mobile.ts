@@ -89,36 +89,4 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
   }
 });
 
-// Finish route
-router.post('/truck/:truckId/finish-route', async (req, res) => {
-  try {
-    const { truckId } = req.params;
-    
-    // Update truck status and remove current route
-    await pool.query(
-      'UPDATE trucks SET status = $1, current_route_id = NULL WHERE id = $2',
-      ['available', truckId]
-    );
-    
-    // Mark route as completed if exists
-    const truckResult = await pool.query(
-      'SELECT current_route_id FROM trucks WHERE id = $1',
-      [truckId]
-    );
-    
-    if (truckResult.rows[0]?.current_route_id) {
-      await pool.query(
-        'UPDATE routes SET status = $1 WHERE id = $2',
-        ['completed', truckResult.rows[0].current_route_id]
-      );
-    }
-    
-    console.log(`🏁 Rota finalizada para caminhão ${truckId}`);
-    res.json({ success: true, message: 'Rota finalizada com sucesso' });
-  } catch (error) {
-    console.error('Error finishing route:', error);
-    res.status(500).json({ error: 'Erro ao finalizar rota' });
-  }
-});
-
 export default router;
