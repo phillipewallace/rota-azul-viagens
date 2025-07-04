@@ -16,8 +16,8 @@ const MapComponent = () => {
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
 
-  // Coordenadas da sede da empresa
-  const companyLocation = { lat: -23.5629, lng: -46.7287 }; // R. A, 60 - Chacaras Reunidas Santa Terezinha
+  // Coordenadas da sede da empresa - R. A, 60 - Chacaras Reunidas Santa Terezinha, Contagem - MG
+  const companyLocation = { lat: -19.8157, lng: -44.0537 };
 
   // Cores fixas para cada caminhão
   const truckColors = [
@@ -93,7 +93,7 @@ const MapComponent = () => {
       new window.google.maps.Marker({
         position: companyLocation,
         map: map.current,
-        title: 'Sede - AlchemyRotas\nR. A, 60 - Chacaras Reunidas Santa Terezinha',
+        title: 'Sede - AlchemyRotas\nR. A, 60 - Chacaras Reunidas Santa Terezinha\nContagem - MG',
         icon: {
           path: window.google.maps.SymbolPath.CIRCLE,
           scale: 12,

@@ -67,6 +67,12 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Validate ID
+    if (!id || id === 'undefined' || id === 'null') {
+      return res.status(400).json({ error: 'ID da rota é obrigatório' });
+    }
+
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder, status } = req.body;
 
     console.log('Updating route:', { id, body: req.body });
