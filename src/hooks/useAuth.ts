@@ -19,19 +19,43 @@ export const useAuth = () => {
     checkAuthStatus();
   }, []);
 
-  const checkAuthStatus = () => {
+  const checkAuthStatus = async () => {
     try {
       const token = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('user_data');
 
       if (token && userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
+        // Verificar se o token ainda é válido
+        try {
+          const response = await fetch('http://localhost:3001/api/auth/verify', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setUser(data.user);
+          } else {
+            // Token inválido, limpar dados
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_data');
+            setUser(null);
+          }
+        } catch (error) {
+          // Se não conseguir verificar o token, usar dados locais por enquanto
+          console.warn('Could not verify token, using local data:', error);
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
+        }
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -84,5 +108,6 @@ export const useAuth = () => {
     login,
     logout,
     isAuthenticated,
+    checkAuthStatus,
   };
 };

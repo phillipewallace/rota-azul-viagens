@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -8,7 +8,16 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, checkAuthStatus } = useAuth();
+
+  // Verificar autenticação periodicamente
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkAuthStatus();
+    }, 60000); // Verificar a cada minuto
+
+    return () => clearInterval(interval);
+  }, [checkAuthStatus]);
 
   if (loading) {
     return (

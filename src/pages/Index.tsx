@@ -38,36 +38,36 @@ const Index = () => {
             <Menu className="h-4 w-4" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-80 p-0">
+        <SheetContent side="left" className="w-80 max-w-[85vw] p-0">
           <div className="flex flex-col h-full bg-gray-900 text-white">
-            <div className="p-6 border-b border-gray-700">
-              <h2 className="text-xl font-bold text-blue-400">AlchemyRotas</h2>
-              <p className="text-sm text-gray-400">Sistema de Roteirização</p>
+            <div className="p-4 sm:p-6 border-b border-gray-700">
+              <h2 className="text-lg sm:text-xl font-bold text-blue-400">AlchemyRotas</h2>
+              <p className="text-xs sm:text-sm text-gray-400">Sistema de Roteirização</p>
             </div>
             
-            <div className="flex-1 p-4">
+            <div className="flex-1 p-3 sm:p-4">
               <div className="space-y-2">
                 {menuItems.map((item, index) => (
                   <Button
                     key={index}
                     variant="ghost"
-                    className="w-full justify-start text-left text-white hover:bg-gray-800 hover:text-blue-400"
+                    className="w-full justify-start text-left text-white hover:bg-gray-800 hover:text-blue-400 text-sm"
                     onClick={item.action}
                   >
-                    <item.icon className="mr-3 h-4 w-4" />
-                    {item.label}
+                    <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
                   </Button>
                 ))}
               </div>
               
-              <div className="mt-8 pt-8 border-t border-gray-700">
-                <h3 className="text-sm font-semibold text-gray-400 mb-3">NAVEGAÇÃO</h3>
+              <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-700">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-400 mb-3">NAVEGAÇÃO</h3>
                 <div className="space-y-2">
                   {navigationItems.map((item, index) => (
-                    <Button key={index} variant="ghost" className="w-full justify-start text-white hover:bg-gray-800" asChild>
+                    <Button key={index} variant="ghost" className="w-full justify-start text-white hover:bg-gray-800 text-sm" asChild>
                       <Link to={item.to}>
-                        <item.icon className="mr-3 h-4 w-4" />
-                        {item.label}
+                        <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{item.label}</span>
                       </Link>
                     </Button>
                   ))}
@@ -79,7 +79,7 @@ const Index = () => {
       </Sheet>
 
       {/* Main Content */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative w-full">
         <Map />
         <TrackingPanel />
       </div>

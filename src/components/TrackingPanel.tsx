@@ -11,7 +11,7 @@ const TrackingPanel = () => {
 
   if (loading) {
     return (
-      <div className="absolute top-4 right-4 w-80 bg-white rounded-lg shadow-xl p-4 z-10">
+      <div className="fixed top-4 right-4 w-80 max-w-[90vw] bg-white rounded-lg shadow-xl p-4 z-50">
         <div className="animate-pulse">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
@@ -29,9 +29,9 @@ const TrackingPanel = () => {
 
   if (error) {
     return (
-      <div className="absolute top-4 right-4 w-80 bg-white rounded-lg shadow-xl p-4 z-10">
+      <div className="fixed top-4 right-4 w-80 max-w-[90vw] bg-white rounded-lg shadow-xl p-4 z-50">
         <div className="text-red-500 text-sm mb-2">{error}</div>
-        <Button size="sm" onClick={loadTrucks} variant="outline">
+        <Button size="sm" onClick={loadTrucks} variant="outline" className="w-full">
           <RefreshCw className="h-4 w-4 mr-2" />
           Tentar novamente
         </Button>
@@ -40,20 +40,20 @@ const TrackingPanel = () => {
   }
 
   return (
-    <div className="absolute top-4 right-4 w-80 bg-white rounded-lg shadow-xl p-4 z-10">
+    <div className="fixed top-4 right-4 w-80 max-w-[90vw] bg-white rounded-lg shadow-xl p-4 z-50 max-h-[80vh] overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-          <h2 className="font-semibold text-gray-800">Rastreamento em Tempo Real</h2>
+          <h2 className="font-semibold text-gray-800 text-sm lg:text-base">Rastreamento em Tempo Real</h2>
         </div>
-        <Button size="sm" onClick={loadTrucks} variant="ghost">
+        <Button size="sm" onClick={loadTrucks} variant="ghost" className="p-2">
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
       
       {trucks.length === 0 ? (
         <div className="text-center text-gray-500 py-8">
-          <p>Nenhum caminhão encontrado</p>
+          <p className="text-sm">Nenhum caminhão encontrado</p>
           <p className="text-xs mt-1">Verifique a conexão com o servidor</p>
         </div>
       ) : (
@@ -64,11 +64,11 @@ const TrackingPanel = () => {
                 <h3 className="font-medium text-sm">{truck.name}</h3>
                 <Badge 
                   variant={truck.status === 'in-route' ? 'default' : truck.status === 'maintenance' ? 'destructive' : 'secondary'}
-                  className={
+                  className={`text-xs ${
                     truck.status === 'in-route' ? 'bg-green-500' : 
                     truck.status === 'maintenance' ? 'bg-red-500' : 
                     'bg-gray-500'
-                  }
+                  }`}
                 >
                   <div className={`w-2 h-2 rounded-full mr-1 ${
                     truck.status === 'in-route' ? 'bg-green-200' : 
@@ -92,13 +92,13 @@ const TrackingPanel = () => {
                 {truck.driver && (
                   <div className="flex justify-between">
                     <span>Motorista:</span>
-                    <span className="font-medium">{truck.driver}</span>
+                    <span className="font-medium truncate ml-2">{truck.driver}</span>
                   </div>
                 )}
                 {truck.currentRoute && (
                   <div className="flex justify-between">
                     <span>Rota:</span>
-                    <span className="font-medium">{truck.currentRoute}</span>
+                    <span className="font-medium truncate ml-2">{truck.currentRoute}</span>
                   </div>
                 )}
                 {truck.location && (

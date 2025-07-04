@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Eye, EyeOff, Truck, Lock, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -15,6 +16,14 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate('/');
+    }
+  }, [navigate, isAuthenticated]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,25 +37,7 @@ const Login = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Credenciais inválidas');
-      }
-
-      const data = await response.json();
-      
-      // Salvar token no localStorage
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user_data', JSON.stringify(data.user));
-      
-      toast.success('Login realizado com sucesso!');
+      await login(username, password);
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');
@@ -57,31 +48,37 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4 overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute top-20 left-10 w-32 h-32 bg-blue-400 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-20 right-10 w-24 h-24 bg-indigo-400 rounded-full blur-2xl animate-pulse delay-1000"></div>
         <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-cyan-400 rounded-full blur-xl animate-pulse delay-500"></div>
         <div className="absolute bottom-1/3 left-1/3 w-20 h-20 bg-purple-400 rounded-full blur-2xl animate-pulse delay-700"></div>
+        
+        {/* Additional background elements for full coverage */}
+        <div className="absolute top-10 right-1/3 w-28 h-28 bg-violet-400 rounded-full blur-3xl animate-pulse delay-300"></div>
+        <div className="absolute bottom-10 left-1/4 w-36 h-36 bg-sky-400 rounded-full blur-3xl animate-pulse delay-900"></div>
+        <div className="absolute top-1/3 left-10 w-20 h-20 bg-teal-400 rounded-full blur-2xl animate-pulse delay-600"></div>
+        <div className="absolute bottom-1/2 right-20 w-24 h-24 bg-indigo-300 rounded-full blur-xl animate-pulse delay-1200"></div>
       </div>
 
       {/* Login Card */}
-      <Card className="w-full max-w-md shadow-2xl backdrop-blur-sm bg-white/95 border-0 rounded-3xl overflow-hidden">
-        <CardHeader className="text-center pb-6 pt-8 px-8">
+      <Card className="w-full max-w-md shadow-2xl backdrop-blur-sm bg-white/95 border-0 rounded-3xl overflow-hidden relative z-10">
+        <CardHeader className="text-center pb-6 pt-8 px-4 sm:px-8">
           <div className="relative mx-auto mb-6">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform rotate-3">
               <Truck className="w-10 h-10 text-white" />
             </div>
             <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-white"></div>
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-2">
+          <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-2">
             AlchemyRotas
           </CardTitle>
-          <p className="text-slate-600 font-medium">Sistema de Gerenciamento</p>
+          <p className="text-slate-600 font-medium text-sm sm:text-base">Sistema de Gerenciamento</p>
         </CardHeader>
 
-        <CardContent className="px-8 pb-8">
+        <CardContent className="px-4 sm:px-8 pb-8">
           <form onSubmit={handleLogin} className="space-y-6">
             {/* Username Field */}
             <div className="space-y-2">
