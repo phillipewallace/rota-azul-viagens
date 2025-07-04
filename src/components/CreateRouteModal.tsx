@@ -206,16 +206,14 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         return;
       }
 
-      // Implementar roteirizador inteligente aqui
       const optimizedData = await optimizeRoute(validPoints);
       
       const preview = {
         name: routeName,
         description: routeDescription,
-        points: optimizedData.points || validPoints,
+        points: validPoints,
         totalDistance: optimizedData.totalDistance,
         estimatedTime: optimizedData.estimatedTime,
-        optimizedOrder: optimizedData.optimizedOrder,
         status: 'active'
       };
 
@@ -236,7 +234,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       setLoading(true);
       
       if (isEditing) {
-        await updateRoute({ id: editingRoute.id, route: previewData });
+        await updateRoute(editingRoute.id, previewData);
         toast.success('Rota atualizada com sucesso!');
       } else {
         await createRoute(previewData);
@@ -261,7 +259,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   return (
     <>
       <Dialog open={open && !showPreview} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isEditing ? 'Editar Rota' : 'Nova Rota'} - Passo {step} de 2
@@ -318,36 +316,27 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                          point.type === 'origin' ? 'bg-green-500' :
-                          point.type === 'destination' ? 'bg-red-500' : 'bg-blue-500'
+                          point.type === 'origin' ? 'bg-green-500' : 'bg-blue-500'
                         }`}>
                           {index + 1}
                         </div>
                         
                         <div className="flex-1 space-y-3">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-2 gap-3">
                             <div>
                               <Label>CEP (opcional)</Label>
-                              <div className="relative">
-                                <Input
-                                  value={point.cep}
-                                  onChange={(e) => updatePointCep(point.id, e.target.value)}
-                                  placeholder="00000-000"
-                                  maxLength={9}
-                                />
-                                {searchingAddress === index && (
-                                  <div className="absolute right-2 top-2">
-                                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                  </div>
-                                )}
-                              </div>
+                              <Input
+                                value={point.cep}
+                                onChange={(e) => updatePointCep(point.id, e.target.value)}
+                                placeholder="00000-000"
+                                maxLength={9}
+                              />
                             </div>
                             
                             <div>
                               <Label>Tipo</Label>
                               <div className="text-sm p-2 bg-gray-50 rounded border">
-                                {point.type === 'origin' ? 'Origem' :
-                                 point.type === 'destination' ? 'Destino' : 'Parada Intermediária'}
+                                {point.type === 'origin' ? 'Origem' : 'Parada Intermediária'}
                               </div>
                             </div>
                           </div>

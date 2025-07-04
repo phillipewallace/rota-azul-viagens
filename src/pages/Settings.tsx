@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -8,6 +8,13 @@ import PageHeader from '@/components/PageHeader';
 
 const Settings = () => {
   const { theme, setTheme } = useTheme();
+
+  // Ativar tema escuro por padrão
+  useEffect(() => {
+    if (!theme || theme === 'system') {
+      setTheme('dark');
+    }
+  }, [theme, setTheme]);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');

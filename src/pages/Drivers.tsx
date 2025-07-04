@@ -22,7 +22,7 @@ const Drivers = () => {
   const { drivers, loading } = useDrivers();
   const { createDriver, updateDriver, deleteDriver, isLoading: driverCrudLoading } = useDriversCRUD();
 
-  const handleCreateDriver = async (data: Omit<Driver, 'id' | 'totalTrips'>) => {
+  const handleCreateDriver = async (data: Omit<Driver, 'id'>) => {
     try {
       await createDriver(data);
       setShowDriverForm(false);
@@ -32,7 +32,7 @@ const Drivers = () => {
     }
   };
 
-  const handleUpdateDriver = async (data: Omit<Driver, 'id' | 'totalTrips'>) => {
+  const handleUpdateDriver = async (data: Omit<Driver, 'id'>) => {
     if (!editingDriver) return;
     try {
       await updateDriver({ id: editingDriver.id, driver: data });
@@ -127,15 +127,6 @@ const Drivers = () => {
                     </div>
                     <div className="text-sm">
                       <span className="font-medium">CNH:</span> {driver.license}
-                    </div>
-                    {driver.currentRoute && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <MapPin className="h-4 w-4 text-blue-500" />
-                        <span>Rota atual: {driver.currentRoute}</span>
-                      </div>
-                    )}
-                    <div className="text-sm text-gray-600">
-                      Total de viagens: {driver.totalTrips}
                     </div>
                     <div className="flex gap-2 mt-4">
                       <Button 
