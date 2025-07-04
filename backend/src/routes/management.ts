@@ -24,7 +24,7 @@ router.get('/stats', async (req, res) => {
       SELECT 
         COUNT(*) as total_maintenances,
         COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
+        COUNT(CASE WHEN status = 'scheduled' THEN 1 END) as scheduled,
         COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress
       FROM maintenance_records
     `;
@@ -64,7 +64,7 @@ router.get('/stats', async (req, res) => {
       maintenance: {
         total_maintenances: parseInt(maintenanceResult.rows[0]?.total_maintenances) || 0,
         completed: parseInt(maintenanceResult.rows[0]?.completed) || 0,
-        pending: parseInt(maintenanceResult.rows[0]?.pending) || 0,
+        pending: parseInt(maintenanceResult.rows[0]?.scheduled) || 0,
         in_progress: parseInt(maintenanceResult.rows[0]?.in_progress) || 0
       },
       upcoming: {
@@ -199,7 +199,10 @@ router.post('/maintenance', async (req, res) => {
       return res.status(400).json({ error: 'Caminhão não encontrado' });
     }
     
-    // Insert using the correct column name 'type' instead of 'maintenance_type'
+    // Map frontend status to database status
+    const validStatus = status === 'pending' ? 'scheduled' : status || 'scheduled';
+    
+    // Insert maintenance record
     const query = `
       INSERT INTO maintenance_records (
         truck_id, type, description, scheduled_date, maintenance_date, cost, status
@@ -210,12 +213,12 @@ router.post('/maintenance', async (req, res) => {
     
     const result = await pool.query(query, [
       truck_id,
-      maintenance_type, // This maps to the 'type' column in the database
+      maintenance_type,
       description,
       scheduled_date,
       scheduled_date, // Set maintenance_date to scheduled_date initially
       parseFloat(cost) || 0,
-      status || 'pending'
+      validStatus
     ]);
     
     console.log('✅ Maintenance record created:', result.rows[0].id);
@@ -242,7 +245,9 @@ router.put('/maintenance/:id', async (req, res) => {
       status 
     } = req.body;
     
-    // Use the correct column name 'type'
+    // Map frontend status to database status
+    const validStatus = status === 'pending' ? 'scheduled' : status || 'scheduled';
+    
     const query = `
       UPDATE maintenance_records 
       SET type = $1, description = $2, scheduled_date = $3, maintenance_date = $4,
@@ -252,12 +257,12 @@ router.put('/maintenance/:id', async (req, res) => {
     `;
     
     const result = await pool.query(query, [
-      maintenance_type, // This maps to the 'type' column
+      maintenance_type,
       description,
       scheduled_date,
       maintenance_date || scheduled_date,
       parseFloat(cost) || 0,
-      status,
+      validStatus,
       id
     ]);
     

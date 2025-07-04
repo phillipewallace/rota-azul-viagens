@@ -31,7 +31,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     description: '',
     scheduled_date: '',
     cost: '',
-    status: 'pending'
+    status: 'scheduled'
   });
 
   const maintenanceTypes = [
@@ -43,7 +43,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   ];
 
   const statusOptions = [
-    { value: 'pending', label: 'Pendente' },
+    { value: 'scheduled', label: 'Agendada' },
     { value: 'in_progress', label: 'Em Andamento' },
     { value: 'completed', label: 'Concluída' }
   ];
@@ -54,7 +54,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         truck_id: editingRecord.truck_id,
         maintenance_type: editingRecord.maintenance_type,
         description: editingRecord.description,
-        scheduled_date: editingRecord.scheduled_date.split('T')[0],
+        scheduled_date: editingRecord.scheduled_date ? editingRecord.scheduled_date.split('T')[0] : '',
         cost: editingRecord.cost.toString(),
         status: editingRecord.status
       });
@@ -65,7 +65,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         description: '',
         scheduled_date: '',
         cost: '',
-        status: 'pending'
+        status: 'scheduled'
       });
     }
   }, [editingRecord, open]);
@@ -86,7 +86,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       description: '',
       scheduled_date: '',
       cost: '',
-      status: 'pending'
+      status: 'scheduled'
     });
   };
 
