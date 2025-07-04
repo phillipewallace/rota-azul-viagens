@@ -1,8 +1,9 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
 import { googleMapsService } from '@/services/googleMaps';
+import { Button } from '@/components/ui/button';
+import { Map as MapIcon, Satellite, Layers } from 'lucide-react';
 
 const MapComponent = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -10,6 +11,7 @@ const MapComponent = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [mapType, setMapType] = useState<'roadmap' | 'satellite' | 'hybrid'>('roadmap');
   const directionsRenderers = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
   
@@ -65,16 +67,14 @@ const MapComponent = () => {
       map.current = new window.google.maps.Map(mapContainer.current, {
         center: userLocation,
         zoom: 12,
-        mapTypeControl: true,
+        mapTypeId: mapType,
+        mapTypeControl: false,
         fullscreenControl: true,
         streetViewControl: true,
-        zoomControl: true,
+        zoomControl: false,
         mapTypeControlOptions: {
           position: window.google.maps.ControlPosition.BOTTOM_RIGHT,
           style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU
-        },
-        zoomControlOptions: {
-          position: window.google.maps.ControlPosition.BOTTOM_RIGHT
         },
         styles: [
           {
@@ -105,6 +105,43 @@ const MapComponent = () => {
     } catch (error) {
       console.error('❌ Erro ao inicializar mapa:', error);
       setLocationError('Erro ao carregar o mapa');
+    }
+  };
+
+  const switchMapType = () => {
+    const types: ('roadmap' | 'satellite' | 'hybrid')[] = ['roadmap', 'satellite', 'hybrid'];
+    const currentIndex = types.indexOf(mapType);
+    const nextType = types[(currentIndex + 1) % types.length];
+    setMapType(nextType);
+    
+    if (map.current) {
+      map.current.setMapTypeId(nextType);
+    }
+  };
+
+  const getMapTypeIcon = () => {
+    switch (mapType) {
+      case 'roadmap':
+        return <MapIcon className="w-4 h-4" />;
+      case 'satellite':
+        return <Satellite className="w-4 h-4" />;
+      case 'hybrid':
+        return <Layers className="w-4 h-4" />;
+      default:
+        return <MapIcon className="w-4 h-4" />;
+    }
+  };
+
+  const getMapTypeLabel = () => {
+    switch (mapType) {
+      case 'roadmap':
+        return 'Mapa';
+      case 'satellite':
+        return 'Satélite';
+      case 'hybrid':
+        return 'Híbrido';
+      default:
+        return 'Mapa';
     }
   };
 
@@ -298,6 +335,17 @@ const MapComponent = () => {
   return (
     <div className="relative w-full h-full bg-gray-100">
       <div ref={mapContainer} className="absolute inset-0" />
+      
+      {/* Map Type Switch Button */}
+      <Button
+        onClick={switchMapType}
+        className="absolute bottom-6 left-6 z-10 bg-white/90 hover:bg-white text-gray-700 border shadow-lg"
+        size="sm"
+        variant="outline"
+      >
+        {getMapTypeIcon()}
+        <span className="ml-2">{getMapTypeLabel()}</span>
+      </Button>
       
       {!mapLoaded && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg border z-10">
