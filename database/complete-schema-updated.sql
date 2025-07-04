@@ -14,7 +14,7 @@ DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100),
     role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('admin', 'manager', 'user')),
@@ -22,6 +22,8 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ... keep existing code (all other table definitions from drivers to maintenance_records)
 
 -- Drivers table
 CREATE TABLE drivers (
@@ -142,7 +144,7 @@ CREATE TABLE maintenance_records (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for better performance
+-- ... keep existing code (all indexes and triggers)
 CREATE INDEX idx_trucks_plate ON trucks(plate);
 CREATE INDEX idx_trucks_status ON trucks(status);
 CREATE INDEX idx_trucks_current_driver ON trucks(current_driver_id);
@@ -181,9 +183,11 @@ CREATE TRIGGER update_maintenance_records_updated_at BEFORE UPDATE ON maintenanc
 -- Insert sample data
 
 -- Insert admin user (username: phillipe.sodre, password: @Wallace44)
--- Hash para a senha @Wallace44: $2b$10$FZzE5mE5WtR6QbZSFxsLWu3pV6Kc9VnWuJzLKsQzDpMk5qW7Xx8Pu
-INSERT INTO users (username, password_hash, name, email, role) VALUES 
-('phillipe.sodre', '$2b$10$FZzE5mE5WtR6QbZSFxsLWu3pV6Kc9VnWuJzLKsQzDpMk5qW7Xx8Pu', 'Phillipe Sodré', 'phillipe.sodre@alchemyrotas.com', 'admin');
+-- Senha em texto simples para teste
+INSERT INTO users (username, password, name, email, role) VALUES 
+('phillipe.sodre', '@Wallace44', 'Phillipe Sodré', 'phillipe.sodre@alchemyrotas.com', 'admin');
+
+-- ... keep existing code (all sample data inserts from drivers to route assignments)
 
 -- Insert sample drivers
 INSERT INTO drivers (name, license_number, license_category, phone, email, hire_date, status) VALUES 

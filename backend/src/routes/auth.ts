@@ -1,6 +1,5 @@
 
 import express from 'express';
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/database';
 
@@ -33,9 +32,9 @@ router.post('/login', async (req, res) => {
     const user = userResult.rows[0];
     console.log('🔍 Dados do usuário:', { id: user.id, username: user.username, role: user.role });
 
-    // Verificar senha
+    // Verificar senha (comparação direta, sem hash)
     console.log('🔐 Verificando senha...');
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    const passwordMatch = password === user.password;
     console.log('✅ Senha correta:', passwordMatch);
 
     if (!passwordMatch) {
@@ -55,7 +54,7 @@ router.post('/login', async (req, res) => {
     );
 
     // Retornar dados do usuário (sem a senha)
-    const { password_hash, ...userWithoutPassword } = user;
+    const { password: userPassword, ...userWithoutPassword } = user;
 
     console.log('✅ Login realizado com sucesso para:', username);
 
