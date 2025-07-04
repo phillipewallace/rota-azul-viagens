@@ -183,7 +183,7 @@ keytool -genkey -v -keystore alchemyrotas-release-key.keystore -alias alchemyrot
 2. **Configurar assinatura no Android Studio:**
    - File → Project Structure
    - Modules → app → Signing Configs
-   - Criar novo signing config com o keystore gerado
+   - Criar novo signing config com o keystore gerado 
 
 3. **Gerar APK Release:**
    - Build → Generate Signed Bundle/APK
