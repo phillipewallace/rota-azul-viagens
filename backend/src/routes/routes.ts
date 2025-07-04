@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -36,9 +35,9 @@ router.get('/', async (req, res) => {
       name: route.name,
       description: route.description,
       points: route.points || [],
-      totalDistance: route.total_distance,
+      totalDistance: parseFloat(route.total_distance) || 0,
       estimatedTime: route.estimated_time,
-      estimatedDuration: route.estimated_duration,
+      estimatedDuration: parseInt(route.estimated_duration) || 0,
       optimizedOrder: route.optimized_order || [],
       polyline: route.polyline,
       status: route.status,
@@ -78,6 +77,8 @@ router.get('/:id', async (req, res) => {
     
     const route = {
       ...routeResult.rows[0],
+      totalDistance: parseFloat(routeResult.rows[0].total_distance) || 0,
+      estimatedDuration: parseInt(routeResult.rows[0].estimated_duration) || 0,
       routePoints: pointsResult.rows
     };
     
@@ -88,7 +89,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new route
 router.post('/', async (req, res) => {
   try {
     const { name, description, points, totalDistance, estimatedTime, estimatedDuration, optimizedOrder, polyline } = req.body;
@@ -103,9 +103,9 @@ router.post('/', async (req, res) => {
       name,
       description,
       JSON.stringify(points || []),
-      totalDistance || 0,
+      parseFloat(totalDistance) || 0,
       estimatedTime,
-      estimatedDuration || 0,
+      parseInt(estimatedDuration) || 0,
       JSON.stringify(optimizedOrder || []),
       polyline
     ]);
@@ -121,15 +121,20 @@ router.post('/', async (req, res) => {
       }
     }
     
-    console.log('✅ Route created:', result.rows[0].name);
-    res.status(201).json(result.rows[0]);
+    const responseRoute = {
+      ...result.rows[0],
+      totalDistance: parseFloat(result.rows[0].total_distance) || 0,
+      estimatedDuration: parseInt(result.rows[0].estimated_duration) || 0
+    };
+    
+    console.log('✅ Route created:', responseRoute.name);
+    res.status(201).json(responseRoute);
   } catch (error) {
     console.error('❌ Error creating route:', error);
     res.status(500).json({ error: 'Erro ao criar rota' });
   }
 });
 
-// Update route
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -148,9 +153,9 @@ router.put('/:id', async (req, res) => {
       name,
       description,
       JSON.stringify(points || []),
-      totalDistance || 0,
+      parseFloat(totalDistance) || 0,
       estimatedTime,
-      estimatedDuration || 0,
+      parseInt(estimatedDuration) || 0,
       JSON.stringify(optimizedOrder || []),
       polyline,
       status || 'active',
@@ -176,15 +181,20 @@ router.put('/:id', async (req, res) => {
       }
     }
     
-    console.log('✅ Route updated:', result.rows[0].name);
-    res.json(result.rows[0]);
+    const responseRoute = {
+      ...result.rows[0],
+      totalDistance: parseFloat(result.rows[0].total_distance) || 0,
+      estimatedDuration: parseInt(result.rows[0].estimated_duration) || 0
+    };
+    
+    console.log('✅ Route updated:', responseRoute.name);
+    res.json(responseRoute);
   } catch (error) {
     console.error('❌ Error updating route:', error);
     res.status(500).json({ error: 'Erro ao atualizar rota' });
   }
 });
 
-// Delete route
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -203,7 +213,6 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Optimize route points
 router.post('/:id/optimize', async (req, res) => {
   try {
     const { id } = req.params;

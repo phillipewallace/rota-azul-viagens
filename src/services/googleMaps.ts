@@ -1,4 +1,3 @@
-
 declare global {
   interface Window {
     google: any;
@@ -10,6 +9,7 @@ export class GoogleMapsService {
   private directionsService: any;
   private geocoder: any;
   private isLoaded = false;
+  private loadingPromise: Promise<void> | null = null;
 
   private constructor() {}
 
@@ -21,35 +21,52 @@ export class GoogleMapsService {
   }
 
   async initialize(): Promise<void> {
-    if (this.isLoaded && window.google) return;
+    if (this.isLoaded && window.google?.maps?.DirectionsService) return;
+    if (this.loadingPromise) return this.loadingPromise;
 
-    return new Promise((resolve, reject) => {
-      if (window.google) {
+    this.loadingPromise = new Promise((resolve, reject) => {
+      if (window.google?.maps?.DirectionsService) {
         this.initializeServices();
         resolve();
         return;
       }
 
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w&libraries=geometry,places&loading=async`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w&libraries=geometry,places`;
       script.async = true;
       script.defer = true;
       
       script.onload = () => {
-        this.initializeServices();
-        resolve();
+        // Wait for Google Maps to be fully initialized
+        const checkGoogleMaps = () => {
+          if (window.google?.maps?.DirectionsService && window.google?.maps?.Geocoder) {
+            this.initializeServices();
+            resolve();
+          } else {
+            setTimeout(checkGoogleMaps, 100);
+          }
+        };
+        checkGoogleMaps();
       };
       
       script.onerror = () => reject(new Error('Failed to load Google Maps API'));
       
       document.head.appendChild(script);
     });
+
+    return this.loadingPromise;
   }
 
   private initializeServices(): void {
-    this.directionsService = new window.google.maps.DirectionsService();
-    this.geocoder = new window.google.maps.Geocoder();
-    this.isLoaded = true;
+    try {
+      this.directionsService = new window.google.maps.DirectionsService();
+      this.geocoder = new window.google.maps.Geocoder();
+      this.isLoaded = true;
+      console.log('✅ Google Maps services initialized successfully');
+    } catch (error) {
+      console.error('❌ Error initializing Google Maps services:', error);
+      throw error;
+    }
   }
 
   async getAddressByCep(cep: string): Promise<{ address: string; lat: number; lng: number; cep: string }> {

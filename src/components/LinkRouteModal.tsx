@@ -74,8 +74,8 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
         throw new Error(errorData.message || 'Erro ao vincular rota');
       }
 
-      const truckData = trucks.find(t => t.id === selectedTruck);
-      const routeData = routes.find(r => r.id === selectedRoute);
+      const truckData = trucks?.find(t => t.id === selectedTruck);
+      const routeData = routes?.find(r => r.id === selectedRoute);
 
       toast({
         title: "Rota vinculada com sucesso!",
@@ -103,6 +103,26 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
 
   const availableTrucks = trucks?.filter(truck => truck.status === 'available') || [];
   const activeRoutes = routes?.filter(route => route.status === 'active') || [];
+
+  const formatDistance = (distance: any): string => {
+    if (distance === null || distance === undefined) return '0';
+    const numDistance = typeof distance === 'string' ? parseFloat(distance) : distance;
+    return isNaN(numDistance) ? '0' : numDistance.toFixed(1);
+  };
+
+  const formatPointCount = (points: any): number => {
+    if (!points) return 0;
+    if (Array.isArray(points)) return points.length;
+    if (typeof points === 'string') {
+      try {
+        const parsed = JSON.parse(points);
+        return Array.isArray(parsed) ? parsed.length : 0;
+      } catch {
+        return 0;
+      }
+    }
+    return 0;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,7 +171,7 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
                     <div className="flex flex-col">
                       <span className="font-medium">{route.name}</span>
                       <span className="text-sm text-gray-500">
-                        {route.points?.length || 0} pontos • {route.totalDistance?.toFixed(1) || 0}km
+                        {formatPointCount(route.points)} pontos • {formatDistance(route.totalDistance)}km
                       </span>
                     </div>
                   </SelectItem>
