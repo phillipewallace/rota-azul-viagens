@@ -2,11 +2,11 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { BarChart3, TrendingUp, Truck, Route, Calendar, MapPin, Download, Filter } from 'lucide-react';
 import { useReports } from '@/hooks/useReports';
 import { pdfGenerator } from '@/components/PDFGenerator';
-import { DateFilters } from '@/components/DateFilters';
 import PageHeader from '@/components/PageHeader';
 
 const Reports = () => {
@@ -57,10 +57,28 @@ const Reports = () => {
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
               <Filter className="w-5 h-5 text-gray-500" />
-              <DateFilters 
-                selectedMonth={selectedMonth}
-                onMonthChange={setSelectedMonth}
-              />
+              <div>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Selecione o mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os meses</SelectItem>
+                    <SelectItem value="2024-01">Janeiro 2024</SelectItem>
+                    <SelectItem value="2024-02">Fevereiro 2024</SelectItem>
+                    <SelectItem value="2024-03">Março 2024</SelectItem>
+                    <SelectItem value="2024-04">Abril 2024</SelectItem>
+                    <SelectItem value="2024-05">Maio 2024</SelectItem>
+                    <SelectItem value="2024-06">Junho 2024</SelectItem>
+                    <SelectItem value="2024-07">Julho 2024</SelectItem>
+                    <SelectItem value="2024-08">Agosto 2024</SelectItem>
+                    <SelectItem value="2024-09">Setembro 2024</SelectItem>
+                    <SelectItem value="2024-10">Outubro 2024</SelectItem>
+                    <SelectItem value="2024-11">Novembro 2024</SelectItem>
+                    <SelectItem value="2024-12">Dezembro 2024</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>

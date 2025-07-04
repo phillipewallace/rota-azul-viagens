@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Wrench, Calendar, DollarSign, Clock, Download, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,6 @@ import PageHeader from '@/components/PageHeader';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useForm } from 'react-hook-form';
 import { PDFGenerator } from '@/components/PDFGenerator';
-import { DateFilters } from '@/components/DateFilters';
 
 interface MaintenanceRecord {
   id: string;
@@ -213,10 +213,29 @@ const Management = () => {
             <div className="flex items-center gap-4">
               <Filter className="w-5 h-5 text-gray-500" />
               <div className="flex gap-4 flex-1">
-                <DateFilters 
-                  selectedMonth={selectedMonth}
-                  onMonthChange={setSelectedMonth}
-                />
+                <div>
+                  <Label>Mês</Label>
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os meses</SelectItem>
+                      <SelectItem value="2024-01">Janeiro 2024</SelectItem>
+                      <SelectItem value="2024-02">Fevereiro 2024</SelectItem>
+                      <SelectItem value="2024-03">Março 2024</SelectItem>
+                      <SelectItem value="2024-04">Abril 2024</SelectItem>
+                      <SelectItem value="2024-05">Maio 2024</SelectItem>
+                      <SelectItem value="2024-06">Junho 2024</SelectItem>
+                      <SelectItem value="2024-07">Julho 2024</SelectItem>
+                      <SelectItem value="2024-08">Agosto 2024</SelectItem>
+                      <SelectItem value="2024-09">Setembro 2024</SelectItem>
+                      <SelectItem value="2024-10">Outubro 2024</SelectItem>
+                      <SelectItem value="2024-11">Novembro 2024</SelectItem>
+                      <SelectItem value="2024-12">Dezembro 2024</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
                 <div>
                   <Label>Status</Label>

@@ -44,7 +44,7 @@ const Routes = () => {
 
   const handleReactivate = async (route: any) => {
     try {
-      await updateRoute({ id: route.id, route: { status: 'active' } });
+      await updateRoute(route.id, { status: 'active' });
       toast.success('Rota reativada com sucesso!');
       loadRoutes();
     } catch (error) {
@@ -242,7 +242,8 @@ const Routes = () => {
         <CreateRouteModal 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen}
-          onRouteCreated={handleCloseModal}
+          editingRoute={editingRoute}
+          onSuccess={handleCloseModal}
         />
 
         {viewingRoute && (

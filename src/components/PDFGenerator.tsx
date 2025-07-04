@@ -67,53 +67,53 @@ export class PDFGenerator {
     }
   }
 
-  static generateMaintenanceReport(data: any[], month: string) {
+  generateManagementReport(data: any[], month: string) {
     try {
-      const doc = new jsPDF();
+      this.doc = new jsPDF();
       
       // Header
-      doc.setFontSize(20);
-      doc.text('Relatório de Manutenção', 20, 20);
+      this.doc.setFontSize(20);
+      this.doc.text('Relatório de Gestão', 20, 20);
       
-      doc.setFontSize(12);
-      doc.text(`Período: ${month}`, 20, 30);
+      this.doc.setFontSize(12);
+      this.doc.text(`Período: ${month}`, 20, 30);
       
       // Dados da tabela
       if (data && data.length > 0) {
         const tableData = data.map(item => [
-          item.truckName || '',
-          item.maintenanceType || '',
-          item.scheduledDate || '',
+          item.id || '',
+          item.name || '',
           item.status || '',
-          `R$ ${(item.cost || 0).toLocaleString()}`
+          item.date || '',
+          item.value || ''
         ]);
 
-        autoTable(doc, {
+        autoTable(this.doc, {
           startY: 50,
-          head: [['Caminhão', 'Tipo', 'Data', 'Status', 'Custo']],
+          head: [['ID', 'Nome', 'Status', 'Data', 'Valor']],
           body: tableData,
           theme: 'striped',
           headStyles: { fillColor: [59, 130, 246] }
         });
       } else {
-        doc.setFontSize(14);
-        doc.text('Nenhum dado disponível para o período selecionado', 20, 60);
+        this.doc.setFontSize(14);
+        this.doc.text('Nenhum dado disponível para o período selecionado', 20, 60);
       }
 
       // Footer  
-      doc.setFontSize(10);
-      doc.text(
+      this.doc.setFontSize(10);
+      this.doc.text(
         `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`,
         20,
-        doc.internal.pageSize.height - 20
+        this.doc.internal.pageSize.height - 20
       );
       
       // Salvar arquivo
-      const fileName = `relatorio-manutencao-${month}-${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
+      const fileName = `relatorio-gestao-${month}-${new Date().toISOString().split('T')[0]}.pdf`;
+      this.doc.save(fileName);
       
     } catch (error) {
-      console.error('Erro ao gerar relatório de manutenção:', error);
+      console.error('Erro ao gerar relatório de gestão:', error);
       throw error;
     }
   }
