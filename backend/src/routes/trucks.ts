@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -120,15 +121,32 @@ router.get('/:id', async (req, res) => {
 // Create new truck
 router.post('/', async (req, res) => {
   try {
-    const { name, plate, model, year, capacity_kg, fuel_type } = req.body;
+    console.log('🚛 Creating new truck...', req.body);
+    
+    const { name, plate, model, year, status, driver, currentRoute, mileage, lastMaintenance } = req.body;
+    
+    // Validate required fields
+    if (!name || !plate || !model || !year) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nome, placa, modelo e ano' });
+    }
     
     const query = `
-      INSERT INTO trucks (name, plate, model, year, capacity_kg, fuel_type)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO trucks (name, plate, model, year, status, driver, current_route, mileage, last_maintenance)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
     
-    const result = await pool.query(query, [name, plate, model, year, capacity_kg || 0, fuel_type || 'Diesel']);
+    const result = await pool.query(query, [
+      name,
+      plate.toUpperCase(),
+      model,
+      year,
+      status || 'available',
+      driver === 'none' || !driver ? null : driver,
+      currentRoute === 'none' || !currentRoute ? null : currentRoute,
+      mileage || 0,
+      lastMaintenance || null
+    ]);
     
     console.log('✅ Truck created:', result.rows[0].name);
     res.status(201).json(result.rows[0]);
@@ -145,17 +163,36 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, plate, model, year, status, driver_id, route_id } = req.body;
+    console.log('🚛 Updating truck:', id, req.body);
+    
+    const { name, plate, model, year, status, driver, currentRoute, mileage, lastMaintenance } = req.body;
+    
+    // Validate required fields
+    if (!name || !plate || !model || !year) {
+      return res.status(400).json({ error: 'Campos obrigatórios: nome, placa, modelo e ano' });
+    }
     
     const query = `
       UPDATE trucks 
       SET name = $1, plate = $2, model = $3, year = $4, status = $5, 
-          current_driver_id = $6, current_route_id = $7, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $8
+          driver = $6, current_route = $7, mileage = $8, last_maintenance = $9,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
       RETURNING *
     `;
     
-    const result = await pool.query(query, [name, plate, model, year, status, driver_id, route_id, id]);
+    const result = await pool.query(query, [
+      name,
+      plate.toUpperCase(),
+      model,
+      year,
+      status,
+      driver === 'none' || !driver ? null : driver,
+      currentRoute === 'none' || !currentRoute ? null : currentRoute,
+      mileage || 0,
+      lastMaintenance || null,
+      id
+    ]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Caminhão não encontrado' });
@@ -165,6 +202,9 @@ router.put('/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error updating truck:', error);
+    if (error.code === '23505') {
+      return res.status(400).json({ error: 'Placa já cadastrada' });
+    }
     res.status(500).json({ error: 'Erro ao atualizar caminhão' });
   }
 });
