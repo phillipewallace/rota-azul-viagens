@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -57,6 +56,35 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching trucks:', error);
     res.status(500).json({ error: 'Erro ao buscar caminhões' });
+  }
+});
+
+// Link route to truck
+router.post('/link-route', async (req, res) => {
+  try {
+    const { truckId, routeId } = req.body;
+    
+    console.log(`🔗 Linking route ${routeId} to truck ${truckId}`);
+    
+    if (!truckId || !routeId) {
+      return res.status(400).json({ error: 'Truck ID and Route ID are required' });
+    }
+    
+    // Update truck with route
+    const result = await pool.query(
+      'UPDATE trucks SET current_route_id = $1, current_route = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
+      [routeId, routeId, 'in-route', truckId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Caminhão não encontrado' });
+    }
+    
+    console.log('✅ Route linked successfully');
+    res.json({ success: true, message: 'Rota vinculada com sucesso' });
+  } catch (error) {
+    console.error('❌ Error linking route:', error);
+    res.status(500).json({ error: 'Erro ao vincular rota' });
   }
 });
 

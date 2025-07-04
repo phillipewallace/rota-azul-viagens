@@ -20,7 +20,7 @@ router.get('/truck/:plate', async (req, res) => {
         t.model,
         t.year,
         t.status,
-        t.current_route,
+        t.current_route_id,
         d.name as driver_name
       FROM trucks t
       LEFT JOIN drivers d ON t.current_driver_id = d.id
@@ -39,7 +39,7 @@ router.get('/truck/:plate', async (req, res) => {
     
     // Buscar dados da rota se existir
     let currentRoute = null;
-    if (truck.current_route) {
+    if (truck.current_route_id) {
       const routeQuery = `
         SELECT 
           r.id,
@@ -62,7 +62,7 @@ router.get('/truck/:plate', async (req, res) => {
         GROUP BY r.id, r.name, r.description
       `;
       
-      const routeResult = await pool.query(routeQuery, [truck.current_route]);
+      const routeResult = await pool.query(routeQuery, [truck.current_route_id]);
       
       if (routeResult.rows.length > 0) {
         const route = routeResult.rows[0];
