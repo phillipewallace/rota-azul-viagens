@@ -21,7 +21,6 @@ const MapComponent = () => {
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
 
-  // Cores fixas para cada caminhão
   const truckColors = [
     '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', 
     '#8b5cf6', '#ec4899', '#10b981', '#f97316',
@@ -54,7 +53,6 @@ const MapComponent = () => {
       (error) => {
         console.error('❌ Erro GPS:', error);
         setLocationError('Erro ao obter localização GPS');
-        // Fallback para Contagem-MG se GPS falhar
         setUserLocation({ lat: -19.9167, lng: -44.0833 });
       },
       {
@@ -172,12 +170,10 @@ const MapComponent = () => {
   const updateUserLocationMarker = () => {
     if (!map.current || !userLocation || !window.google) return;
 
-    // Remove existing user location marker
     if (userLocationMarker.current) {
       userLocationMarker.current.setMap(null);
     }
 
-    // Create new user location marker (blue dot)
     userLocationMarker.current = new window.google.maps.Marker({
       position: userLocation,
       map: map.current,
@@ -225,7 +221,6 @@ const MapComponent = () => {
       truckColorMap.set(truck.id, truckColors[index % truckColors.length]);
     });
     
-    // Verificar caminhões ativos no mobile
     const activeTracking = Array.from(activeTrucks);
     
     trucks.forEach((truck) => {
@@ -353,7 +348,6 @@ const MapComponent = () => {
     }
   };
 
-  // Escutar atualizações de rastreamento do mobile
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'active-truck-tracking') {
@@ -369,7 +363,6 @@ const MapComponent = () => {
 
     window.addEventListener('storage', handleStorageChange);
     
-    // Verificar estado inicial
     try {
       const stored = localStorage.getItem('active-truck-tracking');
       if (stored) {
@@ -409,23 +402,20 @@ const MapComponent = () => {
     }
   }, [userLocation, mapLoaded]);
 
-  // Atualizar trânsito em tempo real
   useEffect(() => {
     if (mapLoaded && trafficEnabled) {
       updateRealTimeTraffic();
-      const trafficInterval = setInterval(updateRealTimeTraffic, 60000); // A cada minuto
+      const trafficInterval = setInterval(updateRealTimeTraffic, 60000);
       return () => clearInterval(trafficInterval);
     }
   }, [mapLoaded, trafficEnabled]);
 
-  // Ativar camada de trânsito por padrão
   useEffect(() => {
     if (mapLoaded && map.current && trafficEnabled) {
       trafficService.enableTrafficLayer(map.current);
     }
   }, [mapLoaded]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       clearDirectionsRenderers();
@@ -437,8 +427,8 @@ const MapComponent = () => {
   }, []);
 
   return (
-    <div className="relative w-full h-full bg-gray-100">
-      <div ref={mapContainer} className="absolute inset-0" />
+    <div className="fixed inset-0 w-full h-full bg-gray-100">
+      <div ref={mapContainer} className="absolute inset-0 w-full h-full" />
       
       {/* Controles do mapa */}
       {mapLoaded && (
