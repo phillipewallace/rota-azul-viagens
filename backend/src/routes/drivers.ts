@@ -174,9 +174,10 @@ router.get('/:id/dependencies', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { force = false } = req.query;
+    const { force } = req.query;
+    const forceDelete = force === 'true';
     
-    console.log(`🗑️ Attempting to delete driver ${id}, force: ${force}`);
+    console.log(`🗑️ Attempting to delete driver ${id}, force: ${forceDelete}`);
     
     // Check if driver exists
     const driverCheck = await pool.query('SELECT name FROM drivers WHERE id = $1', [id]);
@@ -188,22 +189,24 @@ router.delete('/:id', async (req, res) => {
     const truckCheck = await pool.query('SELECT id, name, plate FROM trucks WHERE current_driver_id = $1', [id]);
     
     if (truckCheck.rows.length > 0) {
-      if (force === 'true') {
+      if (forceDelete) {
         // Remove driver assignment from trucks first
         await pool.query('UPDATE trucks SET current_driver_id = NULL WHERE current_driver_id = $1', [id]);
         console.log(`🔄 Unassigned driver from ${truckCheck.rows.length} trucks`);
       } else {
+        // Return error when there are dependencies and force is false
         return res.status(400).json({ 
           error: 'Motorista está vinculado a caminhões',
           details: {
             trucks: truckCheck.rows,
-            message: 'Para excluir, primeiro desvincule o motorista dos caminhões ou use force=true'
+            requiresForce: true,
+            message: 'Para excluir, primeiro desvincule o motorista dos caminhões ou use a opção de desvinculação automática'
           }
         });
       }
     }
     
-    // Delete the driver
+    // Now safe to delete the driver
     const result = await pool.query('DELETE FROM drivers WHERE id = $1 RETURNING *', [id]);
     
     console.log('✅ Driver deleted:', result.rows[0].name);
