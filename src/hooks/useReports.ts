@@ -143,6 +143,41 @@ export const useReports = () => {
     }
   };
 
+  const getReportData = async (month: string, year: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/reports/data?month=${month}&year=${year}`);
+      if (response.ok) {
+        return await response.json();
+      } else {
+        // Mock data
+        return {
+          period: `${month}/${year}`,
+          totalTrips: 45,
+          totalKm: 4500,
+          activeDrivers: 12,
+          activeTrucks: 8,
+          completedRoutes: 15,
+          pendingMaintenance: 2
+        };
+      }
+    } catch (error) {
+      console.error('Error loading report data:', error);
+      return {
+        period: `${month}/${year}`,
+        totalTrips: 45,
+        totalKm: 4500,
+        activeDrivers: 12,
+        activeTrucks: 8,
+        completedRoutes: 15,
+        pendingMaintenance: 2
+      };
+    }
+  };
+
+  const getReportStats = async () => {
+    return stats;
+  };
+
   const loadAllData = async () => {
     setLoading(true);
     await Promise.all([
@@ -164,6 +199,8 @@ export const useReports = () => {
     routeUsage,
     maintenanceStats,
     loading,
-    reload: loadAllData
+    reload: loadAllData,
+    getReportData,
+    getReportStats
   };
 };

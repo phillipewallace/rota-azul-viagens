@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +43,7 @@ const Routes = () => {
 
   const handleReactivate = async (route: any) => {
     try {
-      await updateRoute(route.id, { status: 'active' });
+      await updateRoute({ id: route.id, route: { status: 'active' } });
       toast.success('Rota reativada com sucesso!');
       loadRoutes();
     } catch (error) {
