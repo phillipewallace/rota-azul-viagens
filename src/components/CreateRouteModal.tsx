@@ -6,16 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useRoutes, RoutePoint } from "@/hooks/useRoutes";
-import { Plus, X, MapPin, Eye } from "lucide-react";
+import { Plus, X, MapPin } from "lucide-react";
 import { RoutePreviewModal } from './RoutePreviewModal';
 
 interface CreateRouteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingRoute?: any;
+  onSuccess?: () => void;
 }
 
-const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModalProps) => {
+const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: CreateRouteModalProps) => {
   const { toast } = useToast();
   const { createRoute, updateRoute, getAddressByCep, optimizeRoute } = useRoutes();
   
@@ -140,6 +141,7 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
       });
       setShowPreview(true);
     } catch (error) {
+      console.error('Error optimizing route:', error);
       toast({
         title: "Erro ao otimizar rota",
         description: "Tente novamente ou verifique os dados inseridos.",
@@ -182,7 +184,9 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
       }
 
       onOpenChange(false);
+      if (onSuccess) onSuccess();
     } catch (error) {
+      console.error('Error saving route:', error);
       toast({
         title: `Erro ao ${editingRoute ? 'atualizar' : 'criar'} rota`,
         description: "Tente novamente.",
@@ -322,20 +326,22 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute }: CreateRouteModal
         </DialogContent>
       </Dialog>
 
-      <RoutePreviewModal
-        open={showPreview}
-        onOpenChange={(open) => {
-          if (!open) {
-            setShowPreview(false);
-            setPreviewData(null);
-          }
-        }}
-        previewData={previewData}
-        onSave={handleSaveRoute}
-        onBack={() => setShowPreview(false)}
-        loading={loading}
-        isEditing={!!editingRoute}
-      />
+      {previewData && (
+        <RoutePreviewModal
+          open={showPreview}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowPreview(false);
+              setPreviewData(null);
+            }
+          }}
+          previewData={previewData}
+          onSave={handleSaveRoute}
+          onBack={() => setShowPreview(false)}
+          loading={loading}
+          isEditing={!!editingRoute}
+        />
+      )}
     </>
   );
 };

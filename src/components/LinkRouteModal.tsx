@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,10 @@ interface LinkRouteModalProps {
   onSuccess?: () => void;
 }
 
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
+
 export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
   open,
   onOpenChange,
@@ -23,20 +27,38 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
   onSuccess
 }) => {
   const { toast } = useToast();
-  const [selectedTruck, setSelectedTruck] = useState(truck?.id || '');
+  const [selectedTruck, setSelectedTruck] = useState('');
   const [selectedRoute, setSelectedRoute] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { trucks, loading: trucksLoading } = useTrucks();
+  const { trucks, loading: trucksLoading, refetch: refetchTrucks } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
+
+  // Reset form when modal opens/closes or truck changes
+  useEffect(() => {
+    if (open) {
+      setSelectedTruck(truck?.id || '');
+      setSelectedRoute('');
+    } else {
+      setSelectedTruck('');
+      setSelectedRoute('');
+    }
+  }, [open, truck]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTruck || !selectedRoute) return;
+    if (!selectedTruck || !selectedRoute) {
+      toast({
+        title: "Seleção incompleta",
+        description: "Selecione um caminhão e uma rota.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/trucks/link-route', {
+      const response = await fetch(`${API_BASE_URL}/trucks/link-route`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -48,7 +70,8 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao vincular rota');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Erro ao vincular rota');
       }
 
       const truckData = trucks.find(t => t.id === selectedTruck);
@@ -59,14 +82,18 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
         description: `${truckData?.name} foi vinculado à ${routeData?.name}. O veículo está pronto para iniciar a jornada.`,
       });
 
-      setSelectedTruck('');
-      setSelectedRoute('');
+      // Refresh trucks data
+      if (refetchTrucks) {
+        await refetchTrucks();
+      }
+
       onOpenChange(false);
       if (onSuccess) onSuccess();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error linking route:', error);
       toast({
         title: "Erro ao vincular rota",
-        description: "Tente novamente ou verifique se os dados estão corretos.",
+        description: error.message || "Tente novamente ou verifique se os dados estão corretos.",
         variant: "destructive"
       });
     } finally {
@@ -74,8 +101,8 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
     }
   };
 
-  const availableTrucks = trucks.filter(truck => truck.status === 'available');
-  const activeRoutes = routes.filter(route => route.status === 'active');
+  const availableTrucks = trucks?.filter(truck => truck.status === 'available') || [];
+  const activeRoutes = routes?.filter(route => route.status === 'active') || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,7 +117,7 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <Label htmlFor="truck">Selecionar Caminhão</Label>
-            <Select value={selectedTruck} onValueChange={setSelectedTruck} disabled={trucksLoading}>
+            <Select value={selectedTruck} onValueChange={setSelectedTruck} disabled={trucksLoading || isLoading}>
               <SelectTrigger>
                 <SelectValue placeholder={trucksLoading ? "Carregando..." : "Escolha um caminhão"} />
               </SelectTrigger>
@@ -107,11 +134,14 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            {availableTrucks.length === 0 && !trucksLoading && (
+              <p className="text-sm text-gray-500 mt-1">Nenhum caminhão disponível</p>
+            )}
           </div>
 
           <div>
             <Label htmlFor="route">Selecionar Rota</Label>
-            <Select value={selectedRoute} onValueChange={setSelectedRoute} disabled={routesLoading}>
+            <Select value={selectedRoute} onValueChange={setSelectedRoute} disabled={routesLoading || isLoading}>
               <SelectTrigger>
                 <SelectValue placeholder={routesLoading ? "Carregando..." : "Escolha uma rota"} />
               </SelectTrigger>
@@ -128,6 +158,9 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            {activeRoutes.length === 0 && !routesLoading && (
+              <p className="text-sm text-gray-500 mt-1">Nenhuma rota ativa disponível</p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

@@ -25,23 +25,34 @@ const API_BASE_URL = import.meta.env.MODE === 'production'
   : 'http://localhost:3001/api';
 
 const fetchTrucks = async (): Promise<Truck[]> => {
-  const response = await fetch(`${API_BASE_URL}/trucks`);
-  if (!response.ok) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/trucks`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Error fetching trucks:', error);
     throw new Error('Erro ao carregar caminhões');
   }
-  return response.json();
 };
 
 const updateTruckLocationApi = async (truckId: string, lat: number, lng: number): Promise<void> => {
-  const response = await fetch(`${API_BASE_URL}/trucks/${truckId}/location`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ lat, lng, timestamp: new Date().toISOString() }),
-  });
-  
-  if (!response.ok) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/trucks/${truckId}/location`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ lat, lng, timestamp: new Date().toISOString() }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Error updating truck location:', error);
     throw new Error('Erro ao atualizar localização do caminhão');
   }
 };
@@ -49,11 +60,17 @@ const updateTruckLocationApi = async (truckId: string, lat: number, lng: number)
 export const useTrucks = () => {
   const queryClient = useQueryClient();
 
-  const { data: trucks = [], isLoading: loading, error, refetch } = useQuery({
+  const { 
+    data: trucks = [], 
+    isLoading: loading, 
+    error, 
+    refetch 
+  } = useQuery({
     queryKey: ['trucks'],
     queryFn: fetchTrucks,
     refetchInterval: 30000,
     retry: 2,
+    staleTime: 25000, // Consider data stale after 25 seconds
   });
 
   const updateLocationMutation = useMutation({
@@ -61,7 +78,7 @@ export const useTrucks = () => {
       updateTruckLocationApi(truckId, lat, lng),
     onSuccess: (_, { truckId, lat, lng }) => {
       queryClient.setQueryData(['trucks'], (oldData: Truck[] | undefined) => {
-        if (!oldData) return [];
+        if (!oldData || !Array.isArray(oldData)) return [];
         return oldData.map(truck => 
           truck.id === truckId 
             ? { ...truck, location: { lat, lng } }
@@ -69,22 +86,34 @@ export const useTrucks = () => {
         );
       });
     },
+    onError: (error) => {
+      console.error('Error updating truck location:', error);
+    }
   });
 
   const updateTruckLocation = (truckId: string, lat: number, lng: number) => {
+    if (!truckId || typeof lat !== 'number' || typeof lng !== 'number') {
+      console.error('Invalid parameters for updateTruckLocation');
+      return;
+    }
     updateLocationMutation.mutate({ truckId, lat, lng });
   };
 
   const loadTrucks = async () => {
-    queryClient.invalidateQueries({ queryKey: ['trucks'] });
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['trucks'] });
+    } catch (error) {
+      console.error('Error reloading trucks:', error);
+    }
   };
 
   return {
-    trucks,
+    trucks: Array.isArray(trucks) ? trucks : [],
     loading,
     error: error ? 'Erro ao carregar caminhões' : null,
     loadTrucks,
     updateTruckLocation,
-    refetch
+    refetch,
+    isUpdatingLocation: updateLocationMutation.isPending
   };
 };

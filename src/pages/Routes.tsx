@@ -7,14 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
-import { RouteForm } from '@/components/RouteForm';
 import CreateRouteModal from '@/components/CreateRouteModal';
 import { toast } from 'sonner';
 
 const Routes = () => {
   const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
   const [viewingRoute, setViewingRoute] = useState<any>(null);
 
@@ -57,20 +55,10 @@ const Routes = () => {
   };
 
   const handleCloseModal = () => {
-    setIsFormOpen(false);
     setIsCreateModalOpen(false);
     setEditingRoute(null);
     setViewingRoute(null);
     loadRoutes();
-  };
-
-  const handleFormSubmit = async (data: any) => {
-    try {
-      handleCloseModal();
-      toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao salvar rota');
-    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -249,7 +237,7 @@ const Routes = () => {
         <CreateRouteModal 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen}
-          route={editingRoute}
+          editingRoute={editingRoute}
           onSuccess={handleCloseModal}
         />
 

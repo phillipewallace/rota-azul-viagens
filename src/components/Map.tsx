@@ -11,6 +11,7 @@ const Map = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const directionsRenderers = useRef<any[]>([]);
+  const markersRef = useRef<any[]>([]);
   
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
@@ -52,6 +53,10 @@ const Map = () => {
 
     try {
       await googleMapsService.initialize();
+      
+      if (!window.google || !window.google.maps) {
+        throw new Error('Google Maps API não carregada');
+      }
       
       map.current = new window.google.maps.Map(mapContainer.current, {
         center: userLocation,
@@ -101,9 +106,24 @@ const Map = () => {
 
   const clearDirectionsRenderers = () => {
     directionsRenderers.current.forEach(renderer => {
-      renderer.setMap(null);
+      try {
+        renderer.setMap(null);
+      } catch (error) {
+        console.error('Error clearing directions renderer:', error);
+      }
     });
     directionsRenderers.current = [];
+  };
+
+  const clearMarkers = () => {
+    markersRef.current.forEach(marker => {
+      try {
+        marker.setMap(null);
+      } catch (error) {
+        console.error('Error clearing marker:', error);
+      }
+    });
+    markersRef.current = [];
   };
 
   const createTruckIcon = (color: string) => {
@@ -121,68 +141,79 @@ const Map = () => {
   const updateMapMarkers = async () => {
     if (!map.current || !window.google || !mapLoaded) return;
 
-    console.log('🎯 Atualizando marcadores:', { trucks: trucks.length, routes: routes.length });
+    console.log('🎯 Atualizando marcadores:', { trucks: trucks?.length || 0, routes: routes?.length || 0 });
 
     clearDirectionsRenderers();
+    clearMarkers();
+    
+    if (!Array.isArray(trucks)) return;
     
     trucks.forEach((truck, index) => {
-      if (!truck.location) return;
+      if (!truck.location || typeof truck.location.lat !== 'number' || typeof truck.location.lng !== 'number') return;
 
       const truckColor = truckColors[index % truckColors.length];
       
-      const marker = new window.google.maps.Marker({
-        position: { lat: truck.location.lat, lng: truck.location.lng },
-        map: map.current,
-        title: truck.name,
-        icon: createTruckIcon(truckColor),
-      });
+      try {
+        const marker = new window.google.maps.Marker({
+          position: { lat: truck.location.lat, lng: truck.location.lng },
+          map: map.current,
+          title: truck.name,
+          icon: createTruckIcon(truckColor),
+        });
 
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div style="padding: 12px; min-width: 200px;">
-            <h3 style="margin: 0 0 8px 0; color: ${truckColor};">🚛 ${truck.name}</h3>
-            <div style="font-size: 13px; line-height: 1.4;">
-              <div><strong>Placa:</strong> ${truck.plate}</div>
-              <div><strong>Status:</strong> ${truck.status === 'available' ? 'Disponível' : truck.status === 'in-route' ? 'Em Rota' : 'Manutenção'}</div>
-              ${truck.currentRouteName ? `<div><strong>Rota:</strong> ${truck.currentRouteName}</div>` : ''}
-              ${truck.driverName ? `<div><strong>Motorista:</strong> ${truck.driverName}</div>` : ''}
+        markersRef.current.push(marker);
+
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div style="padding: 12px; min-width: 200px;">
+              <h3 style="margin: 0 0 8px 0; color: ${truckColor};">🚛 ${truck.name}</h3>
+              <div style="font-size: 13px; line-height: 1.4;">
+                <div><strong>Placa:</strong> ${truck.plate}</div>
+                <div><strong>Status:</strong> ${truck.status === 'available' ? 'Disponível' : truck.status === 'in-route' ? 'Em Rota' : 'Manutenção'}</div>
+                ${truck.currentRouteName ? `<div><strong>Rota:</strong> ${truck.currentRouteName}</div>` : ''}
+                ${truck.driverName ? `<div><strong>Motorista:</strong> ${truck.driverName}</div>` : ''}
+              </div>
             </div>
-          </div>
-        `
-      });
+          `
+        });
 
-      marker.addListener('click', () => {
-        infoWindow.open(map.current, marker);
-      });
+        marker.addListener('click', () => {
+          infoWindow.open(map.current, marker);
+        });
 
-      // Se o caminhão tem uma rota ativa, desenhar a rota
-      if (truck.currentRoute && truck.status === 'in-route') {
-        const route = routes.find(r => r.id === truck.currentRoute);
-        if (route && route.points && route.points.length >= 2) {
-          drawTruckRoute(route, truckColor);
+        // Se o caminhão tem uma rota ativa, desenhar a rota
+        if (truck.currentRoute && truck.status === 'in-route' && Array.isArray(routes)) {
+          const route = routes.find(r => r.id === truck.currentRoute);
+          if (route && route.points && route.points.length >= 2) {
+            drawTruckRoute(route, truckColor);
+          }
         }
+      } catch (error) {
+        console.error('Error creating truck marker:', error);
       }
     });
 
     // Rotas sem caminhões atribuídos (rotas ativas mas não em uso)
-    routes.forEach((route, index) => {
-      if (route.status !== 'active') return;
-      
-      const routeInUse = trucks.some(truck => truck.currentRoute === route.id);
-      if (routeInUse) return;
-      
-      if (route.points && route.points.length >= 2) {
-        drawTruckRoute(route, '#6b7280');
-      }
-    });
+    if (Array.isArray(routes)) {
+      routes.forEach((route, index) => {
+        if (route.status !== 'active') return;
+        
+        const routeInUse = trucks.some(truck => truck.currentRoute === route.id);
+        if (routeInUse) return;
+        
+        if (route.points && route.points.length >= 2) {
+          drawTruckRoute(route, '#6b7280');
+        }
+      });
+    }
   };
 
   const drawTruckRoute = async (route: any, color: string) => {
-    if (!route.points || route.points.length < 2) return;
+    if (!route.points || route.points.length < 2 || !window.google) return;
 
     try {
       const validPoints = route.points
-        .filter((point: any) => point.lat && point.lng)
+        .filter((point: any) => point.lat && point.lng && typeof point.lat === 'number' && typeof point.lng === 'number')
         .sort((a: any, b: any) => a.order - b.order);
 
       if (validPoints.length < 2) return;
@@ -205,29 +236,35 @@ const Map = () => {
         avoidHighways: false,
         avoidTolls: false
       }, (result: any, status: string) => {
-        if (status === 'OK') {
-          const directionsRenderer = new window.google.maps.DirectionsRenderer({
-            directions: result,
-            map: map.current,
-            suppressMarkers: false,
-            polylineOptions: {
-              strokeColor: color,
-              strokeWeight: 5,
-              strokeOpacity: 0.8
-            },
-            markerOptions: {
-              icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 8,
-                fillColor: color,
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: 2
+        if (status === 'OK' && result) {
+          try {
+            const directionsRenderer = new window.google.maps.DirectionsRenderer({
+              directions: result,
+              map: map.current,
+              suppressMarkers: false,
+              polylineOptions: {
+                strokeColor: color,
+                strokeWeight: 5,
+                strokeOpacity: 0.8
+              },
+              markerOptions: {
+                icon: {
+                  path: window.google.maps.SymbolPath.CIRCLE,
+                  scale: 8,
+                  fillColor: color,
+                  fillOpacity: 1,
+                  strokeColor: '#ffffff',
+                  strokeWeight: 2
+                }
               }
-            }
-          });
+            });
 
-          directionsRenderers.current.push(directionsRenderer);
+            directionsRenderers.current.push(directionsRenderer);
+          } catch (error) {
+            console.error('Error creating directions renderer:', error);
+          }
+        } else {
+          console.error('Directions service failed:', status);
         }
       });
 
@@ -253,6 +290,14 @@ const Map = () => {
       updateMapMarkers();
     }
   }, [trucks, routes, trucksLoading, routesLoading, mapLoaded]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearDirectionsRenderers();
+      clearMarkers();
+    };
+  }, []);
 
   return (
     <div className="relative w-full h-full bg-gray-100">

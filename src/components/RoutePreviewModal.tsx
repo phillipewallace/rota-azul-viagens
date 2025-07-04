@@ -1,8 +1,8 @@
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Route as RouteIcon } from "lucide-react";
+import { MapPin, Clock, Route } from "lucide-react";
 
 interface RoutePreviewModalProps {
   open: boolean;
@@ -23,94 +23,66 @@ export const RoutePreviewModal: React.FC<RoutePreviewModalProps> = ({
   loading,
   isEditing
 }) => {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<any>(null);
-
-  useEffect(() => {
-    if (open && previewData && mapRef.current && window.google) {
-      initializeMap();
-    }
-  }, [open, previewData]);
-
-  const initializeMap = () => {
-    if (!mapRef.current || !previewData.detailedRoute) return;
-
-    const map = new window.google.maps.Map(mapRef.current, {
-      zoom: 10,
-      center: previewData.detailedRoute.routes[0].bounds.getCenter(),
-      mapTypeControl: true,
-      fullscreenControl: false,
-      streetViewControl: false,
-    });
-
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({
-      directions: previewData.detailedRoute,
-      map: map,
-      panel: null,
-      suppressMarkers: false,
-      polylineOptions: {
-        strokeColor: '#2563eb',
-        strokeWeight: 4,
-        strokeOpacity: 0.8
-      }
-    });
-
-    map.fitBounds(previewData.detailedRoute.routes[0].bounds);
-    mapInstance.current = map;
-  };
-
   if (!previewData) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <RouteIcon className="h-5 w-5 text-blue-600" />
-            Prévia da Rota Otimizada
+            <Route className="h-5 w-5 text-blue-600" />
+            Preview da Rota Otimizada
           </DialogTitle>
           <DialogDescription>
-            Visualize a rota otimizada antes de {isEditing ? 'salvar as alterações' : 'criar'}
+            Revise os detalhes da rota otimizada antes de salvá-la.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Informações da Rota */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-            <div className="text-center">
-              <h3 className="font-semibold text-lg text-blue-600">{previewData.name}</h3>
-              {previewData.description && (
-                <p className="text-sm text-gray-600 mt-1">{previewData.description}</p>
-              )}
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{previewData.totalDistance.toFixed(2)} km</div>
-              <div className="text-sm text-gray-600">Distância Total</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600 flex items-center justify-center gap-1">
-                <Clock className="h-5 w-5" />
-                {previewData.estimatedTime}
+          {/* Informações Básicas */}
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h3 className="font-semibold text-lg text-blue-900 mb-2">{previewData.name}</h3>
+            {previewData.description && (
+              <p className="text-blue-700">{previewData.description}</p>
+            )}
+          </div>
+
+          {/* Estatísticas da Rota */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-green-50 p-4 rounded-lg text-center">
+              <MapPin className="h-8 w-8 text-green-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-green-800">
+                {previewData.points?.length || 0}
               </div>
-              <div className="text-sm text-gray-600">Tempo Estimado</div>
+              <div className="text-sm text-green-600">Pontos de Parada</div>
+            </div>
+            
+            <div className="bg-orange-50 p-4 rounded-lg text-center">
+              <Route className="h-8 w-8 text-orange-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-orange-800">
+                {previewData.totalDistance?.toFixed(1) || '0.0'} km
+              </div>
+              <div className="text-sm text-orange-600">Distância Total</div>
+            </div>
+            
+            <div className="bg-purple-50 p-4 rounded-lg text-center">
+              <Clock className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-purple-800">
+                {previewData.estimatedTime || 'N/A'}
+              </div>
+              <div className="text-sm text-purple-600">Tempo Estimado</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Mapa */}
-            <div className="space-y-2">
-              <h4 className="font-medium">Visualização da Rota</h4>
-              <div ref={mapRef} className="w-full h-64 rounded-lg border bg-gray-100" />
-            </div>
-
-            {/* Sequência de Pontos */}
-            <div className="space-y-2">
-              <h4 className="font-medium">Sequência Otimizada</h4>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+          {/* Sequência de Pontos Otimizada */}
+          {previewData.points && previewData.points.length > 0 && (
+            <div>
+              <h4 className="font-semibold mb-3 text-gray-900">Sequência Otimizada:</h4>
+              <div className="space-y-2">
                 {previewData.points
                   .sort((a: any, b: any) => a.order - b.order)
                   .map((point: any, index: number) => (
-                  <div key={point.id} className="flex items-center gap-3 p-3 bg-white border rounded-lg shadow-sm">
+                  <div key={point.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
                       point.type === 'origin' ? 'bg-green-500' :
                       point.type === 'destination' ? 'bg-red-500' : 'bg-blue-500'
@@ -118,39 +90,61 @@ export const RoutePreviewModal: React.FC<RoutePreviewModalProps> = ({
                       {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{point.address}</p>
-                      <p className="text-xs text-gray-600 capitalize">
+                      <p className="font-medium text-gray-900 truncate">{point.address}</p>
+                      <p className="text-sm text-gray-500 capitalize">
                         {point.type === 'origin' ? 'Origem' : 
-                         point.type === 'destination' ? 'Destino' : 'Parada'}
+                         point.type === 'destination' ? 'Destino' : 'Parada Intermediária'}
                       </p>
-                      {point.cep && <p className="text-xs text-gray-500">CEP: {point.cep}</p>}
+                      {point.cep && (
+                        <p className="text-xs text-gray-400">CEP: {point.cep}</p>
+                      )}
                     </div>
-                    <MapPin className="h-4 w-4 text-gray-400" />
                   </div>
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Mapa Preview Placeholder */}
+          <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg h-64 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <MapPin className="h-12 w-12 mx-auto mb-2" />
+              <p>Preview do Mapa</p>
+              <p className="text-sm">A rota será exibida aqui no futuro</p>
+            </div>
           </div>
 
-          {/* Botões */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          {/* Ações */}
+          <div className="flex justify-between gap-3 pt-4 border-t">
             <Button 
-              type="button" 
               variant="outline" 
               onClick={onBack}
+              disabled={loading}
             >
               Voltar para Edição
             </Button>
-            <Button 
-              onClick={onSave}
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {loading ? `${isEditing ? 'Atualizando' : 'Criando'}...` : `${isEditing ? 'Atualizar' : 'Criar'} Rota`}
-            </Button>
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={onSave}
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {loading ? 'Salvando...' : (isEditing ? 'Atualizar Rota' : 'Criar Rota')}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 };
+
+export default RoutePreviewModal;
