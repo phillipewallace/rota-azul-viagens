@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -37,11 +38,20 @@ router.post('/', async (req, res) => {
   try {
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder } = req.body;
 
+    console.log('Creating route with data:', { name, description, points: points?.length, totalDistance, estimatedTime });
+
     const result = await pool.query(`
       INSERT INTO routes (name, description, points, total_distance, estimated_time, optimized_order)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [name, description, JSON.stringify(points || []), totalDistance || 0, estimatedTime, JSON.stringify(optimizedOrder || [])]);
+    `, [
+      name || 'Nova Rota', 
+      description || '', 
+      JSON.stringify(points || []), 
+      totalDistance || 0, 
+      estimatedTime || '0 min', 
+      JSON.stringify(optimizedOrder || [])
+    ]);
 
     const route = {
       id: result.rows[0].id,
@@ -55,41 +65,63 @@ router.post('/', async (req, res) => {
       createdAt: result.rows[0].created_at
     };
 
+    console.log('Route created successfully:', route.id);
     res.json(route);
   } catch (error) {
     console.error('Error creating route:', error);
-    res.status(500).json({ error: 'Erro ao criar rota' });
+    res.status(500).json({ error: 'Erro ao criar rota', details: error.message });
   }
 });
 
-// Update route - FIXED with better validation
+// Update route - COMPLETELY FIXED
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    console.log('Received route update request:', { id, body: req.body });
+    console.log('=== ROUTE UPDATE DEBUG ===');
+    console.log('Raw ID from params:', JSON.stringify(id));
+    console.log('ID type:', typeof id);
+    console.log('ID length:', id?.length);
+    console.log('Request body:', JSON.stringify(req.body));
+    console.log('========================');
     
-    // Validate ID more strictly
-    if (!id || id === 'undefined' || id === 'null' || id.trim() === '') {
-      console.error('Invalid route ID:', id);
-      return res.status(400).json({ error: 'ID da rota é obrigatório e deve ser válido' });
+    // Validação rigorosa do ID
+    if (!id || 
+        id === 'undefined' || 
+        id === 'null' || 
+        id === '' || 
+        typeof id !== 'string' || 
+        id.trim() === '' ||
+        id.includes('undefined') ||
+        id.includes('null')) {
+      console.error('❌ Invalid route ID detected:', JSON.stringify(id));
+      return res.status(400).json({ 
+        error: 'ID da rota é obrigatório e deve ser válido',
+        receivedId: id,
+        idType: typeof id
+      });
     }
 
-    // Check if route exists first
-    const existingRoute = await pool.query('SELECT id FROM routes WHERE id = $1', [id]);
+    const cleanId = id.trim();
+    console.log('✅ Clean ID:', cleanId);
+
+    // Verificar se a rota existe
+    const existingRoute = await pool.query('SELECT id, name FROM routes WHERE id = $1', [cleanId]);
     if (existingRoute.rows.length === 0) {
-      console.error('Route not found with ID:', id);
-      return res.status(404).json({ error: 'Rota não encontrada' });
+      console.error('❌ Route not found with ID:', cleanId);
+      return res.status(404).json({ error: 'Rota não encontrada', searchedId: cleanId });
     }
+
+    console.log('✅ Route found:', existingRoute.rows[0].name);
 
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder, status } = req.body;
 
-    // Build update query dynamically
+    // Construir query dinamicamente apenas com campos válidos
     const updates = [];
     const values = [];
     let paramIndex = 1;
 
-    if (name !== undefined && name !== null) {
+    if (name !== undefined && name !== null && name !== '') {
       updates.push(`name = $${paramIndex}`);
       values.push(name);
       paramIndex++;
@@ -97,7 +129,7 @@ router.put('/:id', async (req, res) => {
 
     if (description !== undefined) {
       updates.push(`description = $${paramIndex}`);
-      values.push(description);
+      values.push(description || '');
       paramIndex++;
     }
 
@@ -108,14 +140,15 @@ router.put('/:id', async (req, res) => {
     }
 
     if (totalDistance !== undefined && totalDistance !== null) {
+      const numericDistance = parseFloat(totalDistance) || 0;
       updates.push(`total_distance = $${paramIndex}`);
-      values.push(parseFloat(totalDistance) || 0);
+      values.push(numericDistance);
       paramIndex++;
     }
 
-    if (estimatedTime !== undefined) {
+    if (estimatedTime !== undefined && estimatedTime !== null) {
       updates.push(`estimated_time = $${paramIndex}`);
-      values.push(estimatedTime);
+      values.push(estimatedTime || '0 min');
       paramIndex++;
     }
 
@@ -125,18 +158,19 @@ router.put('/:id', async (req, res) => {
       paramIndex++;
     }
 
-    if (status !== undefined && status !== null) {
+    if (status !== undefined && status !== null && status !== '') {
       updates.push(`status = $${paramIndex}`);
       values.push(status);
       paramIndex++;
     }
 
     if (updates.length === 0) {
+      console.log('⚠️ No valid fields to update');
       return res.status(400).json({ error: 'Nenhum campo válido para atualizar' });
     }
 
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
-    values.push(id);
+    values.push(cleanId);
 
     const query = `
       UPDATE routes 
@@ -145,12 +179,13 @@ router.put('/:id', async (req, res) => {
       RETURNING *
     `;
 
-    console.log('Executing update query:', query, values);
+    console.log('📝 Executing update query:', query);
+    console.log('📝 With values:', values);
 
     const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
-      console.error('Update failed for route ID:', id);
+      console.error('❌ Update failed - no rows affected');
       return res.status(404).json({ error: 'Falha ao atualizar rota' });
     }
 
@@ -167,13 +202,17 @@ router.put('/:id', async (req, res) => {
       updatedAt: result.rows[0].updated_at
     };
 
-    console.log('Route updated successfully:', route.id);
+    console.log('✅ Route updated successfully:', route.id);
     res.json(route);
   } catch (error) {
-    console.error('Error updating route:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({ error: 'Erro interno do servidor', details: error.message });
+    console.error('💥 Error updating route:', error);
+    console.error('💥 Error message:', error.message);
+    console.error('💥 Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor', 
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
@@ -182,16 +221,26 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query('DELETE FROM routes WHERE id = $1 RETURNING id', [id]);
+    console.log('Deleting route with ID:', id);
+
+    // Validação do ID
+    if (!id || id === 'undefined' || id === 'null' || typeof id !== 'string' || id.trim() === '') {
+      console.error('Invalid route ID for deletion:', id);
+      return res.status(400).json({ error: 'ID da rota é obrigatório para exclusão' });
+    }
+
+    const result = await pool.query('DELETE FROM routes WHERE id = $1 RETURNING id', [id.trim()]);
 
     if (result.rows.length === 0) {
+      console.error('Route not found for deletion:', id);
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
 
+    console.log('Route deleted successfully:', result.rows[0].id);
     res.json({ success: true, id: result.rows[0].id });
   } catch (error) {
     console.error('Error deleting route:', error);
-    res.status(500).json({ error: 'Erro ao deletar rota' });
+    res.status(500).json({ error: 'Erro ao deletar rota', details: error.message });
   }
 });
 

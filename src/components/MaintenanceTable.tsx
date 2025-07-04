@@ -49,6 +49,12 @@ export const MaintenanceTable: React.FC<MaintenanceTableProps> = ({
     );
   };
 
+  // Função para garantir que o valor seja numérico
+  const formatCost = (cost: any): string => {
+    const numericCost = typeof cost === 'string' ? parseFloat(cost) : Number(cost);
+    return isNaN(numericCost) ? '0.00' : numericCost.toFixed(2);
+  };
+
   if (loading) {
     return (
       <Card>
@@ -98,26 +104,29 @@ export const MaintenanceTable: React.FC<MaintenanceTableProps> = ({
                 <TableRow key={record.id}>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{record.truck_name}</div>
-                      <div className="text-sm text-gray-500">{record.truck_plate}</div>
+                      <div className="font-medium">{record.truck_name || 'N/A'}</div>
+                      <div className="text-sm text-gray-500">{record.truck_plate || 'N/A'}</div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    {getTypeBadge(record.maintenance_type)}
+                    {getTypeBadge(record.maintenance_type || 'geral')}
                   </TableCell>
                   <TableCell>
-                    <div className="max-w-xs truncate" title={record.description}>
-                      {record.description}
+                    <div className="max-w-xs truncate" title={record.description || ''}>
+                      {record.description || 'Sem descrição'}
                     </div>
                   </TableCell>
                   <TableCell>
-                    {new Date(record.scheduled_date).toLocaleDateString('pt-BR')}
+                    {record.scheduled_date ? 
+                      new Date(record.scheduled_date).toLocaleDateString('pt-BR') : 
+                      'Data não definida'
+                    }
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(record.status)}
+                    {getStatusBadge(record.status || 'pending')}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    R$ {record.cost.toFixed(2)}
+                    R$ {formatCost(record.cost)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
