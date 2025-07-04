@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -69,6 +68,9 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder, status } = req.body;
 
+    // Log the incoming data for debugging
+    console.log('Updating route:', { id, name, description, points, totalDistance, estimatedTime, optimizedOrder, status });
+
     const result = await pool.query(`
       UPDATE routes 
       SET name = COALESCE($1, name),
@@ -77,7 +79,8 @@ router.put('/:id', async (req, res) => {
           total_distance = COALESCE($4, total_distance),
           estimated_time = COALESCE($5, estimated_time),
           optimized_order = COALESCE($6, optimized_order),
-          status = COALESCE($7, status)
+          status = COALESCE($7, status),
+          updated_at = CURRENT_TIMESTAMP
       WHERE id = $8
       RETURNING *
     `, [
@@ -110,7 +113,8 @@ router.put('/:id', async (req, res) => {
     res.json(route);
   } catch (error) {
     console.error('Error updating route:', error);
-    res.status(500).json({ error: 'Erro ao atualizar rota' });
+    console.error('Error details:', error.message);
+    res.status(500).json({ error: 'Erro ao atualizar rota', details: error.message });
   }
 });
 

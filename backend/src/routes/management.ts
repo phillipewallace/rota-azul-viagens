@@ -4,241 +4,221 @@ import { pool } from '../config/database';
 
 const router = express.Router();
 
-// Get general statistics
+// Get maintenance statistics
 router.get('/stats', async (req, res) => {
   try {
     const [
       trucksResult,
-      driversResult,
-      routesResult,
-      tripsResult
+      maintenanceResult,
+      upcomingResult,
+      costsResult
     ] = await Promise.all([
       pool.query(`
         SELECT 
           COUNT(*) as total,
           SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
           SUM(CASE WHEN status = 'in-route' THEN 1 ELSE 0 END) as in_route,
-          SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as maintenance
+          SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as in_maintenance
         FROM trucks
       `),
       pool.query(`
         SELECT 
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active
-        FROM drivers
+          COUNT(*) as total_maintenances,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress
+        FROM maintenance
+      `),
+      pool.query(`
+        SELECT COUNT(*) as upcoming_count
+        FROM maintenance 
+        WHERE scheduled_date > CURRENT_DATE 
+        AND scheduled_date <= CURRENT_DATE + INTERVAL '30 days'
+        AND status = 'pending'
       `),
       pool.query(`
         SELECT 
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active
-        FROM routes
-      `),
-      pool.query(`
-        SELECT 
-          COUNT(*) as total_trips,
-          COALESCE(SUM(distance_km), 0) as total_distance,
-          COALESCE(AVG(duration_minutes), 0) as avg_duration
-        FROM trips
+          COALESCE(SUM(cost), 0) as total_cost,
+          COALESCE(AVG(cost), 0) as avg_cost
+        FROM maintenance 
         WHERE status = 'completed'
+        AND created_at >= CURRENT_DATE - INTERVAL '30 days'
       `)
     ]);
 
     const stats = {
       trucks: trucksResult.rows[0],
-      drivers: driversResult.rows[0],
-      routes: routesResult.rows[0],
-      trips: tripsResult.rows[0]
+      maintenance: maintenanceResult.rows[0],
+      upcoming: upcomingResult.rows[0],
+      costs: costsResult.rows[0]
     };
 
     res.json(stats);
   } catch (error) {
-    console.error('Error getting stats:', error);
+    console.error('Error getting maintenance stats:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get performance data with filters
-router.get('/performance', async (req, res) => {
+// Get maintenance records with filters
+router.get('/maintenance', async (req, res) => {
   try {
-    const { startDate, endDate, truckId, routeId } = req.query;
+    const { startDate, endDate, truckId, status, type } = req.query;
     
     let query = `
       SELECT 
-        DATE(t.completed_at) as date,
-        COUNT(*) as trips,
-        COALESCE(SUM(t.distance_km), 0) as total_distance,
-        COALESCE(AVG(t.duration_minutes), 0) as avg_duration,
-        tr.name as truck_name,
-        r.name as route_name
-      FROM trips t
-      LEFT JOIN trucks tr ON t.truck_id = tr.id
-      LEFT JOIN routes r ON t.route_id = r.id
-      WHERE t.status = 'completed'
+        m.*,
+        t.name as truck_name,
+        t.plate as truck_plate
+      FROM maintenance m
+      JOIN trucks t ON m.truck_id = t.id
+      WHERE 1=1
     `;
     
     const params = [];
     let paramIndex = 1;
 
     if (startDate) {
-      query += ` AND t.completed_at >= $${paramIndex}`;
+      query += ` AND m.scheduled_date >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND t.completed_at <= $${paramIndex}`;
+      query += ` AND m.scheduled_date <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;
     }
 
-    if (truckId) {
-      query += ` AND t.truck_id = $${paramIndex}`;
+    if (truckId && truckId !== 'all') {
+      query += ` AND m.truck_id = $${paramIndex}`;
       params.push(truckId);
       paramIndex++;
     }
 
-    if (routeId) {
-      query += ` AND t.route_id = $${paramIndex}`;
-      params.push(routeId);
+    if (status && status !== 'all') {
+      query += ` AND m.status = $${paramIndex}`;
+      params.push(status);
       paramIndex++;
     }
 
-    query += ` GROUP BY DATE(t.completed_at), tr.name, r.name ORDER BY date DESC LIMIT 30`;
+    if (type && type !== 'all') {
+      query += ` AND m.maintenance_type = $${paramIndex}`;
+      params.push(type);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY m.scheduled_date DESC LIMIT 50`;
 
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
-    console.error('Error getting performance data:', error);
+    console.error('Error getting maintenance records:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get route usage statistics
-router.get('/route-usage', async (req, res) => {
+// Create maintenance record
+router.post('/maintenance', async (req, res) => {
+  try {
+    const { truck_id, maintenance_type, description, scheduled_date, cost, status = 'pending' } = req.body;
+
+    const result = await pool.query(`
+      INSERT INTO maintenance (truck_id, maintenance_type, description, scheduled_date, cost, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [truck_id, maintenance_type, description, scheduled_date, cost || 0, status]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating maintenance record:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update maintenance record
+router.put('/maintenance/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { maintenance_type, description, scheduled_date, cost, status } = req.body;
+
+    const result = await pool.query(`
+      UPDATE maintenance 
+      SET maintenance_type = COALESCE($1, maintenance_type),
+          description = COALESCE($2, description),
+          scheduled_date = COALESCE($3, scheduled_date),
+          cost = COALESCE($4, cost),
+          status = COALESCE($5, status),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6
+      RETURNING *
+    `, [maintenance_type, description, scheduled_date, cost, status, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Maintenance record not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating maintenance record:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete maintenance record
+router.delete('/maintenance/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query('DELETE FROM maintenance WHERE id = $1 RETURNING id', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Maintenance record not found' });
+    }
+
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('Error deleting maintenance record:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get maintenance costs summary
+router.get('/costs-summary', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
     let query = `
       SELECT 
-        r.name,
-        r.id,
-        COUNT(t.id) as usage_count,
-        COALESCE(SUM(t.distance_km), 0) as total_distance,
-        COALESCE(AVG(t.duration_minutes), 0) as avg_duration
-      FROM routes r
-      LEFT JOIN trips t ON r.id = t.route_id AND t.status = 'completed'
+        maintenance_type,
+        COUNT(*) as count,
+        SUM(cost) as total_cost,
+        AVG(cost) as avg_cost
+      FROM maintenance 
+      WHERE status = 'completed' AND cost > 0
     `;
     
     const params = [];
     let paramIndex = 1;
 
     if (startDate) {
-      query += ` AND t.completed_at >= $${paramIndex}`;
+      query += ` AND scheduled_date >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND t.completed_at <= $${paramIndex}`;
+      query += ` AND scheduled_date <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;
     }
 
-    query += ` GROUP BY r.id, r.name ORDER BY usage_count DESC`;
+    query += ` GROUP BY maintenance_type ORDER BY total_cost DESC`;
 
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
-    console.error('Error getting route usage:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Get truck performance
-router.get('/truck-performance', async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    
-    let query = `
-      SELECT 
-        tr.name,
-        tr.id,
-        tr.plate,
-        COUNT(t.id) as trips_count,
-        COALESCE(SUM(t.distance_km), 0) as total_distance,
-        COALESCE(AVG(t.duration_minutes), 0) as avg_duration,
-        tr.status
-      FROM trucks tr
-      LEFT JOIN trips t ON tr.id = t.truck_id AND t.status = 'completed'
-    `;
-    
-    const params = [];
-    let paramIndex = 1;
-
-    if (startDate) {
-      query += ` AND t.completed_at >= $${paramIndex}`;
-      params.push(startDate);
-      paramIndex++;
-    }
-
-    if (endDate) {
-      query += ` AND t.completed_at <= $${paramIndex}`;
-      params.push(endDate);
-      paramIndex++;
-    }
-
-    query += ` GROUP BY tr.id, tr.name, tr.plate, tr.status ORDER BY trips_count DESC`;
-
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error getting truck performance:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Export report data
-router.get('/export', async (req, res) => {
-  try {
-    const { startDate, endDate, format = 'json' } = req.query;
-    
-    // Get comprehensive report data
-    const [statsResult, performanceResult, routeUsageResult] = await Promise.all([
-      pool.query('SELECT COUNT(*) as total_trucks FROM trucks'),
-      pool.query(`
-        SELECT 
-          DATE(completed_at) as date,
-          COUNT(*) as trips,
-          SUM(distance_km) as distance
-        FROM trips 
-        WHERE status = 'completed'
-        ${startDate ? 'AND completed_at >= $1' : ''}
-        ${endDate ? 'AND completed_at <= $2' : ''}
-        GROUP BY DATE(completed_at)
-        ORDER BY date DESC
-      `, [startDate, endDate].filter(Boolean)),
-      pool.query(`
-        SELECT 
-          r.name,
-          COUNT(t.id) as usage
-        FROM routes r
-        LEFT JOIN trips t ON r.id = t.route_id
-        GROUP BY r.name
-        ORDER BY usage DESC
-      `)
-    ]);
-
-    const reportData = {
-      period: { startDate, endDate },
-      stats: statsResult.rows[0],
-      performance: performanceResult.rows,
-      routeUsage: routeUsageResult.rows,
-      generatedAt: new Date().toISOString()
-    };
-
-    res.json(reportData);
-  } catch (error) {
-    console.error('Error exporting report:', error);
+    console.error('Error getting costs summary:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

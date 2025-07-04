@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       setRouteDescription(editingRoute.description || '');
       setPoints(editingRoute.points || []);
       setStep(2);
-    } else if (!editingRoute && open) {
+    } else if (open && !editingRoute) {
       resetForm();
     }
   }, [editingRoute, open]);
@@ -63,7 +62,9 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
 
   const handleClose = () => {
     onOpenChange(false);
-    setTimeout(resetForm, 300);
+    setTimeout(() => {
+      resetForm();
+    }, 300);
   };
 
   const nextStep = () => {
@@ -233,7 +234,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     try {
       setLoading(true);
       
-      if (isEditing) {
+      if (isEditing && editingRoute) {
         await updateRoute(editingRoute.id, previewData);
         toast.success('Rota atualizada com sucesso!');
       } else {

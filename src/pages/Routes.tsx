@@ -24,6 +24,8 @@ const Routes = () => {
       toast.error('Não é possível editar uma rota concluída');
       return;
     }
+    // Clear any existing state first
+    setViewingRoute(null);
     setEditingRoute(route);
     setIsCreateModalOpen(true);
   };
@@ -53,14 +55,26 @@ const Routes = () => {
   };
 
   const handleView = (route: any) => {
+    // Clear any existing modal state first
+    setIsCreateModalOpen(false);
+    setEditingRoute(null);
     setViewingRoute(route);
   };
 
   const handleCloseModal = () => {
     setIsCreateModalOpen(false);
-    setEditingRoute(null);
-    setViewingRoute(null);
+    // Clear the editing route state after a delay to prevent visual glitches
+    setTimeout(() => {
+      setEditingRoute(null);
+    }, 300);
     loadRoutes();
+  };
+
+  const handleNewRoute = () => {
+    // Clear any existing state
+    setViewingRoute(null);
+    setEditingRoute(null);
+    setIsCreateModalOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -110,7 +124,7 @@ const Routes = () => {
           </div>
           <div className="flex gap-3">
             <Button 
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={handleNewRoute}
               className="bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -126,7 +140,7 @@ const Routes = () => {
               <Navigation className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhuma rota encontrada</h3>
               <p className="text-gray-600 mb-6">Comece criando sua primeira rota</p>
-              <Button onClick={() => setIsCreateModalOpen(true)}>
+              <Button onClick={handleNewRoute}>
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Primeira Rota
               </Button>
