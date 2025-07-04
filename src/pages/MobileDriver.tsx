@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, Truck, Clock, RefreshCw, ExternalLink, User, Route } from 'lucide-react';
+import { MapPin, Navigation, Truck, Clock, RefreshCw, ExternalLink, User, Route, Activity, Timer, Car } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { useMobile, TruckMobileData } from '@/hooks/useMobile';
+import { useRealTimeTracking } from '@/hooks/useRealTimeTracking';
 import { toast } from 'sonner';
 import MobileRouteMap from '@/components/MobileRouteMap';
 
@@ -18,6 +19,19 @@ const MobileDriver = () => {
   const [error, setError] = useState<string | null>(null);
   
   const { getTruckByPlate, updateTruckLocation, updateRoutePoint, isUpdatingLocation } = useMobile();
+  
+  // Rastreamento em tempo real
+  const { 
+    trackingData, 
+    isTracking, 
+    loading: trackingLoading, 
+    error: trackingError,
+    startTracking,
+    stopTracking 
+  } = useRealTimeTracking(
+    truckData?.id || null, 
+    truckData?.currentRoute?.points || []
+  );
 
   const handlePlateSubmit = async () => {
     if (!plate.trim()) return;
@@ -28,8 +42,13 @@ const MobileDriver = () => {
     try {
       const data = await getTruckByPlate(plate);
       setTruckData(data);
-      toast.success('Caminhão encontrado!');
+      toast.success('Caminhão encontrado! Iniciando rastreamento...');
       console.log('Truck data loaded:', data);
+      
+      // Iniciar rastreamento automaticamente
+      if (data.id) {
+        startTracking();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar dados do caminhão');
       toast.error('Erro ao buscar caminhão');
@@ -59,7 +78,6 @@ const MobileDriver = () => {
           lat: newLocation.lat,
           lng: newLocation.lng
         });
-        toast.success('Localização atualizada');
       }
       
       console.log('Location updated:', newLocation);
@@ -109,6 +127,15 @@ const MobileDriver = () => {
     const interval = setInterval(getCurrentLocation, 30000);
     return () => clearInterval(interval);
   }, [truckData]);
+
+  // Cleanup tracking on unmount
+  useEffect(() => {
+    return () => {
+      if (isTracking) {
+        stopTracking();
+      }
+    };
+  }, [isTracking, stopTracking]);
 
   if (!truckData) {
     return (
@@ -196,14 +223,65 @@ const MobileDriver = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Badge className="bg-green-600 hover:bg-green-700 shadow-sm">Em Rota</Badge>
-                <Button size="sm" variant="ghost" onClick={() => setTruckData(null)} className="text-gray-600">
+                <Badge className={`${isTracking ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'} shadow-sm`}>
+                  {isTracking ? 'Rastreando' : 'Parado'}
+                </Badge>
+                <Button size="sm" variant="ghost" onClick={() => {
+                  setTruckData(null);
+                  stopTracking();
+                }} className="text-gray-600">
                   Sair
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Real-time Tracking Info */}
+        {isTracking && trackingData && (
+          <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="h-5 w-5 text-green-600" />
+                Rastreamento em Tempo Real
+                {trackingLoading && <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {trackingData.nextDestination && (
+                  <>
+                    <div className="text-center p-3 bg-orange-50 rounded-xl">
+                      <div className="text-lg font-bold text-orange-600">{trackingData.nextDestination.distance}</div>
+                      <div className="text-xs text-orange-700 font-medium">Distância</div>
+                    </div>
+                    <div className="text-center p-3 bg-red-50 rounded-xl">
+                      <div className="text-lg font-bold text-red-600">{trackingData.nextDestination.durationInTraffic}</div>
+                      <div className="text-xs text-red-700 font-medium">ETA (Trânsito)</div>
+                    </div>
+                  </>
+                )}
+                {trackingData.route && (
+                  <>
+                    <div className="text-center p-3 bg-blue-50 rounded-xl">
+                      <div className="text-lg font-bold text-blue-600">{trackingData.route.totalDistance}</div>
+                      <div className="text-xs text-blue-700 font-medium">Distância Total</div>
+                    </div>
+                    <div className="text-center p-3 bg-purple-50 rounded-xl">
+                      <div className="text-lg font-bold text-purple-600">{trackingData.route.totalDurationInTraffic}</div>
+                      <div className="text-xs text-purple-700 font-medium">Tempo Total</div>
+                    </div>
+                  </>
+                )}
+              </div>
+              {trackingError && (
+                <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs">
+                  {trackingError}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Route Preview Map */}
         <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
@@ -291,8 +369,13 @@ const MobileDriver = () => {
                     size="sm"
                     className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 flex-1 shadow-sm"
                     onClick={() => markPointAsCompleted(currentPoint.id)}
+                    disabled={isUpdatingLocation}
                   >
-                    ✓ Concluído
+                    {isUpdatingLocation ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      '✓ Concluído'
+                    )}
                   </Button>
                 </div>
               </div>

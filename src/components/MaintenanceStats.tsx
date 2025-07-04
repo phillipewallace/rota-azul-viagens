@@ -54,7 +54,7 @@ export const MaintenanceStats: React.FC<MaintenanceStatsProps> = ({ stats, loadi
     },
     {
       title: 'Custo Médio',
-      value: `R$ ${parseFloat(stats.costs.avg_cost || 0).toFixed(2)}`,
+      value: `R$ ${Number(stats.costs.avg_cost || 0).toFixed(2)}`,
       icon: DollarSign,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
