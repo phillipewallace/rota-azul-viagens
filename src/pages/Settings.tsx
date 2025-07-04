@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -7,11 +7,24 @@ import { useTheme } from 'next-themes';
 import PageHeader from '@/components/PageHeader';
 
 const Settings = () => {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, systemTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Necessário para evitar hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+
+  // Determinar se o tema atual é escuro
+  const isDarkMode = mounted ? theme === 'dark' || (theme === 'system' && systemTheme === 'dark') : false;
+
+  if (!mounted) {
+    return null; // Evita flash de conteúdo não-sincronizado
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -36,7 +49,7 @@ const Settings = () => {
                 </div>
                 <Switch
                   id="dark-mode"
-                  checked={theme === 'dark'}
+                  checked={isDarkMode}
                   onCheckedChange={toggleTheme}
                 />
               </div>

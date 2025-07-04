@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, MapPin, Navigation, Search } from 'lucide-react';
+import { Plus, X, MapPin, Navigation, Search, Loader2 } from 'lucide-react';
 import { useRoutes, RoutePoint } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import RoutePreviewModal from './RoutePreviewModal';
@@ -169,13 +169,26 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         points.find(p => p.id === pointId)
       ).filter(Boolean) as RoutePoint[];
 
+      // Criar rota circular: adicionar ponto de origem no final como destino
+      const circularPoints = [...optimizedPoints];
+      if (circularPoints.length > 0) {
+        const origin = circularPoints[0];
+        const destination: RoutePoint = {
+          ...origin,
+          id: `${origin.id}-destination`,
+          order: circularPoints.length,
+          type: 'destination'
+        };
+        circularPoints.push(destination);
+      }
+
       setPreviewData({
         name,
         description,
-        points: optimizedPoints,
+        points: circularPoints,
         totalDistance: optimizedResult.totalDistance,
         estimatedTime: optimizedResult.estimatedTime,
-        optimizedOrder: optimizedResult.optimizedOrder,
+        optimizedOrder: [...optimizedResult.optimizedOrder, optimizedResult.optimizedOrder[0]],
         polyline: optimizedResult.polyline
       });
       
@@ -231,46 +244,54 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   return (
     <>
       <Dialog open={open && !showPreview} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+          <DialogHeader className="pb-6 border-b border-blue-200 dark:border-gray-700">
+            <DialogTitle className="text-2xl font-bold text-blue-900 dark:text-blue-100 flex items-center gap-3">
+              <Navigation className="h-6 w-6" />
               {editingRoute ? 'Editar Rota' : 'Nova Rota'}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="overflow-y-auto max-h-[calc(90vh-200px)] space-y-6 pr-2">
             {/* Informações básicas */}
-            <div className="space-y-4">
+            <div className="space-y-4 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-200 dark:border-gray-600">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Informações da Rota</h3>
+              
               <div>
-                <Label htmlFor="name">Nome da Rota *</Label>
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome da Rota *</Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: Rota Centro-Norte"
+                  className="mt-1 border-blue-300 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="description">Descrição (opcional)</Label>
+                <Label htmlFor="description" className="text-sm font-medium text-gray-700 dark:text-gray-300">Descrição (opcional)</Label>
                 <Textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Descrição da rota..."
                   rows={3}
+                  className="mt-1 border-blue-300 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {/* Adicionar pontos */}
-            <div className="space-y-4">
-              <h4 className="font-medium">Pontos da Rota</h4>
+            <div className="space-y-4 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-200 dark:border-gray-600">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Pontos da Rota
+              </h3>
               
-              <div className="space-y-3 p-4 border rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-4 p-4 bg-blue-50 dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-gray-600">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="cep">CEP (opcional)</Label>
+                    <Label htmlFor="cep" className="text-sm font-medium text-gray-700 dark:text-gray-300">CEP (opcional)</Label>
                     <Input
                       id="cep"
                       value={currentPoint.cep}
@@ -278,18 +299,20 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                       onBlur={(e) => handleAddressByCep(e.target.value)}
                       placeholder="00000-000"
                       maxLength={9}
+                      className="mt-1 border-blue-300 focus:border-blue-500"
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="address">Endereço *</Label>
-                    <div className="flex gap-2">
+                    <Label htmlFor="address" className="text-sm font-medium text-gray-700 dark:text-gray-300">Endereço *</Label>
+                    <div className="flex gap-2 mt-1">
                       <Input
                         id="address"
                         value={currentPoint.address}
                         onChange={(e) => setCurrentPoint(prev => ({ ...prev, address: e.target.value }))}
                         placeholder="Digite o endereço completo"
                         disabled={searchingAddress}
+                        className="border-blue-300 focus:border-blue-500"
                       />
                       <Button
                         type="button"
@@ -297,8 +320,13 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                         size="sm"
                         onClick={() => handleAddressSearch(currentPoint.address)}
                         disabled={searchingAddress || !currentPoint.address}
+                        className="border-blue-300 hover:bg-blue-50"
                       >
-                        <Search className="h-4 w-4" />
+                        {searchingAddress ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -306,10 +334,9 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
 
                 <Button
                   type="button"
-                  variant="outline"
                   onClick={addPoint}
                   disabled={!currentPoint.address || searchingAddress}
-                  className="w-full"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   {searchingAddress ? 'Buscando...' : 'Adicionar Ponto'}
@@ -318,20 +345,25 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
 
               {/* Lista de pontos */}
               {points.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Pontos Adicionados ({points.length})</Label>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Pontos Adicionados</Label>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                      {points.length} {points.length === 1 ? 'ponto' : 'pontos'}
+                    </Badge>
+                  </div>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {points.map((point, index) => (
-                      <div key={point.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                      <div key={`${point.id}-${index}`} className="flex items-center gap-3 p-4 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-shadow">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md ${
                           point.type === 'origin' ? 'bg-green-500' : 'bg-blue-500'
                         }`}>
                           {index + 1}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-sm">{point.address}</p>
+                          <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{point.address}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">
                               {point.type === 'origin' ? 'Origem' : 'Parada'}
                             </Badge>
                             {point.cep && (
@@ -339,38 +371,46 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removePoint(index)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removePoint(index)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Ações */}
-            <div className="flex justify-between gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
-              
-              <Button 
-                onClick={handlePreview}
-                disabled={!name || points.length < 2 || loading}
-              >
-                <Navigation className="h-4 w-4 mr-2" />
-                {loading ? 'Otimizando...' : 'Visualizar Rota'}
-              </Button>
-            </div>
+          {/* Ações */}
+          <div className="flex justify-between gap-4 pt-6 border-t border-blue-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 -mx-6 -mb-6 rounded-b-xl">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-300">
+              Cancelar
+            </Button>
+            
+            <Button 
+              onClick={handlePreview}
+              disabled={!name || points.length < 2 || loading}
+              className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px]"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Otimizando...
+                </>
+              ) : (
+                <>
+                  <Navigation className="h-4 w-4 mr-2" />
+                  Visualizar Rota
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

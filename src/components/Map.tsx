@@ -1,10 +1,9 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
 import { googleMapsService } from '@/services/googleMaps';
 import { Button } from '@/components/ui/button';
-import { Map as MapIcon } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 const MapComponent = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -71,13 +70,10 @@ const MapComponent = () => {
         mapTypeControl: false,
         fullscreenControl: true,
         streetViewControl: true,
-        zoomControl: true,
+        zoomControl: false,
         mapTypeControlOptions: {
           position: window.google.maps.ControlPosition.BOTTOM_RIGHT,
           style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU
-        },
-        zoomControlOptions: {
-          position: window.google.maps.ControlPosition.BOTTOM_RIGHT
         },
         styles: [
           {
@@ -311,14 +307,14 @@ const MapComponent = () => {
     <div className="relative w-full h-full bg-gray-100">
       <div ref={mapContainer} className="absolute inset-0" />
       
-      {/* Botão de Mapa movido para canto inferior esquerdo */}
+      {/* Botão de Tipo de Mapa movido para canto inferior esquerdo */}
       {mapLoaded && (
         <Button
           onClick={toggleMapType}
           className="absolute bottom-4 left-4 z-10 bg-white hover:bg-gray-50 text-gray-700 border shadow-lg"
           size="sm"
         >
-          <MapIcon className="h-4 w-4 mr-2" />
+          <MapPin className="h-4 w-4 mr-2" />
           {isMapTypeVisible ? 'Mapa' : 'Satélite'}
         </Button>
       )}
