@@ -10,26 +10,27 @@ export class PDFGenerator {
     this.doc = new jsPDF();
   }
 
-  static generateSystemReport(stats: ReportStats | null, selectedMonth?: string) {
+  generateSystemReport(stats: ReportStats | null, month?: string) {
     try {
+      // Verificar se stats existe
       if (!stats) {
         throw new Error('Dados de estatísticas não disponíveis');
       }
 
-      const pdf = new jsPDF();
+      this.doc = new jsPDF();
       
       // Header
-      pdf.setFontSize(20);
-      pdf.text('Relatório do Sistema', 20, 20);
+      this.doc.setFontSize(20);
+      this.doc.text('Relatório do Sistema', 20, 20);
       
-      if (selectedMonth && selectedMonth !== 'all') {
-        pdf.setFontSize(12);
-        pdf.text(`Período: ${selectedMonth}`, 20, 30);
+      if (month) {
+        this.doc.setFontSize(12);
+        this.doc.text(`Período: ${month}`, 20, 30);
       }
       
       // Estatísticas gerais
-      pdf.setFontSize(16);
-      pdf.text('Estatísticas Gerais', 20, 50);
+      this.doc.setFontSize(16);
+      this.doc.text('Estatísticas Gerais', 20, 50);
       
       const statsData = [
         ['Total de Rotas', stats.totalRoutes?.toString() || '0'],
@@ -41,7 +42,7 @@ export class PDFGenerator {
         ['Manutenções Pendentes', stats.pendingMaintenance?.toString() || '0']
       ];
 
-      autoTable(pdf, {
+      autoTable(this.doc, {
         startY: 60,
         head: [['Métrica', 'Valor']],
         body: statsData,
@@ -50,16 +51,17 @@ export class PDFGenerator {
       });
 
       // Footer
-      pdf.setFontSize(10);
-      pdf.text(
+      const pageCount = this.doc.internal.getNumberOfPages();
+      this.doc.setFontSize(10);
+      this.doc.text(
         `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`,
         20,
-        pdf.internal.pageSize.height - 20
+        this.doc.internal.pageSize.height - 20
       );
       
       // Salvar arquivo
-      const fileName = `relatorio-sistema-${selectedMonth || 'geral'}-${new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(fileName);
+      const fileName = `relatorio-sistema-${month || 'geral'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      this.doc.save(fileName);
       
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
@@ -67,16 +69,16 @@ export class PDFGenerator {
     }
   }
 
-  static generateManagementReport(data: any[], month: string) {
+  generateManagementReport(data: any[], month: string) {
     try {
-      const pdf = new jsPDF();
+      this.doc = new jsPDF();
       
       // Header
-      pdf.setFontSize(20);
-      pdf.text('Relatório de Gestão', 20, 20);
+      this.doc.setFontSize(20);
+      this.doc.text('Relatório de Gestão', 20, 20);
       
-      pdf.setFontSize(12);
-      pdf.text(`Período: ${month}`, 20, 30);
+      this.doc.setFontSize(12);
+      this.doc.text(`Período: ${month}`, 20, 30);
       
       // Dados da tabela
       if (data && data.length > 0) {
@@ -88,7 +90,7 @@ export class PDFGenerator {
           item.value || ''
         ]);
 
-        autoTable(pdf, {
+        autoTable(this.doc, {
           startY: 50,
           head: [['ID', 'Nome', 'Status', 'Data', 'Valor']],
           body: tableData,
@@ -96,21 +98,21 @@ export class PDFGenerator {
           headStyles: { fillColor: [59, 130, 246] }
         });
       } else {
-        pdf.setFontSize(14);
-        pdf.text('Nenhum dado disponível para o período selecionado', 20, 60);
+        this.doc.setFontSize(14);
+        this.doc.text('Nenhum dado disponível para o período selecionado', 20, 60);
       }
 
       // Footer  
-      pdf.setFontSize(10);
-      pdf.text(
+      this.doc.setFontSize(10);
+      this.doc.text(
         `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`,
         20,
-        pdf.internal.pageSize.height - 20
+        this.doc.internal.pageSize.height - 20
       );
       
       // Salvar arquivo
       const fileName = `relatorio-gestao-${month}-${new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(fileName);
+      this.doc.save(fileName);
       
     } catch (error) {
       console.error('Erro ao gerar relatório de gestão:', error);
