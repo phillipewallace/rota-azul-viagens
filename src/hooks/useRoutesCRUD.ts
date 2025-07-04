@@ -23,9 +23,10 @@ export const useRoutesCRUD = () => {
     mutationFn: async ({ id, route }: { id: string; route: Partial<Route> }) => {
       console.log('Updating route with ID:', id, 'Data:', route);
       
-      // Validação adicional do ID
+      // Verificar se estamos tentando criar uma nova rota sem ID
       if (!id || id === 'undefined' || id === 'null' || typeof id !== 'string' || id.trim() === '') {
-        throw new Error('ID da rota é obrigatório e deve ser válido');
+        console.log('No valid ID provided, creating new route instead');
+        return await createRouteService(route as Omit<Route, 'id' | 'createdAt'>);
       }
       
       return await updateRouteService(id, route);

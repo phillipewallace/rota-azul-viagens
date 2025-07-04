@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
@@ -14,6 +13,9 @@ const MapComponent = () => {
   const directionsRenderers = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
   const userLocationMarker = useRef<any>(null);
+  const [trafficEnabled, setTrafficEnabled] = useState(true);
+  const [realTimeTraffic, setRealTimeTraffic] = useState<any[]>([]);
+  const [activeTrucks, setActiveTrucks] = useState<Set<string>>(new Set());
   
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
@@ -97,6 +99,41 @@ const MapComponent = () => {
     }
   };
 
+  const toggleTrafficLayer = () => {
+    if (!map.current) return;
+
+    if (trafficEnabled) {
+      trafficService.disableTrafficLayer();
+      setTrafficEnabled(false);
+    } else {
+      trafficService.enableTrafficLayer(map.current);
+      setTrafficEnabled(true);
+    }
+  };
+
+  const updateRealTimeTraffic = async () => {
+    if (!map.current) return;
+
+    try {
+      const bounds = map.current.getBounds();
+      if (bounds) {
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+        
+        const trafficData = await trafficService.getRealTimeTrafficData({
+          north: ne.lat(),
+          south: sw.lat(),
+          east: ne.lng(),
+          west: sw.lng()
+        });
+        
+        setRealTimeTraffic(trafficData);
+      }
+    } catch (error) {
+      console.error('Error updating real-time traffic:', error);
+    }
+  };
+
   const changeMapType = () => {
     const currentIndex = mapTypes.findIndex(type => type.id === currentMapType);
     const nextIndex = (currentIndex + 1) % mapTypes.length;
@@ -158,14 +195,14 @@ const MapComponent = () => {
     console.log('📍 Marcador de localização atualizado');
   };
 
-  const createTruckIcon = (color: string) => {
+  const createTruckIcon = (color: string, isTracked: boolean = false) => {
     return {
       path: 'M23.5 7c.276 0 .5.224.5.5v9c0 .276-.224.5-.5.5h-2.5v2c0 .828-.672 1.5-1.5 1.5h-1c-.828 0-1.5-.672-1.5-1.5v-2h-8v2c0 .828-.672 1.5-1.5 1.5h-1c-.828 0-1.5-.672-1.5-1.5v-2H3.5c-.276 0-.5-.224-.5-.5v-9c0-.276.224-.5.5-.5h1v-2c0-.552.448-1 1-1h14c.552 0 1 .448 1 1v2h1zm-2-2H5.5v1.5h16V5zM5 8.5v6h14v-6H5zm2.5 7.5c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1zm9 0c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1z',
       fillColor: color,
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeWeight: 2,
-      scale: 1.2,
+      fillOpacity: isTracked ? 1 : 0.8,
+      strokeColor: isTracked ? '#22c55e' : '#ffffff',
+      strokeWeight: isTracked ? 3 : 2,
+      scale: isTracked ? 1.5 : 1.2,
       anchor: new window.google.maps.Point(12, 20)
     };
   };
@@ -178,28 +215,31 @@ const MapComponent = () => {
     clearDirectionsRenderers();
     clearMarkers();
     
-    // Update user location marker
     updateUserLocationMarker();
     
     if (!Array.isArray(trucks)) return;
     
-    // Criar mapa de cores por caminhão para consistência
     const truckColorMap = new Map();
     trucks.forEach((truck, index) => {
       truckColorMap.set(truck.id, truckColors[index % truckColors.length]);
     });
     
+    // Verificar caminhões ativos no mobile
+    const activeTracking = Array.from(activeTrucks);
+    
     trucks.forEach((truck) => {
       if (!truck.location || typeof truck.location.lat !== 'number' || typeof truck.location.lng !== 'number') return;
 
       const truckColor = truckColorMap.get(truck.id);
+      const isActivelyTracked = activeTracking.includes(truck.id);
       
       try {
         const marker = new window.google.maps.Marker({
           position: { lat: truck.location.lat, lng: truck.location.lng },
           map: map.current,
           title: truck.name,
-          icon: createTruckIcon(truckColor),
+          icon: createTruckIcon(truckColor, isActivelyTracked),
+          zIndex: isActivelyTracked ? 1000 : 100
         });
 
         markersRef.current.push(marker);
@@ -207,10 +247,11 @@ const MapComponent = () => {
         const infoWindow = new window.google.maps.InfoWindow({
           content: `
             <div style="padding: 12px; min-width: 200px;">
-              <h3 style="margin: 0 0 8px 0; color: ${truckColor};">🚛 ${truck.name}</h3>
+              <h3 style="margin: 0 0 8px 0; color: ${truckColor};">${isActivelyTracked ? '📍' : '🚛'} ${truck.name}</h3>
               <div style="font-size: 13px; line-height: 1.4;">
                 <div><strong>Placa:</strong> ${truck.plate}</div>
                 <div><strong>Status:</strong> ${truck.status === 'available' ? 'Disponível' : truck.status === 'in-route' ? 'Em Rota' : 'Manutenção'}</div>
+                ${isActivelyTracked ? '<div style="color: #22c55e;"><strong>📍 Rastreamento Ativo</strong></div>' : ''}
                 ${truck.currentRouteName ? `<div><strong>Rota:</strong> ${truck.currentRouteName}</div>` : ''}
                 ${truck.driverName ? `<div><strong>Motorista:</strong> ${truck.driverName}</div>` : ''}
               </div>
@@ -222,11 +263,10 @@ const MapComponent = () => {
           infoWindow.open(map.current, marker);
         });
 
-        // Só desenhar a rota se o caminhão tem uma rota atribuída E está em rota
         if (truck.currentRoute && truck.status === 'in-route' && Array.isArray(routes)) {
           const route = routes.find(r => r.id === truck.currentRoute);
           if (route && route.points && route.points.length >= 2) {
-            drawTruckRoute(route, truckColor);
+            drawTruckRoute(route, truckColor, isActivelyTracked);
           }
         }
       } catch (error) {
@@ -235,7 +275,7 @@ const MapComponent = () => {
     });
   };
 
-  const drawTruckRoute = async (route: any, color: string) => {
+  const drawTruckRoute = async (route: any, color: string, isTracked: boolean = false) => {
     if (!route.points || route.points.length < 2 || !window.google) return;
 
     try {
@@ -271,13 +311,24 @@ const MapComponent = () => {
               suppressMarkers: false,
               polylineOptions: {
                 strokeColor: color,
-                strokeWeight: 5,
-                strokeOpacity: 0.8
+                strokeWeight: isTracked ? 6 : 5,
+                strokeOpacity: isTracked ? 1 : 0.8,
+                icons: isTracked ? [
+                  {
+                    icon: {
+                      path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                      scale: 3,
+                      strokeColor: color
+                    },
+                    offset: '100%',
+                    repeat: '50px'
+                  }
+                ] : undefined
               },
               markerOptions: {
                 icon: {
                   path: window.google.maps.SymbolPath.CIRCLE,
-                  scale: 6,
+                  scale: isTracked ? 8 : 6,
                   fillColor: color,
                   fillOpacity: 1,
                   strokeColor: '#ffffff',
@@ -287,7 +338,7 @@ const MapComponent = () => {
             });
 
             directionsRenderers.current.push(directionsRenderer);
-            console.log('✅ Rota desenhada com sucesso para:', route.name);
+            console.log('✅ Rota desenhada com sucesso para:', route.name, isTracked ? '(Rastreada)' : '');
           } catch (error) {
             console.error('Error creating directions renderer:', error);
           }
@@ -300,6 +351,38 @@ const MapComponent = () => {
       console.error('Erro ao desenhar rota:', error);
     }
   };
+
+  // Escutar atualizações de rastreamento do mobile
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'active-truck-tracking') {
+        try {
+          const activeTruckIds = JSON.parse(e.newValue || '[]');
+          setActiveTrucks(new Set(activeTruckIds));
+          console.log('📍 Active truck tracking updated:', activeTruckIds);
+        } catch (error) {
+          console.error('Error parsing active truck tracking:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Verificar estado inicial
+    try {
+      const stored = localStorage.getItem('active-truck-tracking');
+      if (stored) {
+        const activeTruckIds = JSON.parse(stored);
+        setActiveTrucks(new Set(activeTruckIds));
+      }
+    } catch (error) {
+      console.error('Error loading initial tracking state:', error);
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   useEffect(() => {
     getCurrentLocation();
@@ -325,6 +408,22 @@ const MapComponent = () => {
     }
   }, [userLocation, mapLoaded]);
 
+  // Atualizar trânsito em tempo real
+  useEffect(() => {
+    if (mapLoaded && trafficEnabled) {
+      updateRealTimeTraffic();
+      const trafficInterval = setInterval(updateRealTimeTraffic, 60000); // A cada minuto
+      return () => clearInterval(trafficInterval);
+    }
+  }, [mapLoaded, trafficEnabled]);
+
+  // Ativar camada de trânsito por padrão
+  useEffect(() => {
+    if (mapLoaded && map.current && trafficEnabled) {
+      trafficService.enableTrafficLayer(map.current);
+    }
+  }, [mapLoaded]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -340,16 +439,43 @@ const MapComponent = () => {
     <div className="relative w-full h-full bg-gray-100">
       <div ref={mapContainer} className="absolute inset-0" />
       
-      {/* Botão de mudança de tipo de mapa - canto inferior esquerdo */}
+      {/* Controles do mapa */}
       {mapLoaded && (
-        <button
-          onClick={changeMapType}
-          className="absolute bottom-4 left-4 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors z-10"
-        >
-          {mapTypes.find(type => type.id === currentMapType)?.label}
-        </button>
+        <div className="absolute bottom-4 left-4 flex flex-col gap-2 z-10">
+          <button
+            onClick={changeMapType}
+            className="bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors"
+          >
+            {mapTypes.find(type => type.id === currentMapType)?.label}
+          </button>
+          
+          <button
+            onClick={toggleTrafficLayer}
+            className={`border border-gray-300 rounded-lg shadow-lg px-4 py-2 text-sm font-medium transition-colors ${
+              trafficEnabled 
+                ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            🚦 Trânsito
+          </button>
+        </div>
+      )}
+
+      {/* Indicador de trânsito em tempo real */}
+      {mapLoaded && trafficEnabled && realTimeTraffic.length > 0 && (
+        <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="font-medium">Trânsito em Tempo Real</span>
+          </div>
+          <div className="text-xs text-gray-600">
+            Última atualização: {new Date().toLocaleTimeString()}
+          </div>
+        </div>
       )}
       
+      {/* Loading indicator */}
       {!mapLoaded && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg border z-10">
           <div className="flex items-center gap-3 text-sm font-medium text-gray-700">
@@ -359,10 +485,18 @@ const MapComponent = () => {
         </div>
       )}
 
+      {/* Error indicator */}
       {locationError && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg shadow-lg text-sm max-w-sm text-center z-10">
           <div className="font-medium mb-1">⚠️ Aviso</div>
           <div>{locationError}</div>
+        </div>
+      )}
+
+      {/* Contador de caminhões ativos */}
+      {activeTrucks.size > 0 && (
+        <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-medium z-10">
+          📍 {activeTrucks.size} caminhão{activeTrucks.size > 1 ? 'ões' : ''} rastreado{activeTrucks.size > 1 ? 's' : ''}
         </div>
       )}
     </div>

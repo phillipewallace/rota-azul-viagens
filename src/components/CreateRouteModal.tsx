@@ -36,7 +36,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const { getAddressByCep, optimizeRoute } = useRoutes();
   const { createRoute, updateRoute } = useRoutesCRUD();
 
-  const isEditing = !!editingRoute;
+  const isEditing = !!editingRoute?.id;
 
   useEffect(() => {
     if (editingRoute && open) {
@@ -234,8 +234,8 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     try {
       setLoading(true);
       
-      if (isEditing && editingRoute) {
-        await updateRoute(editingRoute.id, previewData);
+      if (isEditing && editingRoute?.id) {
+        await updateRoute({ id: editingRoute.id, route: previewData });
         toast.success('Rota atualizada com sucesso!');
       } else {
         await createRoute(previewData);
