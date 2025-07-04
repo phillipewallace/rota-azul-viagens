@@ -7,43 +7,109 @@ const router = Router();
 // Get all drivers
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT id, name, phone, email, license_number, status, current_route, total_trips
-      FROM drivers
-      ORDER BY name
-    `);
+    console.log('👥 Fetching all drivers...');
+    
+    const query = `
+      SELECT 
+        d.id,
+        d.name,
+        d.license_number,
+        d.license_category,
+        d.phone,
+        d.email,
+        d.hire_date,
+        d.status,
+        d.current_route,
+        d.total_trips,
+        d.created_at,
+        COUNT(t.id) as truck_count
+      FROM drivers d
+      LEFT JOIN trucks t ON d.id = t.current_driver_id
+      GROUP BY d.id, d.name, d.license_number, d.license_category, d.phone, d.email, d.hire_date, d.status, d.current_route, d.total_trips, d.created_at
+      ORDER BY d.created_at DESC
+    `;
+    
+    const result = await pool.query(query);
+    
+    const drivers = result.rows.map(driver => ({
+      id: driver.id,
+      name: driver.name,
+      license: driver.license_number,
+      licenseCategory: driver.license_category,
+      phone: driver.phone,
+      email: driver.email,
+      hireDate: driver.hire_date,
+      status: driver.status,
+      currentRoute: driver.current_route,
+      totalTrips: driver.total_trips || 0,
+      truckCount: parseInt(driver.truck_count) || 0
+    }));
 
-    res.json(result.rows);
+    console.log(`✅ Found ${drivers.length} drivers`);
+    res.json(drivers);
   } catch (error) {
-    console.error('Error fetching drivers:', error);
+    console.error('❌ Error fetching drivers:', error);
     res.status(500).json({ error: 'Erro ao buscar motoristas' });
+  }
+});
+
+// Get single driver by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const query = `
+      SELECT 
+        d.*,
+        COUNT(t.id) as truck_count,
+        COUNT(tr.id) as trip_count
+      FROM drivers d
+      LEFT JOIN trucks t ON d.id = t.current_driver_id
+      LEFT JOIN trips tr ON d.id = tr.driver_id
+      WHERE d.id = $1
+      GROUP BY d.id
+    `;
+    
+    const result = await pool.query(query, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Motorista não encontrado' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('❌ Error fetching driver:', error);
+    res.status(500).json({ error: 'Erro ao buscar motorista' });
   }
 });
 
 // Create new driver
 router.post('/', async (req, res) => {
   try {
-    const { name, license, phone, email, status, currentRoute } = req.body;
-
-    const result = await pool.query(`
-      INSERT INTO drivers (name, license_number, phone, email, status, current_route, total_trips)
-      VALUES ($1, $2, $3, $4, $5, $6, 0)
+    const { name, license_number, license_category, phone, email, hire_date } = req.body;
+    
+    const query = `
+      INSERT INTO drivers (name, license_number, license_category, phone, email, hire_date)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [name, license, phone, email, status || 'available', currentRoute]);
-
-    const driver = result.rows[0];
-    res.json({
-      id: driver.id,
-      name: driver.name,
-      phone: driver.phone,
-      email: driver.email,
-      license: driver.license_number,
-      status: driver.status,
-      currentRoute: driver.current_route,
-      totalTrips: driver.total_trips
-    });
+    `;
+    
+    const result = await pool.query(query, [
+      name,
+      license_number,
+      license_category || 'D',
+      phone,
+      email,
+      hire_date || new Date().toISOString().split('T')[0]
+    ]);
+    
+    console.log('✅ Driver created:', result.rows[0].name);
+    res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating driver:', error);
+    console.error('❌ Error creating driver:', error);
+    if (error.code === '23505') {
+      return res.status(400).json({ error: 'Número de licença já cadastrado' });
+    }
     res.status(500).json({ error: 'Erro ao criar motorista' });
   }
 });
@@ -52,37 +118,26 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, license, phone, email, status, currentRoute } = req.body;
-
-    const result = await pool.query(`
+    const { name, license_number, license_category, phone, email, status } = req.body;
+    
+    const query = `
       UPDATE drivers 
-      SET name = COALESCE($1, name),
-          license_number = COALESCE($2, license_number),
-          phone = COALESCE($3, phone),
-          email = COALESCE($4, email),
-          status = COALESCE($5, status),
-          current_route = COALESCE($6, current_route)
+      SET name = $1, license_number = $2, license_category = $3, 
+          phone = $4, email = $5, status = $6, updated_at = CURRENT_TIMESTAMP
       WHERE id = $7
       RETURNING *
-    `, [name, license, phone, email, status, currentRoute, id]);
-
+    `;
+    
+    const result = await pool.query(query, [name, license_number, license_category, phone, email, status, id]);
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Motorista não encontrado' });
     }
-
-    const driver = result.rows[0];
-    res.json({
-      id: driver.id,
-      name: driver.name,
-      phone: driver.phone,
-      email: driver.email,
-      license: driver.license_number,
-      status: driver.status,
-      currentRoute: driver.current_route,
-      totalTrips: driver.total_trips
-    });
+    
+    console.log('✅ Driver updated:', result.rows[0].name);
+    res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating driver:', error);
+    console.error('❌ Error updating driver:', error);
     res.status(500).json({ error: 'Erro ao atualizar motorista' });
   }
 });
@@ -91,17 +146,25 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-
-    const result = await pool.query('DELETE FROM drivers WHERE id = $1 RETURNING id', [id]);
-
+    
+    // Check if driver is assigned to any truck
+    const truckCheck = await pool.query('SELECT id FROM trucks WHERE current_driver_id = $1', [id]);
+    
+    if (truckCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'Não é possível excluir motorista que está atribuído a um caminhão' });
+    }
+    
+    const result = await pool.query('DELETE FROM drivers WHERE id = $1 RETURNING *', [id]);
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Motorista não encontrado' });
     }
-
-    res.json({ success: true, id: result.rows[0].id });
+    
+    console.log('✅ Driver deleted:', result.rows[0].name);
+    res.json({ message: 'Motorista excluído com sucesso' });
   } catch (error) {
-    console.error('Error deleting driver:', error);
-    res.status(500).json({ error: 'Erro ao deletar motorista' });
+    console.error('❌ Error deleting driver:', error);
+    res.status(500).json({ error: 'Erro ao excluir motorista' });
   }
 });
 

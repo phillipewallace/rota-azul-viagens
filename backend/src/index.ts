@@ -2,6 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from 'dotenv';
+import { setupDatabase, checkTables } from './config/database';
 
 // Import routes
 import trucksRouter from './routes/trucks';
@@ -29,17 +30,26 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`📡 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`📋 Body:`, JSON.stringify(req.body, null, 2).substring(0, 200));
+  }
   next();
 });
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    version: '2.0.0',
+    database: 'PostgreSQL'
+  });
 });
 
 // API Routes
@@ -63,12 +73,39 @@ app.use('*', (req, res) => {
 // Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('❌ Server Error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚚 Rota Azul API running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔐 Auth endpoint: http://localhost:${PORT}/api/auth/login`);
-  console.log(`📱 Mobile endpoint: http://localhost:${PORT}/api/mobile/truck/:plate`);
-});
+// Initialize database and start server
+const startServer = async () => {
+  try {
+    console.log('🚀 Starting AlchemyRotas API Server...');
+    
+    // Setup database connection
+    await setupDatabase();
+    
+    // Check if tables exist
+    await checkTables();
+    
+    app.listen(PORT, () => {
+      console.log('');
+      console.log('🚚 ═══════════════════════════════════════');
+      console.log('🚚   ROTA AZUL API - SERVER ONLINE     ');
+      console.log('🚚 ═══════════════════════════════════════');
+      console.log(`🚚 Server: http://localhost:${PORT}`);
+      console.log(`📊 Health: http://localhost:${PORT}/health`);
+      console.log(`🔐 Auth: http://localhost:${PORT}/api/auth/login`);
+      console.log(`📱 Mobile: http://localhost:${PORT}/api/mobile/truck/:plate`);
+      console.log('🚚 ═══════════════════════════════════════');
+      console.log('');
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

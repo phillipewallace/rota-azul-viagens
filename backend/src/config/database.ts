@@ -1,3 +1,4 @@
+
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 
@@ -5,103 +6,62 @@ dotenv.config();
 
 // Pool principal para o banco da aplicação
 const pool = new Pool({
-  host: process.env.DB_HOST,
+  host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  database: process.env.DB_NAME || 'alchemy_rotas',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 });
 
 export const setupDatabase = async () => {
   try {
-    console.log(`🔄 Conectando ao banco de dados: ${process.env.DB_NAME}`);
+    console.log(`🔄 Conectando ao banco de dados: ${process.env.DB_NAME || 'alchemy_rotas'}`);
     
     // Testa a conexão
     const client = await pool.connect();
-    console.log(`✅ Conectado ao banco de dados '${process.env.DB_NAME}'`);
+    console.log(`✅ Conectado ao banco de dados '${process.env.DB_NAME || 'alchemy_rotas'}'`);
     
-    // Cria extensão para UUIDs
+    // Verifica se as extensões estão instaladas
     await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+    await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
     
-    // Cria as tabelas se não existirem
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS routes (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        points JSONB NOT NULL DEFAULT '[]',
-        total_distance DECIMAL(10,2) DEFAULT 0,
-        estimated_time VARCHAR(50),
-        optimized_order JSONB DEFAULT '[]',
-        status VARCHAR(20) DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS trucks (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        name VARCHAR(255) NOT NULL,
-        plate VARCHAR(20) UNIQUE NOT NULL,
-        model VARCHAR(255) NOT NULL,
-        year INTEGER NOT NULL,
-        status VARCHAR(20) DEFAULT 'available',
-        current_route VARCHAR(255),
-        driver VARCHAR(255),
-        last_maintenance DATE,
-        mileage INTEGER DEFAULT 0,
-        location_lat DECIMAL(10,8),
-        location_lng DECIMAL(11,8),
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS drivers (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        name VARCHAR(255) NOT NULL,
-        license VARCHAR(50) UNIQUE NOT NULL,
-        phone VARCHAR(20),
-        email VARCHAR(255),
-        status VARCHAR(20) DEFAULT 'available',
-        current_route VARCHAR(255),
-        total_trips INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS maintenance (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        truck_id UUID REFERENCES trucks(id),
-        maintenance_type VARCHAR(100) NOT NULL,
-        description TEXT,
-        scheduled_date DATE NOT NULL,
-        completed_date DATE,
-        cost DECIMAL(10,2),
-        status VARCHAR(20) DEFAULT 'scheduled',
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS trips (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        route_id UUID REFERENCES routes(id),
-        truck_id UUID REFERENCES trucks(id),
-        driver_id UUID REFERENCES drivers(id),
-        distance_km DECIMAL(10,2) DEFAULT 0,
-        status VARCHAR(20) DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
+    console.log('✅ Extensões do PostgreSQL verificadas');
+    
     client.release();
-    console.log('✅ Tabelas do banco de dados verificadas/criadas');
+    console.log('✅ Configuração do banco de dados completa');
   } catch (err) {
     console.error('❌ Erro ao configurar o banco de dados:', err);
+    console.error('🔍 Verifique se o PostgreSQL está rodando e as credenciais estão corretas');
+    console.error('📝 Para criar o banco, execute: CREATE DATABASE alchemy_rotas;');
     throw err;
+  }
+};
+
+// Função para verificar se as tabelas existem
+export const checkTables = async () => {
+  try {
+    const client = await pool.connect();
+    
+    const tablesCheck = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('users', 'drivers', 'trucks', 'routes', 'schedules', 'maintenance_records')
+    `);
+    
+    console.log(`📊 Tabelas encontradas: ${tablesCheck.rows.map(r => r.table_name).join(', ')}`);
+    
+    if (tablesCheck.rows.length < 6) {
+      console.log('⚠️  Algumas tabelas estão faltando. Execute o arquivo complete-schema-fixed.sql');
+    }
+    
+    client.release();
+  } catch (err) {
+    console.error('❌ Erro ao verificar tabelas:', err);
   }
 };
 

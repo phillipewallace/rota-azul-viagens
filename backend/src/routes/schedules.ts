@@ -1,67 +1,150 @@
 
 import { Router } from 'express';
 import { pool } from '../config/database';
+import { format } from 'date-fns';
 
 const router = Router();
 
 // Get all schedules
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT s.*, t.name as truck_name, t.plate as truck_plate,
-             d.name as driver_name, r.name as route_name
+    console.log('📅 Fetching all schedules...');
+    
+    const query = `
+      SELECT 
+        s.id,
+        s.name,
+        s.truck_id,
+        s.route_id,
+        s.route_name,
+        s.driver_id,
+        s.scheduled_date,
+        s.scheduled_time,
+        s.start_date,
+        s.end_date,
+        s.days_of_week,
+        s.start_time,
+        s.status,
+        s.notes,
+        s.created_at,
+        t.name as truck_name,
+        t.plate as truck_plate,
+        r.name as route_full_name,
+        d.name as driver_name
       FROM schedules s
-      LEFT JOIN trucks t ON s.truck_id::text = t.id::text
-      LEFT JOIN drivers d ON s.driver_id::text = d.id::text
-      LEFT JOIN routes r ON s.route_name = r.name
+      LEFT JOIN trucks t ON s.truck_id = t.id
+      LEFT JOIN routes r ON s.route_id = r.id
+      LEFT JOIN drivers d ON s.driver_id = d.id
       ORDER BY s.scheduled_date DESC, s.scheduled_time DESC
-    `);
-
-    const schedules = result.rows.map(row => ({
-      id: row.id,
-      truckId: row.truck_id,
-      truck: row.truck_name,
-      route: row.route_name,
-      driverId: row.driver_id,
-      driver: row.driver_name,
-      scheduledDate: row.scheduled_date,
-      scheduledTime: row.scheduled_time,
-      status: row.status,
-      notes: row.notes
+    `;
+    
+    const result = await pool.query(query);
+    
+    const schedules = result.rows.map(schedule => ({
+      id: schedule.id,
+      name: schedule.name,
+      truckId: schedule.truck_id,
+      truck: schedule.truck_name || `Caminhão ${schedule.truck_plate}`,
+      route: schedule.route_name || schedule.route_full_name || 'Rota não definida',
+      driverId: schedule.driver_id,
+      driver: schedule.driver_name || 'Motorista não definido',
+      scheduledDate: schedule.scheduled_date,
+      scheduledTime: schedule.scheduled_time,
+      startDate: schedule.start_date,
+      endDate: schedule.end_date,
+      daysOfWeek: schedule.days_of_week,
+      startTime: schedule.start_time,
+      status: schedule.status,
+      notes: schedule.notes
     }));
 
+    console.log(`✅ Found ${schedules.length} schedules`);
     res.json(schedules);
   } catch (error) {
-    console.error('Error fetching schedules:', error);
+    console.error('❌ Error fetching schedules:', error);
     res.status(500).json({ error: 'Erro ao buscar agendamentos' });
+  }
+});
+
+// Get single schedule by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const query = `
+      SELECT 
+        s.*,
+        t.name as truck_name,
+        t.plate as truck_plate,
+        r.name as route_full_name,
+        d.name as driver_name
+      FROM schedules s
+      LEFT JOIN trucks t ON s.truck_id = t.id
+      LEFT JOIN routes r ON s.route_id = r.id
+      LEFT JOIN drivers d ON s.driver_id = d.id
+      WHERE s.id = $1
+    `;
+    
+    const result = await pool.query(query, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Agendamento não encontrado' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('❌ Error fetching schedule:', error);
+    res.status(500).json({ error: 'Erro ao buscar agendamento' });
   }
 });
 
 // Create new schedule
 router.post('/', async (req, res) => {
   try {
-    const { truckId, truck, route, driverId, driver, scheduledDate, scheduledTime, status, notes } = req.body;
-
-    const result = await pool.query(`
-      INSERT INTO schedules (truck_id, route_name, driver_id, scheduled_date, scheduled_time, status, notes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    const { 
+      name, 
+      truck_id, 
+      route_id, 
+      route_name, 
+      driver_id, 
+      scheduled_date, 
+      scheduled_time,
+      start_date,
+      end_date,
+      days_of_week,
+      start_time,
+      notes 
+    } = req.body;
+    
+    const query = `
+      INSERT INTO schedules (
+        name, truck_id, route_id, route_name, driver_id, 
+        scheduled_date, scheduled_time, start_date, end_date, 
+        days_of_week, start_time, notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
-    `, [truckId, route, driverId, scheduledDate, scheduledTime, status || 'scheduled', notes]);
-
-    res.json({
-      id: result.rows[0].id,
-      truckId: result.rows[0].truck_id,
-      truck,
-      route,
-      driverId: result.rows[0].driver_id,
-      driver,
-      scheduledDate: result.rows[0].scheduled_date,
-      scheduledTime: result.rows[0].scheduled_time,
-      status: result.rows[0].status,
-      notes: result.rows[0].notes
-    });
+    `;
+    
+    const result = await pool.query(query, [
+      name,
+      truck_id,
+      route_id,
+      route_name,
+      driver_id,
+      scheduled_date,
+      scheduled_time,
+      start_date,
+      end_date,
+      days_of_week || '1,2,3,4,5',
+      start_time || scheduled_time,
+      notes
+    ]);
+    
+    console.log('✅ Schedule created:', result.rows[0].name || 'Novo agendamento');
+    res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating schedule:', error);
+    console.error('❌ Error creating schedule:', error);
     res.status(500).json({ error: 'Erro ao criar agendamento' });
   }
 });
@@ -70,28 +153,40 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { truckId, route, driverId, scheduledDate, scheduledTime, status, notes } = req.body;
-
-    const result = await pool.query(`
+    const { 
+      name, 
+      truck_id, 
+      route_id, 
+      route_name, 
+      driver_id, 
+      scheduled_date, 
+      scheduled_time,
+      status,
+      notes 
+    } = req.body;
+    
+    const query = `
       UPDATE schedules 
-      SET truck_id = COALESCE($1, truck_id),
-          route_name = COALESCE($2, route_name),
-          driver_id = COALESCE($3, driver_id),
-          scheduled_date = COALESCE($4, scheduled_date),
-          scheduled_time = COALESCE($5, scheduled_time),
-          status = COALESCE($6, status),
-          notes = COALESCE($7, notes)
-      WHERE id = $8
+      SET name = $1, truck_id = $2, route_id = $3, route_name = $4, 
+          driver_id = $5, scheduled_date = $6, scheduled_time = $7, 
+          status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
       RETURNING *
-    `, [truckId, route, driverId, scheduledDate, scheduledTime, status, notes, id]);
-
+    `;
+    
+    const result = await pool.query(query, [
+      name, truck_id, route_id, route_name, driver_id, 
+      scheduled_date, scheduled_time, status, notes, id
+    ]);
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Agendamento não encontrado' });
     }
-
+    
+    console.log('✅ Schedule updated:', result.rows[0].name || result.rows[0].id);
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating schedule:', error);
+    console.error('❌ Error updating schedule:', error);
     res.status(500).json({ error: 'Erro ao atualizar agendamento' });
   }
 });
@@ -100,17 +195,18 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-
-    const result = await pool.query('DELETE FROM schedules WHERE id = $1 RETURNING id', [id]);
-
+    
+    const result = await pool.query('DELETE FROM schedules WHERE id = $1 RETURNING *', [id]);
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Agendamento não encontrado' });
     }
-
-    res.json({ success: true, id: result.rows[0].id });
+    
+    console.log('✅ Schedule deleted:', result.rows[0].name || result.rows[0].id);
+    res.json({ message: 'Agendamento excluído com sucesso' });
   } catch (error) {
-    console.error('Error deleting schedule:', error);
-    res.status(500).json({ error: 'Erro ao deletar agendamento' });
+    console.error('❌ Error deleting schedule:', error);
+    res.status(500).json({ error: 'Erro ao excluir agendamento' });
   }
 });
 
