@@ -8,6 +8,8 @@ export interface Driver {
   phone: string;
   email: string;
   status: 'active' | 'inactive';
+  currentRoute?: string;
+  totalTrips?: number;
 }
 
 const API_BASE_URL = import.meta.env.MODE === 'production' 
@@ -30,8 +32,25 @@ export const useDrivers = () => {
       console.error('Error loading drivers:', error);
       // Mock data for development
       setDrivers([
-        { id: '1', name: 'João Silva', license: 'CNH123456', phone: '(11) 99999-9999', email: 'joao@email.com', status: 'active' },
-        { id: '2', name: 'Maria Santos', license: 'CNH654321', phone: '(11) 88888-8888', email: 'maria@email.com', status: 'active' }
+        { 
+          id: '1', 
+          name: 'João Silva', 
+          license: 'CNH123456', 
+          phone: '(11) 99999-9999', 
+          email: 'joao@email.com', 
+          status: 'active',
+          currentRoute: 'rota-001',
+          totalTrips: 15
+        },
+        { 
+          id: '2', 
+          name: 'Maria Santos', 
+          license: 'CNH654321', 
+          phone: '(11) 88888-8888', 
+          email: 'maria@email.com', 
+          status: 'active',
+          totalTrips: 23
+        }
       ]);
     } finally {
       setLoading(false);

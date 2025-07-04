@@ -1,5 +1,5 @@
 
-import { ReportStats, MonthlyPerformance, RouteUsage, MaintenanceData } from '@/hooks/useReports';
+import { ReportStats, MonthlyPerformance, RouteUsage, MaintenanceStats } from '@/hooks/useReports';
 import { BaseApiService } from './base';
 
 export class ReportsService extends BaseApiService {
@@ -15,8 +15,8 @@ export class ReportsService extends BaseApiService {
     return this.request<RouteUsage[]>('/reports/route-usage');
   }
 
-  async getMaintenanceStats(): Promise<MaintenanceData[]> {
-    return this.request<MaintenanceData[]>('/reports/maintenance-stats');
+  async getMaintenanceStats(): Promise<MaintenanceStats[]> {
+    return this.request<MaintenanceStats[]>('/reports/maintenance-stats');
   }
 }
 

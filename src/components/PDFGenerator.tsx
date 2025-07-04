@@ -10,9 +10,8 @@ export class PDFGenerator {
     this.doc = new jsPDF();
   }
 
-  generateSystemReport(stats: ReportStats | null, month?: string) {
+  generateSystemReport(stats: ReportStats | null, selectedMonth?: string) {
     try {
-      // Verificar se stats existe
       if (!stats) {
         throw new Error('Dados de estatísticas não disponíveis');
       }
@@ -23,9 +22,9 @@ export class PDFGenerator {
       this.doc.setFontSize(20);
       this.doc.text('Relatório do Sistema', 20, 20);
       
-      if (month) {
+      if (selectedMonth && selectedMonth !== 'all') {
         this.doc.setFontSize(12);
-        this.doc.text(`Período: ${month}`, 20, 30);
+        this.doc.text(`Período: ${selectedMonth}`, 20, 30);
       }
       
       // Estatísticas gerais
@@ -51,7 +50,6 @@ export class PDFGenerator {
       });
 
       // Footer
-      const pageCount = this.doc.internal.getNumberOfPages();
       this.doc.setFontSize(10);
       this.doc.text(
         `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`,
@@ -60,7 +58,7 @@ export class PDFGenerator {
       );
       
       // Salvar arquivo
-      const fileName = `relatorio-sistema-${month || 'geral'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `relatorio-sistema-${selectedMonth || 'geral'}-${new Date().toISOString().split('T')[0]}.pdf`;
       this.doc.save(fileName);
       
     } catch (error) {

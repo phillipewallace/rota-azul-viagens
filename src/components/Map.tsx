@@ -3,6 +3,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
 import { googleMapsService } from '@/services/googleMaps';
+import { Button } from '@/components/ui/button';
+import { Map as MapIcon } from 'lucide-react';
 
 const MapComponent = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -10,6 +12,7 @@ const MapComponent = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [isMapTypeVisible, setIsMapTypeVisible] = useState(false);
   const directionsRenderers = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
   
@@ -65,7 +68,7 @@ const MapComponent = () => {
       map.current = new window.google.maps.Map(mapContainer.current, {
         center: userLocation,
         zoom: 12,
-        mapTypeControl: true,
+        mapTypeControl: false,
         fullscreenControl: true,
         streetViewControl: true,
         zoomControl: true,
@@ -269,6 +272,15 @@ const MapComponent = () => {
     }
   };
 
+  const toggleMapType = () => {
+    if (!map.current) return;
+    
+    const currentType = map.current.getMapTypeId();
+    const newType = currentType === 'roadmap' ? 'satellite' : 'roadmap';
+    map.current.setMapTypeId(newType);
+    setIsMapTypeVisible(!isMapTypeVisible);
+  };
+
   useEffect(() => {
     getCurrentLocation();
     const locationInterval = setInterval(getCurrentLocation, 30000);
@@ -298,6 +310,18 @@ const MapComponent = () => {
   return (
     <div className="relative w-full h-full bg-gray-100">
       <div ref={mapContainer} className="absolute inset-0" />
+      
+      {/* Botão de Mapa movido para canto inferior esquerdo */}
+      {mapLoaded && (
+        <Button
+          onClick={toggleMapType}
+          className="absolute bottom-4 left-4 z-10 bg-white hover:bg-gray-50 text-gray-700 border shadow-lg"
+          size="sm"
+        >
+          <MapIcon className="h-4 w-4 mr-2" />
+          {isMapTypeVisible ? 'Mapa' : 'Satélite'}
+        </Button>
+      )}
       
       {!mapLoaded && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg border z-10">
