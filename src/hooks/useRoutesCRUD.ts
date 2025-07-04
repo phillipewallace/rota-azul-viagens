@@ -8,11 +8,12 @@ export interface Route {
   name: string;
   description?: string;
   points: any[];
-  totalDistance?: number;
+  totalDistance: number;
   estimatedTime?: string;
   status: 'active' | 'inactive' | 'completed';
   optimizedOrder?: string[];
   polyline?: string;
+  createdAt: string;
 }
 
 export const useRoutesCRUD = () => {
@@ -20,8 +21,14 @@ export const useRoutesCRUD = () => {
   const queryClient = useQueryClient();
 
   const createRouteMutation = useMutation({
-    mutationFn: async (routeData: Omit<Route, 'id'>) => {
-      return await routesService.createRoute(routeData);
+    mutationFn: async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
+      // Garantir que totalDistance sempre tenha um valor
+      const routeWithDefaults = {
+        ...routeData,
+        totalDistance: routeData.totalDistance || 0,
+        estimatedTime: routeData.estimatedTime || '0h 0min'
+      };
+      return await routesService.createRoute(routeWithDefaults);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] });
@@ -46,7 +53,7 @@ export const useRoutesCRUD = () => {
     }
   });
 
-  const createRoute = async (routeData: Omit<Route, 'id'>) => {
+  const createRoute = async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
     setIsLoading(true);
     try {
       return await createRouteMutation.mutateAsync(routeData);

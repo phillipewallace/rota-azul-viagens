@@ -56,6 +56,10 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     setShowPreview(false);
   };
 
+  const generateUniqueId = () => {
+    return `point-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
+
   const handleAddressByCep = async (cep: string) => {
     if (!cep || cep.length < 8) return;
     
@@ -68,6 +72,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         lat: addressData.lat || -23.5505,
         lng: addressData.lng || -46.6333
       }));
+      toast.success('Endereço encontrado!');
     } catch (error) {
       console.error('Erro ao buscar CEP:', error);
       toast.error('CEP não encontrado');
@@ -94,6 +99,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
           lat: location.lat,
           lng: location.lng
         }));
+        toast.success('Endereço encontrado!');
       } else {
         toast.error('Endereço não encontrado');
       }
@@ -119,7 +125,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       }
 
       const newPoint: RoutePoint = {
-        id: `point-${Date.now()}`,
+        id: generateUniqueId(),
         address: pointData.address,
         cep: pointData.cep || currentPoint.cep,
         lat: pointData.lat || currentPoint.lat || -23.5505,
@@ -143,17 +149,9 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     const reorderedPoints = newPoints.map((point, i) => ({
       ...point,
       order: i,
-      type: (i === 0 ? 'origin' : i === newPoints.length - 1 && newPoints.length > 1 ? 'destination' : 'waypoint') as 'origin' | 'waypoint' | 'destination'
+      type: (i === 0 ? 'origin' : 'waypoint') as 'origin' | 'waypoint' | 'destination'
     }));
     setPoints(reorderedPoints);
-  };
-
-  const setAsDestination = (index: number) => {
-    const newPoints = points.map((point, i) => ({
-      ...point,
-      type: (i === index ? 'destination' : point.type === 'destination' ? 'waypoint' : point.type) as 'origin' | 'waypoint' | 'destination'
-    }));
-    setPoints(newPoints);
   };
 
   const handlePreview = async () => {
@@ -326,8 +324,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                     {points.map((point, index) => (
                       <div key={point.id} className="flex items-center gap-3 p-3 border rounded-lg">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                          point.type === 'origin' ? 'bg-green-500' :
-                          point.type === 'destination' ? 'bg-red-500' : 'bg-blue-500'
+                          point.type === 'origin' ? 'bg-green-500' : 'bg-blue-500'
                         }`}>
                           {index + 1}
                         </div>
@@ -335,8 +332,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                           <p className="font-medium text-sm">{point.address}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-xs">
-                              {point.type === 'origin' ? 'Origem' :
-                               point.type === 'destination' ? 'Destino' : 'Parada'}
+                              {point.type === 'origin' ? 'Origem' : 'Parada'}
                             </Badge>
                             {point.cep && (
                               <span className="text-xs text-gray-500">CEP: {point.cep}</span>
@@ -344,17 +340,6 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                           </div>
                         </div>
                         <div className="flex gap-1">
-                          {point.type !== 'destination' && points.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setAsDestination(index)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <MapPin className="h-4 w-4" />
-                            </Button>
-                          )}
                           <Button
                             type="button"
                             variant="ghost"

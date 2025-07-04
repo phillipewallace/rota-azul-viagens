@@ -24,7 +24,7 @@ export class GoogleMapsService {
     if (this.isLoaded && window.google) return;
 
     return new Promise((resolve, reject) => {
-      if (window.google) {
+      if (window.google && window.google.maps) {
         this.initializeServices();
         resolve();
         return;
@@ -36,8 +36,12 @@ export class GoogleMapsService {
       script.defer = true;
       
       script.onload = () => {
-        this.initializeServices();
-        resolve();
+        if (window.google && window.google.maps) {
+          this.initializeServices();
+          resolve();
+        } else {
+          reject(new Error('Google Maps API not loaded properly'));
+        }
       };
       
       script.onerror = () => reject(new Error('Failed to load Google Maps API'));
@@ -47,9 +51,11 @@ export class GoogleMapsService {
   }
 
   private initializeServices(): void {
-    this.directionsService = new window.google.maps.DirectionsService();
-    this.geocoder = new window.google.maps.Geocoder();
-    this.isLoaded = true;
+    if (window.google && window.google.maps) {
+      this.directionsService = new window.google.maps.DirectionsService();
+      this.geocoder = new window.google.maps.Geocoder();
+      this.isLoaded = true;
+    }
   }
 
   async getAddressByCep(cep: string): Promise<{ address: string; lat: number; lng: number; cep: string }> {
@@ -61,6 +67,8 @@ export class GoogleMapsService {
     }
 
     const address = `${viaCepData.logradouro}, ${viaCepData.bairro}, ${viaCepData.localidade}, ${viaCepData.uf}, Brasil`;
+    
+    await this.initialize();
     
     return new Promise((resolve, reject) => {
       this.geocoder.geocode({ address }, (results: any[], status: string) => {
@@ -85,6 +93,25 @@ export class GoogleMapsService {
     });
   }
 
+  async searchAddress(address: string): Promise<{ address: string; lat: number; lng: number }> {
+    await this.initialize();
+    
+    return new Promise((resolve, reject) => {
+      this.geocoder.geocode({ address }, (results: any[], status: string) => {
+        if (status === 'OK' && results.length > 0) {
+          const location = results[0].geometry.location;
+          resolve({
+            address: results[0].formatted_address,
+            lat: location.lat(),
+            lng: location.lng()
+          });
+        } else {
+          reject(new Error('Endereço não encontrado'));
+        }
+      });
+    });
+  }
+
   async optimizeRoute(points: any[]): Promise<{
     optimizedOrder: string[];
     totalDistance: number;
@@ -92,13 +119,17 @@ export class GoogleMapsService {
     polyline: string;
     detailedRoute: any;
   }> {
+    await this.initialize();
+
     if (!this.directionsService) {
-      await this.initialize();
+      throw new Error('DirectionsService not initialized');
     }
 
     const origin = points.find(p => p.type === 'origin') || points[0];
-    const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
-    const waypoints = points.filter(p => p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id));
+    const waypoints = points.filter(p => p.type === 'waypoint' || (p.id !== origin.id && p.type !== 'origin'));
+    
+    // Para rota circular, o destino é o mesmo ponto da origem
+    const destination = origin;
 
     const waypointsFormatted = waypoints.map(p => ({
       location: new window.google.maps.LatLng(p.lat, p.lng),
@@ -134,7 +165,8 @@ export class GoogleMapsService {
           if (route.waypoint_order && route.waypoint_order.length > 0) {
             optimizedOrder.push(...route.waypoint_order.map((index: number) => waypoints[index].id));
           }
-          optimizedOrder.push(destination.id);
+          // Adicionar origem novamente como destino para rota circular
+          optimizedOrder.push(origin.id);
 
           resolve({
             optimizedOrder,
@@ -151,9 +183,7 @@ export class GoogleMapsService {
   }
 
   async getDirections(origin: { lat: number; lng: number }, destination: { lat: number; lng: number }): Promise<any> {
-    if (!this.directionsService) {
-      await this.initialize();
-    }
+    await this.initialize();
 
     return new Promise((resolve, reject) => {
       this.directionsService.route({
