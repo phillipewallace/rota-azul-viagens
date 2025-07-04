@@ -22,6 +22,7 @@ export interface TruckMobileData {
   currentRoute?: {
     id: string;
     name: string;
+    description?: string;
     points: RoutePoint[];
   };
 }
@@ -35,17 +36,34 @@ export const useMobile = () => {
 
   const getTruckByPlate = async (plate: string): Promise<TruckMobileData> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`);
+      console.log(`🔍 Buscando caminhão com placa: ${plate}`);
+      
+      const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log(`📡 Response status: ${response.status}`);
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao buscar caminhão');
+        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        console.error('❌ Erro na resposta:', errorData);
+        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log('✅ Dados do caminhão recebidos:', data);
+      
       return data;
     } catch (error) {
-      console.error('Error fetching truck by plate:', error);
+      console.error('❌ Erro ao buscar caminhão:', error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Erro de conexão. Verifique se o servidor está rodando.');
+      }
+      
       throw error;
     }
   };
@@ -68,7 +86,7 @@ export const useMobile = () => {
       
       return await response.json();
     } catch (error) {
-      console.error('Error updating truck location:', error);
+      console.error('❌ Erro ao atualizar localização:', error);
       throw error;
     } finally {
       setIsUpdatingLocation(false);
@@ -91,7 +109,7 @@ export const useMobile = () => {
       
       return await response.json();
     } catch (error) {
-      console.error('Error updating route point:', error);
+      console.error('❌ Erro ao atualizar ponto da rota:', error);
       throw error;
     }
   };
@@ -112,7 +130,7 @@ export const useMobile = () => {
       
       return await response.json();
     } catch (error) {
-      console.error('Error finishing route:', error);
+      console.error('❌ Erro ao finalizar rota:', error);
       throw error;
     }
   };
