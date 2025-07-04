@@ -171,7 +171,7 @@ router.get('/maintenance', async (req, res) => {
 // Create maintenance record
 router.post('/maintenance', async (req, res) => {
   try {
-    console.log('🔧 Creating maintenance record...');
+    console.log('🔧 Creating maintenance record...', req.body);
     
     const { 
       truck_id, 
@@ -182,11 +182,26 @@ router.post('/maintenance', async (req, res) => {
       status 
     } = req.body;
     
+    // Validate required fields
+    if (!truck_id || !maintenance_type || !description || !scheduled_date) {
+      console.log('❌ Missing required fields:', { truck_id, maintenance_type, description, scheduled_date });
+      return res.status(400).json({ 
+        error: 'Campos obrigatórios: truck_id, maintenance_type, description, scheduled_date' 
+      });
+    }
+    
+    // Check if truck exists
+    const truckCheck = await pool.query('SELECT id FROM trucks WHERE id = $1', [truck_id]);
+    if (truckCheck.rows.length === 0) {
+      console.log('❌ Truck not found:', truck_id);
+      return res.status(400).json({ error: 'Caminhão não encontrado' });
+    }
+    
     const query = `
       INSERT INTO maintenance_records (
-        truck_id, maintenance_type, description, scheduled_date, cost, status
+        truck_id, maintenance_type, description, scheduled_date, cost, status, maintenance_date
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
     
@@ -196,14 +211,17 @@ router.post('/maintenance', async (req, res) => {
       description,
       scheduled_date,
       parseFloat(cost) || 0,
-      status || 'pending'
+      status || 'pending',
+      scheduled_date // Set maintenance_date to scheduled_date for now
     ]);
     
     console.log('✅ Maintenance record created:', result.rows[0].id);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error creating maintenance record:', error);
-    res.status(500).json({ error: 'Erro ao criar registro de manutenção' });
+    console.error('❌ Error details:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ error: 'Erro ao criar registro de manutenção: ' + error.message });
   }
 });
 
