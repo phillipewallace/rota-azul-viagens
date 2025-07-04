@@ -9,27 +9,25 @@ import { Driver } from '@/hooks/useDrivers';
 
 interface DriverFormProps {
   driver?: Driver;
-  onSubmit: (data: Omit<Driver, 'id' | 'totalTrips'>) => void;
+  onSubmit: (data: Omit<Driver, 'id'>) => void;
   onCancel: () => void;
   isLoading?: boolean;
 }
 
 export const DriverForm = ({ driver, onSubmit, onCancel, isLoading }: DriverFormProps) => {
-  const { register, handleSubmit, setValue, watch } = useForm<Omit<Driver, 'id' | 'totalTrips'>>({
+  const { register, handleSubmit, setValue, watch } = useForm<Omit<Driver, 'id'>>({
     defaultValues: driver ? {
       name: driver.name,
       phone: driver.phone,
       email: driver.email,
       license: driver.license,
       status: driver.status,
-      currentRoute: driver.currentRoute || '',
     } : {
       name: '',
       phone: '',
       email: '',
       license: '',
-      status: 'available' as const,
-      currentRoute: '',
+      status: 'active' as const,
     }
   });
 
@@ -64,16 +62,10 @@ export const DriverForm = ({ driver, onSubmit, onCancel, isLoading }: DriverForm
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="available">Disponível</SelectItem>
-            <SelectItem value="on-route">Em Rota</SelectItem>
-            <SelectItem value="off-duty">Folga</SelectItem>
+            <SelectItem value="active">Ativo</SelectItem>
+            <SelectItem value="inactive">Inativo</SelectItem>
           </SelectContent>
         </Select>
-      </div>
-
-      <div>
-        <Label htmlFor="currentRoute">Rota Atual</Label>
-        <Input {...register('currentRoute')} placeholder="SP → RJ (opcional)" />
       </div>
 
       <div className="flex gap-2 pt-4">

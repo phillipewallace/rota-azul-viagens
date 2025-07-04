@@ -15,13 +15,13 @@ router.get('/stats', async (req, res) => {
     ]);
 
     const stats = {
-      totalRoutes: parseInt(routesResult.rows[0].total) || 0,
-      activeRoutes: parseInt(routesResult.rows[0].active) || 0,
-      totalTrucks: parseInt(trucksResult.rows[0].total) || 0,
-      availableTrucks: parseInt(trucksResult.rows[0].available) || 0,
-      completedTrips: parseInt(tripsResult.rows[0].total) || 0,
-      totalKm: parseFloat(tripsResult.rows[0].total_km) || 0,
-      pendingMaintenance: parseInt(maintenanceResult.rows[0].pending) || 0
+      totalRoutes: parseInt(routesResult.rows[0]?.total) || 0,
+      activeRoutes: parseInt(routesResult.rows[0]?.active) || 0,
+      totalTrucks: parseInt(trucksResult.rows[0]?.total) || 0,
+      availableTrucks: parseInt(trucksResult.rows[0]?.available) || 0,
+      completedTrips: parseInt(tripsResult.rows[0]?.total) || 0,
+      totalKm: parseFloat(tripsResult.rows[0]?.total_km) || 0,
+      pendingMaintenance: parseInt(maintenanceResult.rows[0]?.pending) || 0
     };
 
     res.json(stats);

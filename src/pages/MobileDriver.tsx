@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, Truck, Clock, RefreshCw } from 'lucide-react';
+import { MapPin, Navigation, Truck, Clock, RefreshCw, ExternalLink } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { useMobile, TruckMobileData } from '@/hooks/useMobile';
 import { toast } from 'sonner';
@@ -52,7 +52,6 @@ const MobileDriver = () => {
       
       setCurrentLocation(newLocation);
       
-      // Atualiza a localização do caminhão no servidor
       if (truckData) {
         await updateTruckLocation({
           truckId: truckData.id,
@@ -80,7 +79,6 @@ const MobileDriver = () => {
         completed: true
       });
       
-      // Atualiza o estado local
       setTruckData(prev => {
         if (!prev?.currentRoute) return prev;
         
@@ -107,8 +105,6 @@ const MobileDriver = () => {
 
   useEffect(() => {
     getCurrentLocation();
-    
-    // Atualizar localização a cada 30 segundos
     const interval = setInterval(getCurrentLocation, 30000);
     return () => clearInterval(interval);
   }, [truckData]);
@@ -161,6 +157,8 @@ const MobileDriver = () => {
   }
 
   const currentPoint = truckData.currentRoute?.points.find(p => !p.completed);
+  const completedCount = truckData.currentRoute?.points.filter(p => p.completed).length || 0;
+  const totalPoints = truckData.currentRoute?.points.length || 0;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -174,9 +172,7 @@ const MobileDriver = () => {
                 <p className="text-sm text-gray-600">{truckData.plate}</p>
               </div>
               <div className="flex gap-2">
-                <Badge variant="outline" className="bg-green-50 text-green-700">
-                  Ativo
-                </Badge>
+                <Badge className="bg-blue-600 hover:bg-blue-700">Em Rota</Badge>
                 <Button size="sm" variant="ghost" onClick={() => setTruckData(null)}>
                   Sair
                 </Button>
@@ -185,45 +181,41 @@ const MobileDriver = () => {
           </CardContent>
         </Card>
 
-        {/* Rota Atual */}
+        {/* Route Preview Map */}
+        <Card>
+          <CardContent className="p-0">
+            <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+              <div className="text-center text-gray-500">
+                <MapPin className="h-8 w-8 mx-auto mb-2" />
+                <p className="text-sm">Preview da Rota</p>
+                {truckData.currentRoute && (
+                  <p className="text-xs mt-1">{truckData.currentRoute.name}</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Route Info */}
         {truckData.currentRoute ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Navigation className="h-5 w-5" />
+                <Navigation className="h-5 w-5 text-blue-600" />
                 {truckData.currentRoute.name}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {truckData.currentRoute.points.map((point, index) => (
-                <div 
-                  key={point.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border ${
-                    point.completed 
-                      ? 'bg-green-50 border-green-200' 
-                      : point === currentPoint
-                      ? 'bg-blue-50 border-blue-200'
-                      : 'bg-gray-50 border-gray-200'
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    point.completed 
-                      ? 'bg-green-500 text-white' 
-                      : point === currentPoint
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-300 text-gray-600'
-                  }`}>
-                    {point.order}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{point.address}</p>
-                    <p className="text-xs text-gray-600 capitalize">{point.type}</p>
-                  </div>
-                  {point.completed && (
-                    <div className="text-green-500">✓</div>
-                  )}
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{totalPoints}</div>
+                  <div className="text-sm text-gray-600">Paradas</div>
                 </div>
-              ))}
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{completedCount + 1}</div>
+                  <div className="text-sm text-gray-600">Atual</div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         ) : (
@@ -234,13 +226,13 @@ const MobileDriver = () => {
           </Card>
         )}
 
-        {/* Próximo Destino */}
+        {/* Next Destination */}
         {currentPoint && (
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-blue-500" />
-                Próximo Destino
+                Próximo Destino ({completedCount + 1}/{totalPoints})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -250,15 +242,18 @@ const MobileDriver = () => {
                   <Button 
                     size="sm" 
                     variant="outline"
+                    className="flex items-center gap-2"
                     onClick={() => window.open(`https://maps.google.com/?q=${currentPoint.lat},${currentPoint.lng}`, '_blank')}
                   >
-                    Abrir no Maps
+                    <ExternalLink className="h-4 w-4" />
+                    Google Maps
                   </Button>
                   <Button 
                     size="sm"
+                    className="bg-orange-600 hover:bg-orange-700"
                     onClick={() => markPointAsCompleted(currentPoint.id)}
                   >
-                    Marcar como Concluído
+                    Ponto Concluído
                   </Button>
                 </div>
               </div>
@@ -266,27 +261,42 @@ const MobileDriver = () => {
           </Card>
         )}
 
-        {/* Localização Atual */}
+        {/* Route Sequence */}
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-green-500" />
-                <span className="text-sm">
-                  {currentLocation 
-                    ? `GPS: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`
-                    : 'Obtendo localização...'
-                  }
-                </span>
-              </div>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={getCurrentLocation}
-                disabled={isUpdatingLocation}
-              >
-                <RefreshCw className={`h-4 w-4 ${isUpdatingLocation ? 'animate-spin' : ''}`} />
-              </Button>
+          <CardHeader>
+            <CardTitle>Sequência de Paradas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {truckData.currentRoute?.points.map((point, index) => (
+                <div 
+                  key={point.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg ${
+                    point.completed 
+                      ? 'bg-green-50 border border-green-200' 
+                      : index === completedCount
+                      ? 'bg-blue-50 border border-blue-200'
+                      : 'bg-gray-50 border border-gray-200'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    point.completed 
+                      ? 'bg-green-500 text-white' 
+                      : index === completedCount
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-300 text-gray-600'
+                  }`}>
+                    {point.completed ? '✓' : index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{point.address}</p>
+                    <p className="text-xs text-gray-600 capitalize">
+                      {point.type === 'origin' ? 'Origem' : 
+                       point.type === 'destination' ? 'Destino' : 'Parada'}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

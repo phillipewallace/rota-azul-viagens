@@ -12,7 +12,6 @@ export class PDFGenerator {
 
   generateSystemReport(stats: ReportStats | null, month?: string) {
     try {
-      // Verificar se stats existe
       if (!stats) {
         throw new Error('Dados de estatísticas não disponíveis');
       }
@@ -51,7 +50,6 @@ export class PDFGenerator {
       });
 
       // Footer
-      const pageCount = this.doc.internal.getNumberOfPages();
       this.doc.setFontSize(10);
       this.doc.text(
         `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`,

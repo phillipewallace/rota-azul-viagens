@@ -6,17 +6,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { BarChart3, TrendingUp, Truck, Route, Calendar, MapPin, Download, Filter } from 'lucide-react';
 import { useReports } from '@/hooks/useReports';
-import { PDFGenerator } from '@/components/PDFGenerator';
+import { pdfGenerator } from '@/components/PDFGenerator';
 import PageHeader from '@/components/PageHeader';
 
 const Reports = () => {
-  const { stats, monthlyPerformance, routeUsage, maintenanceData, loading } = useReports();
+  const { stats, monthlyPerformance, routeUsage, maintenanceStats, loading } = useReports();
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
   const generateSystemReportPDF = () => {
-    PDFGenerator.generateSystemReport(stats, monthlyPerformance, selectedMonth);
+    pdfGenerator.generateSystemReport(stats, selectedMonth);
   };
 
   if (loading) {
@@ -100,11 +100,11 @@ const Reports = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Caminhões Ativos</CardTitle>
+              <CardTitle className="text-sm font-medium">Caminhões Disponíveis</CardTitle>
               <Truck className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.activeTrucks || 0}</div>
+              <div className="text-2xl font-bold">{stats?.availableTrucks || 0}</div>
               <p className="text-xs text-muted-foreground">
                 de {stats?.totalTrucks || 0} total
               </p>
@@ -132,7 +132,7 @@ const Reports = () => {
             <CardContent>
               <div className="text-2xl font-bold">{stats?.completedTrips || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats?.pendingTrips || 0} pendentes
+                {stats?.pendingMaintenance || 0} manutenções pendentes
               </p>
             </CardContent>
           </Card>
@@ -152,7 +152,7 @@ const Reports = () => {
                   <YAxis />
                   <Tooltip />
                   <Line type="monotone" dataKey="trips" stroke="#8884d8" name="Viagens" />
-                  <Line type="monotone" dataKey="km" stroke="#82ca9d" name="Km" />
+                  <Line type="monotone" dataKey="totalKm" stroke="#82ca9d" name="Km" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -186,16 +186,16 @@ const Reports = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={maintenanceData}
+                    data={maintenanceStats}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ type, count }) => `${type}: ${count}`}
                     outerRadius={80}
                     fill="#8884d8"
-                    dataKey="value"
+                    dataKey="count"
                   >
-                    {maintenanceData?.map((entry, index) => (
+                    {maintenanceStats?.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -211,25 +211,9 @@ const Reports = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {stats?.upcomingMaintenance?.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="h-4 w-4 text-blue-500" />
-                      <div>
-                        <p className="font-medium">{item.truckName}</p>
-                        <p className="text-sm text-gray-500">{item.maintenanceType}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{item.scheduledDate}</p>
-                      <p className="text-xs text-gray-500">{item.daysRemaining} dias</p>
-                    </div>
-                  </div>
-                )) || (
-                  <p className="text-center text-gray-500 py-8">
-                    Nenhuma manutenção agendada
-                  </p>
-                )}
+                <p className="text-center text-gray-500 py-8">
+                  Nenhuma manutenção agendada
+                </p>
               </div>
             </CardContent>
           </Card>
