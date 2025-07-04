@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import { pool, createTables } from './config/database';
@@ -11,6 +10,7 @@ import scheduleRoutes from './routes/schedules';
 import geocodingRoutes from './routes/geocoding';
 import mobileRoutes from './routes/mobile';
 import reportsRoutes from './routes/reports';
+import managementRoutes from './routes/management';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -36,6 +36,7 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/geocoding', geocodingRoutes);
 app.use('/api/mobile', mobileRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/management', managementRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
