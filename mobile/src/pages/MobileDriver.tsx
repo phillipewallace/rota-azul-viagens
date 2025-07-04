@@ -33,19 +33,21 @@ const MobileDriver = () => {
       setTruckData(data);
       
       if (data.currentRoute) {
-        initializeRouteMap(data.currentRoute);
+        await initializeRouteMap(data.currentRoute);
       }
       
       toast.success('Caminhão encontrado!');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao buscar dados do caminhão');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar dados do caminhão';
+      setError(errorMessage);
       toast.error('Erro ao buscar caminhão');
+      console.error('Error loading truck data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const getCurrentLocation = async () => {
+  const getCurrentLocation = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -63,11 +65,15 @@ const MobileDriver = () => {
       setCurrentLocation(newLocation);
       
       if (truckData && routeStarted) {
-        await updateTruckLocation({
-          truckId: truckData.id,
-          lat: newLocation.lat,
-          lng: newLocation.lng
-        });
+        try {
+          await updateTruckLocation({
+            truckId: truckData.id,
+            lat: newLocation.lat,
+            lng: newLocation.lng
+          });
+        } catch (error) {
+          console.error('Error updating truck location:', error);
+        }
       }
       
       return newLocation;
@@ -126,7 +132,7 @@ const MobileDriver = () => {
       });
 
       // Draw route
-      drawRoute(route);
+      await drawRoute(route);
       
     } catch (error) {
       console.error('Erro ao inicializar mapa:', error);
@@ -134,38 +140,44 @@ const MobileDriver = () => {
     }
   };
 
-  const drawRoute = (route: any) => {
-    if (!mapInstance.current || !route.points) return;
+  const drawRoute = async (route: any) => {
+    if (!mapInstance.current || !route.points || !window.google) return;
 
-    const directionsService = new window.google.maps.DirectionsService();
-    directionsRenderer.current = new window.google.maps.DirectionsRenderer({
-      map: mapInstance.current,
-      polylineOptions: {
-        strokeColor: '#22c55e',
-        strokeWeight: 4,
-        strokeOpacity: 0.8
-      }
-    });
+    try {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsRenderer.current = new window.google.maps.DirectionsRenderer({
+        map: mapInstance.current,
+        polylineOptions: {
+          strokeColor: '#22c55e',
+          strokeWeight: 4,
+          strokeOpacity: 0.8
+        }
+      });
 
-    const points = route.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
-    const origin = points[0];
-    const destination = points[points.length - 1];
-    const waypoints = points.slice(1, -1).map((point: RoutePoint) => ({
-      location: new window.google.maps.LatLng(point.lat, point.lng),
-      stopover: true
-    }));
+      const points = route.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+      const origin = points[0];
+      const destination = points[points.length - 1];
+      const waypoints = points.slice(1, -1).map((point: RoutePoint) => ({
+        location: new window.google.maps.LatLng(point.lat, point.lng),
+        stopover: true
+      }));
 
-    directionsService.route({
-      origin: new window.google.maps.LatLng(origin.lat, origin.lng),
-      destination: new window.google.maps.LatLng(destination.lat, destination.lng),
-      waypoints: waypoints,
-      travelMode: window.google.maps.TravelMode.DRIVING,
-      optimizeWaypoints: false
-    }, (result: any, status: string) => {
-      if (status === 'OK') {
-        directionsRenderer.current.setDirections(result);
-      }
-    });
+      directionsService.route({
+        origin: new window.google.maps.LatLng(origin.lat, origin.lng),
+        destination: new window.google.maps.LatLng(destination.lat, destination.lng),
+        waypoints: waypoints,
+        travelMode: window.google.maps.TravelMode.DRIVING,
+        optimizeWaypoints: false
+      }, (result: any, status: string) => {
+        if (status === 'OK' && directionsRenderer.current) {
+          directionsRenderer.current.setDirections(result);
+        } else {
+          console.error('Erro ao desenhar rota:', status);
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao desenhar rota:', error);
+    }
   };
 
   const startRoute = async () => {
@@ -211,11 +223,11 @@ const MobileDriver = () => {
         setCurrentPointIndex(prev => prev + 1);
         toast.success('Ponto concluído! Próximo destino carregado.');
       } else {
-        // Última parada - mostrar botão finalizar
         toast.success('Todos os pontos concluídos! Finalize a rota.');
       }
       
     } catch (error) {
+      console.error('Error marking point as completed:', error);
       toast.error('Erro ao marcar ponto como concluído');
     }
   };
@@ -233,8 +245,18 @@ const MobileDriver = () => {
       setCurrentPointIndex(0);
       setPlate('');
       
+      // Cleanup map
+      if (directionsRenderer.current) {
+        directionsRenderer.current.setMap(null);
+        directionsRenderer.current = null;
+      }
+      if (mapInstance.current) {
+        mapInstance.current = null;
+      }
+      
       toast.success('Rota finalizada com sucesso!');
     } catch (error) {
+      console.error('Error finishing route:', error);
       toast.error('Erro ao finalizar rota');
     } finally {
       setLoading(false);
@@ -243,11 +265,22 @@ const MobileDriver = () => {
 
   // Auto-update location every 30 seconds when route is active
   useEffect(() => {
-    if (routeStarted) {
-      const interval = setInterval(getCurrentLocation, 30000);
+    if (routeStarted && truckData) {
+      const interval = setInterval(() => {
+        getCurrentLocation().catch(console.error);
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [routeStarted, truckData]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (directionsRenderer.current) {
+        directionsRenderer.current.setMap(null);
+      }
+    };
+  }, []);
 
   if (!truckData) {
     return (
@@ -310,9 +343,19 @@ const MobileDriver = () => {
               <h1 className="text-lg font-semibold text-gray-900">{truckData.name}</h1>
               <p className="text-sm text-gray-600">{truckData.plate}</p>
             </div>
-            <Badge variant={routeStarted ? "default" : "secondary"}>
-              {routeStarted ? 'Em Rota' : 'Parado'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={routeStarted ? "default" : "secondary"}>
+                {routeStarted ? 'Em Rota' : 'Parado'}
+              </Badge>
+              <Button size="sm" variant="ghost" onClick={() => {
+                setTruckData(null);
+                setRouteStarted(false);
+                setCurrentPointIndex(0);
+                setPlate('');
+              }}>
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -328,7 +371,7 @@ const MobileDriver = () => {
         )}
 
         {/* Route Info */}
-        {route && (
+        {route ? (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -402,13 +445,21 @@ const MobileDriver = () => {
                         disabled={loading}
                         className="bg-red-600 hover:bg-red-700 flex items-center gap-2"
                       >
-                        <CheckCircle className="w-4 h-4" />
+                        <CheckCircle className="w-4 w-4" />
                         {loading ? 'Finalizando...' : 'Finalizar Rota'}
                       </Button>
                     )}
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="text-center py-8">
+            <CardContent>
+              <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma rota atribuída</h3>
+              <p className="text-gray-600">Este caminhão não possui uma rota ativa no momento.</p>
             </CardContent>
           </Card>
         )}
@@ -454,16 +505,6 @@ const MobileDriver = () => {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {!route && (
-          <Card className="text-center py-8">
-            <CardContent>
-              <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma rota atribuída</h3>
-              <p className="text-gray-600">Este caminhão não possui uma rota ativa no momento.</p>
             </CardContent>
           </Card>
         )}

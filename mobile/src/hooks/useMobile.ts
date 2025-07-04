@@ -1,76 +1,127 @@
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
+export interface RoutePoint {
+  id: string;
+  address: string;
+  lat: number;
+  lng: number;
+  order: number;
+  type: 'origin' | 'destination' | 'waypoint';
+  completed?: boolean;
+}
 
 export interface TruckMobileData {
   id: string;
   name: string;
   plate: string;
+  model: string;
+  year: number;
   status: string;
+  driver?: string;
   currentRoute?: {
+    id: string;
     name: string;
-    points: Array<{
-      id: string;
-      address: string;
-      lat: number;
-      lng: number;
-      order: number;
-      type: 'origin' | 'destination' | 'waypoint';
-      completed: boolean;
-    }>;
-  };
-  location?: {
-    lat: number;
-    lng: number;
+    points: RoutePoint[];
   };
 }
 
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
+
 export const useMobile = () => {
-  const queryClient = useQueryClient();
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
 
   const getTruckByPlate = async (plate: string): Promise<TruckMobileData> => {
-    const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`);
-    if (!response.ok) {
-      throw new Error('Caminhão não encontrado');
+    try {
+      const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao buscar caminhão');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching truck by plate:', error);
+      throw error;
     }
-    return response.json();
   };
 
-  const updateTruckLocationMutation = useMutation({
-    mutationFn: async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
+  const updateTruckLocation = async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
+    try {
+      setIsUpdatingLocation(true);
+      
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ lat, lng }),
       });
-      if (!response.ok) throw new Error('Erro ao atualizar localização');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-    },
-  });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar localização');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating truck location:', error);
+      throw error;
+    } finally {
+      setIsUpdatingLocation(false);
+    }
+  };
 
-  const updateRoutePointMutation = useMutation({
-    mutationFn: async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
+  const updateRoutePoint = async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
+    try {
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ completed }),
       });
-      if (!response.ok) throw new Error('Erro ao atualizar ponto da rota');
-      return response.json();
-    },
-  });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar ponto da rota');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating route point:', error);
+      throw error;
+    }
+  };
+
+  const finishRoute = async (truckId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao finalizar rota');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error finishing route:', error);
+      throw error;
+    }
+  };
 
   return {
     getTruckByPlate,
-    updateTruckLocation: updateTruckLocationMutation.mutateAsync,
-    updateRoutePoint: updateRoutePointMutation.mutateAsync,
-    isUpdatingLocation: updateTruckLocationMutation.isPending,
-    isUpdatingRoute: updateRoutePointMutation.isPending,
+    updateTruckLocation,
+    updateRoutePoint,
+    finishRoute,
+    isUpdatingLocation
   };
 };

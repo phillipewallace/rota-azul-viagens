@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import CreateRouteModal from '@/components/CreateRouteModal';
+import RouteMapPreview from '@/components/RouteMapPreview';
 import { toast } from 'sonner';
 
 const Routes = () => {
@@ -43,7 +44,7 @@ const Routes = () => {
 
   const handleReactivate = async (route: any) => {
     try {
-      await updateRoute(route.id, { status: 'active' });
+      await updateRoute({ id: route.id, route: { status: 'active' } });
       toast.success('Rota reativada com sucesso!');
       loadRoutes();
     } catch (error) {
@@ -247,7 +248,7 @@ const Routes = () => {
 
         {viewingRoute && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white p-6 rounded-lg max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold">Detalhes da Rota</h2>
                 <Button variant="outline" onClick={() => setViewingRoute(null)}>
@@ -255,61 +256,68 @@ const Routes = () => {
                 </Button>
               </div>
               
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">{viewingRoute.name}</h3>
+                    {viewingRoute.description && (
+                      <p className="text-gray-600">{viewingRoute.description}</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="font-medium">Status:</p>
+                      {getStatusBadge(viewingRoute.status)}
+                    </div>
+                    <div>
+                      <p className="font-medium">Total de Pontos:</p>
+                      <p>{viewingRoute.points?.length || 0}</p>
+                    </div>
+                    {viewingRoute.totalDistance && (
+                      <div>
+                        <p className="font-medium">Distância Total:</p>
+                        <p>{viewingRoute.totalDistance.toFixed(2)} km</p>
+                      </div>
+                    )}
+                    {viewingRoute.estimatedTime && (
+                      <div>
+                        <p className="font-medium">Tempo Estimado:</p>
+                        <p>{viewingRoute.estimatedTime}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {viewingRoute.points && viewingRoute.points.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-3">Pontos da Rota:</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {viewingRoute.points
+                          .sort((a: any, b: any) => a.order - b.order)
+                          .map((point: any, index: number) => (
+                          <div key={point.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                              point.type === 'origin' ? 'bg-green-500' :
+                              point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'
+                            }`}>
+                              {index + 1}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium">{point.address}</p>
+                              <p className="text-sm text-gray-600 capitalize">{point.type}</p>
+                              {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div>
-                  <h3 className="font-semibold text-lg">{viewingRoute.name}</h3>
-                  {viewingRoute.description && (
-                    <p className="text-gray-600">{viewingRoute.description}</p>
-                  )}
+                  <h4 className="font-medium mb-3">Preview da Rota:</h4>
+                  <RouteMapPreview route={viewingRoute} />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="font-medium">Status:</p>
-                    {getStatusBadge(viewingRoute.status)}
-                  </div>
-                  <div>
-                    <p className="font-medium">Total de Pontos:</p>
-                    <p>{viewingRoute.points?.length || 0}</p>
-                  </div>
-                  {viewingRoute.totalDistance && (
-                    <div>
-                      <p className="font-medium">Distância Total:</p>
-                      <p>{viewingRoute.totalDistance.toFixed(2)} km</p>
-                    </div>
-                  )}
-                  {viewingRoute.estimatedTime && (
-                    <div>
-                      <p className="font-medium">Tempo Estimado:</p>
-                      <p>{viewingRoute.estimatedTime}</p>
-                    </div>
-                  )}
-                </div>
-
-                {viewingRoute.points && viewingRoute.points.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-3">Pontos da Rota:</h4>
-                    <div className="space-y-2">
-                      {viewingRoute.points
-                        .sort((a: any, b: any) => a.order - b.order)
-                        .map((point: any, index: number) => (
-                        <div key={point.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                            point.type === 'origin' ? 'bg-green-500' :
-                            point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'
-                          }`}>
-                            {index + 1}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium">{point.address}</p>
-                            <p className="text-sm text-gray-600 capitalize">{point.type}</p>
-                            {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>

@@ -1,31 +1,52 @@
 
-import { Route, RoutePoint } from '@/hooks/useRoutes';
-import { BaseApiService } from './base';
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
 
-export class RoutesService extends BaseApiService {
-  async getRoutes(): Promise<Route[]> {
-    return this.request<Route[]>('/routes');
-  }
+export const routesService = {
+  async getRoutes() {
+    const response = await fetch(`${API_BASE_URL}/routes`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch routes');
+    }
+    return response.json();
+  },
 
-  async createRoute(route: Omit<Route, 'id' | 'createdAt'>): Promise<Route> {
-    return this.request<Route>('/routes', {
+  async createRoute(routeData: any) {
+    const response = await fetch(`${API_BASE_URL}/routes`, {
       method: 'POST',
-      body: JSON.stringify(route),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(routeData),
     });
-  }
+    if (!response.ok) {
+      throw new Error('Failed to create route');
+    }
+    return response.json();
+  },
 
-  async updateRoute(id: string, route: Partial<Route>): Promise<Route> {
-    return this.request<Route>(`/routes/${id}`, {
+  async updateRoute(id: string, routeData: any) {
+    const response = await fetch(`${API_BASE_URL}/routes/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(route),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(routeData),
     });
-  }
+    if (!response.ok) {
+      throw new Error('Failed to update route');
+    }
+    return response.json();
+  },
 
-  async deleteRoute(id: string): Promise<void> {
-    return this.request<void>(`/routes/${id}`, {
+  async deleteRoute(id: string) {
+    const response = await fetch(`${API_BASE_URL}/routes/${id}`, {
       method: 'DELETE',
     });
+    if (!response.ok) {
+      throw new Error('Failed to delete route');
+    }
+    return response.json();
   }
-}
-
-export const routesService = new RoutesService();
+};
