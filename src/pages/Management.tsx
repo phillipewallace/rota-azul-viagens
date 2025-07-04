@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -10,7 +9,7 @@ import { MaintenanceFilters } from '@/components/MaintenanceFilters';
 import { MaintenanceStats } from '@/components/MaintenanceStats';
 import { MaintenanceTable } from '@/components/MaintenanceTable';
 import { MaintenanceModal } from '@/components/MaintenanceModal';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, Pie } from 'recharts';
 
 const Management = () => {
   const { toast } = useToast();

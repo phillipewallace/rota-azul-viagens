@@ -16,6 +16,9 @@ const MapComponent = () => {
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
 
+  // Coordenadas da sede da empresa
+  const companyLocation = { lat: -23.5629, lng: -46.7287 }; // R. A, 60 - Chacaras Reunidas Santa Terezinha
+
   // Cores fixas para cada caminhão
   const truckColors = [
     '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', 
@@ -31,25 +34,25 @@ const MapComponent = () => {
   ] as const;
 
   const getCurrentLocation = () => {
+    // Use company location as default instead of GPS
+    setUserLocation(companyLocation);
+    setLocationError(null);
+    
     if (!navigator.geolocation) {
       setLocationError('Geolocalização não suportada');
-      setUserLocation({ lat: -23.5505, lng: -46.6333 });
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const newLocation = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-        setUserLocation(newLocation);
+        // Keep using company location for consistency
+        setUserLocation(companyLocation);
         setLocationError(null);
       },
       (error) => {
         console.error('❌ Erro GPS:', error);
-        setLocationError('Erro ao obter localização GPS');
-        setUserLocation({ lat: -23.5505, lng: -46.6333 });
+        setLocationError('Usando localização da sede da empresa');
+        setUserLocation(companyLocation);
       },
       {
         enableHighAccuracy: true,
@@ -86,11 +89,11 @@ const MapComponent = () => {
         ]
       });
 
-      // Marcador da base
+      // Marcador da sede da empresa
       new window.google.maps.Marker({
-        position: userLocation,
+        position: companyLocation,
         map: map.current,
-        title: 'Base/Galpão - AlchemyRotas',
+        title: 'Sede - AlchemyRotas\nR. A, 60 - Chacaras Reunidas Santa Terezinha',
         icon: {
           path: window.google.maps.SymbolPath.CIRCLE,
           scale: 12,

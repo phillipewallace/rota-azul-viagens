@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -68,31 +69,73 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder, status } = req.body;
 
-    // Log the incoming data for debugging
-    console.log('Updating route:', { id, name, description, points, totalDistance, estimatedTime, optimizedOrder, status });
+    console.log('Updating route:', { id, body: req.body });
 
-    const result = await pool.query(`
+    // Build update query dynamically
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramIndex}`);
+      values.push(name);
+      paramIndex++;
+    }
+
+    if (description !== undefined) {
+      updates.push(`description = $${paramIndex}`);
+      values.push(description);
+      paramIndex++;
+    }
+
+    if (points !== undefined) {
+      updates.push(`points = $${paramIndex}`);
+      values.push(JSON.stringify(points));
+      paramIndex++;
+    }
+
+    if (totalDistance !== undefined) {
+      updates.push(`total_distance = $${paramIndex}`);
+      values.push(totalDistance);
+      paramIndex++;
+    }
+
+    if (estimatedTime !== undefined) {
+      updates.push(`estimated_time = $${paramIndex}`);
+      values.push(estimatedTime);
+      paramIndex++;
+    }
+
+    if (optimizedOrder !== undefined) {
+      updates.push(`optimized_order = $${paramIndex}`);
+      values.push(JSON.stringify(optimizedOrder));
+      paramIndex++;
+    }
+
+    if (status !== undefined) {
+      updates.push(`status = $${paramIndex}`);
+      values.push(status);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    const query = `
       UPDATE routes 
-      SET name = COALESCE($1, name),
-          description = COALESCE($2, description),
-          points = COALESCE($3, points),
-          total_distance = COALESCE($4, total_distance),
-          estimated_time = COALESCE($5, estimated_time),
-          optimized_order = COALESCE($6, optimized_order),
-          status = COALESCE($7, status),
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = $8
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex}
       RETURNING *
-    `, [
-      name, 
-      description, 
-      points ? JSON.stringify(points) : null,
-      totalDistance,
-      estimatedTime,
-      optimizedOrder ? JSON.stringify(optimizedOrder) : null,
-      status,
-      id
-    ]);
+    `;
+
+    console.log('Update query:', query);
+    console.log('Update values:', values);
+
+    const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Rota não encontrada' });
@@ -114,6 +157,7 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating route:', error);
     console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Erro ao atualizar rota', details: error.message });
   }
 });
