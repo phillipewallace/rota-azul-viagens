@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import { useDrivers } from '@/hooks/useDrivers';
 import { useDriversCRUD } from '@/hooks/useDriversCRUD';
-import DriverForm from '@/components/DriverForm';
+import { DriverForm } from '@/components/DriverForm';
 import { Driver } from '@/hooks/useDrivers';
 
 const Drivers = () => {
@@ -56,16 +56,18 @@ const Drivers = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-500';
-      case 'inactive': return 'bg-gray-500';
+      case 'available': return 'bg-green-500';
+      case 'on-route': return 'bg-blue-500';
+      case 'off-duty': return 'bg-gray-500';
       default: return 'bg-gray-500';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'active': return 'Ativo';
-      case 'inactive': return 'Inativo';
+      case 'available': return 'Disponível';
+      case 'on-route': return 'Em Rota';
+      case 'off-duty': return 'Folga';
       default: return 'Indefinido';
     }
   };
@@ -181,7 +183,7 @@ const Drivers = () => {
               setShowDriverForm(false);
               setEditingDriver(null);
             }}
-            loading={driverCrudLoading}
+            isLoading={driverCrudLoading}
           />
         </DialogContent>
       </Dialog>
