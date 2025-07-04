@@ -23,14 +23,13 @@ export const DriverDeleteDialog: React.FC<DriverDeleteDialogProps> = ({
   onConfirm,
   isLoading
 }) => {
-  const [forceDelete, setForceDelete] = useState(false);
-
   const handleConfirm = () => {
-    onConfirm(forceDelete);
+    // Always force delete if there are dependencies
+    const shouldForce = dependencies?.trucks.length > 0;
+    onConfirm(shouldForce);
   };
 
   const handleClose = () => {
-    setForceDelete(false);
     onOpenChange(false);
   };
 
@@ -79,16 +78,9 @@ export const DriverDeleteDialog: React.FC<DriverDeleteDialogProps> = ({
                     ))}
                   </ul>
                   <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={forceDelete}
-                        onChange={(e) => setForceDelete(e.target.checked)}
-                      />
-                      <span className="text-sm">
-                        Desvincular automaticamente dos caminhões e excluir o motorista
-                      </span>
-                    </label>
+                    <p className="text-sm font-medium text-yellow-800">
+                      ⚠️ Ao confirmar, o motorista será automaticamente desvinculado dos caminhões e então excluído.
+                    </p>
                   </div>
                 </div>
               </AlertDescription>
@@ -112,7 +104,7 @@ export const DriverDeleteDialog: React.FC<DriverDeleteDialogProps> = ({
           <Button 
             variant="destructive" 
             onClick={handleConfirm}
-            disabled={isLoading || (dependencies.trucks.length > 0 && !forceDelete)}
+            disabled={isLoading}
           >
             {isLoading ? 'Excluindo...' : 'Confirmar Exclusão'}
           </Button>

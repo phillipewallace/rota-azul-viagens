@@ -172,6 +172,8 @@ router.get('/:id/dependencies', async (req, res) => {
 
 // Delete driver with smart handling
 router.delete('/:id', async (req, res) => {
+  const client = await pool.connect();
+  
   try {
     const { id } = req.params;
     const { force } = req.query;
@@ -179,22 +181,27 @@ router.delete('/:id', async (req, res) => {
     
     console.log(`🗑️ Attempting to delete driver ${id}, force: ${forceDelete}`);
     
+    // Start transaction
+    await client.query('BEGIN');
+    
     // Check if driver exists
-    const driverCheck = await pool.query('SELECT name FROM drivers WHERE id = $1', [id]);
+    const driverCheck = await client.query('SELECT name FROM drivers WHERE id = $1', [id]);
     if (driverCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Motorista não encontrado' });
     }
     
     // Check for truck dependencies
-    const truckCheck = await pool.query('SELECT id, name, plate FROM trucks WHERE current_driver_id = $1', [id]);
+    const truckCheck = await client.query('SELECT id, name, plate FROM trucks WHERE current_driver_id = $1', [id]);
     
     if (truckCheck.rows.length > 0) {
       if (forceDelete) {
         // Remove driver assignment from trucks first
-        await pool.query('UPDATE trucks SET current_driver_id = NULL WHERE current_driver_id = $1', [id]);
-        console.log(`🔄 Unassigned driver from ${truckCheck.rows.length} trucks`);
+        console.log(`🔄 Unlinking driver from ${truckCheck.rows.length} trucks...`);
+        await client.query('UPDATE trucks SET current_driver_id = NULL WHERE current_driver_id = $1', [id]);
+        console.log(`✅ Driver unlinked from ${truckCheck.rows.length} trucks`);
       } else {
-        // Return error when there are dependencies and force is false
+        await client.query('ROLLBACK');
         return res.status(400).json({ 
           error: 'Motorista está vinculado a caminhões',
           details: {
@@ -207,7 +214,10 @@ router.delete('/:id', async (req, res) => {
     }
     
     // Now safe to delete the driver
-    const result = await pool.query('DELETE FROM drivers WHERE id = $1 RETURNING *', [id]);
+    const result = await client.query('DELETE FROM drivers WHERE id = $1 RETURNING *', [id]);
+    
+    // Commit transaction
+    await client.query('COMMIT');
     
     console.log('✅ Driver deleted:', result.rows[0].name);
     res.json({ 
@@ -215,8 +225,12 @@ router.delete('/:id', async (req, res) => {
       unassignedTrucks: truckCheck.rows.length 
     });
   } catch (error) {
+    // Rollback transaction on error
+    await client.query('ROLLBACK');
     console.error('❌ Error deleting driver:', error);
     res.status(500).json({ error: 'Erro ao excluir motorista' });
+  } finally {
+    client.release();
   }
 });
 
