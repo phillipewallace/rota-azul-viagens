@@ -1,20 +1,29 @@
 
 import { useState, useEffect } from 'react';
+import { reportsService } from '@/services/reports';
 
 export interface ReportStats {
   totalRoutes: number;
   activeRoutes: number;
   totalTrucks: number;
   availableTrucks: number;
+  activeTrucks: number;
   completedTrips: number;
+  pendingTrips: number;
   totalKm: number;
   pendingMaintenance: number;
+  upcomingMaintenance?: Array<{
+    truckName: string;
+    maintenanceType: string;
+    scheduledDate: string;
+    daysRemaining: string;
+  }>;
 }
 
 export interface MonthlyPerformance {
   month: string;
   trips: number;
-  totalKm: number;
+  km: number;
 }
 
 export interface RouteUsage {
@@ -26,136 +35,69 @@ export interface MaintenanceStats {
   type: string;
   count: number;
   averageCost: number;
+  value?: number;
+  name?: string;
 }
-
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
 
 export const useReports = () => {
   const [stats, setStats] = useState<ReportStats | null>(null);
   const [monthlyPerformance, setMonthlyPerformance] = useState<MonthlyPerformance[]>([]);
   const [routeUsage, setRouteUsage] = useState<RouteUsage[]>([]);
   const [maintenanceStats, setMaintenanceStats] = useState<MaintenanceStats[]>([]);
+  const [maintenanceData, setMaintenanceData] = useState<MaintenanceStats[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadStats = async () => {
+  const loadReports = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/reports/stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      } else {
-        // Mock data for development
-        setStats({
-          totalRoutes: 15,
-          activeRoutes: 8,
-          totalTrucks: 12,
-          availableTrucks: 7,
-          completedTrips: 145,
-          totalKm: 12500,
-          pendingMaintenance: 3
-        });
-      }
-    } catch (error) {
-      console.error('Error loading stats:', error);
-      setStats({
-        totalRoutes: 15,
-        activeRoutes: 8,
-        totalTrucks: 12,
-        availableTrucks: 7,
-        completedTrips: 145,
-        totalKm: 12500,
-        pendingMaintenance: 3
-      });
-    }
-  };
-
-  const loadMonthlyPerformance = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/reports/monthly-performance`);
-      if (response.ok) {
-        const data = await response.json();
-        setMonthlyPerformance(data);
-      } else {
-        // Mock data
-        setMonthlyPerformance([
-          { month: '2024-01', trips: 25, totalKm: 2500 },
-          { month: '2024-02', trips: 30, totalKm: 3200 },
-          { month: '2024-03', trips: 28, totalKm: 2800 }
-        ]);
-      }
-    } catch (error) {
-      console.error('Error loading monthly performance:', error);
-      setMonthlyPerformance([
-        { month: '2024-01', trips: 25, totalKm: 2500 },
-        { month: '2024-02', trips: 30, totalKm: 3200 },
-        { month: '2024-03', trips: 28, totalKm: 2800 }
+      setLoading(true);
+      
+      const [statsData, performanceData, usageData, maintenanceData] = await Promise.all([
+        reportsService.getReportStats().catch(() => ({
+          totalRoutes: 8,
+          activeRoutes: 6,
+          totalTrucks: 4,
+          availableTrucks: 2,
+          activeTrucks: 2,
+          completedTrips: 45,
+          pendingTrips: 3,
+          totalKm: 2840,
+          pendingMaintenance: 2
+        })),
+        reportsService.getMonthlyPerformance().catch(() => [
+          { month: '2024-01', trips: 12, km: 480 },
+          { month: '2024-02', trips: 18, km: 720 },
+          { month: '2024-03', trips: 15, km: 600 }
+        ]),
+        reportsService.getRouteUsage().catch(() => [
+          { name: 'Rota Centro-Norte', usage: 15 },
+          { name: 'Rota Sul-Leste', usage: 12 },
+          { name: 'Rota Industrial', usage: 8 }
+        ]),
+        reportsService.getMaintenanceStats().catch(() => [
+          { type: 'Preventiva', count: 5, averageCost: 800, value: 5, name: 'Preventiva' },
+          { type: 'Corretiva', count: 3, averageCost: 1200, value: 3, name: 'Corretiva' },
+          { type: 'Emergencial', count: 1, averageCost: 2000, value: 1, name: 'Emergencial' }
+        ])
       ]);
-    }
-  };
 
-  const loadRouteUsage = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/reports/route-usage`);
-      if (response.ok) {
-        const data = await response.json();
-        setRouteUsage(data);
-      } else {
-        // Mock data
-        setRouteUsage([
-          { name: 'Rota Centro', usage: 15 },
-          { name: 'Rota Zona Sul', usage: 12 },
-          { name: 'Rota Norte', usage: 8 }
-        ]);
-      }
+      setStats(statsData);
+      setMonthlyPerformance(performanceData);
+      setRouteUsage(usageData);
+      setMaintenanceStats(maintenanceData);
+      setMaintenanceData(maintenanceData);
     } catch (error) {
-      console.error('Error loading route usage:', error);
-      setRouteUsage([
-        { name: 'Rota Centro', usage: 15 },
-        { name: 'Rota Zona Sul', usage: 12 },
-        { name: 'Rota Norte', usage: 8 }
-      ]);
+      console.error('Error loading reports:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadMaintenanceStats = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/reports/maintenance-stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setMaintenanceStats(data);
-      } else {
-        // Mock data
-        setMaintenanceStats([
-          { type: 'Preventiva', count: 25, averageCost: 500 },
-          { type: 'Corretiva', count: 15, averageCost: 800 },
-          { type: 'Pneus', count: 10, averageCost: 300 }
-        ]);
-      }
-    } catch (error) {
-      console.error('Error loading maintenance stats:', error);
-      setMaintenanceStats([
-        { type: 'Preventiva', count: 25, averageCost: 500 },
-        { type: 'Corretiva', count: 15, averageCost: 800 },
-        { type: 'Pneus', count: 10, averageCost: 300 }
-      ]);
-    }
-  };
-
-  const loadAllData = async () => {
-    setLoading(true);
-    await Promise.all([
-      loadStats(),
-      loadMonthlyPerformance(),
-      loadRouteUsage(),
-      loadMaintenanceStats()
-    ]);
-    setLoading(false);
+  const reload = async () => {
+    await loadReports();
   };
 
   useEffect(() => {
-    loadAllData();
+    loadReports();
   }, []);
 
   return {
@@ -163,7 +105,8 @@ export const useReports = () => {
     monthlyPerformance,
     routeUsage,
     maintenanceStats,
+    maintenanceData,
     loading,
-    reload: loadAllData
+    reload
   };
 };
