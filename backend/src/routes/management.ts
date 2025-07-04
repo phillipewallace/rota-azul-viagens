@@ -80,7 +80,7 @@ router.get('/stats', async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('❌ Error fetching management stats:', error);
-    res.status(500).json({ error: 'Erro ao buscar estatísticas' });
+    res.status(500).json({ error: 'Erro ao buscar estatísticas de gestão' });
   }
 });
 
@@ -95,9 +95,10 @@ router.get('/maintenance', async (req, res) => {
       SELECT 
         m.id,
         m.truck_id,
-        m.maintenance_type,
+        m.type as maintenance_type,
         m.description,
         m.scheduled_date,
+        m.maintenance_date,
         m.cost,
         m.status,
         m.created_at,
@@ -137,7 +138,7 @@ router.get('/maintenance', async (req, res) => {
     }
     
     if (type) {
-      query += ` AND m.maintenance_type = $${paramIndex}`;
+      query += ` AND m.type = $${paramIndex}`;
       params.push(type);
       paramIndex++;
     }
@@ -154,6 +155,7 @@ router.get('/maintenance', async (req, res) => {
       maintenance_type: record.maintenance_type,
       description: record.description,
       scheduled_date: record.scheduled_date,
+      maintenance_date: record.maintenance_date,
       cost: parseFloat(record.cost) || 0,
       status: record.status,
       created_at: record.created_at,
@@ -197,22 +199,23 @@ router.post('/maintenance', async (req, res) => {
       return res.status(400).json({ error: 'Caminhão não encontrado' });
     }
     
+    // Insert using the correct column name 'type' instead of 'maintenance_type'
     const query = `
       INSERT INTO maintenance_records (
-        truck_id, maintenance_type, description, scheduled_date, cost, status, maintenance_date
+        truck_id, type, description, scheduled_date, maintenance_date, cost, status
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
+      RETURNING id, truck_id, type as maintenance_type, description, scheduled_date, maintenance_date, cost, status, created_at, updated_at
     `;
     
     const result = await pool.query(query, [
       truck_id,
-      maintenance_type,
+      maintenance_type, // This maps to the 'type' column in the database
       description,
       scheduled_date,
+      scheduled_date, // Set maintenance_date to scheduled_date initially
       parseFloat(cost) || 0,
-      status || 'pending',
-      scheduled_date // Set maintenance_date to scheduled_date for now
+      status || 'pending'
     ]);
     
     console.log('✅ Maintenance record created:', result.rows[0].id);
@@ -220,7 +223,6 @@ router.post('/maintenance', async (req, res) => {
   } catch (error) {
     console.error('❌ Error creating maintenance record:', error);
     console.error('❌ Error details:', error.message);
-    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ error: 'Erro ao criar registro de manutenção: ' + error.message });
   }
 });
@@ -235,22 +237,25 @@ router.put('/maintenance/:id', async (req, res) => {
       maintenance_type, 
       description, 
       scheduled_date, 
+      maintenance_date,
       cost, 
       status 
     } = req.body;
     
+    // Use the correct column name 'type'
     const query = `
       UPDATE maintenance_records 
-      SET maintenance_type = $1, description = $2, scheduled_date = $3, 
-          cost = $4, status = $5, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $6
-      RETURNING *
+      SET type = $1, description = $2, scheduled_date = $3, maintenance_date = $4,
+          cost = $5, status = $6, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $7
+      RETURNING id, truck_id, type as maintenance_type, description, scheduled_date, maintenance_date, cost, status, created_at, updated_at
     `;
     
     const result = await pool.query(query, [
-      maintenance_type,
+      maintenance_type, // This maps to the 'type' column
       description,
       scheduled_date,
+      maintenance_date || scheduled_date,
       parseFloat(cost) || 0,
       status,
       id
@@ -264,7 +269,7 @@ router.put('/maintenance/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error updating maintenance record:', error);
-    res.status(500).json({ error: 'Erro ao atualizar registro de manutenção' });
+    res.status(500).json({ error: 'Erro ao atualizar registro de manutenção: ' + error.message });
   }
 });
 
@@ -285,7 +290,7 @@ router.delete('/maintenance/:id', async (req, res) => {
     res.json({ message: 'Registro de manutenção excluído com sucesso' });
   } catch (error) {
     console.error('❌ Error deleting maintenance record:', error);
-    res.status(500).json({ error: 'Erro ao excluir registro de manutenção' });
+    res.status(500).json({ error: 'Erro ao excluir registro de manutenção: ' + error.message });
   }
 });
 
@@ -298,12 +303,12 @@ router.get('/costs-summary', async (req, res) => {
     
     let query = `
       SELECT 
-        maintenance_type,
+        type as maintenance_type,
         COUNT(*) as count,
         COALESCE(SUM(cost), 0) as total_cost,
         COALESCE(AVG(cost), 0) as avg_cost
       FROM maintenance_records
-      WHERE 1=1
+      WHERE cost IS NOT NULL
     `;
     
     const params = [];
@@ -321,7 +326,7 @@ router.get('/costs-summary', async (req, res) => {
       paramIndex++;
     }
     
-    query += ' GROUP BY maintenance_type ORDER BY total_cost DESC';
+    query += ' GROUP BY type ORDER BY total_cost DESC';
     
     const result = await pool.query(query, params);
     
