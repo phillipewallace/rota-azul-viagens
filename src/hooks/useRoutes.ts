@@ -1,6 +1,7 @@
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '@/services/api';
+import { useState, useEffect } from 'react';
+import { googleMapsService } from '@/services/googleMaps';
+import { routesService } from '@/services/routes';
 
 export interface RoutePoint {
   id: string;
@@ -15,81 +16,96 @@ export interface RoutePoint {
 export interface Route {
   id: string;
   name: string;
+  description?: string;
   points: RoutePoint[];
   totalDistance: number;
   estimatedTime: string;
   optimizedOrder: string[];
-  description?: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'completed';
   createdAt: string;
+  polyline?: string;
 }
 
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
-
-const fetchRoutes = async (): Promise<Route[]> => {
-  const response = await fetch(`${API_BASE_URL}/routes`);
-  if (!response.ok) {
-    throw new Error('Erro ao carregar rotas');
-  }
-  return response.json();
-};
-
 export const useRoutes = () => {
-  const queryClient = useQueryClient();
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data: routes = [], isLoading: loading, error } = useQuery({
-    queryKey: ['routes'],
-    queryFn: fetchRoutes,
-    retry: 2,
-  });
-
-  const createRouteMutation = useMutation({
-    mutationFn: (routeData: Omit<Route, 'id' | 'createdAt'>) => 
-      apiService.createRoute(routeData),
-    onSuccess: (newRoute) => {
-      queryClient.setQueryData(['routes'], (oldData: Route[] | undefined) => {
-        return oldData ? [...oldData, newRoute] : [newRoute];
-      });
-    },
-  });
-
-  const createRoute = async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
-    return createRouteMutation.mutateAsync(routeData);
-  };
-
-  const optimizeRoute = async (points: RoutePoint[]) => {
+  const loadRoutes = async () => {
     try {
-      console.log('Optimizing route with points:', points);
-      return await apiService.optimizeRoute(points);
-    } catch (err) {
-      console.error('Error optimizing route:', err);
-      throw new Error('Erro ao otimizar rota');
+      setLoading(true);
+      const data = await routesService.getRoutes();
+      setRoutes(data);
+    } catch (error) {
+      console.error('Error loading routes:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const getAddressByCep = async (cep: string) => {
     try {
-      console.log('Getting address for CEP:', cep);
-      return await apiService.getAddressByCep(cep);
-    } catch (err) {
-      console.error('Error getting address by CEP:', err);
-      throw new Error('Erro ao buscar endereço');
+      await googleMapsService.initialize();
+      return await googleMapsService.getAddressByCep(cep);
+    } catch (error) {
+      console.error('Error getting address by CEP:', error);
+      throw error;
     }
   };
 
-  const loadRoutes = async () => {
-    queryClient.invalidateQueries({ queryKey: ['routes'] });
+  const optimizeRoute = async (points: RoutePoint[]) => {
+    try {
+      await googleMapsService.initialize();
+      return await googleMapsService.optimizeRoute(points);
+    } catch (error) {
+      console.error('Error optimizing route:', error);
+      throw error;
+    }
   };
+
+  const createRoute = async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
+    try {
+      const newRoute = await routesService.createRoute(routeData);
+      await loadRoutes();
+      return newRoute;
+    } catch (error) {
+      console.error('Error creating route:', error);
+      throw error;
+    }
+  };
+
+  const updateRoute = async (id: string, routeData: Partial<Route>) => {
+    try {
+      const updatedRoute = await routesService.updateRoute(id, routeData);
+      await loadRoutes();
+      return updatedRoute;
+    } catch (error) {
+      console.error('Error updating route:', error);
+      throw error;
+    }
+  };
+
+  const deleteRoute = async (id: string) => {
+    try {
+      await routesService.deleteRoute(id);
+      await loadRoutes();
+    } catch (error) {
+      console.error('Error deleting route:', error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    loadRoutes();
+  }, []);
 
   return {
     routes,
     loading,
-    error: error ? 'Erro ao carregar rotas' : null,
     loadRoutes,
-    createRoute,
+    getAddressByCep,
     optimizeRoute,
-    getAddressByCep
+    createRoute,
+    updateRoute,
+    deleteRoute
   };
 };

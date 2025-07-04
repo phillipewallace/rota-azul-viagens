@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { MapPin, Navigation, Truck, Clock, RefreshCw, Route, Play, CheckCircle, ExternalLink } from 'lucide-react';
-import { useMobile, TruckMobileData } from '../hooks/useMobile';
+import { MapPin, Navigation, Truck, Clock, Play, CheckCircle, ExternalLink, AlertCircle } from 'lucide-react';
+import { useMobile, TruckMobileData, RoutePoint } from '../hooks/useMobile';
 import { toast } from 'sonner';
 
 const MobileDriver = () => {
@@ -14,10 +14,13 @@ const MobileDriver = () => {
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [routeStarted, setRouteStarted] = useState(false);
+  const [currentPointIndex, setCurrentPointIndex] = useState(0);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  const directionsRenderer = useRef<any>(null);
   
-  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, isUpdatingLocation } = useMobile();
+  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute } = useMobile();
 
   const handlePlateSubmit = async () => {
     if (!plate.trim()) return;
@@ -28,6 +31,11 @@ const MobileDriver = () => {
     try {
       const data = await getTruckByPlate(plate);
       setTruckData(data);
+      
+      if (data.currentRoute) {
+        initializeRouteMap(data.currentRoute);
+      }
+      
       toast.success('Caminhão encontrado!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar dados do caminhão');
@@ -42,7 +50,8 @@ const MobileDriver = () => {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 10000
+          timeout: 10000,
+          maximumAge: 30000
         });
       });
       
@@ -60,114 +69,225 @@ const MobileDriver = () => {
           lng: newLocation.lng
         });
       }
+      
+      return newLocation;
     } catch (error) {
-      setError('Erro ao obter localização GPS');
+      console.error('Erro ao obter localização GPS:', error);
       toast.error('Erro ao obter localização GPS');
+      return null;
     }
   };
 
-  const startRoute = () => {
-    if (!truckData?.currentRoute) return;
-    setSelectedRoute(truckData.currentRoute);
-    setRouteStarted(true);
-    toast.success('Rota iniciada! Siga para o próximo destino.');
+  const initializeRouteMap = async (route: any) => {
+    if (!mapRef.current || !route.points || route.points.length < 2) return;
+
+    try {
+      const location = await getCurrentLocation();
+      if (!location) return;
+
+      // Load Google Maps
+      if (!window.google) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w&libraries=geometry`;
+        script.async = true;
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+
+      // Initialize map
+      mapInstance.current = new window.google.maps.Map(mapRef.current, {
+        center: location,
+        zoom: 13,
+        mapTypeControl: true,
+        fullscreenControl: false,
+        streetViewControl: false,
+        mapTypeControlOptions: {
+          position: window.google.maps.ControlPosition.BOTTOM_RIGHT,
+          style: window.google.maps.MapTypeControlStyle.HORIZONTAL_BAR
+        }
+      });
+
+      // Add user location marker
+      new window.google.maps.Marker({
+        position: location,
+        map: mapInstance.current,
+        title: 'Sua localização',
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#4285f4',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 3
+        }
+      });
+
+      // Draw route
+      drawRoute(route);
+      
+    } catch (error) {
+      console.error('Erro ao inicializar mapa:', error);
+      toast.error('Erro ao carregar mapa');
+    }
   };
 
-  const markPointAsCompleted = async (pointId: string) => {
+  const drawRoute = (route: any) => {
+    if (!mapInstance.current || !route.points) return;
+
+    const directionsService = new window.google.maps.DirectionsService();
+    directionsRenderer.current = new window.google.maps.DirectionsRenderer({
+      map: mapInstance.current,
+      polylineOptions: {
+        strokeColor: '#22c55e',
+        strokeWeight: 4,
+        strokeOpacity: 0.8
+      }
+    });
+
+    const points = route.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+    const origin = points[0];
+    const destination = points[points.length - 1];
+    const waypoints = points.slice(1, -1).map((point: RoutePoint) => ({
+      location: new window.google.maps.LatLng(point.lat, point.lng),
+      stopover: true
+    }));
+
+    directionsService.route({
+      origin: new window.google.maps.LatLng(origin.lat, origin.lng),
+      destination: new window.google.maps.LatLng(destination.lat, destination.lng),
+      waypoints: waypoints,
+      travelMode: window.google.maps.TravelMode.DRIVING,
+      optimizeWaypoints: false
+    }, (result: any, status: string) => {
+      if (status === 'OK') {
+        directionsRenderer.current.setDirections(result);
+      }
+    });
+  };
+
+  const startRoute = async () => {
     if (!truckData?.currentRoute) return;
+    
+    setRouteStarted(true);
+    setCurrentPointIndex(0);
+    
+    await getCurrentLocation();
+    toast.success('Rota iniciada! Navegue para o primeiro destino.');
+  };
+
+  const openInGoogleMaps = () => {
+    if (!truckData?.currentRoute || !truckData.currentRoute.points) return;
+    
+    const points = truckData.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+    const nextPoint = points[currentPointIndex];
+    
+    if (nextPoint) {
+      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${nextPoint.lat},${nextPoint.lng}&travelmode=driving`;
+      window.open(googleMapsUrl, '_blank');
+    }
+  };
+
+  const markPointCompleted = async () => {
+    if (!truckData?.currentRoute || !truckData.currentRoute.points) return;
+    
+    const points = truckData.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+    const currentPoint = points[currentPointIndex];
+    
+    if (!currentPoint) return;
     
     try {
       await updateRoutePoint({
         truckId: truckData.id,
-        pointId,
+        pointId: currentPoint.id,
         completed: true
       });
       
-      setTruckData(prev => {
-        if (!prev?.currentRoute) return prev;
-        
-        const updatedPoints = prev.currentRoute.points.map(point =>
-          point.id === pointId ? { ...point, completed: true } : point
-        );
-        
-        return {
-          ...prev,
-          currentRoute: {
-            ...prev.currentRoute,
-            points: updatedPoints
-          }
-        };
-      });
-
-      toast.success('Ponto marcado como concluído!');
       await getCurrentLocation();
+      
+      if (currentPointIndex < points.length - 1) {
+        setCurrentPointIndex(prev => prev + 1);
+        toast.success('Ponto concluído! Próximo destino carregado.');
+      } else {
+        // Última parada - mostrar botão finalizar
+        toast.success('Todos os pontos concluídos! Finalize a rota.');
+      }
+      
     } catch (error) {
       toast.error('Erro ao marcar ponto como concluído');
     }
   };
 
-  const openInGoogleMaps = (lat: number, lng: number) => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    window.open(url, '_blank');
+  const handleFinishRoute = async () => {
+    if (!truckData) return;
+    
+    try {
+      setLoading(true);
+      await finishRoute(truckData.id);
+      
+      // Reset state
+      setTruckData(null);
+      setRouteStarted(false);
+      setCurrentPointIndex(0);
+      setPlate('');
+      
+      toast.success('Rota finalizada com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao finalizar rota');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const finishRoute = () => {
-    setRouteStarted(false);
-    setSelectedRoute(null);
-    toast.success('Rota finalizada com sucesso!');
-  };
-
+  // Auto-update location every 30 seconds when route is active
   useEffect(() => {
-    getCurrentLocation();
-    const interval = setInterval(getCurrentLocation, 30000);
-    return () => clearInterval(interval);
-  }, [truckData, routeStarted]);
+    if (routeStarted) {
+      const interval = setInterval(getCurrentLocation, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [routeStarted, truckData]);
 
   if (!truckData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 flex items-center justify-center">
-        <Card className="w-full max-w-md shadow-xl border-0 bg-white/95 backdrop-blur">
-          <CardHeader className="text-center pb-2">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-4">
-              <Truck className="h-8 w-8 text-white" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center pb-6">
+            <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Truck className="w-10 h-10 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-800">
-              AlchemyRotas
-            </CardTitle>
-            <p className="text-sm text-gray-600">App do Motorista</p>
+            <CardTitle className="text-2xl font-bold text-gray-900">AlchemyRotas</CardTitle>
+            <p className="text-gray-600">App do Motorista</p>
           </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
-              </div>
-            )}
+          <CardContent className="space-y-6">
             <div>
-              <label className="text-sm font-medium text-gray-700">Placa do Caminhão</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Placa do Caminhão
+              </label>
               <Input
+                type="text"
                 placeholder="ABC-1234"
                 value={plate}
                 onChange={(e) => setPlate(e.target.value.toUpperCase())}
-                className="mt-1 h-12 text-center text-lg font-mono"
-                disabled={loading}
+                className="text-center text-lg font-mono"
+                maxLength={8}
               />
             </div>
+            
+            {error && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                {error}
+              </div>
+            )}
+            
             <Button 
-              onClick={handlePlateSubmit} 
-              className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium"
+              onClick={handlePlateSubmit}
               disabled={loading || !plate.trim()}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-3"
             >
-              {loading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Buscando...
-                </>
-              ) : (
-                <>
-                  <Navigation className="h-4 w-4 mr-2" />
-                  Acessar Rota
-                </>
-              )}
+              {loading ? 'Buscando...' : 'Acessar Caminhão'}
             </Button>
           </CardContent>
         </Card>
@@ -175,174 +295,178 @@ const MobileDriver = () => {
     );
   }
 
-  const currentPoint = truckData.currentRoute?.points.find(p => !p.completed);
-  const completedPoints = truckData.currentRoute?.points.filter(p => p.completed).length || 0;
-  const totalPoints = truckData.currentRoute?.points.length || 0;
-  const progress = totalPoints > 0 ? (completedPoints / totalPoints) * 100 : 0;
+  const route = truckData.currentRoute;
+  const points = route?.points?.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order) || [];
+  const currentPoint = points[currentPointIndex];
+  const isLastPoint = currentPointIndex === points.length - 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-md mx-auto space-y-4">
-        {/* Header do Caminhão */}
-        <Card className="shadow-lg border-0 bg-white/95 backdrop-blur">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
-                  <Truck className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="font-bold text-gray-800">{truckData.name}</h1>
-                  <p className="text-sm text-gray-600">{truckData.plate}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Badge className="bg-green-100 text-green-800 border-green-200">
-                  Ativo
-                </Badge>
-                <Button size="sm" variant="ghost" onClick={() => setTruckData(null)}>
-                  Sair
-                </Button>
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">{truckData.name}</h1>
+              <p className="text-sm text-gray-600">{truckData.plate}</p>
             </div>
-          </CardContent>
-        </Card>
+            <Badge variant={routeStarted ? "default" : "secondary"}>
+              {routeStarted ? 'Em Rota' : 'Parado'}
+            </Badge>
+          </div>
+        </div>
+      </div>
 
-        {/* Rota Atual */}
-        {truckData.currentRoute ? (
-          <>
-            <Card className="shadow-lg border-0 bg-white/95 backdrop-blur">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Route className="h-5 w-5 text-blue-600" />
-                  {truckData.currentRoute.name}
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-600">{completedPoints}/{totalPoints}</span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                {!routeStarted ? (
-                  <Button 
-                    onClick={startRoute}
-                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-medium"
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    Iniciar Rota
-                  </Button>
-                ) : (
-                  <div className="space-y-2">
-                    {truckData.currentRoute.points.map((point, index) => (
-                      <div 
-                        key={point.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                          point.completed 
-                            ? 'bg-green-50 border-green-200' 
-                            : point === currentPoint
-                            ? 'bg-blue-50 border-blue-200 shadow-md'
-                            : 'bg-gray-50 border-gray-200'
-                        }`}
-                      >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                          point.completed 
-                            ? 'bg-green-500 text-white' 
-                            : point === currentPoint
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-300 text-gray-600'
-                        }`}>
-                          {point.completed ? <CheckCircle className="h-4 w-4" /> : point.order}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{point.address}</p>
-                          <p className="text-xs text-gray-600 capitalize">{point.type}</p>
-                        </div>
-                        {point === currentPoint && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openInGoogleMaps(point.lat, point.lng)}
-                              className="p-2"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => markPointAsCompleted(point.id)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    
-                    {progress === 100 && (
-                      <Button 
-                        onClick={finishRoute}
-                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium mt-4"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Finalizar Rota
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <Card className="shadow-lg border-0 bg-white/95 backdrop-blur">
-            <CardContent className="p-6 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Route className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="text-gray-600">Nenhuma rota ativa encontrada</p>
-              <p className="text-sm text-gray-500 mt-1">Entre em contato com a central</p>
+      <div className="p-4 space-y-4">
+        {/* Map */}
+        {route && (
+          <Card>
+            <CardContent className="p-0">
+              <div ref={mapRef} className="w-full h-64 rounded-lg bg-gray-200" />
             </CardContent>
           </Card>
         )}
 
-        {/* Localização */}
-        <Card className="shadow-lg border-0 bg-white/95 backdrop-blur">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-green-500" />
-                <div>
-                  <p className="text-xs text-gray-500">Localização GPS</p>
-                  <p className="text-xs font-mono">
-                    {currentLocation 
-                      ? `${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`
-                      : 'Obtendo localização...'
-                    }
-                  </p>
+        {/* Route Info */}
+        {route && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Navigation className="w-5 h-5 text-blue-600" />
+                {route.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {points.length}
+                  </div>
+                  <div className="text-sm text-gray-600">Paradas</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {currentPointIndex + 1}
+                  </div>
+                  <div className="text-sm text-gray-600">Atual</div>
                 </div>
               </div>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={getCurrentLocation}
-                disabled={isUpdatingLocation}
-                className="p-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isUpdatingLocation ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Footer */}
-        <div className="text-center text-xs text-gray-500 pt-4">
-          AlchemyRotas © 2024 - Sistema de Roteirização
-        </div>
+              {!routeStarted ? (
+                <Button 
+                  onClick={startRoute}
+                  className="w-full bg-green-600 hover:bg-green-700 text-lg py-3"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Iniciar Rota
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  {currentPoint && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <MapPin className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-blue-900">
+                            Próximo Destino ({currentPointIndex + 1}/{points.length})
+                          </h4>
+                          <p className="text-sm text-blue-700 mt-1">
+                            {currentPoint.address}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={openInGoogleMaps}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Google Maps
+                    </Button>
+                    
+                    {!isLastPoint ? (
+                      <Button
+                        onClick={markPointCompleted}
+                        className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Ponto Concluído
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleFinishRoute}
+                        disabled={loading}
+                        className="bg-red-600 hover:bg-red-700 flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        {loading ? 'Finalizando...' : 'Finalizar Rota'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Route Points List */}
+        {route && routeStarted && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Sequência de Paradas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {points.map((point, index) => (
+                  <div 
+                    key={point.id} 
+                    className={`flex items-center gap-3 p-3 rounded-lg border ${
+                      index === currentPointIndex 
+                        ? 'bg-blue-50 border-blue-200' 
+                        : index < currentPointIndex 
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      index === currentPointIndex
+                        ? 'bg-blue-600 text-white'
+                        : index < currentPointIndex
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-400 text-white'
+                    }`}>
+                      {index < currentPointIndex ? '✓' : index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{point.address}</p>
+                      <p className="text-xs text-gray-600 capitalize">
+                        {point.type === 'origin' ? 'Origem' : 
+                         point.type === 'destination' ? 'Destino' : 'Parada'}
+                      </p>
+                    </div>
+                    {index < currentPointIndex && (
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!route && (
+          <Card className="text-center py-8">
+            <CardContent>
+              <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma rota atribuída</h3>
+              <p className="text-gray-600">Este caminhão não possui uma rota ativa no momento.</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

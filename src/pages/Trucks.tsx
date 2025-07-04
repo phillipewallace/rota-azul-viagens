@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Truck as TruckIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,20 +10,24 @@ import PageHeader from '@/components/PageHeader';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useTrucksCRUD } from '@/hooks/useTrucksCRUD';
 import { TruckModal } from '@/components/TruckModal';
+import { LinkRouteModal } from '@/components/LinkRouteModal';
 import { Truck as TruckType } from '@/hooks/useTrucks';
 
 const Trucks = () => {
   const { toast } = useToast();
   const [editingTruck, setEditingTruck] = useState<TruckType | null>(null);
   const [showTruckModal, setShowTruckModal] = useState(false);
+  const [linkingTruck, setLinkingTruck] = useState<TruckType | null>(null);
+  const [showLinkModal, setShowLinkModal] = useState(false);
 
-  const { trucks, loading: trucksLoading } = useTrucks();
+  const { trucks, loading: trucksLoading, refetch } = useTrucks();
   const { createTruck, updateTruck, deleteTruck, isLoading: truckCrudLoading } = useTrucksCRUD();
 
   const handleCreateTruck = async (data: Omit<TruckType, 'id'>) => {
     try {
       await createTruck(data);
       setShowTruckModal(false);
+      await refetch();
       toast({ title: 'Caminhão criado com sucesso!' });
     } catch (error) {
       toast({ title: 'Erro ao criar caminhão', variant: 'destructive' });
@@ -35,6 +39,7 @@ const Trucks = () => {
     try {
       await updateTruck({ id: editingTruck.id, truck: data });
       setEditingTruck(null);
+      await refetch();
       toast({ title: 'Caminhão atualizado com sucesso!' });
     } catch (error) {
       toast({ title: 'Erro ao atualizar caminhão', variant: 'destructive' });
@@ -45,11 +50,17 @@ const Trucks = () => {
     if (confirm('Tem certeza que deseja excluir este caminhão?')) {
       try {
         await deleteTruck(id);
+        await refetch();
         toast({ title: 'Caminhão excluído com sucesso!' });
       } catch (error) {
         toast({ title: 'Erro ao excluir caminhão', variant: 'destructive' });
       }
     }
+  };
+
+  const handleLinkRoute = (truck: TruckType) => {
+    setLinkingTruck(truck);
+    setShowLinkModal(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -66,9 +77,11 @@ const Trucks = () => {
     return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModals = () => {
     setShowTruckModal(false);
+    setShowLinkModal(false);
     setEditingTruck(null);
+    setLinkingTruck(null);
   };
 
   return (
@@ -87,7 +100,22 @@ const Trucks = () => {
         <Card>
           <CardContent className="p-6">
             {trucksLoading ? (
-              <div className="text-center py-8">Carregando caminhões...</div>
+              <div className="text-center py-8">
+                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p>Carregando caminhões...</p>
+              </div>
+            ) : trucks.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Plus className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum caminhão cadastrado</h3>
+                <p className="text-gray-600 mb-4">Comece adicionando seu primeiro caminhão</p>
+                <Button onClick={() => setShowTruckModal(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar Primeiro Caminhão
+                </Button>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -111,20 +139,30 @@ const Trucks = () => {
                       <TableCell>{truck.year}</TableCell>
                       <TableCell>{getStatusBadge(truck.status)}</TableCell>
                       <TableCell>{truck.driver || '-'}</TableCell>
-                      <TableCell>{truck.mileage.toLocaleString()}</TableCell>
+                      <TableCell>{truck.mileage?.toLocaleString() || '0'}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => setEditingTruck(truck)}
+                            title="Editar caminhão"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
+                            variant="outline"
+                            onClick={() => handleLinkRoute(truck)}
+                            title="Vincular rota"
+                          >
+                            <LinkIcon className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
                             variant="destructive"
                             onClick={() => handleDeleteTruck(truck.id)}
+                            title="Excluir caminhão"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -139,15 +177,27 @@ const Trucks = () => {
         </Card>
       </div>
 
-      {/* Truck Modal */}
+      {/* Modals */}
       <TruckModal
         open={showTruckModal || !!editingTruck}
         onOpenChange={(open) => {
-          if (!open) handleCloseModal();
+          if (!open) handleCloseModals();
         }}
         truck={editingTruck || undefined}
         onSubmit={editingTruck ? handleUpdateTruck : handleCreateTruck}
         isLoading={truckCrudLoading}
+      />
+
+      <LinkRouteModal
+        open={showLinkModal}
+        onOpenChange={(open) => {
+          if (!open) handleCloseModals();
+        }}
+        truck={linkingTruck}
+        onSuccess={() => {
+          handleCloseModals();
+          refetch();
+        }}
       />
     </div>
   );
