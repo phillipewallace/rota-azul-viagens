@@ -3,6 +3,7 @@ import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
 import { googleMapsService } from '@/services/googleMaps';
 import { trafficService } from '@/services/traffic';
+import { Locate } from 'lucide-react';
 
 const MapComponent = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -348,6 +349,21 @@ const MapComponent = () => {
     }
   };
 
+  const centerOnUserLocation = async () => {
+    if (!map.current) return;
+    
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        map.current.panTo(location);
+        map.current.setZoom(16);
+        console.log('📍 Mapa centralizado na localização do usuário');
+      }
+    } catch (error) {
+      console.error('Erro ao centralizar na localização:', error);
+    }
+  };
+
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'active-truck-tracking') {
@@ -449,6 +465,14 @@ const MapComponent = () => {
             }`}
           >
             🚦 Trânsito
+          </button>
+
+          <button
+            onClick={centerOnUserLocation}
+            className="bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-lg p-2 text-gray-700 transition-colors flex items-center justify-center"
+            title="Centralizar na minha localização"
+          >
+            <Locate className="w-5 h-5" />
           </button>
         </div>
       )}
