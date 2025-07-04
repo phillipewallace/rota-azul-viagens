@@ -140,21 +140,25 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
   try {
     const { truckId } = req.params;
     
+    console.log(`🏁 Iniciando finalização da rota para caminhão ${truckId}`);
+    
     // Buscar a rota atual do caminhão
     const truckResult = await pool.query(
-      'SELECT current_route FROM trucks WHERE id = $1',
+      'SELECT current_route_id FROM trucks WHERE id = $1',
       [truckId]
     );
     
     if (truckResult.rows.length === 0) {
+      console.log(`❌ Caminhão não encontrado: ${truckId}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
     
-    const currentRouteId = truckResult.rows[0].current_route;
+    const currentRouteId = truckResult.rows[0].current_route_id;
+    console.log(`📋 Rota atual: ${currentRouteId}`);
     
     // Atualizar status do caminhão
     await pool.query(
-      'UPDATE trucks SET status = $1, current_route = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      'UPDATE trucks SET status = $1, current_route_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       ['available', truckId]
     );
     
@@ -164,6 +168,7 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
         'UPDATE route_points SET completed = true, completed_at = CURRENT_TIMESTAMP WHERE route_id = $1 AND completed = false',
         [currentRouteId]
       );
+      console.log(`✅ Pontos da rota ${currentRouteId} marcados como concluídos`);
     }
     
     console.log(`🏁 Rota finalizada para caminhão ${truckId}`);

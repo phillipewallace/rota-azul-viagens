@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { MapPin, Navigation, Truck, Clock, Play, CheckCircle, ExternalLink, AlertCircle } from 'lucide-react';
+import { MapPin, Navigation, Truck, Clock, Play, CheckCircle, ExternalLink, AlertCircle, Locate } from 'lucide-react';
 import { useMobile, TruckMobileData, RoutePoint } from '../hooks/useMobile';
 import { toast } from 'sonner';
 
@@ -19,6 +18,7 @@ const MobileDriver = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const directionsRenderer = useRef<any>(null);
+  const userMarker = useRef<any>(null);
   
   const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute } = useMobile();
 
@@ -64,6 +64,11 @@ const MobileDriver = () => {
       
       setCurrentLocation(newLocation);
       
+      // Update user marker position
+      if (userMarker.current && mapInstance.current) {
+        userMarker.current.setPosition(newLocation);
+      }
+      
       if (truckData && routeStarted) {
         try {
           await updateTruckLocation({
@@ -81,6 +86,15 @@ const MobileDriver = () => {
       console.error('Erro ao obter localização GPS:', error);
       toast.error('Erro ao obter localização GPS');
       return null;
+    }
+  };
+
+  const centerOnUserLocation = async () => {
+    const location = await getCurrentLocation();
+    if (location && mapInstance.current) {
+      mapInstance.current.panTo(location);
+      mapInstance.current.setZoom(16);
+      toast.success('Centralizado na sua localização');
     }
   };
 
@@ -117,7 +131,7 @@ const MobileDriver = () => {
       });
 
       // Add user location marker
-      new window.google.maps.Marker({
+      userMarker.current = new window.google.maps.Marker({
         position: location,
         map: mapInstance.current,
         title: 'Sua localização',
@@ -250,6 +264,10 @@ const MobileDriver = () => {
         directionsRenderer.current.setMap(null);
         directionsRenderer.current = null;
       }
+      if (userMarker.current) {
+        userMarker.current.setMap(null);
+        userMarker.current = null;
+      }
       if (mapInstance.current) {
         mapInstance.current = null;
       }
@@ -278,6 +296,9 @@ const MobileDriver = () => {
     return () => {
       if (directionsRenderer.current) {
         directionsRenderer.current.setMap(null);
+      }
+      if (userMarker.current) {
+        userMarker.current.setMap(null);
       }
     };
   }, []);
@@ -418,9 +439,17 @@ const MobileDriver = () => {
       <div className="p-4 space-y-4">
         {/* Map with modern styling */}
         {route && (
-          <Card className="overflow-hidden rounded-2xl shadow-lg border-0">
+          <Card className="overflow-hidden rounded-2xl shadow-lg border-0 relative">
             <CardContent className="p-0">
               <div ref={mapRef} className="w-full h-64 bg-gradient-to-br from-slate-200 to-slate-300" />
+              {/* Botão de centralizar localização */}
+              <Button
+                onClick={centerOnUserLocation}
+                className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-white/90 hover:bg-white text-blue-600 shadow-lg border-2 border-blue-200 p-0"
+                size="sm"
+              >
+                <Locate className="w-5 h-5" />
+              </Button>
             </CardContent>
           </Card>
         )}
