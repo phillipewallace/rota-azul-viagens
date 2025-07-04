@@ -111,7 +111,9 @@ const Map = () => {
   const clearDirectionsRenderers = () => {
     directionsRenderers.current.forEach(renderer => {
       try {
-        renderer.setMap(null);
+        if (renderer && renderer.setMap) {
+          renderer.setMap(null);
+        }
       } catch (error) {
         console.error('Error clearing directions renderer:', error);
       }
@@ -122,7 +124,9 @@ const Map = () => {
   const clearMarkers = () => {
     markersRef.current.forEach(marker => {
       try {
-        marker.setMap(null);
+        if (marker && marker.setMap) {
+          marker.setMap(null);
+        }
       } catch (error) {
         console.error('Error clearing marker:', error);
       }
@@ -158,14 +162,21 @@ const Map = () => {
       truckColorMap.set(truck.id, truckColors[index % truckColors.length]);
     });
     
-    trucks.forEach((truck) => {
-      if (!truck.location || typeof truck.location.lat !== 'number' || typeof truck.location.lng !== 'number') return;
+    // Só mostrar caminhões que têm localização
+    const trucksWithLocation = trucks.filter(truck => 
+      truck.location && 
+      typeof truck.location.lat === 'number' && 
+      typeof truck.location.lng === 'number'
+    );
 
+    console.log('Caminhões com localização:', trucksWithLocation.length);
+    
+    trucksWithLocation.forEach((truck) => {
       const truckColor = truckColorMap.get(truck.id);
       
       try {
         const marker = new window.google.maps.Marker({
-          position: { lat: truck.location.lat, lng: truck.location.lng },
+          position: { lat: truck.location!.lat, lng: truck.location!.lng },
           map: map.current,
           title: truck.name,
           icon: createTruckIcon(truckColor),
