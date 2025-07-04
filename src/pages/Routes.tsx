@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,14 +32,18 @@ const Routes = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta rota?')) {
+    if (window.confirm('Tem certeza que deseja excluir esta rota? Isso também removerá todos os agendamentos relacionados.')) {
       try {
         await deleteRoute(id);
         toast.success('Rota excluída com sucesso!');
         loadRoutes();
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting route:', error);
-        toast.error('Erro ao excluir rota');
+        if (error.message?.includes('foreign key') || error.message?.includes('chave estrangeira')) {
+          toast.error('Não é possível excluir esta rota pois ela possui agendamentos vinculados. Remova os agendamentos primeiro.');
+        } else {
+          toast.error('Erro ao excluir rota');
+        }
       }
     }
   };
@@ -188,7 +193,7 @@ const Routes = () => {
                         <p className="text-sm font-medium mb-2">Pontos principais:</p>
                         <div className="space-y-1">
                           {route.points.slice(0, 2).map((point, index) => (
-                            <div key={point.id} className="flex items-center gap-2 text-xs text-gray-600">
+                            <div key={`${route.id}-point-${index}`} className="flex items-center gap-2 text-xs text-gray-600">
                               <MapPin className="h-3 w-3" />
                               <span className="truncate">{point.address}</span>
                             </div>
@@ -308,7 +313,7 @@ const Routes = () => {
                         {viewingRoute.points
                           .sort((a: any, b: any) => a.order - b.order)
                           .map((point: any, index: number) => (
-                          <div key={point.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                          <div key={`${viewingRoute.id}-detail-point-${point.id || index}`} className="flex items-center gap-3 p-3 border rounded-lg">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
                               point.type === 'origin' ? 'bg-green-500' :
                               point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'

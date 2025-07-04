@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -199,6 +200,22 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
+    // First check if route is referenced by any schedules
+    const scheduleCheck = await pool.query(
+      'SELECT COUNT(*) as count FROM schedules WHERE route_id = $1', 
+      [id]
+    );
+    
+    if (parseInt(scheduleCheck.rows[0].count) > 0) {
+      return res.status(400).json({ 
+        error: 'Não é possível excluir esta rota pois ela possui agendamentos vinculados. Remova os agendamentos primeiro.' 
+      });
+    }
+    
+    // Delete related route_points first
+    await pool.query('DELETE FROM route_points WHERE route_id = $1', [id]);
+    
+    // Then delete the route
     const result = await pool.query('DELETE FROM routes WHERE id = $1 RETURNING *', [id]);
     
     if (result.rows.length === 0) {

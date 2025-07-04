@@ -30,23 +30,23 @@ export const MaintenanceStats: React.FC<MaintenanceStatsProps> = ({ stats, loadi
   const metrics = [
     {
       title: 'Caminhões',
-      value: `${stats.trucks.available}/${stats.trucks.total}`,
+      value: `${stats.trucks?.available || 0}/${stats.trucks?.total || 0}`,
       icon: Truck,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
-      subtitle: `${stats.trucks.in_maintenance} em manutenção`
+      subtitle: `${stats.trucks?.in_maintenance || 0} em manutenção`
     },
     {
       title: 'Manutenções',
-      value: stats.maintenance.total_maintenances.toString(),
+      value: (stats.maintenance?.total_maintenances || 0).toString(),
       icon: Wrench,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
-      subtitle: `${stats.maintenance.completed} concluídas`
+      subtitle: `${stats.maintenance?.completed || 0} concluídas`
     },
     {
       title: 'Próximas 30 dias',
-      value: stats.upcoming.upcoming_count.toString(),
+      value: (stats.upcoming?.upcoming_count || 0).toString(),
       icon: Calendar,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
@@ -54,7 +54,7 @@ export const MaintenanceStats: React.FC<MaintenanceStatsProps> = ({ stats, loadi
     },
     {
       title: 'Custo Médio',
-      value: `R$ ${Number(stats.costs.avg_cost || 0).toFixed(2)}`,
+      value: `R$ ${Number(stats.costs?.avg_cost || 0).toFixed(2)}`,
       icon: DollarSign,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',

@@ -35,33 +35,39 @@ const MapComponent = () => {
     { id: 'terrain', label: 'Terreno' }
   ] as const;
 
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('Geolocalização não suportada');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const newLocation = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-        setUserLocation(newLocation);
-        setLocationError(null);
-        console.log('📍 Localização obtida:', newLocation);
-      },
-      (error) => {
-        console.error('❌ Erro GPS:', error);
-        setLocationError('Erro ao obter localização GPS');
-        setUserLocation({ lat: -19.9167, lng: -44.0833 });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
+  const getCurrentLocation = (): Promise<{ lat: number; lng: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setLocationError('Geolocalização não suportada');
+        resolve(null);
+        return;
       }
-    );
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserLocation(newLocation);
+          setLocationError(null);
+          console.log('📍 Localização obtida:', newLocation);
+          resolve(newLocation);
+        },
+        (error) => {
+          console.error('❌ Erro GPS:', error);
+          setLocationError('Erro ao obter localização GPS');
+          const defaultLocation = { lat: -19.9167, lng: -44.0833 };
+          setUserLocation(defaultLocation);
+          resolve(defaultLocation);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        }
+      );
+    });
   };
 
   const initializeMap = async () => {

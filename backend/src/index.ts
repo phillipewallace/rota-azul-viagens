@@ -10,6 +10,7 @@ import reportsRoutes from './routes/reports';
 import managementRoutes from './routes/management';
 import driversRoutes from './routes/drivers';
 import settingsRoutes from './routes/settings';
+import schedulesRoutes from './routes/schedules';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/management', managementRoutes);
 app.use('/api/drivers', driversRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/schedules', schedulesRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
