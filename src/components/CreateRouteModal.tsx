@@ -100,7 +100,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       order: index,
       type: index === 0 ? 'origin' : 
             index === filteredPoints.length - 1 && filteredPoints.length > 1 ? 'destination' : 'waypoint'
-    }));
+    })) as RoutePoint[];
     setPoints(reorderedPoints);
   };
 
@@ -138,7 +138,11 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     try {
       setSearchingAddress(points.findIndex(p => p.id === pointId));
       
-      // Use Google Places API to search for address
+      if (!window.google || !window.google.maps) {
+        toast.error('Google Maps não está disponível');
+        return;
+      }
+
       const geocoder = new window.google.maps.Geocoder();
       const results = await new Promise<any>((resolve, reject) => {
         geocoder.geocode({ address: address }, (results, status) => {
@@ -160,7 +164,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
               address: formattedAddress,
               lat: location.lat(),
               lng: location.lng(),
-              cep: point.cep || '' // Keep existing CEP if any
+              cep: point.cep || ''
             }
           : point
       ));
@@ -202,23 +206,17 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         return;
       }
 
-      // Set the last point as destination
-      const finalPoints = validPoints.map((point, index) => ({
-        ...point,
-        order: index,
-        type: index === 0 ? 'origin' : 
-              index === validPoints.length - 1 ? 'destination' : 'waypoint'
-      }));
-
-      const optimizedData = await optimizeRoute(finalPoints);
+      // Implementar roteirizador inteligente aqui
+      const optimizedData = await optimizeRoute(validPoints);
       
       const preview = {
         name: routeName,
         description: routeDescription,
-        points: optimizedData.optimizedPoints,
+        points: optimizedData.points || validPoints,
         totalDistance: optimizedData.totalDistance,
         estimatedTime: optimizedData.estimatedTime,
-        optimizedOrder: optimizedData.optimizedOrder
+        optimizedOrder: optimizedData.optimizedOrder,
+        status: 'active'
       };
 
       setPreviewData(preview);
@@ -238,7 +236,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       setLoading(true);
       
       if (isEditing) {
-        await updateRoute(editingRoute.id, previewData);
+        await updateRoute({ id: editingRoute.id, route: previewData });
         toast.success('Rota atualizada com sucesso!');
       } else {
         await createRoute(previewData);

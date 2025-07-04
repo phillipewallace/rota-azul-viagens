@@ -1,136 +1,124 @@
 
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
-
-interface MaintenanceRecord {
-  id: string;
-  truckName: string;
-  maintenanceType: string;
-  description: string;
-  scheduledDate: string;
-  completedDate?: string;
-  cost?: number;
-  status: string;
-}
-
-interface ReportData {
-  totalRoutes: number;
-  activeRoutes: number;
-  totalTrucks: number;
-  activeTrucks: number;
-  totalKm: number;
-  completedTrips: number;
-  pendingTrips: number;
-}
+import autoTable from 'jspdf-autotable';
+import { ReportStats } from '@/hooks/useReports';
 
 export class PDFGenerator {
-  static generateMaintenanceReport(maintenanceRecords: MaintenanceRecord[], month: string) {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(20);
-    doc.text('Relatório de Manutenções', 20, 20);
-    
-    doc.setFontSize(12);
-    doc.text(`Período: ${month}`, 20, 35);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 45);
-    
-    // Filter records by month if needed
-    const filteredRecords = maintenanceRecords.filter(record => {
-      if (!month || month === 'all') return true;
-      const recordDate = new Date(record.scheduledDate);
-      const [year, monthNum] = month.split('-');
-      return recordDate.getFullYear() === parseInt(year) && 
-             recordDate.getMonth() === parseInt(monthNum) - 1;
-    });
-    
-    // Statistics
-    const stats = {
-      total: filteredRecords.length,
-      scheduled: filteredRecords.filter(r => r.status === 'scheduled').length,
-      inProgress: filteredRecords.filter(r => r.status === 'in-progress').length,
-      completed: filteredRecords.filter(r => r.status === 'completed').length,
-      totalCost: filteredRecords.reduce((sum, r) => sum + (r.cost || 0), 0)
-    };
-    
-    doc.setFontSize(14);
-    doc.text('Resumo:', 20, 65);
-    doc.setFontSize(10);
-    doc.text(`Total de Manutenções: ${stats.total}`, 25, 75);
-    doc.text(`Agendadas: ${stats.scheduled}`, 25, 85);
-    doc.text(`Em Andamento: ${stats.inProgress}`, 25, 95);
-    doc.text(`Concluídas: ${stats.completed}`, 25, 105);
-    doc.text(`Custo Total: R$ ${stats.totalCost.toLocaleString('pt-BR')}`, 25, 115);
-    
-    // Table
-    if (filteredRecords.length > 0) {
-      const tableData = filteredRecords.map(record => [
-        record.truckName,
-        record.maintenanceType,
-        new Date(record.scheduledDate).toLocaleDateString('pt-BR'),
-        record.status === 'scheduled' ? 'Agendada' :
-        record.status === 'in-progress' ? 'Em Andamento' :
-        record.status === 'completed' ? 'Concluída' : 'Cancelada',
-        `R$ ${(record.cost || 0).toLocaleString('pt-BR')}`
-      ]);
-      
-      (doc as any).autoTable({
-        head: [['Caminhão', 'Tipo', 'Data Agendada', 'Status', 'Custo']],
-        body: tableData,
-        startY: 130,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [59, 130, 246] }
-      });
-    }
-    
-    // Save
-    doc.save(`relatorio-manutencoes-${month || 'todos'}.pdf`);
+  private doc: jsPDF;
+
+  constructor() {
+    this.doc = new jsPDF();
   }
-  
-  static generateSystemReport(reportData: ReportData, monthlyData: any[], month: string) {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(20);
-    doc.text('Relatório do Sistema', 20, 20);
-    
-    doc.setFontSize(12);
-    doc.text(`Período: ${month}`, 20, 35);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 45);
-    
-    // System Statistics
-    doc.setFontSize(14);
-    doc.text('Estatísticas Gerais:', 20, 65);
-    doc.setFontSize(10);
-    doc.text(`Total de Rotas: ${reportData.totalRoutes}`, 25, 75);
-    doc.text(`Rotas Ativas: ${reportData.activeRoutes}`, 25, 85);
-    doc.text(`Total de Caminhões: ${reportData.totalTrucks}`, 25, 95);
-    doc.text(`Caminhões Ativos: ${reportData.activeTrucks}`, 25, 105);
-    doc.text(`Viagens Concluídas: ${reportData.completedTrips}`, 25, 115);
-    doc.text(`Viagens Pendentes: ${reportData.pendingTrips}`, 25, 125);
-    doc.text(`Total de KM: ${reportData.totalKm.toLocaleString('pt-BR')} km`, 25, 135);
-    
-    // Monthly performance table
-    if (monthlyData && monthlyData.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Performance Mensal:', 20, 160);
+
+  generateSystemReport(stats: ReportStats | null, month?: string) {
+    try {
+      // Verificar se stats existe
+      if (!stats) {
+        throw new Error('Dados de estatísticas não disponíveis');
+      }
+
+      this.doc = new jsPDF();
       
-      const tableData = monthlyData.map(data => [
-        data.month,
-        data.trips?.toString() || '0',
-        `${(data.km || 0).toLocaleString('pt-BR')} km`
-      ]);
+      // Header
+      this.doc.setFontSize(20);
+      this.doc.text('Relatório do Sistema', 20, 20);
       
-      (doc as any).autoTable({
-        head: [['Mês', 'Viagens', 'Quilometragem']],
-        body: tableData,
-        startY: 170,
-        styles: { fontSize: 10 },
+      if (month) {
+        this.doc.setFontSize(12);
+        this.doc.text(`Período: ${month}`, 20, 30);
+      }
+      
+      // Estatísticas gerais
+      this.doc.setFontSize(16);
+      this.doc.text('Estatísticas Gerais', 20, 50);
+      
+      const statsData = [
+        ['Total de Rotas', stats.totalRoutes?.toString() || '0'],
+        ['Rotas Ativas', stats.activeRoutes?.toString() || '0'],
+        ['Total de Caminhões', stats.totalTrucks?.toString() || '0'],
+        ['Caminhões Disponíveis', stats.availableTrucks?.toString() || '0'],
+        ['Viagens Concluídas', stats.completedTrips?.toString() || '0'],
+        ['Quilometragem Total', `${stats.totalKm?.toLocaleString() || '0'} km`],
+        ['Manutenções Pendentes', stats.pendingMaintenance?.toString() || '0']
+      ];
+
+      autoTable(this.doc, {
+        startY: 60,
+        head: [['Métrica', 'Valor']],
+        body: statsData,
+        theme: 'striped',
         headStyles: { fillColor: [59, 130, 246] }
       });
+
+      // Footer
+      const pageCount = this.doc.internal.getNumberOfPages();
+      this.doc.setFontSize(10);
+      this.doc.text(
+        `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`,
+        20,
+        this.doc.internal.pageSize.height - 20
+      );
+      
+      // Salvar arquivo
+      const fileName = `relatorio-sistema-${month || 'geral'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      this.doc.save(fileName);
+      
+    } catch (error) {
+      console.error('Erro ao gerar relatório:', error);
+      throw error;
     }
-    
-    // Save
-    doc.save(`relatorio-sistema-${month || 'todos'}.pdf`);
+  }
+
+  generateManagementReport(data: any[], month: string) {
+    try {
+      this.doc = new jsPDF();
+      
+      // Header
+      this.doc.setFontSize(20);
+      this.doc.text('Relatório de Gestão', 20, 20);
+      
+      this.doc.setFontSize(12);
+      this.doc.text(`Período: ${month}`, 20, 30);
+      
+      // Dados da tabela
+      if (data && data.length > 0) {
+        const tableData = data.map(item => [
+          item.id || '',
+          item.name || '',
+          item.status || '',
+          item.date || '',
+          item.value || ''
+        ]);
+
+        autoTable(this.doc, {
+          startY: 50,
+          head: [['ID', 'Nome', 'Status', 'Data', 'Valor']],
+          body: tableData,
+          theme: 'striped',
+          headStyles: { fillColor: [59, 130, 246] }
+        });
+      } else {
+        this.doc.setFontSize(14);
+        this.doc.text('Nenhum dado disponível para o período selecionado', 20, 60);
+      }
+
+      // Footer  
+      this.doc.setFontSize(10);
+      this.doc.text(
+        `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`,
+        20,
+        this.doc.internal.pageSize.height - 20
+      );
+      
+      // Salvar arquivo
+      const fileName = `relatorio-gestao-${month}-${new Date().toISOString().split('T')[0]}.pdf`;
+      this.doc.save(fileName);
+      
+    } catch (error) {
+      console.error('Erro ao gerar relatório de gestão:', error);
+      throw error;
+    }
   }
 }
+
+export const pdfGenerator = new PDFGenerator();

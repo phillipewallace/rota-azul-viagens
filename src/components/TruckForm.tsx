@@ -115,8 +115,8 @@ export const TruckForm: React.FC<TruckFormProps> = ({
               <SelectValue placeholder="Selecione o motorista" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhum motorista</SelectItem>
-              {drivers.map((driver) => (
+              <SelectItem value="none">Nenhum motorista</SelectItem>
+              {drivers?.map((driver) => (
                 <SelectItem key={driver.id} value={driver.name}>
                   {driver.name}
                 </SelectItem>
@@ -134,8 +134,8 @@ export const TruckForm: React.FC<TruckFormProps> = ({
               <SelectValue placeholder="Selecione a rota" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhuma rota</SelectItem>
-              {routes.map((route) => (
+              <SelectItem value="none">Nenhuma rota</SelectItem>
+              {routes?.map((route) => (
                 <SelectItem key={route.id} value={route.name}>
                   {route.name}
                 </SelectItem>

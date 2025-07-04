@@ -44,7 +44,7 @@ router.get('/cep/:cep', async (req, res) => {
   }
 });
 
-// Optimize route - Melhorada com TSP (Traveling Salesman Problem)
+// Algoritmo de otimização de rotas inteligente usando TSP (Traveling Salesman Problem)
 router.post('/optimize', async (req, res) => {
   try {
     const { points } = req.body;
@@ -61,9 +61,11 @@ router.post('/optimize', async (req, res) => {
     let optimizedRoute;
     let totalDistance = 0;
     let totalDuration = 0;
+    let optimizedPoints = [origin];
 
-    // Se temos waypoints, otimizar a rota
+    // Implementar algoritmo de otimização inteligente
     if (waypoints.length > 0) {
+      // Usar Google Directions API com otimização automática
       const waypointsParam = `optimize:true|${waypoints.map((p: any) => `${p.lat},${p.lng}`).join('|')}`;
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&waypoints=${waypointsParam}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
 
@@ -74,9 +76,23 @@ router.post('/optimize', async (req, res) => {
         optimizedRoute = data.routes[0];
         totalDistance = optimizedRoute.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0) / 1000;
         totalDuration = optimizedRoute.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
+        
+        // Reordenar pontos conforme otimização do Google
+        if (optimizedRoute.waypoint_order && optimizedRoute.waypoint_order.length > 0) {
+          const reorderedWaypoints = optimizedRoute.waypoint_order.map((index: number) => waypoints[index]);
+          optimizedPoints = [origin, ...reorderedWaypoints, destination];
+        } else {
+          optimizedPoints = [origin, ...waypoints, destination];
+        }
+      } else {
+        // Fallback: usar algoritmo simples de vizinho mais próximo
+        optimizedPoints = nearestNeighborTSP([origin, ...waypoints, destination]);
+        totalDistance = calculateTotalDistance(optimizedPoints);
+        totalDuration = totalDistance * 60; // Estimativa: 1 km/min
       }
     } else {
       // Rota simples entre dois pontos
+      optimizedPoints = [origin, destination];
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
       
       const response = await fetch(url);
@@ -86,45 +102,94 @@ router.post('/optimize', async (req, res) => {
         optimizedRoute = data.routes[0];
         totalDistance = optimizedRoute.legs[0].distance.value / 1000;
         totalDuration = optimizedRoute.legs[0].duration.value;
+      } else {
+        totalDistance = calculateDistance(origin, destination);
+        totalDuration = totalDistance * 60;
       }
     }
 
-    if (optimizedRoute) {
-      const hours = Math.floor(totalDuration / 3600);
-      const minutes = Math.floor((totalDuration % 3600) / 60);
-      const estimatedTime = `${hours}h ${minutes}min`;
+    // Atualizar ordem e tipo dos pontos otimizados
+    const finalOptimizedPoints = optimizedPoints.map((point, index) => ({
+      ...point,
+      order: index,
+      type: index === 0 ? 'origin' : 
+            index === optimizedPoints.length - 1 ? 'destination' : 'waypoint'
+    }));
 
-      // Criar ordem otimizada
-      let optimizedOrder = [origin.id];
-      if (optimizedRoute.waypoint_order && optimizedRoute.waypoint_order.length > 0) {
-        optimizedOrder.push(...optimizedRoute.waypoint_order.map((index: number) => waypoints[index].id));
-      }
-      optimizedOrder.push(destination.id);
+    const hours = Math.floor(totalDuration / 3600);
+    const minutes = Math.floor((totalDuration % 3600) / 60);
+    const estimatedTime = `${hours}h ${minutes}min`;
 
-      res.json({
-        optimizedOrder,
-        totalDistance,
-        estimatedTime,
-        routes: [optimizedRoute],
-        polyline: optimizedRoute.overview_polyline.points
-      });
-    } else {
-      // Fallback para quando não há rota disponível
-      const estimatedDistance = points.length * 10;
-      const estimatedTime = `${Math.floor(estimatedDistance / 60)}h ${estimatedDistance % 60}min`;
+    res.json({
+      points: finalOptimizedPoints,
+      optimizedOrder: finalOptimizedPoints.map(p => p.id),
+      totalDistance: totalDistance,
+      estimatedTime: estimatedTime,
+      polyline: optimizedRoute?.overview_polyline?.points || null
+    });
 
-      res.json({
-        optimizedOrder: points.map((p: any) => p.id),
-        totalDistance: estimatedDistance,
-        estimatedTime,
-        routes: [],
-        polyline: null
-      });
-    }
   } catch (error) {
     console.error('Error optimizing route:', error);
     res.status(500).json({ error: 'Erro ao otimizar rota' });
   }
 });
+
+// Algoritmo de vizinho mais próximo para TSP
+function nearestNeighborTSP(points: any[]): any[] {
+  if (points.length <= 2) return points;
+  
+  const result = [points[0]]; // Começar com o primeiro ponto (origem)
+  const remaining = points.slice(1, -1); // Pontos intermediários
+  const destination = points[points.length - 1]; // Último ponto (destino)
+  
+  let currentPoint = points[0];
+  
+  while (remaining.length > 0) {
+    let nearestIndex = 0;
+    let minDistance = calculateDistance(currentPoint, remaining[0]);
+    
+    for (let i = 1; i < remaining.length; i++) {
+      const distance = calculateDistance(currentPoint, remaining[i]);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestIndex = i;
+      }
+    }
+    
+    currentPoint = remaining[nearestIndex];
+    result.push(currentPoint);
+    remaining.splice(nearestIndex, 1);
+  }
+  
+  result.push(destination); // Adicionar destino no final
+  return result;
+}
+
+// Calcular distância entre dois pontos (fórmula de Haversine)
+function calculateDistance(point1: any, point2: any): number {
+  const R = 6371; // Raio da Terra em km
+  const dLat = toRadians(point2.lat - point1.lat);
+  const dLng = toRadians(point2.lng - point1.lng);
+  
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+           Math.cos(toRadians(point1.lat)) * Math.cos(toRadians(point2.lat)) *
+           Math.sin(dLng/2) * Math.sin(dLng/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Calcular distância total de uma rota
+function calculateTotalDistance(points: any[]): number {
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    total += calculateDistance(points[i], points[i + 1]);
+  }
+  return total;
+}
+
+function toRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
+}
 
 export default router;

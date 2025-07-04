@@ -4,7 +4,7 @@ import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
 import { googleMapsService } from '@/services/googleMaps';
 
-const Map = () => {
+const MapComponent = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -191,7 +191,7 @@ const Map = () => {
           infoWindow.open(map.current, marker);
         });
 
-        // IMPORTANTE: Só desenhar a rota se o caminhão tem uma rota atribuída E está em rota
+        // Só desenhar a rota se o caminhão tem uma rota atribuída E está em rota
         if (truck.currentRoute && truck.status === 'in-route' && Array.isArray(routes)) {
           const route = routes.find(r => r.id === truck.currentRoute);
           if (route && route.points && route.points.length >= 2) {
@@ -318,4 +318,4 @@ const Map = () => {
   );
 };
 
-export default Map;
+export default MapComponent;
