@@ -1,37 +1,45 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { routesService } from '@/services/routes';
-import { Route } from '@/hooks/useRoutes';
+import { Route } from './useRoutes';
+
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
 
 export const useRoutesCRUD = () => {
   const queryClient = useQueryClient();
 
-  const createRouteMutation = useMutation({
-    mutationFn: (routeData: Omit<Route, 'id' | 'createdAt'>) => routesService.createRoute(routeData),
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, route }: { id: string; route: Partial<Route> }) => {
+      const response = await fetch(`${API_BASE_URL}/routes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(route),
+      });
+      if (!response.ok) throw new Error('Erro ao atualizar rota');
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] });
-    }
+    },
   });
 
-  const updateRouteMutation = useMutation({
-    mutationFn: ({ id, route }: { id: string; route: Partial<Route> }) => 
-      routesService.updateRoute(id, route),
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`${API_BASE_URL}/routes/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Erro ao excluir rota');
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] });
-    }
-  });
-
-  const deleteRouteMutation = useMutation({
-    mutationFn: (id: string) => routesService.deleteRoute(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['routes'] });
-    }
+    },
   });
 
   return {
-    createRoute: createRouteMutation.mutateAsync,
-    updateRoute: updateRouteMutation.mutateAsync,
-    deleteRoute: deleteRouteMutation.mutateAsync,
-    isLoading: createRouteMutation.isPending || updateRouteMutation.isPending || deleteRouteMutation.isPending
+    updateRoute: updateMutation.mutateAsync,
+    deleteRoute: deleteMutation.mutateAsync,
+    isLoading: updateMutation.isPending || deleteMutation.isPending,
   };
 };

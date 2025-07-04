@@ -94,14 +94,6 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
   try {
     const { truckId } = req.params;
     
-    // Get current route ID before clearing it
-    const truckResult = await pool.query(
-      'SELECT current_route_id FROM trucks WHERE id = $1',
-      [truckId]
-    );
-    
-    const currentRouteId = truckResult.rows[0]?.current_route_id;
-    
     // Update truck status and remove current route
     await pool.query(
       'UPDATE trucks SET status = $1, current_route_id = NULL WHERE id = $2',
@@ -109,10 +101,15 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     );
     
     // Mark route as completed if exists
-    if (currentRouteId) {
+    const truckResult = await pool.query(
+      'SELECT current_route_id FROM trucks WHERE id = $1',
+      [truckId]
+    );
+    
+    if (truckResult.rows[0]?.current_route_id) {
       await pool.query(
         'UPDATE routes SET status = $1 WHERE id = $2',
-        ['completed', currentRouteId]
+        ['completed', truckResult.rows[0].current_route_id]
       );
     }
     
