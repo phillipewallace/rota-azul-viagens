@@ -23,22 +23,36 @@ const MobileRouteMap: React.FC<MobileRouteMapProps> = ({ route }) => {
 
   useEffect(() => {
     const initializeMap = async () => {
-      if (!mapContainer.current || !route.points?.length) return;
+      if (!mapContainer.current || !route.points?.length) {
+        console.log('❌ Map container or points not available');
+        return;
+      }
 
       try {
+        console.log('🗺️ Initializing mobile route map...');
         await googleMapsService.initialize();
         
-        if (!window.google || !window.google.maps) return;
+        if (!window.google || !window.google.maps) {
+          console.log('❌ Google Maps API not loaded');
+          return;
+        }
 
         const validPoints = route.points
-          .filter(point => point.lat && point.lng)
+          .filter(point => point.lat && point.lng && typeof point.lat === 'number' && typeof point.lng === 'number')
           .sort((a, b) => a.order - b.order);
 
-        if (validPoints.length === 0) return;
+        console.log('📍 Valid points:', validPoints.length);
+
+        if (validPoints.length === 0) {
+          console.log('❌ No valid points found');
+          return;
+        }
 
         // Calculate center point
         const centerLat = validPoints.reduce((sum, point) => sum + point.lat, 0) / validPoints.length;
         const centerLng = validPoints.reduce((sum, point) => sum + point.lng, 0) / validPoints.length;
+
+        console.log('🎯 Map center:', { lat: centerLat, lng: centerLng });
 
         map.current = new window.google.maps.Map(mapContainer.current, {
           center: { lat: centerLat, lng: centerLng },
@@ -102,13 +116,17 @@ const MobileRouteMap: React.FC<MobileRouteMapProps> = ({ route }) => {
           }, (result: any, status: string) => {
             if (status === 'OK') {
               directionsRenderer.setDirections(result);
+              console.log('✅ Route drawn successfully');
+            } else {
+              console.error('❌ Directions service failed:', status);
             }
           });
         }
 
         setMapLoaded(true);
+        console.log('✅ Mobile route map initialized successfully');
       } catch (error) {
-        console.error('Error initializing mobile route map:', error);
+        console.error('❌ Error initializing mobile route map:', error);
       }
     };
 

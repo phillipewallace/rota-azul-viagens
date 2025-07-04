@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
@@ -16,9 +17,6 @@ const MapComponent = () => {
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
 
-  // Coordenadas da sede da empresa - R. A, 60 - Chacaras Reunidas Santa Terezinha, Contagem - MG
-  const companyLocation = { lat: -19.8157, lng: -44.0537 };
-
   // Cores fixas para cada caminhão
   const truckColors = [
     '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', 
@@ -34,10 +32,6 @@ const MapComponent = () => {
   ] as const;
 
   const getCurrentLocation = () => {
-    // Use company location as default instead of GPS
-    setUserLocation(companyLocation);
-    setLocationError(null);
-    
     if (!navigator.geolocation) {
       setLocationError('Geolocalização não suportada');
       return;
@@ -45,14 +39,19 @@ const MapComponent = () => {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        // Keep using company location for consistency
-        setUserLocation(companyLocation);
+        const newLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        setUserLocation(newLocation);
         setLocationError(null);
+        console.log('📍 Localização obtida:', newLocation);
       },
       (error) => {
         console.error('❌ Erro GPS:', error);
-        setLocationError('Usando localização da sede da empresa');
-        setUserLocation(companyLocation);
+        setLocationError('Erro ao obter localização GPS');
+        // Fallback para Contagem-MG se GPS falhar
+        setUserLocation({ lat: -19.9167, lng: -44.0833 });
       },
       {
         enableHighAccuracy: true,
@@ -87,21 +86,6 @@ const MapComponent = () => {
             stylers: [{ visibility: 'off' }]
           }
         ]
-      });
-
-      // Marcador da sede da empresa
-      new window.google.maps.Marker({
-        position: companyLocation,
-        map: map.current,
-        title: 'Sede - AlchemyRotas\nR. A, 60 - Chacaras Reunidas Santa Terezinha\nContagem - MG',
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 12,
-          fillColor: '#1e40af',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 3
-        },
       });
 
       setMapLoaded(true);

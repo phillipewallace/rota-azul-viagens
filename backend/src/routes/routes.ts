@@ -63,19 +63,20 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update route
+// Update route - FIXED
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
+    console.log('Received route update request:', { id, body: req.body });
+    
     // Validate ID
     if (!id || id === 'undefined' || id === 'null') {
+      console.error('Invalid route ID:', id);
       return res.status(400).json({ error: 'ID da rota é obrigatório' });
     }
 
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder, status } = req.body;
-
-    console.log('Updating route:', { id, body: req.body });
 
     // Build update query dynamically
     const updates = [];
@@ -138,12 +139,12 @@ router.put('/:id', async (req, res) => {
       RETURNING *
     `;
 
-    console.log('Update query:', query);
-    console.log('Update values:', values);
+    console.log('Executing update query:', query, values);
 
     const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
+      console.error('Route not found with ID:', id);
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
 
@@ -156,9 +157,11 @@ router.put('/:id', async (req, res) => {
       estimatedTime: result.rows[0].estimated_time,
       optimizedOrder: result.rows[0].optimized_order || [],
       status: result.rows[0].status,
-      createdAt: result.rows[0].created_at
+      createdAt: result.rows[0].created_at,
+      updatedAt: result.rows[0].updated_at
     };
 
+    console.log('Route updated successfully:', route.id);
     res.json(route);
   } catch (error) {
     console.error('Error updating route:', error);
