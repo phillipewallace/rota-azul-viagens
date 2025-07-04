@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { routesService } from '@/services/routes';
@@ -11,7 +10,7 @@ export interface Route {
   totalDistance: number;
   estimatedTime?: string;
   status: 'active' | 'inactive' | 'completed';
-  optimizedOrder?: string[];
+  optimizedOrder: string[];
   polyline?: string;
   createdAt: string;
 }
@@ -22,11 +21,12 @@ export const useRoutesCRUD = () => {
 
   const createRouteMutation = useMutation({
     mutationFn: async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
-      // Garantir que totalDistance sempre tenha um valor
+      // Garantir que todos os campos obrigatórios tenham valores
       const routeWithDefaults = {
         ...routeData,
         totalDistance: routeData.totalDistance || 0,
-        estimatedTime: routeData.estimatedTime || '0h 0min'
+        estimatedTime: routeData.estimatedTime || '0h 0min',
+        optimizedOrder: routeData.optimizedOrder || routeData.points.map((p, index) => p.id || `point-${index}`)
       };
       return await routesService.createRoute(routeWithDefaults);
     },
