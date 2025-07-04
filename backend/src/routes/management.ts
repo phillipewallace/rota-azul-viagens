@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -225,8 +224,8 @@ router.post('/maintenance', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error creating maintenance record:', error);
-    console.error('❌ Error details:', error.message);
-    res.status(500).json({ error: 'Erro ao criar registro de manutenção: ' + error.message });
+    console.error('❌ Error details:', (error as Error).message);
+    res.status(500).json({ error: 'Erro ao criar registro de manutenção: ' + (error as Error).message });
   }
 });
 
@@ -274,7 +273,7 @@ router.put('/maintenance/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error updating maintenance record:', error);
-    res.status(500).json({ error: 'Erro ao atualizar registro de manutenção: ' + error.message });
+    res.status(500).json({ error: 'Erro ao atualizar registro de manutenção: ' + (error as Error).message });
   }
 });
 
@@ -295,7 +294,7 @@ router.delete('/maintenance/:id', async (req, res) => {
     res.json({ message: 'Registro de manutenção excluído com sucesso' });
   } catch (error) {
     console.error('❌ Error deleting maintenance record:', error);
-    res.status(500).json({ error: 'Erro ao excluir registro de manutenção: ' + error.message });
+    res.status(500).json({ error: 'Erro ao excluir registro de manutenção: ' + (error as Error).message });
   }
 });
 

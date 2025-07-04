@@ -1,68 +1,71 @@
-
-import { Router } from 'express';
-import { pool } from '../config/database';
+import express from 'express';
 import { format } from 'date-fns';
+import { pool } from '../config/database';
 
-const router = Router();
+const router = express.Router();
 
 // Get all schedules
 router.get('/', async (req, res) => {
   try {
-    console.log('📅 Fetching all schedules...');
+    console.log('📅 [SCHEDULES GET] Iniciando busca por cronogramas...')
     
     const query = `
       SELECT 
         s.id,
-        s.name,
+        s.driver_id,
         s.truck_id,
         s.route_id,
-        s.route_name,
-        s.driver_id,
+        s.departure_time,
+        s.arrival_time,
         s.scheduled_date,
-        s.scheduled_time,
-        s.start_date,
-        s.end_date,
-        s.days_of_week,
-        s.start_time,
         s.status,
-        s.notes,
         s.created_at,
-        t.name as truck_name,
+        d.name as driver_name,
+        d.license_number as driver_license,
+        t.name as truck_name, 
         t.plate as truck_plate,
-        r.name as route_full_name,
-        d.name as driver_name
+        r.name as route_name,
+        r.origin,
+        r.destination
       FROM schedules s
-      LEFT JOIN trucks t ON s.truck_id = t.id
-      LEFT JOIN routes r ON s.route_id = r.id
       LEFT JOIN drivers d ON s.driver_id = d.id
-      ORDER BY s.scheduled_date DESC, s.scheduled_time DESC
+      LEFT JOIN trucks t ON s.truck_id = t.id  
+      LEFT JOIN routes r ON s.route_id = r.id
+      ORDER BY s.scheduled_date DESC, s.departure_time ASC
     `;
     
     const result = await pool.query(query);
     
     const schedules = result.rows.map(schedule => ({
       id: schedule.id,
-      name: schedule.name,
-      truckId: schedule.truck_id,
-      truck: schedule.truck_name || `Caminhão ${schedule.truck_plate}`,
-      route: schedule.route_name || schedule.route_full_name || 'Rota não definida',
       driverId: schedule.driver_id,
-      driver: schedule.driver_name || 'Motorista não definido',
+      truckId: schedule.truck_id,
+      routeId: schedule.route_id,
+      departureTime: schedule.departure_time,
+      arrivalTime: schedule.arrival_time,
       scheduledDate: schedule.scheduled_date,
-      scheduledTime: schedule.scheduled_time,
-      startDate: schedule.start_date,
-      endDate: schedule.end_date,
-      daysOfWeek: schedule.days_of_week,
-      startTime: schedule.start_time,
       status: schedule.status,
-      notes: schedule.notes
-    }));
-
-    console.log(`✅ Found ${schedules.length} schedules`);
-    res.json(schedules);
+      createdAt: schedule.created_at,
+      driver: {
+        name: schedule.driver_name,
+        license: schedule.driver_license
+      },
+      truck: {
+        name: schedule.truck_name,
+        plate: schedule.truck_plate
+      },
+      route: {
+        name: schedule.route_name,
+        origin: schedule.origin,
+        destination: schedule.destination
+      }
+    }))
+    
+    console.log(`✅ [SCHEDULES GET] ${schedules.length} cronogramas encontrados`)
+    res.json(schedules)
   } catch (error) {
-    console.error('❌ Error fetching schedules:', error);
-    res.status(500).json({ error: 'Erro ao buscar agendamentos' });
+    console.error('❌ [SCHEDULES GET] Erro ao buscar cronogramas:', error)
+    res.status(500).json({ error: 'Erro ao buscar cronogramas' })
   }
 });
 
