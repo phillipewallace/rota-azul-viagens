@@ -28,7 +28,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [points, setPoints] = useState<RoutePoint[]>([]);
-  const [currentPoint, setCurrentPoint] = useState({ address: '', cep: '' });
+  const [currentPoint, setCurrentPoint] = useState({ address: '', cep: '', lat: 0, lng: 0 });
   const [loading, setLoading] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
@@ -51,7 +51,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     setName('');
     setDescription('');
     setPoints([]);
-    setCurrentPoint({ address: '', cep: '' });
+    setCurrentPoint({ address: '', cep: '', lat: 0, lng: 0 });
     setPreviewData(null);
     setShowPreview(false);
   };
@@ -62,7 +62,12 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     try {
       setSearchingAddress(true);
       const addressData = await getAddressByCep(cep);
-      setCurrentPoint(prev => ({ ...prev, address: addressData.address }));
+      setCurrentPoint(prev => ({ 
+        ...prev, 
+        address: addressData.address,
+        lat: addressData.lat || -23.5505,
+        lng: addressData.lng || -46.6333
+      }));
     } catch (error) {
       console.error('Erro ao buscar CEP:', error);
       toast.error('CEP não encontrado');
@@ -76,7 +81,6 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     
     try {
       setSearchingAddress(true);
-      // Usar Google Geocoding para buscar coordenadas do endereço
       const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`);
       const data = await response.json();
       
@@ -108,32 +112,24 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     }
 
     try {
-      let pointData;
+      let pointData = currentPoint;
       
-      if (currentPoint.cep) {
+      if (currentPoint.cep && currentPoint.lat === 0) {
         pointData = await getAddressByCep(currentPoint.cep);
-      } else {
-        // Se não tem CEP, usar dados já obtidos pela busca de endereço
-        pointData = {
-          address: currentPoint.address,
-          lat: currentPoint.lat || -23.5505,
-          lng: currentPoint.lng || -46.6333,
-          cep: currentPoint.cep || ''
-        };
       }
 
       const newPoint: RoutePoint = {
         id: `point-${Date.now()}`,
         address: pointData.address,
-        cep: pointData.cep,
-        lat: pointData.lat,
-        lng: pointData.lng,
+        cep: pointData.cep || currentPoint.cep,
+        lat: pointData.lat || currentPoint.lat || -23.5505,
+        lng: pointData.lng || currentPoint.lng || -46.6333,
         order: points.length,
         type: points.length === 0 ? 'origin' : 'waypoint'
       };
 
       setPoints([...points, newPoint]);
-      setCurrentPoint({ address: '', cep: '' });
+      setCurrentPoint({ address: '', cep: '', lat: 0, lng: 0 });
       toast.success('Ponto adicionado!');
     } catch (error) {
       console.error('Erro ao adicionar ponto:', error);
@@ -147,7 +143,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     const reorderedPoints = newPoints.map((point, i) => ({
       ...point,
       order: i,
-      type: i === 0 ? 'origin' : i === newPoints.length - 1 && newPoints.length > 1 ? 'destination' : 'waypoint'
+      type: (i === 0 ? 'origin' : i === newPoints.length - 1 && newPoints.length > 1 ? 'destination' : 'waypoint') as 'origin' | 'waypoint' | 'destination'
     }));
     setPoints(reorderedPoints);
   };
@@ -155,7 +151,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const setAsDestination = (index: number) => {
     const newPoints = points.map((point, i) => ({
       ...point,
-      type: i === index ? 'destination' : point.type === 'destination' ? 'waypoint' : point.type
+      type: (i === index ? 'destination' : point.type === 'destination' ? 'waypoint' : point.type) as 'origin' | 'waypoint' | 'destination'
     }));
     setPoints(newPoints);
   };
