@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 
-// Pages - Main Project
+// Pages
 import Index from "./pages/Index";
 import Trucks from "./pages/Trucks";
 import Drivers from "./pages/Drivers";
@@ -16,12 +16,10 @@ import Management from "./pages/Management";
 import Maintenance from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import MobileDriver from "./pages/MobileDriver";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
-
-// Mobile Driver Page (referencing existing mobile structure)
-import MobileDriver from "./pages/MobileDriver";
 
 import "./App.css";
 

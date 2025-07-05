@@ -1,23 +1,14 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Truck } from './useTrucks';
-
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
+import { trucksService } from '@/services/trucks';
 
 export const useTrucksCRUD = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
     mutationFn: async (truck: Omit<Truck, 'id'>) => {
-      const response = await fetch(`${API_BASE_URL}/trucks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(truck),
-      });
-      if (!response.ok) throw new Error('Erro ao criar caminhão');
-      return response.json();
+      return trucksService.createTruck(truck);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
@@ -26,13 +17,7 @@ export const useTrucksCRUD = () => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, truck }: { id: string; truck: Partial<Truck> }) => {
-      const response = await fetch(`${API_BASE_URL}/trucks/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(truck),
-      });
-      if (!response.ok) throw new Error('Erro ao atualizar caminhão');
-      return response.json();
+      return trucksService.updateTruck(id, truck);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
@@ -41,7 +26,7 @@ export const useTrucksCRUD = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${API_BASE_URL}/trucks/${id}`, {
+      const response = await fetch(`https://admmicban.com.br/api/trucks/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Erro ao excluir caminhão');

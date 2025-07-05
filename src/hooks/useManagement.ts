@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { BaseApiService } from '@/services/base';
 
 export interface ManagementStats {
   trucks: {
@@ -50,9 +51,60 @@ export interface TruckPerformanceData {
   status: string;
 }
 
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
+class ManagementService extends BaseApiService {
+  async getStats(): Promise<ManagementStats> {
+    return this.request<ManagementStats>('/management/stats');
+  }
+
+  async getPerformance(filters: {
+    startDate?: string;
+    endDate?: string;
+    truckId?: string;
+    routeId?: string;
+  } = {}): Promise<PerformanceData[]> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    return this.request<PerformanceData[]>(`/management/performance?${params}`);
+  }
+
+  async getRouteUsage(filters: {
+    startDate?: string;
+    endDate?: string;
+  } = {}): Promise<RouteUsageData[]> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    return this.request<RouteUsageData[]>(`/management/route-usage?${params}`);
+  }
+
+  async getTruckPerformance(filters: {
+    startDate?: string;
+    endDate?: string;
+  } = {}): Promise<TruckPerformanceData[]> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    return this.request<TruckPerformanceData[]>(`/management/truck-performance?${params}`);
+  }
+
+  async exportReport(filters: {
+    startDate?: string;
+    endDate?: string;
+    format?: string;
+  } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    return this.request<any>(`/management/export?${params}`);
+  }
+}
+
+const managementService = new ManagementService();
 
 export const useManagement = () => {
   const [stats, setStats] = useState<ManagementStats | null>(null);
@@ -64,11 +116,8 @@ export const useManagement = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/management/stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const data = await managementService.getStats();
+      setStats(data);
     } catch (error) {
       console.error('Error loading stats:', error);
     } finally {
@@ -83,16 +132,8 @@ export const useManagement = () => {
     routeId?: string;
   } = {}) => {
     try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
-
-      const response = await fetch(`${API_BASE_URL}/management/performance?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setPerformance(data);
-      }
+      const data = await managementService.getPerformance(filters);
+      setPerformance(data);
     } catch (error) {
       console.error('Error loading performance:', error);
     }
@@ -103,16 +144,8 @@ export const useManagement = () => {
     endDate?: string;
   } = {}) => {
     try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
-
-      const response = await fetch(`${API_BASE_URL}/management/route-usage?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setRouteUsage(data);
-      }
+      const data = await managementService.getRouteUsage(filters);
+      setRouteUsage(data);
     } catch (error) {
       console.error('Error loading route usage:', error);
     }
@@ -123,16 +156,8 @@ export const useManagement = () => {
     endDate?: string;
   } = {}) => {
     try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
-
-      const response = await fetch(`${API_BASE_URL}/management/truck-performance?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTruckPerformance(data);
-      }
+      const data = await managementService.getTruckPerformance(filters);
+      setTruckPerformance(data);
     } catch (error) {
       console.error('Error loading truck performance:', error);
     }
@@ -144,15 +169,7 @@ export const useManagement = () => {
     format?: string;
   } = {}) => {
     try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
-
-      const response = await fetch(`${API_BASE_URL}/management/export?${params}`);
-      if (response.ok) {
-        return await response.json();
-      }
+      return await managementService.exportReport(filters);
     } catch (error) {
       console.error('Error exporting report:', error);
       throw error;

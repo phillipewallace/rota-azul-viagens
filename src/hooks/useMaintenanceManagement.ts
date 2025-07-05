@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { BaseApiService } from '@/services/base';
 
 export interface MaintenanceStats {
   trucks: {
@@ -44,9 +45,58 @@ export interface CostSummary {
   avg_cost: number;
 }
 
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
+class MaintenanceManagementService extends BaseApiService {
+  async getStats(): Promise<MaintenanceStats> {
+    return this.request<MaintenanceStats>('/management/stats');
+  }
+
+  async getMaintenanceRecords(filters: {
+    startDate?: string;
+    endDate?: string;
+    truckId?: string;
+    status?: string;
+    type?: string;
+  } = {}): Promise<MaintenanceRecord[]> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value !== 'all') params.append(key, value);
+    });
+    return this.request<MaintenanceRecord[]>(`/management/maintenance?${params}`);
+  }
+
+  async getCostsSummary(filters: {
+    startDate?: string;
+    endDate?: string;
+  } = {}): Promise<CostSummary[]> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    return this.request<CostSummary[]>(`/management/costs-summary?${params}`);
+  }
+
+  async createMaintenance(maintenance: Omit<MaintenanceRecord, 'id' | 'truck_name' | 'truck_plate' | 'created_at' | 'updated_at'>): Promise<MaintenanceRecord> {
+    return this.request<MaintenanceRecord>('/management/maintenance', {
+      method: 'POST',
+      body: JSON.stringify(maintenance),
+    });
+  }
+
+  async updateMaintenance(id: string, maintenance: Partial<MaintenanceRecord>): Promise<MaintenanceRecord> {
+    return this.request<MaintenanceRecord>(`/management/maintenance/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(maintenance),
+    });
+  }
+
+  async deleteMaintenance(id: string): Promise<void> {
+    return this.request<void>(`/management/maintenance/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+const maintenanceManagementService = new MaintenanceManagementService();
 
 export const useMaintenanceManagement = () => {
   const [stats, setStats] = useState<MaintenanceStats | null>(null);
@@ -57,11 +107,8 @@ export const useMaintenanceManagement = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/management/stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const data = await maintenanceManagementService.getStats();
+      setStats(data);
     } catch (error) {
       console.error('Error loading maintenance stats:', error);
     } finally {
@@ -77,16 +124,8 @@ export const useMaintenanceManagement = () => {
     type?: string;
   } = {}) => {
     try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value && value !== 'all') params.append(key, value);
-      });
-
-      const response = await fetch(`${API_BASE_URL}/management/maintenance?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMaintenanceRecords(data);
-      }
+      const data = await maintenanceManagementService.getMaintenanceRecords(filters);
+      setMaintenanceRecords(data);
     } catch (error) {
       console.error('Error loading maintenance records:', error);
     }
@@ -97,16 +136,8 @@ export const useMaintenanceManagement = () => {
     endDate?: string;
   } = {}) => {
     try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
-
-      const response = await fetch(`${API_BASE_URL}/management/costs-summary?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setCostsSummary(data);
-      }
+      const data = await maintenanceManagementService.getCostsSummary(filters);
+      setCostsSummary(data);
     } catch (error) {
       console.error('Error loading costs summary:', error);
     }
@@ -114,18 +145,10 @@ export const useMaintenanceManagement = () => {
 
   const createMaintenance = async (maintenance: Omit<MaintenanceRecord, 'id' | 'truck_name' | 'truck_plate' | 'created_at' | 'updated_at'>) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/management/maintenance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(maintenance),
-      });
-      
-      if (response.ok) {
-        await loadMaintenanceRecords();
-        await loadStats();
-        return await response.json();
-      }
-      throw new Error('Failed to create maintenance record');
+      const result = await maintenanceManagementService.createMaintenance(maintenance);
+      await loadMaintenanceRecords();
+      await loadStats();
+      return result;
     } catch (error) {
       console.error('Error creating maintenance:', error);
       throw error;
@@ -134,18 +157,10 @@ export const useMaintenanceManagement = () => {
 
   const updateMaintenance = async (id: string, maintenance: Partial<MaintenanceRecord>) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/management/maintenance/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(maintenance),
-      });
-      
-      if (response.ok) {
-        await loadMaintenanceRecords();
-        await loadStats();
-        return await response.json();
-      }
-      throw new Error('Failed to update maintenance record');
+      const result = await maintenanceManagementService.updateMaintenance(id, maintenance);
+      await loadMaintenanceRecords();
+      await loadStats();
+      return result;
     } catch (error) {
       console.error('Error updating maintenance:', error);
       throw error;
@@ -154,15 +169,9 @@ export const useMaintenanceManagement = () => {
 
   const deleteMaintenance = async (id: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/management/maintenance/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        await loadMaintenanceRecords();
-        await loadStats();
-      }
-      throw new Error('Failed to delete maintenance record');
+      await maintenanceManagementService.deleteMaintenance(id);
+      await loadMaintenanceRecords();
+      await loadStats();
     } catch (error) {
       console.error('Error deleting maintenance:', error);
       throw error;

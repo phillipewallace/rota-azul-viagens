@@ -27,53 +27,46 @@ export interface TruckMobileData {
   };
 }
 
+// Configuração da URL da API forçada para produção
 const API_BASE_URL = 'https://admmicban.com.br/api';
+
+console.log('🔍 [MOBILE] API_BASE_URL configurada como:', API_BASE_URL);
 
 export const useMobile = () => {
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
 
   const getTruckByPlate = async (plate: string): Promise<TruckMobileData> => {
     try {
-      console.log(`🔍 Buscando caminhão com placa: ${plate}`);
+      console.log(`🔍 [MOBILE] Buscando caminhão com placa: ${plate}`);
+      console.log(`🔍 [MOBILE] URL da requisição: ${API_BASE_URL}/mobile/truck/${plate}`);
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
       });
       
-      console.log(`📡 Response status: ${response.status}`);
+      console.log(`📡 [MOBILE] Response status: ${response.status}`);
+      console.log(`📡 [MOBILE] Response ok: ${response.ok}`);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        console.error('❌ Erro na resposta:', errorData);
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+        const errorData = await response.text().catch(() => 'Erro desconhecido');
+        console.error('❌ [MOBILE] Erro na resposta:', errorData);
+        throw new Error(`Erro ${response.status}: ${response.statusText} - ${errorData}`);
       }
       
       const data = await response.json();
-      console.log('✅ Dados do caminhão recebidos:', data);
-      
-      // Garantir que os pontos tenham completed como boolean
-      if (data.currentRoute && data.currentRoute.points) {
-        data.currentRoute.points = data.currentRoute.points.map((point: any) => ({
-          ...point,
-          completed: Boolean(point.completed)
-        }));
-        console.log('📍 Pontos processados:', data.currentRoute.points.map((p: any) => ({
-          id: p.id,
-          address: p.address,
-          order: p.order,
-          completed: p.completed
-        })));
-      }
+      console.log('✅ [MOBILE] Dados do caminhão recebidos:', data);
       
       return data;
     } catch (error) {
-      console.error('❌ Erro ao buscar caminhão:', error);
+      console.error('❌ [MOBILE] Erro ao buscar caminhão:', error);
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Erro de conexão. Verifique se o servidor está rodando.');
+        throw new Error('Erro de conexão. Verifique se o servidor está acessível.');
       }
       
       throw error;
@@ -83,25 +76,29 @@ export const useMobile = () => {
   const updateTruckLocation = async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
     try {
       setIsUpdatingLocation(true);
-      console.log(`📍 Atualizando localização do caminhão ${truckId}: ${lat}, ${lng}`);
+      console.log(`📍 [MOBILE] Atualizando localização do caminhão ${truckId}:`, { lat, lng });
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
         body: JSON.stringify({ lat, lng }),
       });
       
       if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ [MOBILE] Erro ao atualizar localização:', errorData);
         throw new Error('Erro ao atualizar localização');
       }
       
       const result = await response.json();
-      console.log('✅ Localização atualizada com sucesso');
+      console.log('✅ [MOBILE] Localização atualizada com sucesso');
       return result;
     } catch (error) {
-      console.error('❌ Erro ao atualizar localização:', error);
+      console.error('❌ [MOBILE] Erro ao atualizar localização:', error);
       throw error;
     } finally {
       setIsUpdatingLocation(false);
@@ -110,7 +107,7 @@ export const useMobile = () => {
 
   const updateRoutePoint = async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
     try {
-      console.log(`🎯 Atualizando ponto da rota: ${pointId} para completed: ${completed}`);
+      console.log(`🎯 [MOBILE] Atualizando ponto da rota ${pointId} para caminhão ${truckId}:`, { completed });
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
@@ -125,17 +122,17 @@ export const useMobile = () => {
       }
       
       const result = await response.json();
-      console.log('✅ Ponto atualizado com sucesso');
+      console.log('✅ [MOBILE] Ponto da rota atualizado com sucesso');
       return result;
     } catch (error) {
-      console.error('❌ Erro ao atualizar ponto da rota:', error);
+      console.error('❌ [MOBILE] Erro ao atualizar ponto da rota:', error);
       throw error;
     }
   };
 
   const finishRoute = async (truckId: string) => {
     try {
-      console.log(`🏁 Finalizando rota do caminhão: ${truckId}`);
+      console.log(`🏁 [MOBILE] Finalizando rota para caminhão ${truckId}`);
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
         method: 'POST',
@@ -150,10 +147,10 @@ export const useMobile = () => {
       }
       
       const result = await response.json();
-      console.log('✅ Rota finalizada com sucesso');
+      console.log('✅ [MOBILE] Rota finalizada com sucesso');
       return result;
     } catch (error) {
-      console.error('❌ Erro ao finalizar rota:', error);
+      console.error('❌ [MOBILE] Erro ao finalizar rota:', error);
       throw error;
     }
   };
