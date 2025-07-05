@@ -1,42 +1,30 @@
 
 import { useQuery } from '@tanstack/react-query';
+import { BaseApiService } from '@/services/base';
 
 export interface Schedule {
   id: string;
-  truckId: string;
-  truck: string;
-  route: string;
-  driverId: string;
-  driver: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
-  notes?: string;
+  truck_id: string;
+  route_id: string;
+  driver_id: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  truck_name?: string;
+  route_name?: string;
+  driver_name?: string;
 }
 
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
-
-const fetchSchedules = async (): Promise<Schedule[]> => {
-  const response = await fetch(`${API_BASE_URL}/schedules`);
-  if (!response.ok) {
-    throw new Error('Erro ao carregar agendamentos');
-  }
-  return response.json();
-};
+const scheduleService = new BaseApiService();
 
 export const useSchedule = () => {
-  const { data: schedules = [], isLoading: loading, error, refetch } = useQuery({
+  return useQuery({
     queryKey: ['schedules'],
-    queryFn: fetchSchedules,
+    queryFn: async (): Promise<Schedule[]> => {
+      console.log('📅 Fetching schedules from API...');
+      return scheduleService.request<Schedule[]>('/schedules');
+    },
+    staleTime: 5 * 60 * 1000,
     retry: 2,
   });
-
-  return {
-    schedules,
-    loading,
-    error: error ? 'Erro ao carregar agendamentos' : null,
-    refetch,
-  };
 };
