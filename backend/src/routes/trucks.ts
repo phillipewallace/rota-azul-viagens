@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
     res.json(trucks);
   } catch (error) {
     console.error('❌ [TRUCKS GET] Erro ao buscar caminhões:', error);
-    console.error('🔍 [TRUCKS GET] Stack trace:', (error as Error).stack);
+    console.error('🔍 [TRUCKS GET] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao buscar caminhões' });
   }
 });
@@ -98,7 +98,7 @@ router.post('/link-route', async (req, res) => {
     res.json({ success: true, message: 'Rota vinculada com sucesso' });
   } catch (error) {
     console.error('❌ [TRUCK LINK] Erro ao vincular rota:', error);
-    console.error('🔍 [TRUCK LINK] Stack trace:', (error as Error).stack);
+    console.error('🔍 [TRUCK LINK] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao vincular rota' });
   }
 });
@@ -177,8 +177,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('❌ [TRUCK CREATE] Erro ao criar caminhão:', error);
-    const dbError = error as any;
-    if (dbError?.code === '23505') {
+    if (error.code === '23505') {
       console.log('🔍 [TRUCK CREATE] Erro de duplicação - Placa já cadastrada');
       return res.status(400).json({ error: 'Placa já cadastrada' });
     }
@@ -237,12 +236,11 @@ router.put('/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error(`❌ [TRUCK UPDATE] Erro ao atualizar caminhão ${req.params.id}:`, error);
-    const dbError = error as any;
-    if (dbError?.code === '23505') {
+    if (error.code === '23505') {
       console.log('🔍 [TRUCK UPDATE] Erro de duplicação - Placa já cadastrada');
       return res.status(400).json({ error: 'Placa já cadastrada' });
     }
-    console.error('🔍 [TRUCK UPDATE] Stack trace:', (error as Error).stack);
+    console.error('🔍 [TRUCK UPDATE] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao atualizar caminhão' });
   }
 });
@@ -295,7 +293,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Caminhão excluído com sucesso' });
   } catch (error) {
     console.error(`❌ [TRUCK DELETE] Erro ao excluir caminhão ${req.params.id}:`, error);
-    console.error('🔍 [TRUCK DELETE] Stack trace:', (error as Error).stack);
+    console.error('🔍 [TRUCK DELETE] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao excluir caminhão' });
   }
 });

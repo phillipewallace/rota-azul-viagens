@@ -74,7 +74,7 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('❌ [AUTH LOGIN] Erro no login:', error);
-    console.error('🔍 [AUTH LOGIN] Stack trace:', (error as Error).stack);
+    console.error('🔍 [AUTH LOGIN] Stack trace:', error.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -110,7 +110,7 @@ router.get('/verify', async (req, res) => {
 
   } catch (error) {
     console.error('❌ [AUTH VERIFY] Erro na verificação do token:', error);
-    console.error('🔍 [AUTH VERIFY] Stack trace:', (error as Error).stack);
+    console.error('🔍 [AUTH VERIFY] Stack trace:', error.stack);
     res.status(401).json({ error: 'Invalid token' });
   }
 });

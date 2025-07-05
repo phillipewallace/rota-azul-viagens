@@ -110,34 +110,34 @@ router.get('/maintenance', async (req, res) => {
       WHERE 1=1
     `;
     
-    const params: any[] = [];
+    const params = [];
     let paramIndex = 1;
     
-    if (startDate && typeof startDate === 'string') {
+    if (startDate) {
       query += ` AND m.scheduled_date >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
     
-    if (endDate && typeof endDate === 'string') {
+    if (endDate) {
       query += ` AND m.scheduled_date <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;
     }
     
-    if (truckId && typeof truckId === 'string') {
+    if (truckId) {
       query += ` AND m.truck_id = $${paramIndex}`;
       params.push(truckId);
       paramIndex++;
     }
     
-    if (status && typeof status === 'string') {
+    if (status) {
       query += ` AND m.status = $${paramIndex}`;
       params.push(status);
       paramIndex++;
     }
     
-    if (type && typeof type === 'string') {
+    if (type) {
       query += ` AND m.type = $${paramIndex}`;
       params.push(type);
       paramIndex++;
@@ -216,7 +216,7 @@ router.post('/maintenance', async (req, res) => {
       maintenance_type,
       description,
       scheduled_date,
-      scheduled_date,
+      scheduled_date, // Set maintenance_date to scheduled_date initially
       parseFloat(cost) || 0,
       validStatus
     ]);
@@ -225,9 +225,8 @@ router.post('/maintenance', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error creating maintenance record:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    console.error('❌ Error details:', errorMessage);
-    res.status(500).json({ error: 'Erro ao criar registro de manutenção: ' + errorMessage });
+    console.error('❌ Error details:', error.message);
+    res.status(500).json({ error: 'Erro ao criar registro de manutenção: ' + error.message });
   }
 });
 
@@ -275,8 +274,7 @@ router.put('/maintenance/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('❌ Error updating maintenance record:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    res.status(500).json({ error: 'Erro ao atualizar registro de manutenção: ' + errorMessage });
+    res.status(500).json({ error: 'Erro ao atualizar registro de manutenção: ' + error.message });
   }
 });
 
@@ -297,8 +295,7 @@ router.delete('/maintenance/:id', async (req, res) => {
     res.json({ message: 'Registro de manutenção excluído com sucesso' });
   } catch (error) {
     console.error('❌ Error deleting maintenance record:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    res.status(500).json({ error: 'Erro ao excluir registro de manutenção: ' + errorMessage });
+    res.status(500).json({ error: 'Erro ao excluir registro de manutenção: ' + error.message });
   }
 });
 
@@ -319,16 +316,16 @@ router.get('/costs-summary', async (req, res) => {
       WHERE cost IS NOT NULL
     `;
     
-    const params: any[] = [];
+    const params = [];
     let paramIndex = 1;
     
-    if (startDate && typeof startDate === 'string') {
+    if (startDate) {
       query += ` AND maintenance_date >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
     
-    if (endDate && typeof endDate === 'string') {
+    if (endDate) {
       query += ` AND maintenance_date <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;

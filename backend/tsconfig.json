@@ -14,9 +14,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "removeComments": true,
-    "useUnknownInCatchVariables": false,
-    "noImplicitAny": false
+    "removeComments": true
   },
   "include": [
     "src/**/*"

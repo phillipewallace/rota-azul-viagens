@@ -1,6 +1,9 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_BASE_URL } from '@/services/config';
+
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
 
 export interface TruckMobileData {
   id: string;
@@ -31,56 +34,31 @@ export const useMobile = () => {
   const queryClient = useQueryClient();
 
   const getTruckByPlate = async (plate: string): Promise<TruckMobileData> => {
-    console.log('🔍 [MOBILE] Buscando caminhão por placa:', plate);
-    console.log('🔍 [MOBILE] URL:', `${API_BASE_URL}/mobile/truck/${plate}`);
-    
-    const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'omit',
-    });
-    
-    console.log('📡 [MOBILE] Response status:', response.status);
-    
+    console.log('🔍 Buscando caminhão por placa:', plate);
+    const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`);
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error('❌ [MOBILE] Erro:', errorData);
       throw new Error('Caminhão não encontrado');
     }
-    
     const data = await response.json();
-    console.log('✅ [MOBILE] Dados do caminhão recebidos:', data);
+    console.log('✅ Dados do caminhão recebidos:', data);
     return data;
   };
 
   const updateTruckLocationMutation = useMutation({
     mutationFn: async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
-      console.log('📍 [MOBILE] Atualizando localização do caminhão:', { truckId, lat, lng });
-      
+      console.log('📍 Atualizando localização do caminhão:', { truckId, lat, lng });
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lat, lng }),
       });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('❌ [MOBILE] Erro ao atualizar localização:', errorData);
-        throw new Error('Erro ao atualizar localização');
-      }
-      
+      if (!response.ok) throw new Error('Erro ao atualizar localização');
       const result = await response.json();
-      console.log('✅ [MOBILE] Localização atualizada com sucesso');
+      console.log('✅ Localização atualizada com sucesso');
       return result;
     },
     onSuccess: () => {
+      // Invalidar queries relacionadas ao rastreamento
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
       queryClient.invalidateQueries({ queryKey: ['tracking'] });
     },
@@ -88,29 +66,19 @@ export const useMobile = () => {
 
   const updateRoutePointMutation = useMutation({
     mutationFn: async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
-      console.log('🎯 [MOBILE] Atualizando ponto da rota:', { truckId, pointId, completed });
-      
+      console.log('🎯 Atualizando ponto da rota:', { truckId, pointId, completed });
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed }),
       });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('❌ [MOBILE] Erro ao atualizar ponto:', errorData);
-        throw new Error('Erro ao atualizar ponto da rota');
-      }
-      
+      if (!response.ok) throw new Error('Erro ao atualizar ponto da rota');
       const result = await response.json();
-      console.log('✅ [MOBILE] Ponto da rota atualizado com sucesso');
+      console.log('✅ Ponto da rota atualizado com sucesso');
       return result;
     },
     onSuccess: () => {
+      // Invalidar queries relacionadas
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
       queryClient.invalidateQueries({ queryKey: ['routes'] });
     },
@@ -118,28 +86,18 @@ export const useMobile = () => {
 
   const finishRouteMutation = useMutation({
     mutationFn: async (truckId: string) => {
-      console.log('🏁 [MOBILE] Finalizando rota do caminhão:', truckId);
-      
+      console.log('🏁 Finalizando rota do caminhão:', truckId);
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
       });
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('❌ [MOBILE] Erro ao finalizar rota:', errorData);
-        throw new Error('Erro ao finalizar rota');
-      }
-      
+      if (!response.ok) throw new Error('Erro ao finalizar rota');
       const result = await response.json();
-      console.log('✅ [MOBILE] Rota finalizada com sucesso');
+      console.log('✅ Rota finalizada com sucesso');
       return result;
     },
     onSuccess: () => {
+      // Invalidar todas as queries relacionadas
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
       queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['tracking'] });

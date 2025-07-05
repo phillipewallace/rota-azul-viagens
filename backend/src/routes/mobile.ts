@@ -38,13 +38,7 @@ router.get('/truck/:plate', async (req, res) => {
     console.log(`✅ Caminhão encontrado: ${truck.name} (${truck.plate})`);
     
     // Buscar dados da rota se existir
-    let currentRoute: {
-      id: any;
-      name: any;
-      description: any;
-      points: any;
-    } | null = null;
-    
+    let currentRoute = null;
     if (truck.current_route_id) {
       const routeQuery = `
         SELECT 

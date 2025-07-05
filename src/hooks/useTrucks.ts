@@ -1,6 +1,5 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { trucksService } from '@/services/trucks';
 
 export interface Truck {
   id: string;
@@ -21,6 +20,43 @@ export interface Truck {
   };
 }
 
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
+
+const fetchTrucks = async (): Promise<Truck[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/trucks`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Error fetching trucks:', error);
+    throw new Error('Erro ao carregar caminhões');
+  }
+};
+
+const updateTruckLocationApi = async (truckId: string, lat: number, lng: number): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/trucks/${truckId}/location`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ lat, lng, timestamp: new Date().toISOString() }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Error updating truck location:', error);
+    throw new Error('Erro ao atualizar localização do caminhão');
+  }
+};
+
 export const useTrucks = () => {
   const queryClient = useQueryClient();
 
@@ -31,15 +67,15 @@ export const useTrucks = () => {
     refetch 
   } = useQuery({
     queryKey: ['trucks'],
-    queryFn: () => trucksService.getTrucks(),
+    queryFn: fetchTrucks,
     refetchInterval: 30000,
     retry: 2,
-    staleTime: 25000,
+    staleTime: 25000, // Consider data stale after 25 seconds
   });
 
   const updateLocationMutation = useMutation({
     mutationFn: ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) =>
-      trucksService.updateTruckLocation(truckId, lat, lng),
+      updateTruckLocationApi(truckId, lat, lng),
     onSuccess: (_, { truckId, lat, lng }) => {
       queryClient.setQueryData(['trucks'], (oldData: Truck[] | undefined) => {
         if (!oldData || !Array.isArray(oldData)) return [];
