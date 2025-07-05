@@ -35,11 +35,23 @@ const MobileDriver = () => {
       setRouteStarted(false);
       setCurrentPointIndex(0);
       
-      if (data.currentRoute) {
-        // Find first non-completed point
+      if (data.currentRoute && data.currentRoute.points) {
+        // Ordenar pontos por ordem e encontrar primeiro ponto não concluído
         const sortedPoints = data.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+        
+        // Log para debug
+        console.log('📋 Pontos da rota ordenados:', sortedPoints.map(p => ({
+          order: p.order,
+          address: p.address,
+          completed: p.completed
+        })));
+        
+        // Encontrar primeiro ponto não concluído
         const firstIncompleteIndex = sortedPoints.findIndex(point => !point.completed);
-        setCurrentPointIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0);
+        const indexToSet = firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0;
+        
+        console.log(`📍 Primeiro ponto não concluído no índice: ${indexToSet}`);
+        setCurrentPointIndex(indexToSet);
         
         await initializeRouteMap(data.currentRoute);
       }
@@ -225,9 +237,11 @@ const MobileDriver = () => {
   const startRoute = async () => {
     if (!truckData?.currentRoute) return;
     
-    // Find first non-completed point
+    // Encontrar primeiro ponto não concluído
     const sortedPoints = truckData.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
     const firstIncompleteIndex = sortedPoints.findIndex(point => !point.completed);
+    
+    console.log(`🚀 Iniciando rota. Primeiro ponto não concluído: ${firstIncompleteIndex}`);
     
     setRouteStarted(true);
     setCurrentPointIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0);
@@ -262,6 +276,8 @@ const MobileDriver = () => {
     if (!currentPoint) return;
     
     try {
+      console.log(`✅ Marcando ponto ${currentPoint.id} como concluído`);
+      
       await updateRoutePoint({
         truckId: truckData.id,
         pointId: currentPoint.id,
@@ -270,21 +286,23 @@ const MobileDriver = () => {
       
       await getCurrentLocation();
       
-      // Find next incomplete point
+      // Encontrar próximo ponto não concluído
       const nextIncompleteIndex = points.findIndex((point, index) => 
         index > currentPointIndex && !point.completed
       );
+      
+      console.log(`📍 Próximo ponto não concluído: ${nextIncompleteIndex}`);
       
       if (nextIncompleteIndex >= 0) {
         setCurrentPointIndex(nextIncompleteIndex);
         toast.success('Ponto concluído! Próximo destino carregado.');
       } else {
-        // All points completed
+        // Todos os pontos concluídos
         toast.success('Todos os pontos concluídos! Finalize a rota.');
         setCurrentPointIndex(points.length); // Set to beyond last point
       }
       
-      // Update truck data to reflect the completed point
+      // Atualizar dados do caminhão para refletir o ponto concluído
       setTruckData(prev => {
         if (!prev?.currentRoute) return prev;
         
@@ -440,9 +458,17 @@ const MobileDriver = () => {
   const currentPoint = points[currentPointIndex];
   const allPointsCompleted = currentPointIndex >= points.length;
   
-  // Check if all points are completed
-  const completedPointsCount = points.filter(point => point.completed).length;
-  const isRouteFullyCompleted = completedPointsCount === points.length;
+  // Verificar se todos os pontos estão concluídos - calcular baseado nos dados reais
+  const completedPointsCount = points.filter(point => Boolean(point.completed)).length;
+  const isRouteFullyCompleted = completedPointsCount === points.length && points.length > 0;
+
+  console.log('📊 Status da rota:', {
+    totalPoints: points.length,
+    completedPoints: completedPointsCount,
+    currentIndex: currentPointIndex,
+    allCompleted: allPointsCompleted,
+    fullyCompleted: isRouteFullyCompleted
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 
 export interface RoutePoint {
@@ -53,6 +54,20 @@ export const useMobile = () => {
       const data = await response.json();
       console.log('✅ Dados do caminhão recebidos:', data);
       
+      // Garantir que os pontos tenham completed como boolean
+      if (data.currentRoute && data.currentRoute.points) {
+        data.currentRoute.points = data.currentRoute.points.map((point: any) => ({
+          ...point,
+          completed: Boolean(point.completed)
+        }));
+        console.log('📍 Pontos processados:', data.currentRoute.points.map((p: any) => ({
+          id: p.id,
+          address: p.address,
+          order: p.order,
+          completed: p.completed
+        })));
+      }
+      
       return data;
     } catch (error) {
       console.error('❌ Erro ao buscar caminhão:', error);
@@ -68,6 +83,7 @@ export const useMobile = () => {
   const updateTruckLocation = async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
     try {
       setIsUpdatingLocation(true);
+      console.log(`📍 Atualizando localização do caminhão ${truckId}: ${lat}, ${lng}`);
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
         method: 'PUT',
@@ -81,7 +97,9 @@ export const useMobile = () => {
         throw new Error('Erro ao atualizar localização');
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('✅ Localização atualizada com sucesso');
+      return result;
     } catch (error) {
       console.error('❌ Erro ao atualizar localização:', error);
       throw error;
@@ -92,6 +110,8 @@ export const useMobile = () => {
 
   const updateRoutePoint = async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
     try {
+      console.log(`🎯 Atualizando ponto da rota: ${pointId} para completed: ${completed}`);
+      
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
         headers: {
@@ -104,7 +124,9 @@ export const useMobile = () => {
         throw new Error('Erro ao atualizar ponto da rota');
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('✅ Ponto atualizado com sucesso');
+      return result;
     } catch (error) {
       console.error('❌ Erro ao atualizar ponto da rota:', error);
       throw error;
@@ -113,6 +135,8 @@ export const useMobile = () => {
 
   const finishRoute = async (truckId: string) => {
     try {
+      console.log(`🏁 Finalizando rota do caminhão: ${truckId}`);
+      
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
         method: 'POST',
         headers: {
@@ -125,7 +149,9 @@ export const useMobile = () => {
         throw new Error(errorData.error || 'Erro ao finalizar rota');
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('✅ Rota finalizada com sucesso');
+      return result;
     } catch (error) {
       console.error('❌ Erro ao finalizar rota:', error);
       throw error;

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,15 @@ interface TruckData {
   name: string;
   plate: string;
   model: string;
+  currentRoute?: {
+    id: string;
+    name: string;
+    points: Array<{
+      id: string;
+      address: string;
+      completed: boolean;
+    }>;
+  };
 }
 
 const MobileDriver = () => {
@@ -53,7 +63,7 @@ const MobileDriver = () => {
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:3001/api/mobile/truck/${plateNumber}`);
+      const response = await fetch(`https://admmicban.com.br/api/mobile/truck/${plateNumber}`);
       
       if (!response.ok) {
         throw new Error('Caminhão não encontrado');
@@ -68,6 +78,15 @@ const MobileDriver = () => {
       
       toast.success(`Bem-vindo, ${data.name}!`);
       console.log('🚛 Truck login successful:', data.name);
+      
+      // Log dados dos pontos para verificar se estão corretos
+      if (data.currentRoute && data.currentRoute.points) {
+        console.log('📍 Pontos da rota:', data.currentRoute.points.map((p: any) => ({
+          id: p.id,
+          address: p.address,
+          completed: p.completed
+        })));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');
       console.error('❌ Login error:', err);
@@ -113,6 +132,30 @@ const MobileDriver = () => {
               <p className="text-gray-700">
                 Placa do caminhão: <span className="font-semibold">{truckData?.plate}</span>
               </p>
+              
+              {truckData?.currentRoute && (
+                <div className="space-y-2">
+                  <p className="text-gray-700">
+                    Rota ativa: <span className="font-semibold">{truckData.currentRoute.name}</span>
+                  </p>
+                  <div className="bg-blue-50 p-3 rounded">
+                    <p className="text-sm text-blue-800">
+                      Pontos: {truckData.currentRoute.points.filter(p => p.completed).length} / {truckData.currentRoute.points.length} concluídos
+                    </p>
+                    <div className="mt-2 space-y-1">
+                      {truckData.currentRoute.points.map((point, index) => (
+                        <div key={point.id} className="text-xs flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${point.completed ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                          <span className={point.completed ? 'text-green-700' : 'text-gray-600'}>
+                            {index + 1}. {point.address}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <Button variant="destructive" className="w-full" onClick={handleLogout}>
                 Sair
               </Button>
