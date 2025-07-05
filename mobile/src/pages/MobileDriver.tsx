@@ -1,612 +1,153 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Button } from "../components/ui/button";
+
+import React, { useState } from 'react';
 import { Input } from "../components/ui/input";
-import { Badge } from "../components/ui/badge";
-import { MapPin, Navigation, Truck, Clock, Play, CheckCircle, ExternalLink, AlertCircle, Locate } from 'lucide-react';
-import { useMobile, TruckMobileData, RoutePoint } from '../hooks/useMobile';
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import { toast } from 'sonner';
 
+interface TruckData {
+  id: string;
+  name: string;
+  plate: string;
+  model: string;
+}
+
 const MobileDriver = () => {
-  const [plate, setPlate] = useState('');
-  const [truckData, setTruckData] = useState<TruckMobileData | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [plateNumber, setPlateNumber] = useState('');
+  const [truckData, setTruckData] = useState<TruckData | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [routeStarted, setRouteStarted] = useState(false);
-  const [currentPointIndex, setCurrentPointIndex] = useState(0);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<any>(null);
-  const directionsRenderer = useRef<any>(null);
-  const userMarker = useRef<any>(null);
-  
-  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute } = useMobile();
 
-  const handlePlateSubmit = async () => {
-    if (!plate.trim()) return;
-    
+  const updateActiveTrackingInStorage = (truckId: string | null, isActive: boolean) => {
+    try {
+      const stored = localStorage.getItem('active-truck-tracking') || '[]';
+      let activeTrucks = JSON.parse(stored);
+      
+      if (isActive && truckId && !activeTrucks.includes(truckId)) {
+        activeTrucks.push(truckId);
+      } else if (!isActive && truckId) {
+        activeTrucks = activeTrucks.filter((id: string) => id !== truckId);
+      }
+      
+      localStorage.setItem('active-truck-tracking', JSON.stringify(activeTrucks));
+      
+      // Disparar evento para sincronizar com outros componentes
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'active-truck-tracking',
+        newValue: JSON.stringify(activeTrucks)
+      }));
+      
+      console.log('📍 Updated active tracking list:', activeTrucks);
+    } catch (error) {
+      console.error('Error updating active tracking storage:', error);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!plateNumber.trim()) {
+      setError('Por favor, insira o número da placa');
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    
+
     try {
-      const data = await getTruckByPlate(plate);
+      const response = await fetch(`http://localhost:3001/api/mobile/truck/${plateNumber}`);
+      
+      if (!response.ok) {
+        throw new Error('Caminhão não encontrado');
+      }
+
+      const data = await response.json();
       setTruckData(data);
+      setIsLoggedIn(true);
       
-      if (data.currentRoute) {
-        await initializeRouteMap(data.currentRoute);
-      }
+      // Marcar como ativo no rastreamento
+      updateActiveTrackingInStorage(data.id, true);
       
-      toast.success('Caminhão encontrado!');
+      toast.success(`Bem-vindo, ${data.name}!`);
+      console.log('🚛 Truck login successful:', data.name);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao buscar dados do caminhão';
-      setError(errorMessage);
-      toast.error('Erro ao buscar caminhão');
-      console.error('Error loading truck data:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao fazer login');
+      console.error('❌ Login error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const getCurrentLocation = async (): Promise<{ lat: number; lng: number } | null> => {
-    try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 30000
-        });
-      });
-      
-      const newLocation = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude
-      };
-      
-      setCurrentLocation(newLocation);
-      
-      // Update user marker position
-      if (userMarker.current && mapInstance.current) {
-        userMarker.current.setPosition(newLocation);
-      }
-      
-      if (truckData && routeStarted) {
-        try {
-          await updateTruckLocation({
-            truckId: truckData.id,
-            lat: newLocation.lat,
-            lng: newLocation.lng
-          });
-        } catch (error) {
-          console.error('Error updating truck location:', error);
-        }
-      }
-      
-      return newLocation;
-    } catch (error) {
-      console.error('Erro ao obter localização GPS:', error);
-      toast.error('Erro ao obter localização GPS');
-      return null;
+  const handleLogout = () => {
+    // Remover do rastreamento ativo
+    if (truckData?.id) {
+      updateActiveTrackingInStorage(truckData.id, false);
     }
-  };
-
-  const centerOnUserLocation = async () => {
-    const location = await getCurrentLocation();
-    if (location && mapInstance.current) {
-      mapInstance.current.panTo(location);
-      mapInstance.current.setZoom(16);
-      toast.success('Centralizado na sua localização');
-    }
-  };
-
-  const initializeRouteMap = async (route: any) => {
-    if (!mapRef.current || !route.points || route.points.length < 2) return;
-
-    try {
-      const location = await getCurrentLocation();
-      if (!location) return;
-
-      // Load Google Maps
-      if (!window.google) {
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w&libraries=geometry`;
-        script.async = true;
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-      }
-
-      // Initialize map
-      mapInstance.current = new window.google.maps.Map(mapRef.current, {
-        center: location,
-        zoom: 13,
-        mapTypeControl: true,
-        fullscreenControl: false,
-        streetViewControl: false,
-        mapTypeControlOptions: {
-          position: window.google.maps.ControlPosition.BOTTOM_RIGHT,
-          style: window.google.maps.MapTypeControlStyle.HORIZONTAL_BAR
-        }
-      });
-
-      // Add user location marker
-      userMarker.current = new window.google.maps.Marker({
-        position: location,
-        map: mapInstance.current,
-        title: 'Sua localização',
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: '#4285f4',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 3
-        }
-      });
-
-      // Draw route
-      await drawRoute(route);
-      
-    } catch (error) {
-      console.error('Erro ao inicializar mapa:', error);
-      toast.error('Erro ao carregar mapa');
-    }
-  };
-
-  const drawRoute = async (route: any) => {
-    if (!mapInstance.current || !route.points || !window.google) return;
-
-    try {
-      const directionsService = new window.google.maps.DirectionsService();
-      directionsRenderer.current = new window.google.maps.DirectionsRenderer({
-        map: mapInstance.current,
-        polylineOptions: {
-          strokeColor: '#22c55e',
-          strokeWeight: 4,
-          strokeOpacity: 0.8
-        }
-      });
-
-      const points = route.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
-      const origin = points[0];
-      const destination = points[points.length - 1];
-      const waypoints = points.slice(1, -1).map((point: RoutePoint) => ({
-        location: new window.google.maps.LatLng(point.lat, point.lng),
-        stopover: true
-      }));
-
-      directionsService.route({
-        origin: new window.google.maps.LatLng(origin.lat, origin.lng),
-        destination: new window.google.maps.LatLng(destination.lat, destination.lng),
-        waypoints: waypoints,
-        travelMode: window.google.maps.TravelMode.DRIVING,
-        optimizeWaypoints: false
-      }, (result: any, status: string) => {
-        if (status === 'OK' && directionsRenderer.current) {
-          directionsRenderer.current.setDirections(result);
-        } else {
-          console.error('Erro ao desenhar rota:', status);
-        }
-      });
-    } catch (error) {
-      console.error('Erro ao desenhar rota:', error);
-    }
-  };
-
-  const startRoute = async () => {
-    if (!truckData?.currentRoute) return;
     
-    setRouteStarted(true);
-    setCurrentPointIndex(0);
-    
-    await getCurrentLocation();
-    toast.success('Rota iniciada! Navegue para o primeiro destino.');
+    setIsLoggedIn(false);
+    setTruckData(null);
+    setPlateNumber('');
+    setError(null);
+    toast.success('Logout realizado com sucesso');
+    console.log('👋 Truck logout');
   };
-
-  const openInGoogleMaps = () => {
-    if (!truckData?.currentRoute || !truckData.currentRoute.points) return;
-    
-    const points = truckData.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
-    const nextPoint = points[currentPointIndex];
-    
-    if (nextPoint) {
-      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${nextPoint.lat},${nextPoint.lng}&travelmode=driving`;
-      window.open(googleMapsUrl, '_blank');
-    }
-  };
-
-  const markPointCompleted = async () => {
-    if (!truckData?.currentRoute || !truckData.currentRoute.points) return;
-    
-    const points = truckData.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
-    const currentPoint = points[currentPointIndex];
-    
-    if (!currentPoint) return;
-    
-    try {
-      await updateRoutePoint({
-        truckId: truckData.id,
-        pointId: currentPoint.id,
-        completed: true
-      });
-      
-      await getCurrentLocation();
-      
-      if (currentPointIndex < points.length - 1) {
-        setCurrentPointIndex(prev => prev + 1);
-        toast.success('Ponto concluído! Próximo destino carregado.');
-      } else {
-        toast.success('Todos os pontos concluídos! Finalize a rota.');
-      }
-      
-    } catch (error) {
-      console.error('Error marking point as completed:', error);
-      toast.error('Erro ao marcar ponto como concluído');
-    }
-  };
-
-  const handleFinishRoute = async () => {
-    if (!truckData) return;
-    
-    try {
-      setLoading(true);
-      await finishRoute(truckData.id);
-      
-      // Reset state
-      setTruckData(null);
-      setRouteStarted(false);
-      setCurrentPointIndex(0);
-      setPlate('');
-      
-      // Cleanup map
-      if (directionsRenderer.current) {
-        directionsRenderer.current.setMap(null);
-        directionsRenderer.current = null;
-      }
-      if (userMarker.current) {
-        userMarker.current.setMap(null);
-        userMarker.current = null;
-      }
-      if (mapInstance.current) {
-        mapInstance.current = null;
-      }
-      
-      toast.success('Rota finalizada com sucesso!');
-    } catch (error) {
-      console.error('Error finishing route:', error);
-      toast.error('Erro ao finalizar rota');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Auto-update location every 30 seconds when route is active
-  useEffect(() => {
-    if (routeStarted && truckData) {
-      const interval = setInterval(() => {
-        getCurrentLocation().catch(console.error);
-      }, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [routeStarted, truckData]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (directionsRenderer.current) {
-        directionsRenderer.current.setMap(null);
-      }
-      if (userMarker.current) {
-        userMarker.current.setMap(null);
-      }
-    };
-  }, []);
-
-  if (!truckData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4 relative overflow-hidden">
-        {/* Background decorative elements */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-20 left-10 w-32 h-32 bg-blue-400 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-10 w-24 h-24 bg-indigo-400 rounded-full blur-2xl animate-pulse delay-1000"></div>
-          <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-cyan-400 rounded-full blur-xl animate-pulse delay-500"></div>
-        </div>
-
-        <Card className="w-full max-w-md shadow-2xl backdrop-blur-sm bg-white/95 border-0 rounded-3xl overflow-hidden">
-          <CardHeader className="text-center pb-2 pt-8 px-8">
-            <div className="relative mx-auto mb-6">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform rotate-3">
-                <Truck className="w-12 h-12 text-white" />
-              </div>
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-white animate-pulse"></div>
-            </div>
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-2">
-              AlchemyRotas
-            </CardTitle>
-            <p className="text-slate-600 font-medium">App do Motorista</p>
-          </CardHeader>
-          
-          <CardContent className="space-y-6 px-8 pb-8">
-            <div className="space-y-3">
-              <label className="block text-sm font-semibold text-slate-700 mb-3">
-                Placa do Caminhão
-              </label>
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="ABC-1234"
-                  value={plate}
-                  onChange={(e) => setPlate(e.target.value.toUpperCase())}
-                  className="text-center text-xl font-mono tracking-widest bg-slate-50 border-2 border-slate-200 rounded-2xl h-14 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
-                  maxLength={8}
-                />
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                  <div className="w-8 h-5 bg-blue-600 rounded-sm flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">BR</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {error && (
-              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-2xl text-red-700">
-                <div className="flex-shrink-0">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
-                <div className="text-sm font-medium">{error}</div>
-              </div>
-            )}
-            
-            <Button 
-              onClick={handlePlateSubmit}
-              disabled={loading || !plate.trim()}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-lg font-semibold py-4 rounded-2xl shadow-lg transform transition-all duration-300 hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:transform-none"
-            >
-              {loading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Carregando...
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Truck className="w-5 h-5" />
-                  Acessar Caminhão
-                </div>
-              )}
-            </Button>
-
-            <div className="text-center pt-4">
-              <p className="text-xs text-slate-500">
-                Versão 2.0 • Powered by Alchemy
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const route = truckData.currentRoute;
-  const points = route?.points?.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order) || [];
-  const currentPoint = points[currentPointIndex];
-  const isLastPoint = currentPointIndex === points.length - 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header with gradient */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-lg">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                <Truck className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">{truckData.name}</h1>
-                <p className="text-blue-100 font-mono text-sm">{truckData.plate}</p>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-blue-400 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-24 h-24 bg-indigo-400 rounded-full blur-2xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-cyan-400 rounded-full blur-xl animate-pulse delay-500"></div>
+        <div className="absolute bottom-1/3 left-1/3 w-20 h-20 bg-purple-400 rounded-full blur-2xl animate-pulse delay-700"></div>
+        
+        {/* Additional background elements for full coverage */}
+        <div className="absolute top-10 right-1/3 w-28 h-28 bg-violet-400 rounded-full blur-3xl animate-pulse delay-300"></div>
+        <div className="absolute bottom-10 left-1/4 w-36 h-36 bg-sky-400 rounded-full blur-3xl animate-pulse delay-900"></div>
+        <div className="absolute top-1/3 left-10 w-20 h-20 bg-teal-400 rounded-full blur-2xl animate-pulse delay-600"></div>
+        <div className="absolute bottom-1/2 right-20 w-24 h-24 bg-indigo-300 rounded-full blur-xl animate-pulse delay-1200"></div>
+      </div>
+
+      <Card className="w-full max-w-md shadow-2xl backdrop-blur-sm bg-white/95 border-0 rounded-3xl overflow-hidden relative z-10">
+        <CardContent className="p-6">
+          <h2 className="text-2xl font-semibold mb-4 text-center">
+            {isLoggedIn ? 'Painel do Motorista' : 'Acessar Caminhão'}
+          </h2>
+
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+              <strong className="font-bold">Erro:</strong>
+              <span className="block sm:inline">{error}</span>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge 
-                variant={routeStarted ? "default" : "secondary"}
-                className={`px-3 py-1 rounded-full font-semibold ${
-                  routeStarted 
-                    ? 'bg-green-500 text-white shadow-lg' 
-                    : 'bg-white/20 text-white backdrop-blur-sm'
-                }`}
-              >
-                {routeStarted ? '🚛 Em Rota' : '⏸️ Parado'}
-              </Badge>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={() => {
-                  setTruckData(null);
-                  setRouteStarted(false);
-                  setCurrentPointIndex(0);
-                  setPlate('');
-                }}
-                className="text-white hover:bg-white/20 rounded-xl"
-              >
+          )}
+
+          {isLoggedIn ? (
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Bem-vindo, <span className="font-semibold">{truckData?.name}</span>!
+              </p>
+              <p className="text-gray-700">
+                Placa do caminhão: <span className="font-semibold">{truckData?.plate}</span>
+              </p>
+              <Button variant="destructive" className="w-full" onClick={handleLogout}>
                 Sair
               </Button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {/* Map with modern styling */}
-        {route && (
-          <Card className="overflow-hidden rounded-2xl shadow-lg border-0 relative">
-            <CardContent className="p-0">
-              <div ref={mapRef} className="w-full h-64 bg-gradient-to-br from-slate-200 to-slate-300" />
-              {/* Botão de centralizar localização */}
-              <Button
-                onClick={centerOnUserLocation}
-                className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-white/90 hover:bg-white text-blue-600 shadow-lg border-2 border-blue-200 p-0"
-                size="sm"
-              >
-                <Locate className="w-5 h-5" />
+          ) : (
+            <div className="space-y-4">
+              <Input
+                type="text"
+                placeholder="Número da placa"
+                value={plateNumber}
+                onChange={(e) => setPlateNumber(e.target.value)}
+                disabled={loading}
+              />
+              <Button className="w-full" onClick={handleLogin} disabled={loading}>
+                {loading ? 'Carregando...' : 'Entrar'}
               </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Route Info with modern card design */}
-        {route ? (
-          <Card className="rounded-2xl shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                  <Navigation className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-slate-800">{route.name}</div>
-                  <div className="text-sm text-slate-500 font-normal">Rota Ativa</div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl">
-                  <div className="text-3xl font-bold text-blue-600 mb-1">
-                    {points.length}
-                  </div>
-                  <div className="text-sm text-slate-600 font-medium">Total de Paradas</div>
-                </div>
-                <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl">
-                  <div className="text-3xl font-bold text-green-600 mb-1">
-                    {currentPointIndex + 1}
-                  </div>
-                  <div className="text-sm text-slate-600 font-medium">Parada Atual</div>
-                </div>
-              </div>
-
-              {!routeStarted ? (
-                <Button 
-                  onClick={startRoute}
-                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-lg font-semibold py-4 rounded-2xl shadow-lg transform transition-all duration-300 hover:scale-105"
-                >
-                  <Play className="w-6 h-6 mr-3" />
-                  Iniciar Rota
-                </Button>
-              ) : (
-                <div className="space-y-4">
-                  {currentPoint && (
-                    <div className="p-5 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 rounded-2xl">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <MapPin className="w-6 h-6 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-bold text-slate-800 text-lg mb-2">
-                            Próximo Destino
-                          </h4>
-                          <div className="flex items-center gap-2 mb-3">
-                            <Badge className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-                              {currentPointIndex + 1} de {points.length}
-                            </Badge>
-                          </div>
-                          <p className="text-slate-700 font-medium">
-                            {currentPoint.address}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 gap-3">
-                    <Button
-                      onClick={openInGoogleMaps}
-                      variant="outline"
-                      className="flex items-center justify-center gap-3 py-4 rounded-2xl border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-300"
-                    >
-                      <ExternalLink className="w-5 h-5" />
-                      <span className="font-semibold">Abrir no Google Maps</span>
-                    </Button>
-                    
-                    {!isLastPoint ? (
-                      <Button
-                        onClick={markPointCompleted}
-                        className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-4 rounded-2xl shadow-lg font-semibold flex items-center justify-center gap-3 transform transition-all duration-300 hover:scale-105"
-                      >
-                        <CheckCircle className="w-5 h-5" />
-                        Marcar como Concluído
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleFinishRoute}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white py-4 rounded-2xl shadow-lg font-semibold flex items-center justify-center gap-3 transform transition-all duration-300 hover:scale-105 disabled:opacity-50"
-                      >
-                        <CheckCircle className="w-5 h-5" />
-                        {loading ? 'Finalizando...' : 'Finalizar Rota'}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="text-center py-12 rounded-2xl shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardContent>
-              <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <AlertCircle className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-3">Nenhuma rota atribuída</h3>
-              <p className="text-slate-600">Este caminhão não possui uma rota ativa no momento.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Route Points List with enhanced design */}
-        {route && routeStarted && (
-          <Card className="rounded-2xl shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold text-slate-800">Sequência de Paradas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {points.map((point, index) => (
-                  <div 
-                    key={point.id} 
-                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 ${
-                      index === currentPointIndex 
-                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-md' 
-                        : index < currentPointIndex 
-                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' 
-                        : 'bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-bold shadow-sm ${
-                      index === currentPointIndex
-                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
-                        : index < currentPointIndex
-                        ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white'
-                        : 'bg-gradient-to-br from-slate-400 to-slate-500 text-white'
-                    }`}>
-                      {index < currentPointIndex ? '✓' : index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 truncate">{point.address}</p>
-                      <p className="text-sm text-slate-600 capitalize mt-1">
-                        {point.type === 'origin' ? '🚀 Origem' : 
-                         point.type === 'destination' ? '🏁 Destino' : '📍 Parada'}
-                      </p>
-                    </div>
-                    {index < currentPointIndex && (
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
