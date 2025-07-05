@@ -20,7 +20,7 @@ const MobileDriver = () => {
   const directionsRenderer = useRef<any>(null);
   const userMarker = useRef<any>(null);
   
-  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute } = useMobile();
+  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute, isUpdatingLocation } = useMobile();
 
   const handlePlateSubmit = async () => {
     if (!plate.trim()) return;
