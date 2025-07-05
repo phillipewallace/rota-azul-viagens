@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -31,7 +32,16 @@ const MobileDriver = () => {
       const data = await getTruckByPlate(plate);
       setTruckData(data);
       
+      // Reset route state when loading new truck data
+      setRouteStarted(false);
+      setCurrentPointIndex(0);
+      
       if (data.currentRoute) {
+        // Find first non-completed point
+        const sortedPoints = data.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+        const firstIncompleteIndex = sortedPoints.findIndex(point => !point.completed);
+        setCurrentPointIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0);
+        
         await initializeRouteMap(data.currentRoute);
       }
       
@@ -216,11 +226,15 @@ const MobileDriver = () => {
   const startRoute = async () => {
     if (!truckData?.currentRoute) return;
     
+    // Find first non-completed point
+    const sortedPoints = truckData.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+    const firstIncompleteIndex = sortedPoints.findIndex(point => !point.completed);
+    
     setRouteStarted(true);
-    setCurrentPointIndex(0);
+    setCurrentPointIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0);
     
     await getCurrentLocation();
-    toast.success('Rota iniciada! Navegue para o primeiro destino.');
+    toast.success('Rota iniciada! Navegue para o próximo destino.');
   };
 
   const openInGoogleMaps = () => {
@@ -252,12 +266,36 @@ const MobileDriver = () => {
       
       await getCurrentLocation();
       
-      if (currentPointIndex < points.length - 1) {
-        setCurrentPointIndex(prev => prev + 1);
+      // Find next incomplete point
+      const nextIncompleteIndex = points.findIndex((point, index) => 
+        index > currentPointIndex && !point.completed
+      );
+      
+      if (nextIncompleteIndex >= 0) {
+        setCurrentPointIndex(nextIncompleteIndex);
         toast.success('Ponto concluído! Próximo destino carregado.');
       } else {
+        // All points completed
         toast.success('Todos os pontos concluídos! Finalize a rota.');
+        setCurrentPointIndex(points.length); // Set to beyond last point
       }
+      
+      // Update truck data to reflect the completed point
+      setTruckData(prev => {
+        if (!prev?.currentRoute) return prev;
+        
+        const updatedPoints = prev.currentRoute.points.map(point => 
+          point.id === currentPoint.id ? { ...point, completed: true } : point
+        );
+        
+        return {
+          ...prev,
+          currentRoute: {
+            ...prev.currentRoute,
+            points: updatedPoints
+          }
+        };
+      });
       
     } catch (error) {
       console.error('Error marking point as completed:', error);
@@ -397,6 +435,10 @@ const MobileDriver = () => {
   const points = route?.points?.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order) || [];
   const currentPoint = points[currentPointIndex];
   const allPointsCompleted = currentPointIndex >= points.length;
+  
+  // Check if all points are completed
+  const completedPointsCount = points.filter(point => point.completed).length;
+  const isRouteFullyCompleted = completedPointsCount === points.length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -479,9 +521,9 @@ const MobileDriver = () => {
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl">
                   <div className="text-3xl font-bold text-green-600 mb-1">
-                    {Math.min(currentPointIndex + 1, points.length)}
+                    {completedPointsCount}
                   </div>
-                  <div className="text-sm text-slate-600 font-medium">Parada Atual</div>
+                  <div className="text-sm text-slate-600 font-medium">Concluídas</div>
                 </div>
               </div>
 
@@ -493,7 +535,7 @@ const MobileDriver = () => {
                   <Play className="w-6 h-6 mr-3" />
                   Iniciar Rota
                 </Button>
-              ) : allPointsCompleted ? (
+              ) : isRouteFullyCompleted || allPointsCompleted ? (
                 <Button
                   onClick={handleFinishRoute}
                   disabled={loading}
