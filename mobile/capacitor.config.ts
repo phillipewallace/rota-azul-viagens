@@ -2,8 +2,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.rotaazul.mobile',
-  appName: 'Rota Azul Motorista',
+  appId: 'app.alchemyrouter.mobile',
+  appName: 'AlchemyRouter',
   webDir: 'dist',
   plugins: {
     Geolocation: {
