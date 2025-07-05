@@ -17,7 +17,7 @@ export interface Driver {
 const driversService = new BaseApiService();
 
 export const useDrivers = () => {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['drivers'],
     queryFn: async (): Promise<Driver[]> => {
       console.log('🚛 Fetching drivers from API...');
@@ -26,4 +26,10 @@ export const useDrivers = () => {
     staleTime: 5 * 60 * 1000,
     retry: 2,
   });
+
+  return {
+    ...query,
+    drivers: query.data || [],
+    loading: query.isLoading,
+  };
 };

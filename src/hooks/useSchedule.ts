@@ -18,7 +18,7 @@ export interface Schedule {
 const scheduleService = new BaseApiService();
 
 export const useSchedule = () => {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['schedules'],
     queryFn: async (): Promise<Schedule[]> => {
       console.log('📅 Fetching schedules from API...');
@@ -27,4 +27,10 @@ export const useSchedule = () => {
     staleTime: 5 * 60 * 1000,
     retry: 2,
   });
+
+  return {
+    ...query,
+    schedules: query.data || [],
+    loading: query.isLoading,
+  };
 };

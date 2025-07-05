@@ -2,6 +2,38 @@
 import { useQuery } from '@tanstack/react-query';
 import { reportsService } from '@/services/reports';
 
+export interface ReportStats {
+  totalTrucks: number;
+  activeTrucks: number;
+  totalRoutes: number;
+  completedRoutes: number;
+  maintenanceAlerts: number;
+  activeRoutes?: number;
+  availableTrucks?: number;
+  completedTrips?: number;
+  totalKm?: number;
+  pendingMaintenance?: number;
+}
+
+export interface MonthlyPerformance {
+  month: string;
+  completedRoutes: number;
+  totalDistance: number;
+  fuelConsumption: number;
+}
+
+export interface RouteUsage {
+  routeName: string;
+  usageCount: number;
+  averageTime: number;
+}
+
+export interface MaintenanceStats {
+  scheduled: number;
+  overdue: number;
+  completed: number;
+}
+
 export const useReports = () => {
   const reportStats = useQuery({
     queryKey: ['report-stats'],
