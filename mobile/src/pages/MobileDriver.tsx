@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -246,6 +245,11 @@ const MobileDriver = () => {
     if (nextPoint) {
       const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${nextPoint.lat},${nextPoint.lng}&travelmode=driving`;
       window.open(googleMapsUrl, '_blank');
+      toast.success('Abrindo Google Maps...');
+      console.log('🗺️ Opening Google Maps for point:', nextPoint.address);
+    } else {
+      toast.error('Nenhum destino disponível');
+      console.error('❌ No next point available for navigation');
     }
   };
 
