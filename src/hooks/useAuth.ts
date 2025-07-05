@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -28,6 +27,8 @@ export const useAuth = () => {
       if (token && userData) {
         // Verificar se o token ainda é válido
         try {
+          console.log('🔍 [AUTH] Verificando token com URL:', `${API_BASE_URL}/auth/verify`);
+          
           const response = await fetch(`${API_BASE_URL}/auth/verify`, {
             method: 'GET',
             headers: {
@@ -64,6 +65,8 @@ export const useAuth = () => {
 
   const login = async (username: string, password: string) => {
     try {
+      console.log('🔍 [AUTH] Fazendo login com URL:', `${API_BASE_URL}/auth/login`);
+      
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -86,6 +89,7 @@ export const useAuth = () => {
       
       return data;
     } catch (error) {
+      console.error('❌ [AUTH] Erro no login:', error);
       toast.error('Erro ao fazer login');
       throw error;
     }
