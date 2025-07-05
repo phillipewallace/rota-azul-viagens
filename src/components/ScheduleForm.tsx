@@ -25,43 +25,57 @@ export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: Schedu
   
   const { register, handleSubmit, setValue, watch } = useForm<Omit<Schedule, 'id'>>({
     defaultValues: schedule ? {
-      truck_id: schedule.truck_id,
-      route_id: schedule.route_id,
-      driver_id: schedule.driver_id,
-      scheduled_date: schedule.scheduled_date,
-      scheduled_time: schedule.scheduled_time,
+      truckId: schedule.truckId,
+      truck: schedule.truck,
+      route: schedule.route,
+      driverId: schedule.driverId,
+      driver: schedule.driver,
+      scheduledDate: schedule.scheduledDate,
+      scheduledTime: schedule.scheduledTime,
       status: schedule.status,
+      notes: schedule.notes || '',
     } : {
-      truck_id: '',
-      route_id: '',
-      driver_id: '',
-      scheduled_date: new Date().toISOString().split('T')[0],
-      scheduled_time: '08:00',
+      truckId: '',
+      truck: '',
+      route: '',
+      driverId: '',
+      driver: '',
+      scheduledDate: new Date().toISOString().split('T')[0],
+      scheduledTime: '08:00',
       status: 'scheduled' as const,
+      notes: '',
     }
   });
 
   const status = watch('status');
-  const selectedTruckId = watch('truck_id');
-  const selectedDriverId = watch('driver_id');
-  const selectedRouteId = watch('route_id');
+  const selectedTruckId = watch('truckId');
+  const selectedDriverId = watch('driverId');
+  const selectedRoute = watch('route');
 
   const handleTruckChange = (truckId: string) => {
-    setValue('truck_id', truckId);
+    const truck = trucks.find(t => t.id === truckId);
+    if (truck) {
+      setValue('truckId', truckId);
+      setValue('truck', truck.name);
+    }
   };
 
   const handleDriverChange = (driverId: string) => {
-    setValue('driver_id', driverId);
+    const driver = drivers.find(d => d.id === driverId);
+    if (driver) {
+      setValue('driverId', driverId);
+      setValue('driver', driver.name);
+    }
   };
 
-  const handleRouteChange = (routeId: string) => {
-    setValue('route_id', routeId);
+  const handleRouteChange = (routeName: string) => {
+    setValue('route', routeName);
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Label htmlFor="truck_id">Caminhão</Label>
+        <Label htmlFor="truck">Caminhão</Label>
         <Select value={selectedTruckId} onValueChange={handleTruckChange}>
           <SelectTrigger>
             <SelectValue placeholder="Selecione um caminhão" />
@@ -77,7 +91,7 @@ export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: Schedu
       </div>
 
       <div>
-        <Label htmlFor="driver_id">Motorista</Label>
+        <Label htmlFor="driver">Motorista</Label>
         <Select value={selectedDriverId} onValueChange={handleDriverChange}>
           <SelectTrigger>
             <SelectValue placeholder="Selecione um motorista" />
@@ -93,14 +107,14 @@ export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: Schedu
       </div>
 
       <div>
-        <Label htmlFor="route_id">Rota</Label>
-        <Select value={selectedRouteId} onValueChange={handleRouteChange}>
+        <Label htmlFor="route">Rota</Label>
+        <Select value={selectedRoute} onValueChange={handleRouteChange}>
           <SelectTrigger>
             <SelectValue placeholder="Selecione uma rota" />
           </SelectTrigger>
           <SelectContent>
             {routes.map((route) => (
-              <SelectItem key={route.id} value={route.id}>
+              <SelectItem key={route.id} value={route.name}>
                 {route.name} - {route.points?.length || 0} pontos
               </SelectItem>
             ))}
@@ -110,17 +124,17 @@ export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: Schedu
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="scheduled_date">Data</Label>
+          <Label htmlFor="scheduledDate">Data</Label>
           <Input 
             type="date" 
-            {...register('scheduled_date', { required: true })}
+            {...register('scheduledDate', { required: true })}
           />
         </div>
         <div>
-          <Label htmlFor="scheduled_time">Horário</Label>
+          <Label htmlFor="scheduledTime">Horário</Label>
           <Input 
             type="time" 
-            {...register('scheduled_time', { required: true })}
+            {...register('scheduledTime', { required: true })}
           />
         </div>
       </div>
@@ -133,11 +147,20 @@ export const ScheduleForm = ({ schedule, onSubmit, onCancel, isLoading }: Schedu
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="scheduled">Agendado</SelectItem>
-            <SelectItem value="in_progress">Em Andamento</SelectItem>
+            <SelectItem value="in-progress">Em Andamento</SelectItem>
             <SelectItem value="completed">Concluído</SelectItem>
             <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="notes">Observações</Label>
+        <Textarea 
+          {...register('notes')} 
+          placeholder="Observações adicionais (opcional)"
+          rows={3}
+        />
       </div>
 
       <div className="flex gap-2 pt-4">

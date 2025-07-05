@@ -20,17 +20,13 @@ export const DriverForm = ({ driver, onSubmit, onCancel, isLoading }: DriverForm
       name: driver.name,
       phone: driver.phone,
       email: driver.email,
-      license_number: driver.license_number,
-      license_category: driver.license_category,
-      hire_date: driver.hire_date,
+      license: driver.license,
       status: driver.status,
     } : {
       name: '',
       phone: '',
       email: '',
-      license_number: '',
-      license_category: 'B',
-      hire_date: new Date().toISOString().split('T')[0],
+      license: '',
       status: 'active' as const,
     }
   });
@@ -55,21 +51,8 @@ export const DriverForm = ({ driver, onSubmit, onCancel, isLoading }: DriverForm
       </div>
 
       <div>
-        <Label htmlFor="license_number">CNH</Label>
-        <Input {...register('license_number', { required: true })} placeholder="12345678901" />
-      </div>
-
-      <div>
-        <Label htmlFor="license_category">Categoria CNH</Label>
-        <Input {...register('license_category', { required: true })} placeholder="B" />
-      </div>
-
-      <div>
-        <Label htmlFor="hire_date">Data de Contratação</Label>
-        <Input 
-          type="date" 
-          {...register('hire_date', { required: true })} 
-        />
+        <Label htmlFor="license">CNH</Label>
+        <Input {...register('license', { required: true })} placeholder="12345678901" />
       </div>
 
       <div>
@@ -81,7 +64,6 @@ export const DriverForm = ({ driver, onSubmit, onCancel, isLoading }: DriverForm
           <SelectContent>
             <SelectItem value="active">Ativo</SelectItem>
             <SelectItem value="inactive">Inativo</SelectItem>
-            <SelectItem value="on_leave">De Licença</SelectItem>
           </SelectContent>
         </Select>
       </div>
