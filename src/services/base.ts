@@ -13,7 +13,7 @@ export class BaseApiService {
         'Accept': 'application/json',
         ...options?.headers,
       },
-      credentials: 'omit', // Evitar problemas de CORS
+      credentials: 'omit',
       ...options,
     };
 
