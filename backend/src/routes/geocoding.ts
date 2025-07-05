@@ -1,7 +1,44 @@
-
 import { Router } from 'express';
 
 const router = Router();
+
+interface ViaCepResponse {
+  cep: string;
+  logradouro: string;
+  complemento: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+  ibge: string;
+  gia: string;
+  ddd: string;
+  siafi: string;
+  erro?: boolean;
+}
+
+interface GoogleGeocodeResponse {
+  status: string;
+  results: Array<{
+    geometry: {
+      location: {
+        lat: number;
+        lng: number;
+      };
+    };
+  }>;
+}
+
+interface GoogleDirectionsResponse {
+  status: string;
+  routes: Array<{
+    legs: Array<{
+      distance: { value: number };
+      duration: { value: number; text: string };
+    }>;
+    waypoint_order: number[];
+    overview_polyline: { points: string };
+  }>;
+}
 
 // Get address by CEP
 router.get('/cep/:cep', async (req, res) => {
@@ -10,7 +47,7 @@ router.get('/cep/:cep', async (req, res) => {
     
     // Busca no ViaCEP
     const viaCepResponse = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-    const viaCepData = await viaCepResponse.json();
+    const viaCepData = await viaCepResponse.json() as ViaCepResponse;
     
     if (viaCepData.erro) {
       return res.status(404).json({ error: 'CEP não encontrado' });
@@ -21,7 +58,7 @@ router.get('/cep/:cep', async (req, res) => {
     // Use Google Maps Geocoding API para obter coordenadas
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
     const geocodeResponse = await fetch(geocodeUrl);
-    const geocodeData = await geocodeResponse.json();
+    const geocodeData = await geocodeResponse.json() as GoogleGeocodeResponse;
     
     let lat = -23.5505; // Coordenadas padrão (São Paulo)
     let lng = -46.6333;
@@ -70,7 +107,7 @@ router.post('/optimize', async (req, res) => {
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&waypoints=${waypointsParam}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
 
       const response = await fetch(url);
-      const data = await response.json();
+      const data = await response.json() as GoogleDirectionsResponse;
 
       if (data.status === 'OK' && data.routes.length > 0) {
         optimizedRoute = data.routes[0];
@@ -96,7 +133,7 @@ router.post('/optimize', async (req, res) => {
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
       
       const response = await fetch(url);
-      const data = await response.json();
+      const data = await response.json() as GoogleDirectionsResponse;
 
       if (data.status === 'OK' && data.routes.length > 0) {
         optimizedRoute = data.routes[0];
