@@ -1,4 +1,4 @@
-package Rotas.Alchemy.com;
+package app.rotaazul.mobile;
 
 import com.getcapacitor.BridgeActivity;
 

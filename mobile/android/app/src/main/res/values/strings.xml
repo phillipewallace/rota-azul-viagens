@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AlchemyRotas</string>
-    <string name="title_activity_main">AlchemyRotas</string>
-    <string name="package_name">Rotas.Alchemy.com</string>
-    <string name="custom_url_scheme">Rotas.Alchemy.com</string>
+    <string name="app_name">Rota Azul Motorista</string>
+    <string name="title_activity_main">Rota Azul Motorista</string>
+    <string name="package_name">app.rotaazul.mobile</string>
+    <string name="custom_url_scheme">app.rotaazul.mobile</string>
 </resources>
