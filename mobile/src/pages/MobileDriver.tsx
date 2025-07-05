@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -397,7 +396,6 @@ const MobileDriver = () => {
   const route = truckData.currentRoute;
   const points = route?.points?.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order) || [];
   const currentPoint = points[currentPointIndex];
-  const isLastPoint = currentPointIndex === points.length - 1;
   const allPointsCompleted = currentPointIndex >= points.length;
 
   return (
