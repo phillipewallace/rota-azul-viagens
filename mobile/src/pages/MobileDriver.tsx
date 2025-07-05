@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { toast } from 'sonner';
 import { useMobile, type TruckMobileData } from '../hooks/useMobile';
-import { Truck, User, Route, LogOut, MapPin } from 'lucide-react';
+import { Truck, User, Route, LogOut, MapPin, Navigation } from 'lucide-react';
 
 const MobileDriver = () => {
   const [plateNumber, setPlateNumber] = useState('');
@@ -128,6 +128,11 @@ const MobileDriver = () => {
     setPlateNumber(formatted);
   };
 
+  const openGoogleMaps = (lat: number, lng: number, address: string) => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${encodeURIComponent(address)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -207,13 +212,66 @@ const MobileDriver = () => {
                             {truckData.currentRoute.points.filter(p => p.completed).length} de {truckData.currentRoute.points.length} pontos concluídos
                           </span>
                         </div>
-                        <div className="w-full bg-blue-200 rounded-full h-2">
+                        <div className="w-full bg-blue-200 rounded-full h-2 mb-4">
                           <div 
                             className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                             style={{ 
                               width: `${(truckData.currentRoute.points.filter(p => p.completed).length / truckData.currentRoute.points.length) * 100}%` 
                             }}
                           ></div>
+                        </div>
+
+                        {/* Route Points */}
+                        <div className="space-y-3">
+                          {truckData.currentRoute.points
+                            .sort((a, b) => a.order - b.order)
+                            .map((point, index) => (
+                              <div 
+                                key={point.id} 
+                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                                  point.completed 
+                                    ? 'bg-green-50 border-green-200' 
+                                    : index === truckData.currentRoute!.points.filter(p => p.completed).length
+                                      ? 'bg-yellow-50 border-yellow-200'
+                                      : 'bg-gray-50 border-gray-200'
+                                }`}
+                              >
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                  point.completed 
+                                    ? 'bg-green-100 text-green-700' 
+                                    : index === truckData.currentRoute!.points.filter(p => p.completed).length
+                                      ? 'bg-yellow-100 text-yellow-700'
+                                      : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {point.order}
+                                </div>
+                                
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-medium truncate ${
+                                    point.completed ? 'text-green-800' : 'text-gray-700'
+                                  }`}>
+                                    {point.address}
+                                  </p>
+                                  <p className={`text-xs ${
+                                    point.completed ? 'text-green-600' : 'text-gray-500'
+                                  }`}>
+                                    {point.type === 'origin' ? 'Origem' : 
+                                     point.type === 'destination' ? 'Destino' : 'Parada'}
+                                  </p>
+                                </div>
+
+                                {point.lat && point.lng && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openGoogleMaps(point.lat, point.lng, point.address)}
+                                    className="shrink-0 h-8 w-8 p-0"
+                                  >
+                                    <Navigation className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
                         </div>
                       </div>
                     )}
