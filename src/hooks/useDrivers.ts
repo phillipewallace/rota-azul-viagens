@@ -37,8 +37,24 @@ export const useDrivers = () => {
         console.error('❌ Error loading drivers:', error);
         // Mock data for development
         return [
-          { id: '1', name: 'João Silva', license: 'CNH123456', phone: '(11) 99999-9999', email: 'joao@email.com', status: 'active' },
-          { id: '2', name: 'Maria Santos', license: 'CNH654321', phone: '(11) 88888-8888', email: 'maria@email.com', status: 'active' }
+          { 
+            id: '1', 
+            name: 'João Silva', 
+            license: 'CNH123456', 
+            phone: '(11) 99999-9999', 
+            email: 'joao@email.com', 
+            status: 'active' as const,
+            truckCount: 2
+          },
+          { 
+            id: '2', 
+            name: 'Maria Santos', 
+            license: 'CNH654321', 
+            phone: '(11) 88888-8888', 
+            email: 'maria@email.com', 
+            status: 'active' as const,
+            truckCount: 1
+          }
         ];
       }
     },

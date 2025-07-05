@@ -1,9 +1,17 @@
+
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'Rotas.Alchemy.com',
-  appName: 'AlchemyRotas',
-  webDir: 'dist'
+  appId: 'com.alchemyrouter.mobile',  
+  appName: 'AlchemyRouter',
+  webDir: 'dist',
+  plugins: {
+    Geolocation: {
+      permissions: {
+        location: "always"
+      }
+    }
+  }
 };
 
 export default config;
