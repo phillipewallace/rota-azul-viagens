@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '@/services/config';
 
 interface User {
   id: string;
@@ -27,7 +28,7 @@ export const useAuth = () => {
       if (token && userData) {
         // Verificar se o token ainda é válido
         try {
-          const response = await fetch('http://localhost:3001/api/auth/verify', {
+          const response = await fetch(`${API_BASE_URL}/auth/verify`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -63,7 +64,7 @@ export const useAuth = () => {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
