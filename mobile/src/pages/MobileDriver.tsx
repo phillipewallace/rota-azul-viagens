@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { MapPin, Navigation, Truck, Clock, Play, CheckCircle, ExternalLink, AlertCircle, Locate } from 'lucide-react';
+import { MapPin, Navigation, Truck, Play, CheckCircle, ExternalLink, AlertCircle, Locate } from 'lucide-react';
 import { useMobile, TruckMobileData, RoutePoint } from '../hooks/useMobile';
 import { toast } from 'sonner';
 
 const MobileDriver = () => {
   const [plate, setPlate] = useState('');
   const [truckData, setTruckData] = useState<TruckMobileData | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routeStarted, setRouteStarted] = useState(false);
@@ -20,7 +19,7 @@ const MobileDriver = () => {
   const directionsRenderer = useRef<any>(null);
   const userMarker = useRef<any>(null);
   
-  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute, isUpdatingLocation } = useMobile();
+  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute } = useMobile();
 
   const handlePlateSubmit = async () => {
     if (!plate.trim()) return;
@@ -61,8 +60,6 @@ const MobileDriver = () => {
         lat: position.coords.latitude,
         lng: position.coords.longitude
       };
-      
-      setCurrentLocation(newLocation);
       
       // Update user marker position
       if (userMarker.current && mapInstance.current) {
