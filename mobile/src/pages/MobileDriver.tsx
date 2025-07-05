@@ -1,9 +1,10 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { MapPin, Navigation, Truck, Play, CheckCircle, ExternalLink, AlertCircle, Locate } from 'lucide-react';
+import { MapPin, Navigation, Truck, Play, CheckCircle, ExternalLink, AlertCircle, Locate, ArrowLeft } from 'lucide-react';
 import { useMobile, TruckMobileData, RoutePoint } from '../hooks/useMobile';
 import { toast } from 'sonner';
 
@@ -43,6 +44,28 @@ const MobileDriver = () => {
       console.error('Error loading truck data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBackToPlateEntry = () => {
+    // Reset all states
+    setTruckData(null);
+    setRouteStarted(false);
+    setCurrentPointIndex(0);
+    setPlate('');
+    setError(null);
+    
+    // Cleanup map
+    if (directionsRenderer.current) {
+      directionsRenderer.current.setMap(null);
+      directionsRenderer.current = null;
+    }
+    if (userMarker.current) {
+      userMarker.current.setMap(null);
+      userMarker.current = null;
+    }
+    if (mapInstance.current) {
+      mapInstance.current = null;
     }
   };
 
@@ -250,26 +273,13 @@ const MobileDriver = () => {
       setLoading(true);
       await finishRoute(truckData.id);
       
-      // Reset state
-      setTruckData(null);
-      setRouteStarted(false);
-      setCurrentPointIndex(0);
-      setPlate('');
-      
-      // Cleanup map
-      if (directionsRenderer.current) {
-        directionsRenderer.current.setMap(null);
-        directionsRenderer.current = null;
-      }
-      if (userMarker.current) {
-        userMarker.current.setMap(null);
-        userMarker.current = null;
-      }
-      if (mapInstance.current) {
-        mapInstance.current = null;
-      }
-      
       toast.success('Rota finalizada com sucesso!');
+      
+      // Voltar para entrada de placa após finalizar
+      setTimeout(() => {
+        handleBackToPlateEntry();
+      }, 1500);
+      
     } catch (error) {
       console.error('Error finishing route:', error);
       toast.error('Erro ao finalizar rota');
@@ -388,6 +398,7 @@ const MobileDriver = () => {
   const points = route?.points?.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order) || [];
   const currentPoint = points[currentPointIndex];
   const isLastPoint = currentPointIndex === points.length - 1;
+  const allPointsCompleted = currentPointIndex >= points.length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -418,15 +429,11 @@ const MobileDriver = () => {
               <Button 
                 size="sm" 
                 variant="ghost" 
-                onClick={() => {
-                  setTruckData(null);
-                  setRouteStarted(false);
-                  setCurrentPointIndex(0);
-                  setPlate('');
-                }}
-                className="text-white hover:bg-white/20 rounded-xl"
+                onClick={handleBackToPlateEntry}
+                className="text-white hover:bg-white/20 rounded-xl flex items-center gap-2"
               >
-                Sair
+                <ArrowLeft className="w-4 h-4" />
+                Voltar
               </Button>
             </div>
           </div>
@@ -439,7 +446,6 @@ const MobileDriver = () => {
           <Card className="overflow-hidden rounded-2xl shadow-lg border-0 relative">
             <CardContent className="p-0">
               <div ref={mapRef} className="w-full h-64 bg-gradient-to-br from-slate-200 to-slate-300" />
-              {/* Botão de centralizar localização */}
               <Button
                 onClick={centerOnUserLocation}
                 className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-white/90 hover:bg-white text-blue-600 shadow-lg border-2 border-blue-200 p-0"
@@ -451,7 +457,7 @@ const MobileDriver = () => {
           </Card>
         )}
 
-        {/* Route Info with modern card design */}
+        {/* Route Info */}
         {route ? (
           <Card className="rounded-2xl shadow-lg border-0 bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-4">
@@ -475,7 +481,7 @@ const MobileDriver = () => {
                 </div>
                 <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl">
                   <div className="text-3xl font-bold text-green-600 mb-1">
-                    {currentPointIndex + 1}
+                    {Math.min(currentPointIndex + 1, points.length)}
                   </div>
                   <div className="text-sm text-slate-600 font-medium">Parada Atual</div>
                 </div>
@@ -488,6 +494,15 @@ const MobileDriver = () => {
                 >
                   <Play className="w-6 h-6 mr-3" />
                   Iniciar Rota
+                </Button>
+              ) : allPointsCompleted ? (
+                <Button
+                  onClick={handleFinishRoute}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white text-lg font-semibold py-4 rounded-2xl shadow-lg transform transition-all duration-300 hover:scale-105 disabled:opacity-50"
+                >
+                  <CheckCircle className="w-6 h-6 mr-3" />
+                  {loading ? 'Finalizando...' : 'Finalizar Rota'}
                 </Button>
               ) : (
                 <div className="space-y-4">
@@ -524,24 +539,13 @@ const MobileDriver = () => {
                       <span className="font-semibold">Abrir no Google Maps</span>
                     </Button>
                     
-                    {!isLastPoint ? (
-                      <Button
-                        onClick={markPointCompleted}
-                        className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-4 rounded-2xl shadow-lg font-semibold flex items-center justify-center gap-3 transform transition-all duration-300 hover:scale-105"
-                      >
-                        <CheckCircle className="w-5 h-5" />
-                        Marcar como Concluído
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleFinishRoute}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white py-4 rounded-2xl shadow-lg font-semibold flex items-center justify-center gap-3 transform transition-all duration-300 hover:scale-105 disabled:opacity-50"
-                      >
-                        <CheckCircle className="w-5 h-5" />
-                        {loading ? 'Finalizando...' : 'Finalizar Rota'}
-                      </Button>
-                    )}
+                    <Button
+                      onClick={markPointCompleted}
+                      className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-4 rounded-2xl shadow-lg font-semibold flex items-center justify-center gap-3 transform transition-all duration-300 hover:scale-105"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      Marcar como Concluído
+                    </Button>
                   </div>
                 </div>
               )}
@@ -555,51 +559,13 @@ const MobileDriver = () => {
               </div>
               <h3 className="text-xl font-bold text-slate-800 mb-3">Nenhuma rota atribuída</h3>
               <p className="text-slate-600">Este caminhão não possui uma rota ativa no momento.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Route Points List with enhanced design */}
-        {route && routeStarted && (
-          <Card className="rounded-2xl shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold text-slate-800">Sequência de Paradas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {points.map((point, index) => (
-                  <div 
-                    key={point.id} 
-                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 ${
-                      index === currentPointIndex 
-                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-md' 
-                        : index < currentPointIndex 
-                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' 
-                        : 'bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-bold shadow-sm ${
-                      index === currentPointIndex
-                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
-                        : index < currentPointIndex
-                        ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white'
-                        : 'bg-gradient-to-br from-slate-400 to-slate-500 text-white'
-                    }`}>
-                      {index < currentPointIndex ? '✓' : index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 truncate">{point.address}</p>
-                      <p className="text-sm text-slate-600 capitalize mt-1">
-                        {point.type === 'origin' ? '🚀 Origem' : 
-                         point.type === 'destination' ? '🏁 Destino' : '📍 Parada'}
-                      </p>
-                    </div>
-                    {index < currentPointIndex && (
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    )}
-                  </div>
-                ))}
-              </div>
+              <Button
+                onClick={handleBackToPlateEntry}
+                className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar
+              </Button>
             </CardContent>
           </Card>
         )}
