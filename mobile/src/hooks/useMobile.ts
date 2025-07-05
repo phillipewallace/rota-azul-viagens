@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 
 export interface RoutePoint {
@@ -27,9 +26,7 @@ export interface TruckMobileData {
   };
 }
 
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
+const API_BASE_URL = 'https://admmicban.com.br/api';
 
 export const useMobile = () => {
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
