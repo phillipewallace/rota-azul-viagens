@@ -4,8 +4,10 @@ console.log('🔍 [CONFIG] Mode atual:', import.meta.env.MODE);
 console.log('🔍 [CONFIG] Prod check:', import.meta.env.PROD);
 console.log('🔍 [CONFIG] Dev check:', import.meta.env.DEV);
 
-// Forçar produção sempre para evitar problemas
-export const API_BASE_URL = 'https://admmicban.com.br/api';
+// URL da API baseada no ambiente
+export const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://admmicban.com.br/api' 
+  : 'http://localhost:3001/api';
 
 console.log('🔍 [CONFIG] API_BASE_URL definida como:', API_BASE_URL);
 

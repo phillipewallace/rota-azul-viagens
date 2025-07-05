@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
 import { Truck } from '@/hooks/useTrucks';
+import { BaseApiService } from '@/services/base';
 
 interface LinkRouteModalProps {
   open: boolean;
@@ -16,9 +17,19 @@ interface LinkRouteModalProps {
   onSuccess?: () => void;
 }
 
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
+class LinkRouteService extends BaseApiService {
+  async linkRoute(truckId: string, routeId: string): Promise<any> {
+    return this.request('/trucks/link-route', {
+      method: 'POST',
+      body: JSON.stringify({
+        truckId,
+        routeId,
+      }),
+    });
+  }
+}
+
+const linkRouteService = new LinkRouteService();
 
 export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
   open,
@@ -58,21 +69,7 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/trucks/link-route`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          truckId: selectedTruck,
-          routeId: selectedRoute,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Erro ao vincular rota');
-      }
+      await linkRouteService.linkRoute(selectedTruck, selectedRoute);
 
       const truckData = trucks?.find(t => t.id === selectedTruck);
       const routeData = routes?.find(r => r.id === selectedRoute);

@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from 'sonner';
+import { API_BASE_URL } from '@/services/config';
 
 interface TruckData {
   id: string;
@@ -53,13 +55,29 @@ const MobileDriver = () => {
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:3001/api/mobile/truck/${plateNumber}`);
+      console.log('🔍 [MOBILE] Fazendo login com placa:', plateNumber);
+      console.log('🔍 [MOBILE] URL da API:', `${API_BASE_URL}/mobile/truck/${plateNumber}`);
+      
+      const response = await fetch(`${API_BASE_URL}/mobile/truck/${plateNumber}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'omit',
+      });
+      
+      console.log('📡 [MOBILE] Response status:', response.status);
       
       if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ [MOBILE] Erro:', errorData);
         throw new Error('Caminhão não encontrado');
       }
 
       const data = await response.json();
+      console.log('✅ [MOBILE] Dados do caminhão recebidos:', data);
+      
       setTruckData(data);
       setIsLoggedIn(true);
       
@@ -69,7 +87,8 @@ const MobileDriver = () => {
       toast.success(`Bem-vindo, ${data.name}!`);
       console.log('🚛 Truck login successful:', data.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao fazer login');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
+      setError(errorMessage);
       console.error('❌ Login error:', err);
     } finally {
       setLoading(false);

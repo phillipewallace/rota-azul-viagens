@@ -1,23 +1,38 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Schedule } from './useSchedule';
+import { BaseApiService } from '@/services/base';
 
-const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'https://your-api-domain.com/api' 
-  : 'http://localhost:3001/api';
+class ScheduleCRUDService extends BaseApiService {
+  async createSchedule(schedule: Omit<Schedule, 'id'>): Promise<Schedule> {
+    return this.request<Schedule>('/schedules', {
+      method: 'POST',
+      body: JSON.stringify(schedule),
+    });
+  }
+
+  async updateSchedule(id: string, schedule: Partial<Schedule>): Promise<Schedule> {
+    return this.request<Schedule>(`/schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(schedule),
+    });
+  }
+
+  async deleteSchedule(id: string): Promise<void> {
+    return this.request<void>(`/schedules/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+const scheduleCRUDService = new ScheduleCRUDService();
 
 export const useScheduleCRUD = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
     mutationFn: async (schedule: Omit<Schedule, 'id'>) => {
-      const response = await fetch(`${API_BASE_URL}/schedules`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(schedule),
-      });
-      if (!response.ok) throw new Error('Erro ao criar agendamento');
-      return response.json();
+      return scheduleCRUDService.createSchedule(schedule);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
@@ -26,13 +41,7 @@ export const useScheduleCRUD = () => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, schedule }: { id: string; schedule: Partial<Schedule> }) => {
-      const response = await fetch(`${API_BASE_URL}/schedules/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(schedule),
-      });
-      if (!response.ok) throw new Error('Erro ao atualizar agendamento');
-      return response.json();
+      return scheduleCRUDService.updateSchedule(id, schedule);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
@@ -41,11 +50,7 @@ export const useScheduleCRUD = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${API_BASE_URL}/schedules/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Erro ao excluir agendamento');
-      return response.json();
+      return scheduleCRUDService.deleteSchedule(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
