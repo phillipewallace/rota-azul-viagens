@@ -1,8 +1,7 @@
-
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AlchemyRouter</string>
-    <string name="title_activity_main">AlchemyRouter</string>
-    <string name="package_name">app.alchemyrouter.mobile</string>
-    <string name="custom_url_scheme">app.alchemyrouter.mobile</string>
+    <string name="app_name">AlchemyRotas</string>
+    <string name="title_activity_main">AlchemyRotas</string>
+    <string name="package_name">Rotas.Alchemy.com</string>
+    <string name="custom_url_scheme">Rotas.Alchemy.com</string>
 </resources>

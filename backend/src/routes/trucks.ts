@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -276,45 +277,11 @@ router.put('/:id/location', async (req, res) => {
   }
 });
 
-// Check truck dependencies before deletion
-router.get('/:id/dependencies', async (req, res) => {
-  try {
-    const { id } = req.params;
-    console.log(`🔍 [TRUCK DEPS] Verificando dependências do caminhão: ${id}`);
-    
-    const query = `SELECT check_deletion_dependencies('trucks', $1::uuid) as dependencies`;
-    const result = await pool.query(query, [id]);
-    
-    const dependencies = result.rows[0].dependencies;
-    console.log(`✅ [TRUCK DEPS] Dependências verificadas:`, dependencies);
-    
-    res.json(dependencies);
-  } catch (error) {
-    console.error(`❌ [TRUCK DEPS] Erro ao verificar dependências ${req.params.id}:`, error);
-    res.status(500).json({ error: 'Erro ao verificar dependências' });
-  }
-});
-
-// Delete truck with intelligent cascade handling
+// Delete truck
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`🗑️ [TRUCK DELETE] Iniciando exclusão do caminhão: ${id}`);
-    
-    // Check dependencies first
-    const depsQuery = `SELECT check_deletion_dependencies('trucks', $1::uuid) as dependencies`;
-    const depsResult = await pool.query(depsQuery, [id]);
-    const dependencies = depsResult.rows[0].dependencies;
-    
-    console.log(`📊 [TRUCK DELETE] Dependências encontradas:`, dependencies);
-    
-    if (!dependencies.canDelete) {
-      console.log(`❌ [TRUCK DELETE] Exclusão bloqueada - caminhão possui viagens`);
-      return res.status(400).json({ 
-        error: 'Não é possível excluir este caminhão',
-        details: dependencies
-      });
-    }
     
     console.log('🔍 [TRUCK DELETE] Executando DELETE no banco...');
     const result = await pool.query('DELETE FROM trucks WHERE id = $1 RETURNING *', [id]);
@@ -325,14 +292,7 @@ router.delete('/:id', async (req, res) => {
     }
     
     console.log(`✅ [TRUCK DELETE] Caminhão excluído: ${result.rows[0].name} (${result.rows[0].plate})`);
-    console.log(`📊 [TRUCK DELETE] Agendamentos removidos: ${dependencies.schedules || 0}`);
-    console.log(`📊 [TRUCK DELETE] Manutenções removidas: ${dependencies.maintenance || 0}`);
-    
-    res.json({ 
-      message: 'Caminhão excluído com sucesso',
-      removedSchedules: dependencies.schedules || 0,
-      removedMaintenance: dependencies.maintenance || 0
-    });
+    res.json({ message: 'Caminhão excluído com sucesso' });
   } catch (error) {
     console.error(`❌ [TRUCK DELETE] Erro ao excluir caminhão ${req.params.id}:`, error);
     console.error('🔍 [TRUCK DELETE] Stack trace:', (error as Error).stack);

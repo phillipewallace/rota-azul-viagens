@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "app.rotaazul.mobile"
+    namespace "Rotas.Alchemy.com"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "app.rotaazul.mobile"
+        applicationId "Rotas.Alchemy.com"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

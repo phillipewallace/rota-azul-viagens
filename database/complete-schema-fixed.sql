@@ -282,8 +282,96 @@ CREATE TRIGGER update_maintenance_records_updated_at BEFORE UPDATE ON maintenanc
 -- Insert admin user (plain text password as requested)
 INSERT INTO users (username, password, name, email, role) VALUES 
 ('phillipe.sodre', '@Wallace44', 'Phillipe Sodré', 'phillipe.sodre@alchemyrotas.com', 'admin');
-('micban','@Mic1974','Micban','mic.ban@alchemyrotas.com','admin');
 
+-- Insert sample drivers
+INSERT INTO drivers (name, license_number, license_category, phone, email, hire_date, status) VALUES 
+('João Silva', 'CNH001234567', 'D', '(11) 98765-4321', 'joao.silva@email.com', '2023-01-15', 'active'),
+('Maria Santos', 'CNH007654321', 'D', '(11) 99887-6543', 'maria.santos@email.com', '2023-02-20', 'active'),
+('Pedro Costa', 'CNH009876543', 'D', '(11) 97654-3210', 'pedro.costa@email.com', '2023-03-10', 'active'),
+('Ana Oliveira', 'CNH005432109', 'D', '(11) 96543-2109', 'ana.oliveira@email.com', '2023-04-05', 'active'),
+('Carlos Ferreira', 'CNH003210987', 'D', '(11) 95432-1098', 'carlos.ferreira@email.com', '2023-05-12', 'active');
+
+-- Insert sample trucks
+INSERT INTO trucks (name, plate, model, year, capacity_kg, fuel_type, status, location_lat, location_lng, last_maintenance, next_maintenance, mileage) VALUES 
+('Caminhão Alpha', 'ABC-1234', 'Mercedes-Benz Atego', 2020, 8000.00, 'Diesel', 'available', -19.9167, -44.0833, '2024-01-15', '2024-07-15', 45000),
+('Caminhão Beta', 'DEF-5678', 'Volvo VM', 2019, 12000.00, 'Diesel', 'available', -19.9200, -44.0850, '2024-02-20', '2024-08-20', 62000),
+('Caminhão Gamma', 'GHI-9012', 'Scania P-Series', 2021, 15000.00, 'Diesel', 'available', -19.9150, -44.0800, '2024-03-10', '2024-09-10', 38000),
+('Caminhão Delta', 'JKL-3456', 'Iveco Daily', 2018, 5000.00, 'Diesel', 'maintenance', -19.9180, -44.0820, '2024-01-25', '2024-07-25', 85000),
+('Caminhão Echo', 'MNO-7890', 'Ford Cargo', 2022, 10000.00, 'Diesel', 'available', -19.9220, -44.0870, '2024-04-05', '2024-10-05', 25000);
+
+-- Insert sample routes
+INSERT INTO routes (name, description, status, estimated_duration, total_distance, points) VALUES 
+('Rota Centro-Sul', 'Rota que conecta o centro da cidade à zona sul', 'active', 120, 25.5, '[{"address":"Terminal Central, Contagem-MG","lat":-19.9167,"lng":-44.0833,"order":1,"type":"origin"},{"address":"Shopping Contagem, Contagem-MG","lat":-19.9200,"lng":-44.0850,"order":2,"type":"waypoint"},{"address":"Bairro Eldorado, Contagem-MG","lat":-19.9250,"lng":-44.0900,"order":3,"type":"destination"}]'),
+('Rota Norte-Leste', 'Percurso pela zona norte e leste da cidade', 'active', 90, 18.2, '[{"address":"Centro Norte, Contagem-MG","lat":-19.9100,"lng":-44.0800,"order":1,"type":"origin"},{"address":"Zona Leste, Contagem-MG","lat":-19.9050,"lng":-44.0750,"order":2,"type":"destination"}]'),
+('Rota Industrial', 'Atendimento ao distrito industrial', 'active', 150, 35.8, '[{"address":"Distrito Industrial, Contagem-MG","lat":-19.9300,"lng":-44.1000,"order":1,"type":"origin"},{"address":"Zona Industrial Norte, Contagem-MG","lat":-19.9350,"lng":-44.1050,"order":2,"type":"destination"}]'),
+('Rota Metropolitana', 'Cobertura da região metropolitana', 'active', 180, 45.2, '[{"address":"Terminal Metropolitano, Contagem-MG","lat":-19.9400,"lng":-44.1100,"order":1,"type":"origin"},{"address":"Região Metropolitana Sul, Contagem-MG","lat":-19.9450,"lng":-44.1150,"order":2,"type":"destination"}]'),
+('Rota Expressa', 'Rota rápida centro-aeroporto', 'active', 60, 12.5, '[{"address":"Centro, Contagem-MG","lat":-19.9167,"lng":-44.0833,"order":1,"type":"origin"},{"address":"Aeroporto, Confins-MG","lat":-19.6333,"lng":-43.9667,"order":2,"type":"destination"}]');
+
+-- Insert route points for detailed management
+INSERT INTO route_points (route_id, address, lat, lng, point_order, type, estimated_arrival_time) 
+SELECT r.id, 'Terminal Central, Contagem-MG', -19.9167, -44.0833, 1, 'origin', '08:00:00'
+FROM routes r WHERE r.name = 'Rota Centro-Sul';
+
+INSERT INTO route_points (route_id, address, lat, lng, point_order, type, estimated_arrival_time) 
+SELECT r.id, 'Shopping Contagem, Contagem-MG', -19.9200, -44.0850, 2, 'waypoint', '08:30:00'
+FROM routes r WHERE r.name = 'Rota Centro-Sul';
+
+INSERT INTO route_points (route_id, address, lat, lng, point_order, type, estimated_arrival_time) 
+SELECT r.id, 'Bairro Eldorado, Contagem-MG', -19.9250, -44.0900, 3, 'destination', '09:00:00'
+FROM routes r WHERE r.name = 'Rota Centro-Sul';
+
+-- Insert sample maintenance records
+INSERT INTO maintenance_records (truck_id, type, maintenance_type, description, cost, maintenance_date, next_maintenance_date, performed_by, status)
+SELECT t.id, 'Revisão Preventiva', 'Revisão Preventiva', 'Troca de óleo e filtros', 350.00, '2024-01-15', '2024-07-15', 'Oficina Central', 'completed'
+FROM trucks t WHERE t.plate = 'ABC-1234';
+
+INSERT INTO maintenance_records (truck_id, type, maintenance_type, description, cost, maintenance_date, next_maintenance_date, performed_by, status)
+SELECT t.id, 'Reparo de Freios', 'Reparo de Freios', 'Substituição de pastilhas de freio', 280.00, '2024-02-20', '2024-08-20', 'Oficina Norte', 'completed'
+FROM trucks t WHERE t.plate = 'DEF-5678';
+
+-- Insert sample schedules
+INSERT INTO schedules (name, route_id, truck_id, driver_id, start_date, end_date, days_of_week, start_time, scheduled_date, scheduled_time, status)
+SELECT 'Cronograma Semanal Centro-Sul', r.id, t.id, d.id, '2024-06-01', '2024-12-31', '1,2,3,4,5', '08:00:00', CURRENT_DATE, '08:00:00', 'active'
+FROM routes r, trucks t, drivers d 
+WHERE r.name = 'Rota Centro-Sul' AND t.plate = 'ABC-1234' AND d.name = 'João Silva';
+
+-- Update trucks with current drivers and routes
+UPDATE trucks SET 
+    current_driver_id = (SELECT id FROM drivers WHERE name = 'João Silva' LIMIT 1),
+    driver = 'João Silva',
+    driver_id = (SELECT id FROM drivers WHERE name = 'João Silva' LIMIT 1)
+WHERE plate = 'ABC-1234';
+
+UPDATE trucks SET 
+    current_driver_id = (SELECT id FROM drivers WHERE name = 'Maria Santos' LIMIT 1),
+    driver = 'Maria Santos',
+    driver_id = (SELECT id FROM drivers WHERE name = 'Maria Santos' LIMIT 1)
+WHERE plate = 'DEF-5678';
+
+UPDATE trucks SET 
+    current_driver_id = (SELECT id FROM drivers WHERE name = 'Pedro Costa' LIMIT 1),
+    driver = 'Pedro Costa',
+    driver_id = (SELECT id FROM drivers WHERE name = 'Pedro Costa' LIMIT 1)
+WHERE plate = 'GHI-9012';
+
+UPDATE trucks SET 
+    current_driver_id = (SELECT id FROM drivers WHERE name = 'Ana Oliveira' LIMIT 1),
+    driver = 'Ana Oliveira',
+    driver_id = (SELECT id FROM drivers WHERE name = 'Ana Oliveira' LIMIT 1)
+WHERE plate = 'MNO-7890';
+
+-- Assign current routes to some trucks
+UPDATE trucks SET 
+    current_route_id = (SELECT id FROM routes WHERE name = 'Rota Centro-Sul' LIMIT 1), 
+    current_route = 'Rota Centro-Sul',
+    status = 'in-route' 
+WHERE plate = 'ABC-1234';
+
+UPDATE trucks SET 
+    current_route_id = (SELECT id FROM routes WHERE name = 'Rota Norte-Leste' LIMIT 1),
+    current_route = 'Rota Norte-Leste',
+    status = 'in-route' 
+WHERE plate = 'DEF-5678';
 
 -- Insert default system settings
 INSERT INTO system_settings (setting_key, setting_value, setting_type) 
@@ -292,6 +380,10 @@ VALUES
     ('company_name', 'AlchemyRotas', 'string'),
     ('default_map_zoom', '12', 'number');
 
-
+-- Insert sample trips
+INSERT INTO trips (truck_id, route_id, driver_id, distance_km, status, started_at)
+SELECT t.id, r.id, d.id, 25.5, 'completed', '2024-01-15 08:00:00'
+FROM trucks t, routes r, drivers d
+WHERE t.plate = 'ABC-1234' AND r.name = 'Rota Centro-Sul' AND d.name = 'João Silva';
 
 COMMIT;
