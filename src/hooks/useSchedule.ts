@@ -1,6 +1,5 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { BaseApiService } from '@/services/base';
 
 export interface Schedule {
   id: string;
@@ -15,18 +14,22 @@ export interface Schedule {
   notes?: string;
 }
 
-class ScheduleService extends BaseApiService {
-  async getSchedules(): Promise<Schedule[]> {
-    return this.request<Schedule[]>('/schedules');
-  }
-}
+const API_BASE_URL = import.meta.env.MODE === 'production' 
+  ? 'https://your-api-domain.com/api' 
+  : 'http://localhost:3001/api';
 
-const scheduleService = new ScheduleService();
+const fetchSchedules = async (): Promise<Schedule[]> => {
+  const response = await fetch(`${API_BASE_URL}/schedules`);
+  if (!response.ok) {
+    throw new Error('Erro ao carregar agendamentos');
+  }
+  return response.json();
+};
 
 export const useSchedule = () => {
   const { data: schedules = [], isLoading: loading, error, refetch } = useQuery({
     queryKey: ['schedules'],
-    queryFn: () => scheduleService.getSchedules(),
+    queryFn: fetchSchedules,
     retry: 2,
   });
 
