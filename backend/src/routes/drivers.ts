@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -56,25 +57,6 @@ router.get('/', async (req, res) => {
     console.error('❌ [DRIVERS GET] Erro ao buscar motoristas:', error);
     console.error('🔍 [DRIVERS GET] Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro ao buscar motoristas' });
-  }
-});
-
-// Check driver dependencies using new database function
-router.get('/:id/dependencies', async (req, res) => {
-  try {
-    const { id } = req.params;
-    console.log(`🔍 [DRIVER DEPS] Verificando dependências do motorista: ${id}`);
-    
-    const query = `SELECT check_deletion_dependencies('drivers', $1::uuid) as dependencies`;
-    const result = await pool.query(query, [id]);
-    
-    const dependencies = result.rows[0].dependencies;
-    console.log(`✅ [DRIVER DEPS] Dependências verificadas:`, dependencies);
-    
-    res.json(dependencies);
-  } catch (error) {
-    console.error(`❌ [DRIVER DEPS] Erro ao verificar dependências ${req.params.id}:`, error);
-    res.status(500).json({ error: 'Erro ao verificar dependências' });
   }
 });
 
@@ -184,6 +166,32 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     console.error(`❌ [DRIVER UPDATE] Erro ao atualizar motorista ${req.params.id}:`, error);
     res.status(500).json({ error: 'Erro ao atualizar motorista' });
+  }
+});
+
+// Check driver dependencies before deletion
+router.get('/:id/dependencies', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`🔍 [DRIVER DEPS] Verificando dependências do motorista: ${id}`);
+    
+    const trucksQuery = await pool.query('SELECT id, name, plate FROM trucks WHERE current_driver_id = $1', [id]);
+    const tripsQuery = await pool.query('SELECT COUNT(*) as count FROM trips WHERE driver_id = $1', [id]);
+    
+    console.log(`📊 [DRIVER DEPS] Caminhões vinculados: ${trucksQuery.rows.length}`);
+    console.log(`📊 [DRIVER DEPS] Viagens registradas: ${tripsQuery.rows[0]?.count || 0}`);
+    
+    const dependencies = {
+      trucks: trucksQuery.rows,
+      tripsCount: parseInt(tripsQuery.rows[0].count) || 0,
+      canDelete: trucksQuery.rows.length === 0
+    };
+    
+    console.log(`✅ [DRIVER DEPS] Dependências verificadas - Pode excluir: ${dependencies.canDelete}`);
+    res.json(dependencies);
+  } catch (error) {
+    console.error(`❌ [DRIVER DEPS] Erro ao verificar dependências ${req.params.id}:`, error);
+    res.status(500).json({ error: 'Erro ao verificar dependências' });
   }
 });
 
