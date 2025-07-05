@@ -27,7 +27,7 @@ export interface TruckMobileData {
   };
 }
 
-// Configuração da URL da API baseada no ambiente
+// Configuração da URL da API forçada para produção
 const API_BASE_URL = 'https://admmicban.com.br/api';
 
 console.log('🔍 [MOBILE] API_BASE_URL configurada como:', API_BASE_URL);
@@ -44,15 +44,18 @@ export const useMobile = () => {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
       });
       
       console.log(`📡 [MOBILE] Response status: ${response.status}`);
+      console.log(`📡 [MOBILE] Response ok: ${response.ok}`);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        const errorData = await response.text().catch(() => 'Erro desconhecido');
         console.error('❌ [MOBILE] Erro na resposta:', errorData);
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+        throw new Error(`Erro ${response.status}: ${response.statusText} - ${errorData}`);
       }
       
       const data = await response.json();
@@ -63,7 +66,7 @@ export const useMobile = () => {
       console.error('❌ [MOBILE] Erro ao buscar caminhão:', error);
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Erro de conexão. Verifique se o servidor está rodando.');
+        throw new Error('Erro de conexão. Verifique se o servidor está acessível.');
       }
       
       throw error;
@@ -79,11 +82,15 @@ export const useMobile = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
         body: JSON.stringify({ lat, lng }),
       });
       
       if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ [MOBILE] Erro ao atualizar localização:', errorData);
         throw new Error('Erro ao atualizar localização');
       }
       
@@ -156,4 +163,3 @@ export const useMobile = () => {
     isUpdatingLocation
   };
 };
-

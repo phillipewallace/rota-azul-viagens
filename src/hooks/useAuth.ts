@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -25,7 +26,6 @@ export const useAuth = () => {
       const userData = localStorage.getItem('user_data');
 
       if (token && userData) {
-        // Verificar se o token ainda é válido
         try {
           console.log('🔍 [AUTH] Verificando token com URL:', `${API_BASE_URL}/auth/verify`);
           
@@ -34,27 +34,31 @@ export const useAuth = () => {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
+              'Accept': 'application/json',
             },
+            credentials: 'omit',
           });
+
+          console.log('📡 [AUTH] Verify response status:', response.status);
 
           if (response.ok) {
             const data = await response.json();
+            console.log('✅ [AUTH] Token válido, dados do usuário:', data.user);
             setUser(data.user);
           } else {
-            // Token inválido, limpar dados
+            console.log('❌ [AUTH] Token inválido, limpando dados');
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
             setUser(null);
           }
         } catch (error) {
-          // Se não conseguir verificar o token, usar dados locais por enquanto
-          console.warn('Could not verify token, using local data:', error);
+          console.warn('⚠️ [AUTH] Erro ao verificar token, usando dados locais:', error);
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
         }
       }
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      console.error('❌ [AUTH] Erro no checkAuthStatus:', error);
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_data');
       setUser(null);
@@ -66,20 +70,28 @@ export const useAuth = () => {
   const login = async (username: string, password: string) => {
     try {
       console.log('🔍 [AUTH] Fazendo login com URL:', `${API_BASE_URL}/auth/login`);
+      console.log('🔍 [AUTH] Dados do login:', { username, password: '***' });
       
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
         body: JSON.stringify({ username, password }),
       });
 
+      console.log('📡 [AUTH] Login response status:', response.status);
+
       if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ [AUTH] Erro no login:', errorData);
         throw new Error('Credenciais inválidas');
       }
 
       const data = await response.json();
+      console.log('✅ [AUTH] Login bem-sucedido:', data);
       
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('user_data', JSON.stringify(data.user));
