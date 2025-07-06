@@ -1,4 +1,5 @@
 
+
 import { useState } from 'react';
 import { API_BASE_URL, APP_CONFIG } from '../services/config';
 
@@ -65,29 +66,48 @@ export const useMobile = () => {
       }
       
       const data = await response.json();
-      console.log('✅ [MOBILE] Dados do caminhão recebidos:', {
-        id: data.id,
-        name: data.name,
-        plate: data.plate,
-        status: data.status,
-        hasRoute: !!data.currentRoute,
-        pointsCount: data.currentRoute?.points?.length || 0
-      });
+      console.log('✅ [MOBILE] Dados brutos do caminhão recebidos:', data);
       
-      if (!data.id || !data.name || !data.plate) {
-        throw new Error('Dados do caminhão incompletos recebidos do servidor');
-      }
-      
+      // Processar e garantir que completed seja boolean
       if (data.currentRoute?.points) {
-        console.log('📍 [MOBILE] Status dos pontos recebidos:', 
+        data.currentRoute.points = data.currentRoute.points.map((point: any) => ({
+          id: point.id,
+          address: point.address,
+          lat: Number(point.lat) || 0,
+          lng: Number(point.lng) || 0,
+          order: Number(point.order) || 0,
+          type: point.type || 'waypoint',
+          completed: Boolean(point.completed) // Garantir que seja boolean
+        }));
+        
+        console.log('📍 [MOBILE] Pontos processados:', 
           data.currentRoute.points.map((point: RoutePoint) => ({
             id: point.id,
             order: point.order,
             address: point.address.substring(0, 50) + '...',
             completed: point.completed,
-            type: typeof point.completed
+            completedType: typeof point.completed
           }))
         );
+        
+        // Log do status geral da rota
+        const completedCount = data.currentRoute.points.filter((p: RoutePoint) => p.completed === true).length;
+        const totalCount = data.currentRoute.points.length;
+        console.log(`📊 [MOBILE] Status da rota: ${completedCount}/${totalCount} pontos concluídos`);
+      }
+      
+      console.log('✅ [MOBILE] Dados finais do caminhão:', {
+        id: data.id,
+        name: data.name,
+        plate: data.plate,
+        status: data.status,
+        hasRoute: !!data.currentRoute,
+        pointsCount: data.currentRoute?.points?.length || 0,
+        completedPoints: data.currentRoute?.points?.filter((p: RoutePoint) => p.completed === true).length || 0
+      });
+      
+      if (!data.id || !data.name || !data.plate) {
+        throw new Error('Dados do caminhão incompletos recebidos do servidor');
       }
       
       return data;
@@ -143,7 +163,7 @@ export const useMobile = () => {
 
   const updateRoutePoint = async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
     try {
-      console.log(`🎯 [MOBILE] Marcando ponto ${pointId} como completed: ${completed}`);
+      console.log(`🎯 [MOBILE] Marcando ponto ${pointId} como completed: ${completed} (type: ${typeof completed})`);
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
@@ -210,3 +230,4 @@ export const useMobile = () => {
     isUpdatingLocation
   };
 };
+
