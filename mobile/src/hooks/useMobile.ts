@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { API_BASE_URL, APP_CONFIG } from '../services/config';
 
 export interface RoutePoint {
   id: string;
@@ -27,25 +28,6 @@ export interface TruckMobileData {
   };
 }
 
-// Configuração robusta da API alinhada com a VPS
-const getApiUrl = () => {
-  // Em produção, sempre usar o domínio da VPS
-  if (import.meta.env.PROD) {
-    return 'https://admmicban.com.br/api';
-  }
-  
-  // Se existir variável de ambiente VITE_API_URL, usar ela
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // Fallback para desenvolvimento local
-  return 'http://localhost:3001/api';
-};
-
-const API_BASE_URL = getApiUrl();
-
-console.log('📡 [MOBILE CONFIG] Ambiente:', import.meta.env.MODE);
 console.log('📡 [MOBILE CONFIG] API URL configurada:', API_BASE_URL);
 
 export const useMobile = () => {
@@ -61,21 +43,18 @@ export const useMobile = () => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'AlchemyRotas-Mobile/2.0',
+          'User-Agent': `${APP_CONFIG.name}/${APP_CONFIG.version}`,
         },
         credentials: 'omit',
-        // Timeout de 10 segundos para evitar travamentos
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(APP_CONFIG.apiTimeout),
       });
       
       console.log(`📡 [MOBILE] Response status: ${response.status}`);
-      console.log(`📡 [MOBILE] Response headers:`, Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ [MOBILE] Erro na resposta:', errorText);
         
-        // Tratamento específico para diferentes tipos de erro
         if (response.status === 404) {
           throw new Error('Caminhão não encontrado com esta placa');
         } else if (response.status >= 500) {
@@ -95,12 +74,10 @@ export const useMobile = () => {
         pointsCount: data.currentRoute?.points?.length || 0
       });
       
-      // Validação dos dados recebidos
       if (!data.id || !data.name || !data.plate) {
         throw new Error('Dados do caminhão incompletos recebidos do servidor');
       }
       
-      // Log específico dos pontos da rota para debug
       if (data.currentRoute?.points) {
         console.log('📍 [MOBILE] Status dos pontos recebidos:', 
           data.currentRoute.points.map((point: RoutePoint) => ({
@@ -140,7 +117,7 @@ export const useMobile = () => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'AlchemyRotas-Mobile/2.0',
+          'User-Agent': `${APP_CONFIG.name}/${APP_CONFIG.version}`,
         },
         credentials: 'omit',
         body: JSON.stringify({ lat, lng }),
@@ -173,7 +150,7 @@ export const useMobile = () => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'AlchemyRotas-Mobile/2.0',
+          'User-Agent': `${APP_CONFIG.name}/${APP_CONFIG.version}`,
         },
         credentials: 'omit',
         body: JSON.stringify({ completed }),
@@ -204,7 +181,7 @@ export const useMobile = () => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'AlchemyRotas-Mobile/2.0',
+          'User-Agent': `${APP_CONFIG.name}/${APP_CONFIG.version}`,
         },
         credentials: 'omit',
         signal: AbortSignal.timeout(8000),

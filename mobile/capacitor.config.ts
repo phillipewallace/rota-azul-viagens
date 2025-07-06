@@ -7,8 +7,6 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    // Configuração removida para permitir build APK independente
-    // que se conecta diretamente à VPS admmicban.com.br
     cleartext: true,
     allowNavigation: [
       'admmicban.com.br',
