@@ -26,7 +26,7 @@ export interface TruckMobileData {
   };
 }
 
-const API_BASE_URL = 'https://admmicban.com.br/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export const useMobile = () => {
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
