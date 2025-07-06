@@ -82,6 +82,15 @@ router.post('/link-route', async (req, res) => {
     
     console.log('✅ [TRUCK LINK] Validação dos IDs passou');
     
+    // Reset all route points to incomplete when linking route to truck
+    console.log('🔄 [TRUCK LINK] Resetando pontos da rota para não concluídos...');
+    const resetPointsResult = await pool.query(
+      'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
+      [routeId]
+    );
+    
+    console.log(`✅ [TRUCK LINK] ${resetPointsResult.rows.length} pontos da rota resetados para não concluídos`);
+    
     // Update truck with route
     console.log('🔍 [TRUCK LINK] Executando UPDATE no banco...');
     const result = await pool.query(
@@ -95,7 +104,13 @@ router.post('/link-route', async (req, res) => {
     }
     
     console.log(`✅ [TRUCK LINK] Rota vinculada com sucesso - Caminhão: ${result.rows[0].name}`);
-    res.json({ success: true, message: 'Rota vinculada com sucesso' });
+    console.log(`📊 [TRUCK LINK] Pontos resetados: ${resetPointsResult.rows.length} pontos da rota ${routeId} estão prontos para nova execução`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Rota vinculada com sucesso',
+      resetPoints: resetPointsResult.rows.length
+    });
   } catch (error) {
     console.error('❌ [TRUCK LINK] Erro ao vincular rota:', error);
     console.error('🔍 [TRUCK LINK] Stack trace:', (error as Error).stack);
