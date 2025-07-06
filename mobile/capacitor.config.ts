@@ -12,8 +12,15 @@ const config: CapacitorConfig = {
       'admmicban.com.br',
       'https://admmicban.com.br',
       'maps.googleapis.com',
-      'https://maps.googleapis.com'
+      'https://maps.googleapis.com',
+      'maps.google.com',
+      'https://maps.google.com'
     ]
+  },
+  android: {
+    allowMixedContent: true,
+    captureInput: true,
+    webContentsDebuggingEnabled: true
   },
   plugins: {
     Geolocation: {

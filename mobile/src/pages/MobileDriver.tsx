@@ -5,6 +5,7 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { MapPin, Navigation, Truck, Play, CheckCircle, ExternalLink, AlertCircle, Locate, ArrowLeft } from 'lucide-react';
 import { useMobile, TruckMobileData, RoutePoint } from '../hooks/useMobile';
+import { GOOGLE_MAPS_API_KEY } from '../services/config';
 import { toast } from 'sonner';
 
 const MobileDriver = () => {
@@ -14,6 +15,8 @@ const MobileDriver = () => {
   const [error, setError] = useState<string | null>(null);
   const [routeStarted, setRouteStarted] = useState(false);
   const [currentPointIndex, setCurrentPointIndex] = useState(0);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const directionsRenderer = useRef<any>(null);
@@ -28,7 +31,7 @@ const MobileDriver = () => {
     setError(null);
     
     try {
-      const data = await getTruckByPlate(plate);
+      const data = await getTruckByPlateRequest(plate);
       setTruckData(data);
       
       // Reset route state when loading new truck data
@@ -55,6 +58,10 @@ const MobileDriver = () => {
     }
   };
 
+  const getTruckByPlateRequest = async (plate: string) => {
+    return await getTruckByPlate(plate);
+  };
+
   const handleBackToPlateEntry = () => {
     // Reset all states
     setTruckData(null);
@@ -62,6 +69,8 @@ const MobileDriver = () => {
     setCurrentPointIndex(0);
     setPlate('');
     setError(null);
+    setMapLoaded(false);
+    setMapError(null);
     
     // Cleanup map
     if (directionsRenderer.current) {
@@ -79,11 +88,12 @@ const MobileDriver = () => {
 
   const getCurrentLocation = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
+      console.log('📍 [MOBILE] Solicitando localização GPS...');
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 30000
+          timeout: 15000,
+          maximumAge: 60000
         });
       });
       
@@ -92,9 +102,12 @@ const MobileDriver = () => {
         lng: position.coords.longitude
       };
       
+      console.log('✅ [MOBILE] Localização obtida:', newLocation);
+      
       // Update user marker position
       if (userMarker.current && mapInstance.current) {
         userMarker.current.setPosition(newLocation);
+        console.log('📍 [MOBILE] Marcador do usuário atualizado');
       }
       
       if (truckData && routeStarted) {
@@ -104,14 +117,15 @@ const MobileDriver = () => {
             lat: newLocation.lat,
             lng: newLocation.lng
           });
+          console.log('✅ [MOBILE] Localização do caminhão atualizada no servidor');
         } catch (error) {
-          console.error('Error updating truck location:', error);
+          console.error('❌ [MOBILE] Erro ao atualizar localização do caminhão:', error);
         }
       }
       
       return newLocation;
     } catch (error) {
-      console.error('Erro ao obter localização GPS:', error);
+      console.error('❌ [MOBILE] Erro ao obter localização GPS:', error);
       toast.error('Erro ao obter localização GPS');
       return null;
     }
@@ -126,25 +140,81 @@ const MobileDriver = () => {
     }
   };
 
-  const initializeRouteMap = async (route: any) => {
-    if (!mapRef.current || !route.points || route.points.length < 2) return;
-
-    try {
-      const location = await getCurrentLocation();
-      if (!location) return;
-
-      // Load Google Maps
-      if (!window.google) {
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w&libraries=geometry`;
-        script.async = true;
-        await new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
+  const loadGoogleMapsScript = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      // Check if Google Maps is already loaded
+      if (window.google && window.google.maps) {
+        console.log('✅ [MOBILE MAP] Google Maps já carregado');
+        resolve();
+        return;
       }
 
+      // Check if script is already loading
+      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        console.log('⏳ [MOBILE MAP] Script do Google Maps já está sendo carregado');
+        const checkInterval = setInterval(() => {
+          if (window.google && window.google.maps) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+        
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          reject(new Error('Timeout ao carregar Google Maps'));
+        }, 15000);
+        return;
+      }
+
+      console.log('📡 [MOBILE MAP] Carregando script do Google Maps...');
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry&v=3.54`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        console.log('✅ [MOBILE MAP] Script do Google Maps carregado com sucesso');
+        // Wait a bit for Google Maps to initialize fully
+        setTimeout(() => {
+          if (window.google && window.google.maps) {
+            resolve();
+          } else {
+            reject(new Error('Google Maps não inicializou corretamente'));
+          }
+        }, 500);
+      };
+      
+      script.onerror = (error) => {
+        console.error('❌ [MOBILE MAP] Erro ao carregar script do Google Maps:', error);
+        reject(new Error('Falha ao carregar Google Maps API'));
+      };
+      
+      document.head.appendChild(script);
+    });
+  };
+
+  const initializeRouteMap = async (route: any) => {
+    if (!mapRef.current || !route.points || route.points.length < 1) {
+      console.log('❌ [MOBILE MAP] Referência do mapa ou pontos não disponíveis');
+      return;
+    }
+
+    try {
+      setMapError(null);
+      console.log('🗺️ [MOBILE MAP] Inicializando mapa da rota...');
+      
+      // Load Google Maps script
+      await loadGoogleMapsScript();
+      
+      const location = await getCurrentLocation();
+      if (!location) {
+        console.log('❌ [MOBILE MAP] Não foi possível obter localização');
+        setMapError('Não foi possível obter sua localização');
+        return;
+      }
+
+      console.log('🗺️ [MOBILE MAP] Criando instância do mapa...');
+      
       // Initialize map
       mapInstance.current = new window.google.maps.Map(mapRef.current, {
         center: location,
@@ -152,11 +222,14 @@ const MobileDriver = () => {
         mapTypeControl: true,
         fullscreenControl: false,
         streetViewControl: false,
+        zoomControl: true,
         mapTypeControlOptions: {
-          position: window.google.maps.ControlPosition.BOTTOM_RIGHT,
-          style: window.google.maps.MapTypeControlStyle.HORIZONTAL_BAR
+          position: window.google.maps.ControlPosition.TOP_RIGHT,
+          style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU
         }
       });
+
+      console.log('✅ [MOBILE MAP] Instância do mapa criada');
 
       // Add user location marker
       userMarker.current = new window.google.maps.Marker({
@@ -173,19 +246,31 @@ const MobileDriver = () => {
         }
       });
 
+      console.log('✅ [MOBILE MAP] Marcador do usuário adicionado');
+
       // Draw route
       await drawRoute(route);
       
+      setMapLoaded(true);
+      console.log('✅ [MOBILE MAP] Mapa inicializado com sucesso');
+      
     } catch (error) {
-      console.error('Erro ao inicializar mapa:', error);
+      console.error('❌ [MOBILE MAP] Erro ao inicializar mapa:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao carregar o mapa';
+      setMapError(errorMessage);
       toast.error('Erro ao carregar mapa');
     }
   };
 
   const drawRoute = async (route: any) => {
-    if (!mapInstance.current || !route.points || !window.google) return;
+    if (!mapInstance.current || !route.points || !window.google || route.points.length < 2) {
+      console.log('❌ [MOBILE MAP] Condições insuficientes para desenhar rota');
+      return;
+    }
 
     try {
+      console.log('🗺️ [MOBILE MAP] Desenhando rota...');
+      
       const directionsService = new window.google.maps.DirectionsService();
       directionsRenderer.current = new window.google.maps.DirectionsRenderer({
         map: mapInstance.current,
@@ -197,12 +282,16 @@ const MobileDriver = () => {
       });
 
       const points = route.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+      console.log(`📍 [MOBILE MAP] Pontos da rota ordenados: ${points.length} pontos`);
+      
       const origin = points[0];
       const destination = points[points.length - 1];
       const waypoints = points.slice(1, -1).map((point: RoutePoint) => ({
         location: new window.google.maps.LatLng(point.lat, point.lng),
         stopover: true
       }));
+
+      console.log('🗺️ [MOBILE MAP] Solicitando direções...');
 
       directionsService.route({
         origin: new window.google.maps.LatLng(origin.lat, origin.lng),
@@ -213,12 +302,13 @@ const MobileDriver = () => {
       }, (result: any, status: string) => {
         if (status === 'OK' && directionsRenderer.current) {
           directionsRenderer.current.setDirections(result);
+          console.log('✅ [MOBILE MAP] Rota desenhada com sucesso');
         } else {
-          console.error('Erro ao desenhar rota:', status);
+          console.error('❌ [MOBILE MAP] Erro ao desenhar rota:', status);
         }
       });
     } catch (error) {
-      console.error('Erro ao desenhar rota:', error);
+      console.error('❌ [MOBILE MAP] Erro ao desenhar rota:', error);
     }
   };
 
@@ -489,14 +579,32 @@ const MobileDriver = () => {
         {route && (
           <Card className="overflow-hidden rounded-2xl shadow-lg border-0 relative">
             <CardContent className="p-0">
-              <div ref={mapRef} className="w-full h-64 bg-gradient-to-br from-slate-200 to-slate-300" />
-              <Button
-                onClick={centerOnUserLocation}
-                className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-white/90 hover:bg-white text-blue-600 shadow-lg border-2 border-blue-200 p-0"
-                size="sm"
-              >
-                <Locate className="w-5 h-5" />
-              </Button>
+              {mapError ? (
+                <div className="w-full h-64 bg-gradient-to-br from-slate-200 to-slate-300 flex flex-col items-center justify-center">
+                  <AlertCircle className="w-8 h-8 text-red-500 mb-2" />
+                  <p className="text-red-600 text-sm font-medium mb-2">Erro ao carregar mapa</p>
+                  <p className="text-slate-600 text-xs px-4 text-center">{mapError}</p>
+                </div>
+              ) : (
+                <>
+                  <div ref={mapRef} className="w-full h-64 bg-gradient-to-br from-slate-200 to-slate-300" />
+                  {!mapLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p className="text-slate-600 text-sm font-medium">Carregando mapa...</p>
+                      </div>
+                    </div>
+                  )}
+                  <Button
+                    onClick={centerOnUserLocation}
+                    className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-white/90 hover:bg-white text-blue-600 shadow-lg border-2 border-blue-200 p-0"
+                    size="sm"
+                  >
+                    <Locate className="w-5 h-5" />
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
