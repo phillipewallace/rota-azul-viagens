@@ -7,9 +7,15 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    // Remover URL fixa para permitir build APK independente
-    // url: 'https://e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com?forceHideBadge=true',
-    cleartext: true
+    // Configuração removida para permitir build APK independente
+    // que se conecta diretamente à VPS admmicban.com.br
+    cleartext: true,
+    allowNavigation: [
+      'admmicban.com.br',
+      'https://admmicban.com.br',
+      'maps.googleapis.com',
+      'https://maps.googleapis.com'
+    ]
   },
   plugins: {
     Geolocation: {
@@ -20,6 +26,9 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: "#1e40af"
+    },
+    CapacitorHttp: {
+      enabled: true
     }
   }
 };

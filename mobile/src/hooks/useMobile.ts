@@ -27,14 +27,14 @@ export interface TruckMobileData {
   };
 }
 
-// Configuração dinâmica da API baseada no ambiente
+// Configuração robusta da API alinhada com a VPS
 const getApiUrl = () => {
-  // Se estiver em produção, usar a URL de produção
+  // Em produção, sempre usar o domínio da VPS
   if (import.meta.env.PROD) {
     return 'https://admmicban.com.br/api';
   }
   
-  // Se existir variável de ambiente, usar ela
+  // Se existir variável de ambiente VITE_API_URL, usar ela
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
@@ -45,40 +45,68 @@ const getApiUrl = () => {
 
 const API_BASE_URL = getApiUrl();
 
+console.log('📡 [MOBILE CONFIG] Ambiente:', import.meta.env.MODE);
+console.log('📡 [MOBILE CONFIG] API URL configurada:', API_BASE_URL);
+
 export const useMobile = () => {
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
 
   const getTruckByPlate = async (plate: string): Promise<TruckMobileData> => {
     try {
-      console.log(`🔍 Buscando caminhão com placa: ${plate}`);
-      console.log(`🔍 URL da API: ${API_BASE_URL}/mobile/truck/${plate}`);
+      console.log(`🔍 [MOBILE] Buscando caminhão com placa: ${plate}`);
+      console.log(`🔍 [MOBILE] URL da API: ${API_BASE_URL}/mobile/truck/${plate}`);
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'User-Agent': 'AlchemyRotas-Mobile/2.0',
         },
         credentials: 'omit',
+        // Timeout de 10 segundos para evitar travamentos
+        signal: AbortSignal.timeout(10000),
       });
       
-      console.log(`📡 Response status: ${response.status}`);
+      console.log(`📡 [MOBILE] Response status: ${response.status}`);
+      console.log(`📡 [MOBILE] Response headers:`, Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        console.error('❌ Erro na resposta:', errorData);
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ [MOBILE] Erro na resposta:', errorText);
+        
+        // Tratamento específico para diferentes tipos de erro
+        if (response.status === 404) {
+          throw new Error('Caminhão não encontrado com esta placa');
+        } else if (response.status >= 500) {
+          throw new Error('Erro no servidor. Tente novamente em alguns momentos.');
+        } else {
+          throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        }
       }
       
       const data = await response.json();
-      console.log('✅ Dados do caminhão recebidos:', data);
+      console.log('✅ [MOBILE] Dados do caminhão recebidos:', {
+        id: data.id,
+        name: data.name,
+        plate: data.plate,
+        status: data.status,
+        hasRoute: !!data.currentRoute,
+        pointsCount: data.currentRoute?.points?.length || 0
+      });
+      
+      // Validação dos dados recebidos
+      if (!data.id || !data.name || !data.plate) {
+        throw new Error('Dados do caminhão incompletos recebidos do servidor');
+      }
       
       // Log específico dos pontos da rota para debug
       if (data.currentRoute?.points) {
-        console.log('📍 Status dos pontos recebidos:', 
+        console.log('📍 [MOBILE] Status dos pontos recebidos:', 
           data.currentRoute.points.map((point: RoutePoint) => ({
+            id: point.id,
             order: point.order,
-            address: point.address,
+            address: point.address.substring(0, 50) + '...',
             completed: point.completed,
             type: typeof point.completed
           }))
@@ -87,10 +115,14 @@ export const useMobile = () => {
       
       return data;
     } catch (error) {
-      console.error('❌ Erro ao buscar caminhão:', error);
+      console.error('❌ [MOBILE] Erro ao buscar caminhão:', error);
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Erro de conexão. Verifique se o servidor está rodando e a URL está correta.');
+        throw new Error('Erro de conexão com o servidor. Verifique sua conexão com a internet.');
+      }
+      
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        throw new Error('Timeout na conexão com o servidor. Tente novamente.');
       }
       
       throw error;
@@ -101,28 +133,31 @@ export const useMobile = () => {
     try {
       setIsUpdatingLocation(true);
       
-      console.log(`📍 Atualizando localização do caminhão ${truckId}:`, { lat, lng });
+      console.log(`📍 [MOBILE] Atualizando localização do caminhão ${truckId}:`, { lat, lng });
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'User-Agent': 'AlchemyRotas-Mobile/2.0',
         },
         credentials: 'omit',
         body: JSON.stringify({ lat, lng }),
+        signal: AbortSignal.timeout(8000),
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro ao atualizar localização' }));
-        throw new Error(errorData.error || 'Erro ao atualizar localização');
+        const errorText = await response.text();
+        console.error('❌ [MOBILE] Erro ao atualizar localização:', errorText);
+        throw new Error('Erro ao atualizar localização no servidor');
       }
       
       const result = await response.json();
-      console.log('✅ Localização atualizada com sucesso');
+      console.log('✅ [MOBILE] Localização atualizada com sucesso');
       return result;
     } catch (error) {
-      console.error('❌ Erro ao atualizar localização:', error);
+      console.error('❌ [MOBILE] Erro ao atualizar localização:', error);
       throw error;
     } finally {
       setIsUpdatingLocation(false);
@@ -131,55 +166,61 @@ export const useMobile = () => {
 
   const updateRoutePoint = async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
     try {
-      console.log(`🎯 Marcando ponto ${pointId} como completed: ${completed}`);
+      console.log(`🎯 [MOBILE] Marcando ponto ${pointId} como completed: ${completed}`);
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'User-Agent': 'AlchemyRotas-Mobile/2.0',
         },
         credentials: 'omit',
         body: JSON.stringify({ completed }),
+        signal: AbortSignal.timeout(8000),
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro ao atualizar ponto da rota' }));
-        throw new Error(errorData.error || 'Erro ao atualizar ponto da rota');
+        const errorText = await response.text();
+        console.error('❌ [MOBILE] Erro ao atualizar ponto:', errorText);
+        throw new Error('Erro ao atualizar ponto da rota no servidor');
       }
       
       const result = await response.json();
-      console.log('✅ Ponto da rota atualizado com sucesso:', result);
+      console.log('✅ [MOBILE] Ponto da rota atualizado com sucesso:', result);
       return result;
     } catch (error) {
-      console.error('❌ Erro ao atualizar ponto da rota:', error);
+      console.error('❌ [MOBILE] Erro ao atualizar ponto da rota:', error);
       throw error;
     }
   };
 
   const finishRoute = async (truckId: string) => {
     try {
-      console.log(`🏁 Finalizando rota do caminhão: ${truckId}`);
+      console.log(`🏁 [MOBILE] Finalizando rota do caminhão: ${truckId}`);
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'User-Agent': 'AlchemyRotas-Mobile/2.0',
         },
         credentials: 'omit',
+        signal: AbortSignal.timeout(8000),
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro ao finalizar rota' }));
-        throw new Error(errorData.error || 'Erro ao finalizar rota');
+        const errorText = await response.text();
+        console.error('❌ [MOBILE] Erro ao finalizar rota:', errorText);
+        throw new Error('Erro ao finalizar rota no servidor');
       }
       
       const result = await response.json();
-      console.log('✅ Rota finalizada com sucesso:', result);
+      console.log('✅ [MOBILE] Rota finalizada com sucesso:', result);
       return result;
     } catch (error) {
-      console.error('❌ Erro ao finalizar rota:', error);
+      console.error('❌ [MOBILE] Erro ao finalizar rota:', error);
       throw error;
     }
   };
