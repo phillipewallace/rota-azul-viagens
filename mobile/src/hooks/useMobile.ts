@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 
 export interface RoutePoint {
@@ -7,7 +8,7 @@ export interface RoutePoint {
   lng: number;
   order: number;
   type: 'origin' | 'destination' | 'waypoint';
-  completed?: boolean;
+  completed: boolean;
 }
 
 export interface TruckMobileData {
@@ -26,7 +27,7 @@ export interface TruckMobileData {
   };
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.100:3001/api';
 
 export const useMobile = () => {
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
@@ -34,6 +35,7 @@ export const useMobile = () => {
   const getTruckByPlate = async (plate: string): Promise<TruckMobileData> => {
     try {
       console.log(`🔍 Buscando caminhão com placa: ${plate}`);
+      console.log(`🔍 URL da API: ${API_BASE_URL}/mobile/truck/${plate}`);
       
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`, {
         method: 'GET',
@@ -53,6 +55,18 @@ export const useMobile = () => {
       const data = await response.json();
       console.log('✅ Dados do caminhão recebidos:', data);
       
+      // Log específico dos pontos da rota para debug
+      if (data.currentRoute?.points) {
+        console.log('📍 Status dos pontos recebidos:', 
+          data.currentRoute.points.map((point: RoutePoint) => ({
+            order: point.order,
+            address: point.address,
+            completed: point.completed,
+            type: typeof point.completed
+          }))
+        );
+      }
+      
       return data;
     } catch (error) {
       console.error('❌ Erro ao buscar caminhão:', error);
@@ -69,6 +83,8 @@ export const useMobile = () => {
     try {
       setIsUpdatingLocation(true);
       
+      console.log(`📍 Atualizando localização do caminhão ${truckId}:`, { lat, lng });
+      
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
         method: 'PUT',
         headers: {
@@ -81,7 +97,9 @@ export const useMobile = () => {
         throw new Error('Erro ao atualizar localização');
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('✅ Localização atualizada com sucesso');
+      return result;
     } catch (error) {
       console.error('❌ Erro ao atualizar localização:', error);
       throw error;
@@ -92,6 +110,8 @@ export const useMobile = () => {
 
   const updateRoutePoint = async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
     try {
+      console.log(`🎯 Marcando ponto ${pointId} como completed: ${completed}`);
+      
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
         headers: {
@@ -101,10 +121,13 @@ export const useMobile = () => {
       });
       
       if (!response.ok) {
-        throw new Error('Erro ao atualizar ponto da rota');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao atualizar ponto da rota');
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('✅ Ponto da rota atualizado com sucesso:', result);
+      return result;
     } catch (error) {
       console.error('❌ Erro ao atualizar ponto da rota:', error);
       throw error;
@@ -113,6 +136,8 @@ export const useMobile = () => {
 
   const finishRoute = async (truckId: string) => {
     try {
+      console.log(`🏁 Finalizando rota do caminhão: ${truckId}`);
+      
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
         method: 'POST',
         headers: {
@@ -125,7 +150,9 @@ export const useMobile = () => {
         throw new Error(errorData.error || 'Erro ao finalizar rota');
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('✅ Rota finalizada com sucesso:', result);
+      return result;
     } catch (error) {
       console.error('❌ Erro ao finalizar rota:', error);
       throw error;
