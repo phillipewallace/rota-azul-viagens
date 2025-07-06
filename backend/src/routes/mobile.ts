@@ -9,9 +9,9 @@ router.get('/truck/:plate', async (req, res) => {
   try {
     const { plate } = req.params;
     
-    console.log(`🔍 Buscando caminhão com placa: ${plate}`);
+    console.log(`🔍 [MOBILE API] Buscando caminhão com placa: ${plate}`);
     
-    // Query simplificada para buscar dados do caminhão
+    // Query para buscar dados do caminhão
     const truckQuery = `
       SELECT 
         t.id,
@@ -19,7 +19,7 @@ router.get('/truck/:plate', async (req, res) => {
         t.plate,
         t.model,
         t.year,
-        t.status,
+        COALESCE(t.status, 'available') as status,
         t.current_route_id,
         d.name as driver_name
       FROM trucks t
@@ -30,17 +30,19 @@ router.get('/truck/:plate', async (req, res) => {
     const truckResult = await pool.query(truckQuery, [plate]);
 
     if (truckResult.rows.length === 0) {
-      console.log(`❌ Caminhão não encontrado: ${plate}`);
+      console.log(`❌ [MOBILE API] Caminhão não encontrado: ${plate}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
 
     const truck = truckResult.rows[0];
-    console.log(`✅ Caminhão encontrado: ${truck.name} (${truck.plate})`);
+    console.log(`✅ [MOBILE API] Caminhão encontrado: ${truck.name} (${truck.plate})`);
     
     // Buscar dados da rota se existir
     let currentRoute = null;
     
     if (truck.current_route_id) {
+      console.log(`📋 [MOBILE API] Buscando rota: ${truck.current_route_id}`);
+      
       const routeQuery = `
         SELECT 
           r.id,
@@ -60,32 +62,44 @@ router.get('/truck/:plate', async (req, res) => {
           SELECT 
             rp.id,
             rp.address,
-            rp.lat,
-            rp.lng,
-            rp.point_order as "order",
-            rp.type,
+            COALESCE(rp.lat, 0) as lat,
+            COALESCE(rp.lng, 0) as lng,
+            COALESCE(rp.point_order, 0) as "order",
+            COALESCE(rp.type, 'waypoint') as type,
             COALESCE(rp.completed, false) as completed
           FROM route_points rp
           WHERE rp.route_id = $1
-          ORDER BY rp.point_order
+          ORDER BY rp.point_order ASC
         `;
         
         const pointsResult = await pool.query(pointsQuery, [truck.current_route_id]);
         
-        console.log(`📍 Pontos da rota encontrados: ${pointsResult.rows.length}`);
-        console.log(`📍 Status dos pontos:`, pointsResult.rows.map(p => ({ 
-          order: p.order, 
-          address: p.address, 
-          completed: p.completed 
-        })));
+        console.log(`📍 [MOBILE API] Pontos da rota encontrados: ${pointsResult.rows.length}`);
+        
+        // Log detalhado dos pontos para debug
+        pointsResult.rows.forEach((point, index) => {
+          console.log(`📍 [MOBILE API] Ponto ${index + 1}:`, {
+            id: point.id,
+            order: point.order,
+            address: point.address.substring(0, 50) + '...',
+            completed: point.completed,
+            lat: point.lat,
+            lng: point.lng,
+            type: point.type
+          });
+        });
         
         currentRoute = {
           id: route.id,
           name: route.name,
-          description: route.description,
+          description: route.description || null,
           points: pointsResult.rows
         };
+      } else {
+        console.log(`❌ [MOBILE API] Rota não encontrada: ${truck.current_route_id}`);
       }
+    } else {
+      console.log(`ℹ️ [MOBILE API] Caminhão sem rota atribuída`);
     }
 
     const response = {
@@ -95,26 +109,24 @@ router.get('/truck/:plate', async (req, res) => {
       model: truck.model,
       year: truck.year,
       status: truck.status,
-      driver: truck.driver_name,
+      driver: truck.driver_name || null,
       currentRoute
     };
 
-    console.log(`📱 Enviando dados do caminhão:`, {
+    console.log(`📱 [MOBILE API] Enviando resposta:`, {
       ...response,
       currentRoute: response.currentRoute ? {
-        ...response.currentRoute,
-        points: response.currentRoute.points.map(p => ({
-          id: p.id,
-          address: p.address,
-          completed: p.completed
-        }))
+        id: response.currentRoute.id,
+        name: response.currentRoute.name,
+        pointsCount: response.currentRoute.points?.length || 0,
+        completedPoints: response.currentRoute.points?.filter(p => p.completed).length || 0
       } : null
     });
     
     res.json(response);
     
   } catch (error) {
-    console.error('❌ Erro ao buscar caminhão:', error);
+    console.error('❌ [MOBILE API] Erro ao buscar caminhão:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -125,15 +137,17 @@ router.put('/truck/:id/location', async (req, res) => {
     const { id } = req.params;
     const { lat, lng } = req.body;
 
+    console.log(`📍 [MOBILE API] Atualizando localização do caminhão ${id}:`, { lat, lng });
+
     await pool.query(
       'UPDATE trucks SET location_lat = $1, location_lng = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
       [lat, lng, id]
     );
 
-    console.log(`📍 Localização atualizada para caminhão ${id}: ${lat}, ${lng}`);
+    console.log(`✅ [MOBILE API] Localização atualizada para caminhão ${id}`);
     res.json({ success: true });
   } catch (error) {
-    console.error('❌ Erro ao atualizar localização:', error);
+    console.error('❌ [MOBILE API] Erro ao atualizar localização:', error);
     res.status(500).json({ error: 'Erro ao atualizar localização' });
   }
 });
@@ -144,7 +158,23 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     const { truckId, pointId } = req.params;
     const { completed } = req.body;
 
-    console.log(`🎯 Atualizando ponto ${pointId} para completed: ${completed}`);
+    console.log(`🎯 [MOBILE API] Atualizando ponto ${pointId} do caminhão ${truckId} para completed: ${completed}`);
+
+    // Verificar se o ponto existe e pertence à rota do caminhão
+    const verifyQuery = `
+      SELECT rp.id, rp.route_id, t.current_route_id
+      FROM route_points rp
+      JOIN routes r ON rp.route_id = r.id
+      JOIN trucks t ON t.current_route_id = r.id
+      WHERE rp.id = $1 AND t.id = $2
+    `;
+    
+    const verifyResult = await pool.query(verifyQuery, [pointId, truckId]);
+    
+    if (verifyResult.rows.length === 0) {
+      console.log(`❌ [MOBILE API] Ponto não encontrado ou não pertence ao caminhão`);
+      return res.status(404).json({ error: 'Ponto da rota não encontrado' });
+    }
 
     // Atualizar o status do ponto na rota
     const updateResult = await pool.query(
@@ -153,15 +183,19 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     );
 
     if (updateResult.rows.length === 0) {
-      console.log(`❌ Ponto não encontrado: ${pointId}`);
-      return res.status(404).json({ error: 'Ponto da rota não encontrado' });
+      console.log(`❌ [MOBILE API] Falha ao atualizar ponto: ${pointId}`);
+      return res.status(404).json({ error: 'Erro ao atualizar ponto da rota' });
     }
 
-    console.log(`✅ Ponto ${pointId} atualizado com sucesso:`, updateResult.rows[0]);
+    console.log(`✅ [MOBILE API] Ponto ${pointId} atualizado com sucesso:`, {
+      id: updateResult.rows[0].id,
+      completed: updateResult.rows[0].completed,
+      completed_at: updateResult.rows[0].completed_at
+    });
     
     res.json({ success: true, point: updateResult.rows[0] });
   } catch (error) {
-    console.error('❌ Erro ao atualizar ponto da rota:', error);
+    console.error('❌ [MOBILE API] Erro ao atualizar ponto da rota:', error);
     res.status(500).json({ error: 'Erro ao atualizar ponto da rota' });
   }
 });
@@ -171,7 +205,7 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
   try {
     const { truckId } = req.params;
     
-    console.log(`🏁 Iniciando finalização da rota para caminhão ${truckId}`);
+    console.log(`🏁 [MOBILE API] Iniciando finalização da rota para caminhão ${truckId}`);
     
     // Buscar a rota atual do caminhão
     const truckResult = await pool.query(
@@ -180,12 +214,12 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     );
     
     if (truckResult.rows.length === 0) {
-      console.log(`❌ Caminhão não encontrado: ${truckId}`);
+      console.log(`❌ [MOBILE API] Caminhão não encontrado: ${truckId}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
     
     const currentRouteId = truckResult.rows[0].current_route_id;
-    console.log(`📋 Rota atual: ${currentRouteId}`);
+    console.log(`📋 [MOBILE API] Rota atual: ${currentRouteId}`);
     
     // Atualizar status do caminhão
     await pool.query(
@@ -195,17 +229,17 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
     // Marcar todos os pontos da rota como concluídos se existe rota
     if (currentRouteId) {
-      await pool.query(
-        'UPDATE route_points SET completed = true, completed_at = CURRENT_TIMESTAMP WHERE route_id = $1 AND completed = false',
+      const updatePointsResult = await pool.query(
+        'UPDATE route_points SET completed = true, completed_at = CURRENT_TIMESTAMP WHERE route_id = $1 AND completed = false RETURNING id',
         [currentRouteId]
       );
-      console.log(`✅ Pontos da rota ${currentRouteId} marcados como concluídos`);
+      console.log(`✅ [MOBILE API] ${updatePointsResult.rows.length} pontos da rota ${currentRouteId} marcados como concluídos`);
     }
     
-    console.log(`🏁 Rota finalizada para caminhão ${truckId}`);
+    console.log(`🏁 [MOBILE API] Rota finalizada com sucesso para caminhão ${truckId}`);
     res.json({ success: true, message: 'Rota finalizada com sucesso' });
   } catch (error) {
-    console.error('❌ Erro ao finalizar rota:', error);
+    console.error('❌ [MOBILE API] Erro ao finalizar rota:', error);
     res.status(500).json({ error: 'Erro ao finalizar rota' });
   }
 });

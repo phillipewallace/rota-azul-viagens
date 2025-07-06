@@ -27,7 +27,23 @@ export interface TruckMobileData {
   };
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.100:3001/api';
+// Configuração dinâmica da API baseada no ambiente
+const getApiUrl = () => {
+  // Se estiver em produção, usar a URL de produção
+  if (import.meta.env.PROD) {
+    return 'https://admmicban.com.br/api';
+  }
+  
+  // Se existir variável de ambiente, usar ela
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Fallback para desenvolvimento local
+  return 'http://localhost:3001/api';
+};
+
+const API_BASE_URL = getApiUrl();
 
 export const useMobile = () => {
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
@@ -41,7 +57,9 @@ export const useMobile = () => {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
       });
       
       console.log(`📡 Response status: ${response.status}`);
@@ -72,7 +90,7 @@ export const useMobile = () => {
       console.error('❌ Erro ao buscar caminhão:', error);
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Erro de conexão. Verifique se o servidor está rodando.');
+        throw new Error('Erro de conexão. Verifique se o servidor está rodando e a URL está correta.');
       }
       
       throw error;
@@ -89,12 +107,15 @@ export const useMobile = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
         body: JSON.stringify({ lat, lng }),
       });
       
       if (!response.ok) {
-        throw new Error('Erro ao atualizar localização');
+        const errorData = await response.json().catch(() => ({ error: 'Erro ao atualizar localização' }));
+        throw new Error(errorData.error || 'Erro ao atualizar localização');
       }
       
       const result = await response.json();
@@ -116,12 +137,14 @@ export const useMobile = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
         body: JSON.stringify({ completed }),
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: 'Erro ao atualizar ponto da rota' }));
         throw new Error(errorData.error || 'Erro ao atualizar ponto da rota');
       }
       
@@ -142,11 +165,13 @@ export const useMobile = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        credentials: 'omit',
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: 'Erro ao finalizar rota' }));
         throw new Error(errorData.error || 'Erro ao finalizar rota');
       }
       
