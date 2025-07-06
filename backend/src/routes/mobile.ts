@@ -243,23 +243,29 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     const currentRouteId = truckResult.rows[0].current_route_id;
     console.log(`📋 [MOBILE API] Rota atual: ${currentRouteId}`);
     
-    // Atualizar status do caminhão
+    // Atualizar status do caminhão e desvincular da rota
     await pool.query(
       'UPDATE trucks SET status = $1, current_route_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       ['available', truckId]
     );
     
-    // Marcar todos os pontos da rota como concluídos se existe rota
+    console.log(`✅ [MOBILE API] Caminhão ${truckId} desvinculado da rota e status atualizado para 'available'`);
+    
+    // Resetar todos os pontos da rota para não concluídos para permitir reutilização
     if (currentRouteId) {
-      const updatePointsResult = await pool.query(
-        'UPDATE route_points SET completed = true, completed_at = CURRENT_TIMESTAMP WHERE route_id = $1 AND completed = false RETURNING id',
+      const resetPointsResult = await pool.query(
+        'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
         [currentRouteId]
       );
-      console.log(`✅ [MOBILE API] ${updatePointsResult.rows.length} pontos da rota ${currentRouteId} marcados como concluídos`);
+      console.log(`🔄 [MOBILE API] ${resetPointsResult.rows.length} pontos da rota ${currentRouteId} resetados para não concluídos (prontos para reutilização)`);
     }
     
-    console.log(`🏁 [MOBILE API] Rota finalizada com sucesso para caminhão ${truckId}`);
-    res.json({ success: true, message: 'Rota finalizada com sucesso' });
+    console.log(`🏁 [MOBILE API] Rota finalizada com sucesso para caminhão ${truckId} - rota pronta para ser reutilizada`);
+    res.json({ 
+      success: true, 
+      message: 'Rota finalizada com sucesso',
+      resetPoints: currentRouteId ? true : false
+    });
   } catch (error) {
     console.error('❌ [MOBILE API] Erro ao finalizar rota:', error);
     res.status(500).json({ error: 'Erro ao finalizar rota' });
