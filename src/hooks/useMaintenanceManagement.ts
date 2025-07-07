@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BaseApiService } from '@/services/base';
 
@@ -36,6 +35,17 @@ export interface MaintenanceRecord {
   status: 'pending' | 'in_progress' | 'completed';
   created_at: string;
   updated_at: string;
+  files?: FileAttachment[];
+}
+
+export interface FileAttachment {
+  id: string;
+  name: string;
+  size: number;
+  url: string;
+  originalName?: string;
+  filename?: string;
+  mimetype?: string;
 }
 
 export interface CostSummary {
@@ -91,6 +101,22 @@ class MaintenanceManagementService extends BaseApiService {
 
   async deleteMaintenance(id: string): Promise<void> {
     return this.request<void>(`/management/maintenance/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async uploadFile(file: File): Promise<FileAttachment> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.request<FileAttachment>('/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async deleteFile(filename: string): Promise<void> {
+    return this.request<void>(`/upload/files/${filename}`, {
       method: 'DELETE',
     });
   }

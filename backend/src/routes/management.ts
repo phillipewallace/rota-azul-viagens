@@ -101,6 +101,7 @@ router.get('/maintenance', async (req, res) => {
         m.maintenance_date,
         m.cost,
         m.status,
+        m.files,
         m.created_at,
         m.updated_at,
         t.name as truck_name,
@@ -158,6 +159,7 @@ router.get('/maintenance', async (req, res) => {
       maintenance_date: record.maintenance_date,
       cost: parseFloat(record.cost) || 0,
       status: record.status,
+      files: record.files ? JSON.parse(record.files) : [],
       created_at: record.created_at,
       updated_at: record.updated_at
     }));
@@ -181,7 +183,8 @@ router.post('/maintenance', async (req, res) => {
       description, 
       scheduled_date, 
       cost, 
-      status 
+      status,
+      files 
     } = req.body;
     
     // Validate required fields
@@ -205,10 +208,10 @@ router.post('/maintenance', async (req, res) => {
     // Insert maintenance record
     const query = `
       INSERT INTO maintenance_records (
-        truck_id, type, description, scheduled_date, maintenance_date, cost, status
+        truck_id, type, description, scheduled_date, maintenance_date, cost, status, files
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, truck_id, type as maintenance_type, description, scheduled_date, maintenance_date, cost, status, created_at, updated_at
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, truck_id, type as maintenance_type, description, scheduled_date, maintenance_date, cost, status, files, created_at, updated_at
     `;
     
     const result = await pool.query(query, [
@@ -218,7 +221,8 @@ router.post('/maintenance', async (req, res) => {
       scheduled_date,
       scheduled_date,
       parseFloat(cost) || 0,
-      validStatus
+      validStatus,
+      files ? JSON.stringify(files) : null
     ]);
     
     console.log('✅ Maintenance record created:', result.rows[0].id);
@@ -243,7 +247,8 @@ router.put('/maintenance/:id', async (req, res) => {
       scheduled_date, 
       maintenance_date,
       cost, 
-      status 
+      status,
+      files 
     } = req.body;
     
     // Map frontend status to database status
@@ -252,9 +257,9 @@ router.put('/maintenance/:id', async (req, res) => {
     const query = `
       UPDATE maintenance_records 
       SET type = $1, description = $2, scheduled_date = $3, maintenance_date = $4,
-          cost = $5, status = $6, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7
-      RETURNING id, truck_id, type as maintenance_type, description, scheduled_date, maintenance_date, cost, status, created_at, updated_at
+          cost = $5, status = $6, files = $7, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+      RETURNING id, truck_id, type as maintenance_type, description, scheduled_date, maintenance_date, cost, status, files, created_at, updated_at
     `;
     
     const result = await pool.query(query, [
@@ -264,6 +269,7 @@ router.put('/maintenance/:id', async (req, res) => {
       maintenance_date || scheduled_date,
       parseFloat(cost) || 0,
       validStatus,
+      files ? JSON.stringify(files) : null,
       id
     ]);
     

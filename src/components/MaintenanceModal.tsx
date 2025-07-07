@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MaintenanceRecord } from '@/hooks/useMaintenanceManagement';
+import { MaintenanceRecord, FileAttachment } from '@/hooks/useMaintenanceManagement';
+import { FileUpload } from './FileUpload';
 
 interface MaintenanceModalProps {
   open: boolean;
@@ -34,6 +35,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     status: 'scheduled'
   });
 
+  const [attachedFiles, setAttachedFiles] = useState<FileAttachment[]>([]);
+
   const maintenanceTypes = [
     { value: 'preventiva', label: 'Preventiva' },
     { value: 'corretiva', label: 'Corretiva' },
@@ -58,6 +61,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         cost: editingRecord.cost.toString(),
         status: editingRecord.status
       });
+      setAttachedFiles(editingRecord.files || []);
     } else {
       setFormData({
         truck_id: '',
@@ -67,6 +71,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         cost: '',
         status: 'scheduled'
       });
+      setAttachedFiles([]);
     }
   }, [editingRecord, open]);
 
@@ -74,7 +79,8 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     e.preventDefault();
     onSave({
       ...formData,
-      cost: parseFloat(formData.cost) || 0
+      cost: parseFloat(formData.cost) || 0,
+      files: attachedFiles
     });
   };
 
@@ -88,11 +94,12 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       cost: '',
       status: 'scheduled'
     });
+    setAttachedFiles([]);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingRecord ? 'Editar Manutenção' : 'Nova Manutenção'}
@@ -195,6 +202,15 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Documentos Anexos</Label>
+            <FileUpload
+              files={attachedFiles}
+              onFilesChange={setAttachedFiles}
+              disabled={loading}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
