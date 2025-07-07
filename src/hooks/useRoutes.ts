@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { googleMapsService } from '@/services/googleMaps';
 import { routesService } from '@/services/routes';
@@ -51,20 +52,64 @@ export const useRoutes = () => {
     }
   };
 
-  const optimizeRoute = async (waypoints: RoutePoint[]) => {
+  const optimizeRoute = async (allPoints: RoutePoint[]) => {
     try {
       await googleMapsService.initialize();
       
-      // Otimizar apenas os waypoints (pontos intermediários)
-      // A origem e destino são fixos e não entram na otimização
-      console.log('🗺️ Otimizando waypoints:', waypoints.length);
+      if (allPoints.length < 2) {
+        throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
+      }
+
+      // O primeiro ponto é sempre a origem, o último é sempre o destino
+      const origin = { ...allPoints[0], type: 'origin' as const, order: 0 };
+      const destination = { ...allPoints[allPoints.length - 1], type: 'destination' as const };
       
-      const optimizedData = await googleMapsService.optimizeRoute(waypoints);
+      // Pontos intermediários para otimização (se houver)
+      const waypoints = allPoints.slice(1, -1).map((point, index) => ({
+        ...point,
+        type: 'waypoint' as const,
+        order: index + 1
+      }));
+
+      console.log('🗺️ Otimizando rota com origem e destino fixos');
+      console.log('Origem:', origin.address);
+      console.log('Destino:', destination.address);
+      console.log('Waypoints para otimizar:', waypoints.length);
       
-      console.log('✅ Waypoints otimizados com sucesso');
-      return optimizedData;
+      const optimizedData = await googleMapsService.optimizeRoute([origin, ...waypoints, destination]);
+      
+      // Reorganizar pontos com base na otimização
+      let finalPoints = [origin];
+      
+      if (waypoints.length > 0 && optimizedData.optimizedOrder) {
+        // Pegar os waypoints otimizados (excluindo origem e destino)
+        const optimizedWaypoints = optimizedData.optimizedOrder
+          .slice(1, -1) // Remove origem e destino da ordem otimizada
+          .map((pointId, index) => {
+            const point = waypoints.find(w => w.id === pointId);
+            return point ? { ...point, order: index + 1 } : null;
+          })
+          .filter(Boolean);
+        
+        finalPoints.push(...optimizedWaypoints);
+      }
+      
+      // Destino sempre por último
+      destination.order = finalPoints.length;
+      finalPoints.push(destination);
+
+      console.log('✅ Rota otimizada com sucesso');
+      
+      return {
+        optimizedOrder: finalPoints.map(p => p.id),
+        totalDistance: optimizedData.totalDistance,
+        estimatedTime: optimizedData.estimatedTime,
+        polyline: optimizedData.polyline,
+        detailedRoute: optimizedData.detailedRoute,
+        points: finalPoints // Adicionando os pontos otimizados
+      };
     } catch (error) {
-      console.error('Error optimizing waypoints:', error);
+      console.error('Error optimizing route:', error);
       throw error;
     }
   };
