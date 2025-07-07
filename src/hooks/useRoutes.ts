@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { googleMapsService } from '@/services/googleMaps';
 import { routesService } from '@/services/routes';
@@ -52,12 +51,20 @@ export const useRoutes = () => {
     }
   };
 
-  const optimizeRoute = async (points: RoutePoint[]) => {
+  const optimizeRoute = async (waypoints: RoutePoint[]) => {
     try {
       await googleMapsService.initialize();
-      return await googleMapsService.optimizeRoute(points);
+      
+      // Otimizar apenas os waypoints (pontos intermediários)
+      // A origem e destino são fixos e não entram na otimização
+      console.log('🗺️ Otimizando waypoints:', waypoints.length);
+      
+      const optimizedData = await googleMapsService.optimizeRoute(waypoints);
+      
+      console.log('✅ Waypoints otimizados com sucesso');
+      return optimizedData;
     } catch (error) {
-      console.error('Error optimizing route:', error);
+      console.error('Error optimizing waypoints:', error);
       throw error;
     }
   };

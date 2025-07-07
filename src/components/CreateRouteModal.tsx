@@ -27,7 +27,25 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const [step, setStep] = useState(1);
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
-  const [points, setPoints] = useState<RoutePoint[]>([]);
+  const [originPoint, setOriginPoint] = useState<RoutePoint>({
+    id: 'origin',
+    address: '',
+    cep: '',
+    lat: 0,
+    lng: 0,
+    order: 0,
+    type: 'origin'
+  });
+  const [destinationPoint, setDestinationPoint] = useState<RoutePoint>({
+    id: 'destination',
+    address: '',
+    cep: '',
+    lat: 0,
+    lng: 0,
+    order: 999,
+    type: 'destination'
+  });
+  const [waypoints, setWaypoints] = useState<RoutePoint[]>([]);
   const [previewData, setPreviewData] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,7 +60,15 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     if (editingRoute && open) {
       setRouteName(editingRoute.name || '');
       setRouteDescription(editingRoute.description || '');
-      setPoints(editingRoute.points || []);
+      
+      const points = editingRoute.points || [];
+      const origin = points.find((p: any) => p.type === 'origin');
+      const destination = points.find((p: any) => p.type === 'destination');
+      const intermediatePoints = points.filter((p: any) => p.type === 'waypoint').sort((a: any, b: any) => a.order - b.order);
+      
+      if (origin) setOriginPoint(origin);
+      if (destination) setDestinationPoint(destination);
+      setWaypoints(intermediatePoints);
       setStep(2);
     } else if (open && !editingRoute) {
       resetForm();
@@ -53,7 +79,25 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     setStep(1);
     setRouteName('');
     setRouteDescription('');
-    setPoints([]);
+    setOriginPoint({
+      id: 'origin',
+      address: '',
+      cep: '',
+      lat: 0,
+      lng: 0,
+      order: 0,
+      type: 'origin'
+    });
+    setDestinationPoint({
+      id: 'destination',
+      address: '',
+      cep: '',
+      lat: 0,
+      lng: 0,
+      order: 999,
+      type: 'destination'
+    });
+    setWaypoints([]);
     setPreviewData(null);
     setShowPreview(false);
     setLoading(false);
@@ -70,59 +114,70 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const nextStep = () => {
     if (step === 1 && routeName.trim()) {
       setStep(2);
-      if (points.length === 0) {
-        addPoint();
+      if (waypoints.length === 0) {
+        addWaypoint();
       }
     }
   };
 
-  const addPoint = () => {
-    const newPoint: RoutePoint = {
+  const addWaypoint = () => {
+    const newWaypoint: RoutePoint = {
       id: Date.now().toString(),
       address: '',
       cep: '',
       lat: 0,
       lng: 0,
-      order: points.length,
-      type: points.length === 0 ? 'origin' : 'waypoint'
+      order: waypoints.length + 1,
+      type: 'waypoint'
     };
-    setPoints([...points, newPoint]);
+    setWaypoints([...waypoints, newWaypoint]);
   };
 
-  const removePoint = (id: string) => {
-    if (points.length <= 1) {
-      toast.error('Deve haver pelo menos um ponto na rota');
-      return;
-    }
-    
-    const filteredPoints = points.filter(p => p.id !== id);
-    const reorderedPoints = filteredPoints.map((point, index) => ({
+  const removeWaypoint = (id: string) => {
+    const filteredWaypoints = waypoints.filter(p => p.id !== id);
+    const reorderedWaypoints = filteredWaypoints.map((point, index) => ({
       ...point,
-      order: index,
-      type: index === 0 ? 'origin' : 
-            index === filteredPoints.length - 1 && filteredPoints.length > 1 ? 'destination' : 'waypoint'
+      order: index + 1
     })) as RoutePoint[];
-    setPoints(reorderedPoints);
+    setWaypoints(reorderedWaypoints);
   };
 
-  const searchAddressByCep = async (pointId: string, cep: string) => {
+  const searchAddressByCep = async (pointId: string, cep: string, isOrigin = false, isDestination = false) => {
     if (!cep || cep.length < 8) return;
 
     try {
-      setSearchingAddress(points.findIndex(p => p.id === pointId));
+      setSearchingAddress(-1);
       const addressData = await getAddressByCep(cep);
       
-      setPoints(prev => prev.map(point => 
-        point.id === pointId 
-          ? { 
-              ...point, 
-              cep: cep,
-              address: addressData.address,
-              lat: addressData.lat,
-              lng: addressData.lng
-            }
-          : point
-      ));
+      if (isOrigin) {
+        setOriginPoint(prev => ({
+          ...prev,
+          cep: cep,
+          address: addressData.address,
+          lat: addressData.lat,
+          lng: addressData.lng
+        }));
+      } else if (isDestination) {
+        setDestinationPoint(prev => ({
+          ...prev,
+          cep: cep,
+          address: addressData.address,
+          lat: addressData.lat,
+          lng: addressData.lng
+        }));
+      } else {
+        setWaypoints(prev => prev.map(point => 
+          point.id === pointId 
+            ? { 
+                ...point, 
+                cep: cep,
+                address: addressData.address,
+                lat: addressData.lat,
+                lng: addressData.lng
+              }
+            : point
+        ));
+      }
       
       toast.success('Endereço encontrado!');
     } catch (error) {
@@ -133,11 +188,11 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     }
   };
 
-  const searchAddressByText = async (pointId: string, address: string) => {
+  const searchAddressByText = async (pointId: string, address: string, isOrigin = false, isDestination = false) => {
     if (!address || address.length < 5) return;
 
     try {
-      setSearchingAddress(points.findIndex(p => p.id === pointId));
+      setSearchingAddress(-1);
       
       if (!window.google || !window.google.maps) {
         toast.error('Google Maps não está disponível');
@@ -158,17 +213,32 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       const location = results.geometry.location;
       const formattedAddress = results.formatted_address;
 
-      setPoints(prev => prev.map(point => 
-        point.id === pointId 
-          ? { 
-              ...point, 
-              address: formattedAddress,
-              lat: location.lat(),
-              lng: location.lng(),
-              cep: point.cep || ''
-            }
-          : point
-      ));
+      if (isOrigin) {
+        setOriginPoint(prev => ({
+          ...prev,
+          address: formattedAddress,
+          lat: location.lat(),
+          lng: location.lng()
+        }));
+      } else if (isDestination) {
+        setDestinationPoint(prev => ({
+          ...prev,
+          address: formattedAddress,
+          lat: location.lat(),
+          lng: location.lng()
+        }));
+      } else {
+        setWaypoints(prev => prev.map(point => 
+          point.id === pointId 
+            ? { 
+                ...point, 
+                address: formattedAddress,
+                lat: location.lat(),
+                lng: location.lng()
+              }
+            : point
+        ));
+      }
       
       toast.success('Endereço encontrado!');
     } catch (error) {
@@ -179,21 +249,33 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     }
   };
 
-  const updatePointAddress = (pointId: string, address: string) => {
-    setPoints(prev => prev.map(point => 
-      point.id === pointId ? { ...point, address } : point
-    ));
+  const updatePointAddress = (pointId: string, address: string, isOrigin = false, isDestination = false) => {
+    if (isOrigin) {
+      setOriginPoint(prev => ({ ...prev, address }));
+    } else if (isDestination) {
+      setDestinationPoint(prev => ({ ...prev, address }));
+    } else {
+      setWaypoints(prev => prev.map(point => 
+        point.id === pointId ? { ...point, address } : point
+      ));
+    }
   };
 
-  const updatePointCep = async (pointId: string, cep: string) => {
+  const updatePointCep = async (pointId: string, cep: string, isOrigin = false, isDestination = false) => {
     const cleanCep = cep.replace(/\D/g, '');
     
-    setPoints(prev => prev.map(point => 
-      point.id === pointId ? { ...point, cep: cleanCep } : point
-    ));
+    if (isOrigin) {
+      setOriginPoint(prev => ({ ...prev, cep: cleanCep }));
+    } else if (isDestination) {
+      setDestinationPoint(prev => ({ ...prev, cep: cleanCep }));
+    } else {
+      setWaypoints(prev => prev.map(point => 
+        point.id === pointId ? { ...point, cep: cleanCep } : point
+      ));
+    }
 
     if (cleanCep.length === 8) {
-      await searchAddressByCep(pointId, cleanCep);
+      await searchAddressByCep(pointId, cleanCep, isOrigin, isDestination);
     }
   };
 
@@ -201,18 +283,40 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     try {
       setLoading(true);
       
-      const validPoints = points.filter(p => p.lat && p.lng && p.address);
-      if (validPoints.length < 2) {
-        toast.error('É necessário pelo menos 2 pontos válidos para gerar a rota');
+      // Validar origem e destino
+      if (!originPoint.lat || !originPoint.lng || !originPoint.address) {
+        toast.error('O ponto de origem é obrigatório');
+        return;
+      }
+      
+      if (!destinationPoint.lat || !destinationPoint.lng || !destinationPoint.address) {
+        toast.error('O ponto de destino é obrigatório');
+        return;
+      }
+      
+      const validWaypoints = waypoints.filter(p => p.lat && p.lng && p.address);
+      if (validWaypoints.length === 0) {
+        toast.error('É necessário pelo menos 1 ponto intermediário válido');
         return;
       }
 
-      const optimizedData = await optimizeRoute(validPoints);
+      // Otimizar apenas os waypoints (pontos intermediários)
+      const optimizedData = await optimizeRoute(validWaypoints);
       
+      // Construir a rota final: origem -> waypoints otimizados -> destino
+      const finalPoints = [
+        originPoint,
+        ...optimizedData.points || validWaypoints,
+        destinationPoint
+      ].map((point, index) => ({
+        ...point,
+        order: index
+      }));
+
       const preview = {
         name: routeName,
         description: routeDescription,
-        points: validPoints,
+        points: finalPoints,
         totalDistance: optimizedData.totalDistance,
         estimatedTime: optimizedData.estimatedTime,
         status: 'active'
@@ -260,7 +364,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   return (
     <>
       <Dialog open={open && !showPreview} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isEditing ? 'Editar Rota' : 'Nova Rota'} - Passo {step} de 2
@@ -303,87 +407,191 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
 
           {step === 2 && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Pontos da Rota</h3>
-                <Button onClick={addPoint} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Ponto
-                </Button>
-              </div>
-              
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {points.map((point, index) => (
-                  <Card key={point.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                          point.type === 'origin' ? 'bg-green-500' : 'bg-blue-500'
-                        }`}>
-                          {index + 1}
-                        </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Configuração da Rota</h3>
+                
+                {/* Ponto de Origem */}
+                <Card className="border-green-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-medium">
+                        O
+                      </div>
+                      
+                      <div className="flex-1 space-y-3">
+                        <h4 className="font-medium text-green-700">Ponto de Origem (Obrigatório)</h4>
                         
-                        <div className="flex-1 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label>CEP (opcional)</Label>
-                              <Input
-                                value={point.cep}
-                                onChange={(e) => updatePointCep(point.id, e.target.value)}
-                                placeholder="00000-000"
-                                maxLength={9}
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label>Tipo</Label>
-                              <div className="text-sm p-2 bg-gray-50 rounded border">
-                                {point.type === 'origin' ? 'Origem' : 'Parada Intermediária'}
-                              </div>
-                            </div>
-                          </div>
-                          
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <Label>Endereço *</Label>
-                            <div className="flex gap-2">
-                              <Input
-                                value={point.address}
-                                onChange={(e) => updatePointAddress(point.id, e.target.value)}
-                                placeholder="Digite o endereço completo..."
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => searchAddressByText(point.id, point.address)}
-                                disabled={!point.address || searchingAddress === index}
-                              >
-                                <Search className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <Label>CEP (opcional)</Label>
+                            <Input
+                              value={originPoint.cep}
+                              onChange={(e) => updatePointCep('origin', e.target.value, true)}
+                              placeholder="00000-000"
+                              maxLength={9}
+                            />
                           </div>
-                          
-                          {point.lat && point.lng && (
-                            <div className="flex items-center gap-2 text-sm text-green-600">
-                              <MapPin className="h-4 w-4" />
-                              Localização confirmada
-                            </div>
-                          )}
                         </div>
                         
-                        {points.length > 1 && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removePoint(point.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div>
+                          <Label>Endereço *</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={originPoint.address}
+                              onChange={(e) => updatePointAddress('origin', e.target.value, true)}
+                              placeholder="Digite o endereço do galpão/origem..."
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => searchAddressByText('origin', originPoint.address, true)}
+                              disabled={!originPoint.address || searchingAddress === -1}
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {originPoint.lat && originPoint.lng && (
+                          <div className="flex items-center gap-2 text-sm text-green-600">
+                            <MapPin className="h-4 w-4" />
+                            Localização confirmada
+                          </div>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Ponto de Destino */}
+                <Card className="border-red-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-sm font-medium">
+                        D
+                      </div>
+                      
+                      <div className="flex-1 space-y-3">
+                        <h4 className="font-medium text-red-700">Ponto de Destino (Obrigatório)</h4>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label>CEP (opcional)</Label>
+                            <Input
+                              value={destinationPoint.cep}
+                              onChange={(e) => updatePointCep('destination', e.target.value, false, true)}
+                              placeholder="00000-000"
+                              maxLength={9}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Label>Endereço *</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={destinationPoint.address}
+                              onChange={(e) => updatePointAddress('destination', e.target.value, false, true)}
+                              placeholder="Digite o endereço de destino final..."
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => searchAddressByText('destination', destinationPoint.address, false, true)}
+                              disabled={!destinationPoint.address || searchingAddress === -1}
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {destinationPoint.lat && destinationPoint.lng && (
+                          <div className="flex items-center gap-2 text-sm text-red-600">
+                            <MapPin className="h-4 w-4" />
+                            Localização confirmada
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Pontos Intermediários */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium text-blue-700">Pontos Intermediários (serão otimizados automaticamente)</h4>
+                    <Button onClick={addWaypoint} size="sm" variant="outline">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Ponto
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {waypoints.map((point, index) => (
+                      <Card key={point.id} className="border-blue-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
+                              {index + 1}
+                            </div>
+                            
+                            <div className="flex-1 space-y-3">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label>CEP (opcional)</Label>
+                                  <Input
+                                    value={point.cep}
+                                    onChange={(e) => updatePointCep(point.id, e.target.value)}
+                                    placeholder="00000-000"
+                                    maxLength={9}
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label>Endereço *</Label>
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={point.address}
+                                    onChange={(e) => updatePointAddress(point.id, e.target.value)}
+                                    placeholder="Digite o endereço completo..."
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => searchAddressByText(point.id, point.address)}
+                                    disabled={!point.address || searchingAddress === index}
+                                  >
+                                    <Search className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              {point.lat && point.lng && (
+                                <div className="flex items-center gap-2 text-sm text-blue-600">
+                                  <MapPin className="h-4 w-4" />
+                                  Localização confirmada
+                                </div>
+                              )}
+                            </div>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeWaypoint(point.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
               </div>
               
               <div className="flex justify-between gap-2 pt-4 border-t">
@@ -397,7 +605,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                   </Button>
                   <Button 
                     onClick={generatePreview}
-                    disabled={loading || points.filter(p => p.lat && p.lng).length < 2}
+                    disabled={loading || !originPoint.lat || !destinationPoint.lat || waypoints.filter(p => p.lat && p.lng).length < 1}
                   >
                     {loading ? 'Gerando...' : 'Gerar Preview'}
                   </Button>
