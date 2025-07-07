@@ -200,15 +200,73 @@ const MapComponent = () => {
   };
 
   const createTruckIcon = (color: string, isTracked: boolean = false) => {
+    const size = isTracked ? 44 : 36;
+    const strokeWidth = isTracked ? 3 : 2;
+    const shadowSize = isTracked ? 6 : 4;
+    
     return {
-      path: 'M23.5 7c.276 0 .5.224.5.5v9c0 .276-.224.5-.5.5h-2.5v2c0 .828-.672 1.5-1.5 1.5h-1c-.828 0-1.5-.672-1.5-1.5v-2h-8v2c0 .828-.672 1.5-1.5 1.5h-1c-.828 0-1.5-.672-1.5-1.5v-2H3.5c-.276 0-.5-.224-.5-.5v-9c0-.276.224-.5.5-.5h1v-2c0-.552.448-1 1-1h14c.552 0 1 .448 1 1v2h1zm-2-2H5.5v1.5h16V5zM5 8.5v6h14v-6H5zm2.5 7.5c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1zm9 0c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1z',
-      fillColor: color,
-      fillOpacity: isTracked ? 1 : 0.8,
-      strokeColor: isTracked ? '#22c55e' : '#ffffff',
-      strokeWeight: isTracked ? 3 : 2,
-      scale: isTracked ? 1.5 : 1.2,
-      anchor: new window.google.maps.Point(12, 20)
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="${shadowSize/2}" stdDeviation="${shadowSize/2}" flood-color="rgba(0,0,0,0.3)"/>
+            </filter>
+            <linearGradient id="truckGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
+              <stop offset="100%" style="stop-color:${adjustBrightness(color, -20)};stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          
+          <!-- Truck body -->
+          <rect x="2" y="8" width="12" height="8" rx="1" 
+                fill="url(#truckGradient)" 
+                stroke="${isTracked ? '#22c55e' : '#ffffff'}" 
+                stroke-width="${strokeWidth}" 
+                filter="url(#shadow)"/>
+          
+          <!-- Truck cab -->
+          <rect x="14" y="10" width="6" height="6" rx="1" 
+                fill="url(#truckGradient)" 
+                stroke="${isTracked ? '#22c55e' : '#ffffff'}" 
+                stroke-width="${strokeWidth}" 
+                filter="url(#shadow)"/>
+          
+          <!-- Wheels -->
+          <circle cx="6" cy="17" r="2" 
+                  fill="#2d3748" 
+                  stroke="#ffffff" 
+                  stroke-width="1"/>
+          <circle cx="17" cy="17" r="2" 
+                  fill="#2d3748" 
+                  stroke="#ffffff" 
+                  stroke-width="1"/>
+          
+          <!-- Details -->
+          <rect x="15" y="11" width="2" height="1.5" rx="0.2" fill="#87ceeb" opacity="0.8"/>
+          <rect x="15" y="13" width="2" height="1.5" rx="0.2" fill="#87ceeb" opacity="0.8"/>
+          
+          ${isTracked ? `
+          <!-- Tracking indicator -->
+          <circle cx="20" cy="6" r="3" fill="#22c55e" stroke="#ffffff" stroke-width="2">
+            <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+          </circle>
+          <text x="20" y="8" text-anchor="middle" font-size="8" fill="white" font-weight="bold">●</text>
+          ` : ''}
+        </svg>
+      `)}`,
+      scaledSize: new window.google.maps.Size(size, size),
+      anchor: new window.google.maps.Point(size/2, size),
+      labelOrigin: new window.google.maps.Point(size/2, -8)
     };
+  };
+
+  const adjustBrightness = (hex: string, percent: number) => {
+    const num = parseInt(hex.replace("#", ""), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const B = (num >> 8 & 0x00FF) + amt;
+    const G = (num & 0x0000FF) + amt;
+    return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + (B < 255 ? B < 1 ? 0 : B : 255) * 0x100 + (G < 255 ? G < 1 ? 0 : G : 255)).toString(16).slice(1);
   };
 
   const updateMapMarkers = async () => {
