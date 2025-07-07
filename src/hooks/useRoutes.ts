@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { googleMapsService } from '@/services/googleMaps';
 import { routesService } from '@/services/routes';
@@ -61,13 +60,13 @@ export const useRoutes = () => {
       }
 
       // O primeiro ponto é sempre a origem, o último é sempre o destino
-      const origin = { ...allPoints[0], type: 'origin' as const, order: 0 };
-      const destination = { ...allPoints[allPoints.length - 1], type: 'destination' as const };
+      const origin: RoutePoint = { ...allPoints[0], type: 'origin', order: 0 };
+      const destination: RoutePoint = { ...allPoints[allPoints.length - 1], type: 'destination' };
       
       // Pontos intermediários para otimização (se houver)
-      const waypoints = allPoints.slice(1, -1).map((point, index) => ({
+      const waypoints = allPoints.slice(1, -1).map((point, index): RoutePoint => ({
         ...point,
-        type: 'waypoint' as const,
+        type: 'waypoint',
         order: index + 1
       }));
 
@@ -79,7 +78,7 @@ export const useRoutes = () => {
       const optimizedData = await googleMapsService.optimizeRoute([origin, ...waypoints, destination]);
       
       // Reorganizar pontos com base na otimização
-      let finalPoints = [origin];
+      let finalPoints: RoutePoint[] = [origin];
       
       if (waypoints.length > 0 && optimizedData.optimizedOrder) {
         // Pegar os waypoints otimizados (excluindo origem e destino)
@@ -89,7 +88,7 @@ export const useRoutes = () => {
             const point = waypoints.find(w => w.id === pointId);
             return point ? { ...point, order: index + 1 } : null;
           })
-          .filter(Boolean);
+          .filter((point): point is RoutePoint => point !== null);
         
         finalPoints.push(...optimizedWaypoints);
       }
@@ -106,7 +105,7 @@ export const useRoutes = () => {
         estimatedTime: optimizedData.estimatedTime,
         polyline: optimizedData.polyline,
         detailedRoute: optimizedData.detailedRoute,
-        points: finalPoints // Adicionando os pontos otimizados
+        points: finalPoints
       };
     } catch (error) {
       console.error('Error optimizing route:', error);
