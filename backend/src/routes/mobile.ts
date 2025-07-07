@@ -57,7 +57,10 @@ router.get('/truck/:plate', async (req, res) => {
       if (routeResult.rows.length > 0) {
         const route = routeResult.rows[0];
         
-        // Buscar pontos da rota com conversão explícita de boolean
+        // Buscar pontos da rota da nova tabela ou do JSONB
+        let points = [];
+        
+        // Tentar buscar da tabela route_points primeiro
         const pointsQuery = `
           SELECT 
             rp.id,
@@ -77,11 +80,9 @@ router.get('/truck/:plate', async (req, res) => {
         
         const pointsResult = await pool.query(pointsQuery, [truck.current_route_id]);
         
-        console.log(`📍 [MOBILE API] Pontos da rota encontrados: ${pointsResult.rows.length}`);
-        
-        // Log detalhado dos pontos para debug com conversão explícita
-        const processedPoints = pointsResult.rows.map((point) => {
-          const processedPoint = {
+        if (pointsResult.rows.length > 0) {
+          // Usar pontos da tabela route_points
+          points = pointsResult.rows.map((point) => ({
             id: point.id,
             address: point.address,
             lat: Number(point.lat),
@@ -89,30 +90,48 @@ router.get('/truck/:plate', async (req, res) => {
             order: Number(point.order),
             type: point.type,
             completed: point.completed === true || point.completed === 't' || point.completed === 'true'
-          };
+          }));
+        } else {
+          // Fallback para JSONB se não encontrar na tabela
+          const routeWithPoints = await pool.query(
+            'SELECT points FROM routes WHERE id = $1',
+            [truck.current_route_id]
+          );
           
-          console.log(`📍 [MOBILE API] Ponto processado:`, {
-            id: processedPoint.id,
-            order: processedPoint.order,
-            address: processedPoint.address.substring(0, 50) + '...',
-            completed: processedPoint.completed,
-            completedType: typeof processedPoint.completed,
-            originalCompleted: point.completed,
-            originalCompletedType: typeof point.completed
+          if (routeWithPoints.rows[0]?.points) {
+            points = routeWithPoints.rows[0].points.map((point: any, index: number) => ({
+              id: point.id || `point-${index}`,
+              address: point.address || '',
+              lat: Number(point.lat || 0),
+              lng: Number(point.lng || 0),
+              order: Number(point.order || index),
+              type: point.type || 'waypoint',
+              completed: false // JSONB não tem campo completed
+            }));
+          }
+        }
+        
+        console.log(`📍 [MOBILE API] Pontos da rota encontrados: ${points.length}`);
+        
+        // Log detalhado dos pontos para debug
+        points.forEach((point) => {
+          console.log(`📍 [MOBILE API] Ponto:`, {
+            id: point.id,
+            order: point.order,
+            address: point.address.substring(0, 50) + '...',
+            completed: point.completed,
+            type: point.type
           });
-          
-          return processedPoint;
         });
         
-        // Log do status geral da rota
-        const completedCount = processedPoints.filter(p => p.completed === true).length;
-        console.log(`📊 [MOBILE API] Status final: ${completedCount}/${processedPoints.length} pontos concluídos`);
+        const completedCount = points.filter(p => p.completed === true).length;
+        console.log(`📊 [MOBILE API] Status final: ${completedCount}/${points.length} pontos concluídos`);
         
         currentRoute = {
           id: route.id,
           name: route.name,
           description: route.description || null,
-          points: processedPoints
+          points: points
         };
       } else {
         console.log(`❌ [MOBILE API] Rota não encontrada: ${truck.current_route_id}`);
@@ -177,98 +196,147 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     const { truckId, pointId } = req.params;
     const { completed } = req.body;
 
-    console.log(`🎯 [MOBILE API] Atualizando ponto ${pointId} do caminhão ${truckId} para completed: ${completed} (type: ${typeof completed})`);
-
-    // Verificar se o ponto existe e pertence à rota do caminhão
-    const verifyQuery = `
-      SELECT rp.id, rp.route_id, t.current_route_id
-      FROM route_points rp
-      JOIN routes r ON rp.route_id = r.id
-      JOIN trucks t ON t.current_route_id = r.id
-      WHERE rp.id = $1 AND t.id = $2
-    `;
-    
-    const verifyResult = await pool.query(verifyQuery, [pointId, truckId]);
-    
-    if (verifyResult.rows.length === 0) {
-      console.log(`❌ [MOBILE API] Ponto não encontrado ou não pertence ao caminhão`);
-      return res.status(404).json({ error: 'Ponto da rota não encontrado' });
-    }
+    console.log(`🎯 [MOBILE API] Atualizando ponto ${pointId} do caminhão ${truckId} para completed: ${completed}`);
 
     // Garantir que completed seja boolean
     const completedValue = Boolean(completed);
 
-    // Atualizar o status do ponto na rota
-    const updateResult = await pool.query(
+    // Tentar atualizar na tabela route_points primeiro
+    const updateRoutePointsResult = await pool.query(
       'UPDATE route_points SET completed = $1, completed_at = $2 WHERE id = $3 RETURNING *',
       [completedValue, completedValue ? new Date() : null, pointId]
     );
 
-    if (updateResult.rows.length === 0) {
-      console.log(`❌ [MOBILE API] Falha ao atualizar ponto: ${pointId}`);
-      return res.status(404).json({ error: 'Erro ao atualizar ponto da rota' });
+    if (updateRoutePointsResult.rows.length > 0) {
+      console.log(`✅ [MOBILE API] Ponto ${pointId} atualizado na tabela route_points`);
+      res.json({ success: true, point: updateRoutePointsResult.rows[0] });
+      return;
     }
 
-    console.log(`✅ [MOBILE API] Ponto ${pointId} atualizado com sucesso:`, {
-      id: updateResult.rows[0].id,
-      completed: updateResult.rows[0].completed,
-      completed_at: updateResult.rows[0].completed_at
-    });
+    // Se não encontrou na route_points, verificar se existe na rota do caminhão via JSONB
+    const verifyQuery = `
+      SELECT r.id, r.points
+      FROM routes r
+      JOIN trucks t ON t.current_route_id = r.id
+      WHERE t.id = $1
+    `;
     
-    res.json({ success: true, point: updateResult.rows[0] });
+    const verifyResult = await pool.query(verifyQuery, [truckId]);
+    
+    if (verifyResult.rows.length === 0) {
+      console.log(`❌ [MOBILE API] Rota não encontrada para caminhão: ${truckId}`);
+      return res.status(404).json({ error: 'Rota não encontrada' });
+    }
+
+    const route = verifyResult.rows[0];
+    const points = route.points || [];
+    
+    // Encontrar e atualizar o ponto no JSONB
+    const updatedPoints = points.map((point: any) => {
+      if (point.id === pointId) {
+        return { ...point, completed: completedValue };
+      }
+      return point;
+    });
+
+    // Atualizar o JSONB na tabela routes
+    await pool.query(
+      'UPDATE routes SET points = $1 WHERE id = $2',
+      [JSON.stringify(updatedPoints), route.id]
+    );
+
+    console.log(`✅ [MOBILE API] Ponto ${pointId} atualizado via JSONB`);
+    res.json({ success: true, updated_via: 'jsonb' });
+    
   } catch (error) {
     console.error('❌ [MOBILE API] Erro ao atualizar ponto da rota:', error);
     res.status(500).json({ error: 'Erro ao atualizar ponto da rota' });
   }
 });
 
-// Finish route
+// Finish route - tratamento melhorado de dependências
 router.post('/truck/:truckId/finish-route', async (req, res) => {
+  const client = await pool.connect();
+  
   try {
+    await client.query('BEGIN');
+    
     const { truckId } = req.params;
     
     console.log(`🏁 [MOBILE API] Iniciando finalização da rota para caminhão ${truckId}`);
     
     // Buscar a rota atual do caminhão
-    const truckResult = await pool.query(
+    const truckResult = await client.query(
       'SELECT current_route_id FROM trucks WHERE id = $1',
       [truckId]
     );
     
     if (truckResult.rows.length === 0) {
       console.log(`❌ [MOBILE API] Caminhão não encontrado: ${truckId}`);
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
     
     const currentRouteId = truckResult.rows[0].current_route_id;
     console.log(`📋 [MOBILE API] Rota atual: ${currentRouteId}`);
     
-    // Atualizar status do caminhão e desvincular da rota
-    await pool.query(
-      'UPDATE trucks SET status = $1, current_route_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    // 1. Primeiro, desvincular o caminhão da rota
+    await client.query(
+      'UPDATE trucks SET current_route_id = NULL, status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       ['available', truckId]
     );
     
-    console.log(`✅ [MOBILE API] Caminhão ${truckId} desvinculado da rota e status atualizado para 'available'`);
+    console.log(`✅ [MOBILE API] Caminhão ${truckId} desvinculado da rota`);
     
-    // Resetar todos os pontos da rota para não concluídos para permitir reutilização
+    // 2. Resetar pontos da rota (tanto na tabela route_points quanto no JSONB)
     if (currentRouteId) {
-      const resetPointsResult = await pool.query(
+      // Resetar na tabela route_points
+      const resetPointsResult = await client.query(
         'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
         [currentRouteId]
       );
-      console.log(`🔄 [MOBILE API] ${resetPointsResult.rows.length} pontos da rota ${currentRouteId} resetados para não concluídos (prontos para reutilização)`);
+      
+      if (resetPointsResult.rows.length > 0) {
+        console.log(`🔄 [MOBILE API] ${resetPointsResult.rows.length} pontos resetados na tabela route_points`);
+      }
+      
+      // Resetar também no JSONB como fallback
+      const routeResult = await client.query(
+        'SELECT points FROM routes WHERE id = $1',
+        [currentRouteId]
+      );
+      
+      if (routeResult.rows[0]?.points) {
+        const points = routeResult.rows[0].points;
+        const resetPoints = points.map((point: any) => ({
+          ...point,
+          completed: false
+        }));
+        
+        await client.query(
+          'UPDATE routes SET points = $1 WHERE id = $2',
+          [JSON.stringify(resetPoints), currentRouteId]
+        );
+        
+        console.log(`🔄 [MOBILE API] Pontos resetados também no JSONB`);
+      }
     }
     
-    console.log(`🏁 [MOBILE API] Rota finalizada com sucesso para caminhão ${truckId} - rota pronta para ser reutilizada`);
+    await client.query('COMMIT');
+    
+    console.log(`🏁 [MOBILE API] Rota finalizada com sucesso para caminhão ${truckId}`);
     res.json({ 
       success: true, 
       message: 'Rota finalizada com sucesso',
       resetPoints: currentRouteId ? true : false
     });
+    
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('❌ [MOBILE API] Erro ao finalizar rota:', error);
     res.status(500).json({ error: 'Erro ao finalizar rota' });
+  } finally {
+    client.release();
   }
 });
 
