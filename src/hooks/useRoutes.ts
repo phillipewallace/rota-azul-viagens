@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { routesService } from '@/services/routes';
 
@@ -42,8 +43,11 @@ export const useRoutes = () => {
 
   const getAddressByCep = async (cep: string) => {
     try {
-      await googleMapsService.initialize();
-      return await googleMapsService.getAddressByCep(cep);
+      const response = await fetch(`/api/geocoding/cep/${cep}`);
+      if (!response.ok) {
+        throw new Error('Erro ao buscar endereço por CEP');
+      }
+      return await response.json();
     } catch (error) {
       console.error('Error getting address by CEP:', error);
       throw error;
