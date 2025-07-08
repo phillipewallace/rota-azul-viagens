@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { googleMapsService } from '@/services/googleMaps';
 import { routesService } from '@/services/routes';
+import { API_CONFIG } from '@/services/config';
 
 export interface RoutePoint {
   id: string;
@@ -43,8 +43,11 @@ export const useRoutes = () => {
 
   const getAddressByCep = async (cep: string) => {
     try {
-      await googleMapsService.initialize();
-      return await googleMapsService.getAddressByCep(cep);
+      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/cep/${cep}`);
+      if (!response.ok) {
+        throw new Error('Erro ao buscar endereço por CEP');
+      }
+      return await response.json();
     } catch (error) {
       console.error('Error getting address by CEP:', error);
       throw error;
@@ -53,62 +56,60 @@ export const useRoutes = () => {
 
   const optimizeRoute = async (allPoints: RoutePoint[]) => {
     try {
-      await googleMapsService.initialize();
+      console.log('🚀 [USE ROUTES] Iniciando otimização com Google Maps APIs avançadas');
       
       if (allPoints.length < 2) {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      // O primeiro ponto é sempre a origem, o último é sempre o destino
-      const origin: RoutePoint = { ...allPoints[0], type: 'origin', order: 0 };
-      const destination: RoutePoint = { ...allPoints[allPoints.length - 1], type: 'destination' };
-      
-      // Pontos intermediários para otimização (se houver)
-      const waypoints = allPoints.slice(1, -1).map((point, index): RoutePoint => ({
-        ...point,
-        type: 'waypoint',
-        order: index + 1
-      }));
+      // Chamar API de otimização que agora usa Google Maps APIs avançadas
+      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          points: allPoints.map((point, index) => ({
+            id: point.id,
+            address: point.address,
+            cep: point.cep,
+            lat: point.lat,
+            lng: point.lng,
+            order: index,
+            type: point.type
+          }))
+        }),
+      });
 
-      console.log('🗺️ Otimizando rota com origem e destino fixos');
-      console.log('Origem:', origin.address);
-      console.log('Destino:', destination.address);
-      console.log('Waypoints para otimizar:', waypoints.length);
-      
-      const optimizedData = await googleMapsService.optimizeRoute([origin, ...waypoints, destination]);
-      
-      // Reorganizar pontos com base na otimização
-      let finalPoints: RoutePoint[] = [origin];
-      
-      if (waypoints.length > 0 && optimizedData.optimizedOrder) {
-        // Pegar os waypoints otimizados (excluindo origem e destino)
-        const optimizedWaypoints = optimizedData.optimizedOrder
-          .slice(1, -1) // Remove origem e destino da ordem otimizada
-          .map((pointId, index) => {
-            const point = waypoints.find(w => w.id === pointId);
-            return point ? { ...point, order: index + 1 } : null;
-          })
-          .filter((point): point is RoutePoint => point !== null);
-        
-        finalPoints.push(...optimizedWaypoints);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [USE ROUTES] Erro na resposta da API:', response.status, errorText);
+        throw new Error('Erro na otimização da rota');
       }
-      
-      // Destino sempre por último
-      destination.order = finalPoints.length;
-      finalPoints.push(destination);
 
-      console.log('✅ Rota otimizada com sucesso');
+      const optimizedData = await response.json();
+      
+      console.log(`✅ [USE ROUTES] Rota otimizada com ${optimizedData.optimization || 'GOOGLE_MAPS_ADVANCED'}`);
+      console.log(`📊 [USE ROUTES] Resultado: ${optimizedData.totalDistance}km, ${optimizedData.estimatedTime}`);
       
       return {
-        optimizedOrder: finalPoints.map(p => p.id),
+        optimizedOrder: optimizedData.optimizedOrder,
         totalDistance: optimizedData.totalDistance,
         estimatedTime: optimizedData.estimatedTime,
         polyline: optimizedData.polyline,
-        detailedRoute: optimizedData.detailedRoute,
-        points: finalPoints
+        detailedRoute: null,
+        points: optimizedData.points.map((p: any, index: number) => ({
+          id: p.id,
+          address: p.address,
+          cep: p.cep || '',
+          lat: p.lat,
+          lng: p.lng,
+          order: index,
+          type: p.type
+        }))
       };
     } catch (error) {
-      console.error('Error optimizing route:', error);
+      console.error('❌ [USE ROUTES] Error optimizing route:', error);
       throw error;
     }
   };
