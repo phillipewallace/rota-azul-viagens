@@ -1,6 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { routesService } from '@/services/routes';
+import { API_CONFIG } from '@/services/config';
 
 export interface RoutePoint {
   id: string;
@@ -43,7 +43,7 @@ export const useRoutes = () => {
 
   const getAddressByCep = async (cep: string) => {
     try {
-      const response = await fetch(`/api/geocoding/cep/${cep}`);
+      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/cep/${cep}`);
       if (!response.ok) {
         throw new Error('Erro ao buscar endereço por CEP');
       }
@@ -63,7 +63,7 @@ export const useRoutes = () => {
       }
 
       // Chamar API de otimização que agora usa Google Maps APIs avançadas
-      const response = await fetch('/api/geocoding/optimize', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,6 +82,8 @@ export const useRoutes = () => {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [USE ROUTES] Erro na resposta da API:', response.status, errorText);
         throw new Error('Erro na otimização da rota');
       }
 
@@ -95,7 +97,7 @@ export const useRoutes = () => {
         totalDistance: optimizedData.totalDistance,
         estimatedTime: optimizedData.estimatedTime,
         polyline: optimizedData.polyline,
-        detailedRoute: null, // Não usado mais
+        detailedRoute: null,
         points: optimizedData.points.map((p: any, index: number) => ({
           id: p.id,
           address: p.address,

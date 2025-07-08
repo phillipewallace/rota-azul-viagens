@@ -3,6 +3,8 @@ import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = Router();
 
+console.log('🔧 [GEOCODING ROUTES] Registrando rotas de geocoding...');
+
 interface ViaCepResponse {
   cep: string;
   logradouro: string;
@@ -85,9 +87,13 @@ router.get('/cep/:cep', async (req, res) => {
 // Algoritmo de otimização ATUALIZADO usando Google Maps APIs avançadas
 router.post('/optimize', async (req, res) => {
   try {
+    console.log('🚀 [GEOCODING OPTIMIZE] Recebida requisição de otimização');
+    console.log('📦 [GEOCODING OPTIMIZE] Body da requisição:', JSON.stringify(req.body, null, 2));
+    
     const { points } = req.body;
     
     if (!points || points.length < 2) {
+      console.log('❌ [GEOCODING OPTIMIZE] Pontos insuficientes:', points?.length || 0);
       return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
     }
 
@@ -104,6 +110,8 @@ router.post('/optimize', async (req, res) => {
              index === points.length - 1 ? 'destination' : 'waypoint')
     }));
 
+    console.log('🎯 [GEOCODING OPTIMIZE] Pontos formatados:', formattedPoints.length);
+
     // Usar Google Maps Optimizer avançado
     const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
 
@@ -114,14 +122,17 @@ router.post('/optimize', async (req, res) => {
 
     console.log(`✅ [GEOCODING OPTIMIZE] Otimização concluída: ${optimized.totalDistance.toFixed(1)}km, ${estimatedTime}`);
 
-    res.json({
+    const response = {
       points: optimized.optimizedPoints,
       optimizedOrder: optimized.optimizedOrder,
       totalDistance: optimized.totalDistance,
       estimatedTime: estimatedTime,
       polyline: optimized.polyline,
       optimization: 'GOOGLE_MAPS_ADVANCED'
-    });
+    };
+
+    console.log('📤 [GEOCODING OPTIMIZE] Enviando resposta com', response.points.length, 'pontos otimizados');
+    res.json(response);
 
   } catch (error) {
     console.error('❌ [GEOCODING OPTIMIZE] Erro ao otimizar rota:', error);
@@ -238,4 +249,5 @@ function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180);
 }
 
+console.log('✅ [GEOCODING ROUTES] Rotas de geocoding registradas com sucesso');
 export default router;
