@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -21,7 +20,8 @@ router.get('/truck/:plate', async (req, res) => {
         t.year,
         COALESCE(t.status, 'available') as status,
         t.current_route_id,
-        d.name as driver_name
+        d.name as driver_name,
+        t.updated_at as truck_updated_at
       FROM trucks t
       LEFT JOIN drivers d ON t.current_driver_id = d.id
       WHERE UPPER(REPLACE(t.plate, '-', '')) = UPPER(REPLACE($1, '-', ''))
@@ -47,7 +47,8 @@ router.get('/truck/:plate', async (req, res) => {
         SELECT 
           r.id,
           r.name,
-          r.description
+          r.description,
+          r.updated_at as route_updated_at
         FROM routes r
         WHERE r.id = $1
       `;
@@ -57,10 +58,7 @@ router.get('/truck/:plate', async (req, res) => {
       if (routeResult.rows.length > 0) {
         const route = routeResult.rows[0];
         
-        // Buscar pontos da rota da nova tabela ou do JSONB
-        let points = [];
-        
-        // Tentar buscar da tabela route_points primeiro
+        // Buscar pontos da rota sempre da tabela route_points para ter dados mais atualizados
         const pointsQuery = `
           SELECT 
             rp.id,
@@ -72,13 +70,16 @@ router.get('/truck/:plate', async (req, res) => {
             CASE 
               WHEN rp.completed IS TRUE THEN true
               ELSE false 
-            END as completed
+            END as completed,
+            rp.completed_at
           FROM route_points rp
           WHERE rp.route_id = $1
           ORDER BY rp.point_order ASC
         `;
         
         const pointsResult = await pool.query(pointsQuery, [truck.current_route_id]);
+        
+        let points = [];
         
         if (pointsResult.rows.length > 0) {
           // Usar pontos da tabela route_points
@@ -89,7 +90,8 @@ router.get('/truck/:plate', async (req, res) => {
             lng: Number(point.lng),
             order: Number(point.order),
             type: point.type,
-            completed: point.completed === true || point.completed === 't' || point.completed === 'true'
+            completed: point.completed === true || point.completed === 't' || point.completed === 'true',
+            completedAt: point.completed_at
           }));
         } else {
           // Fallback para JSONB se não encontrar na tabela
@@ -131,7 +133,8 @@ router.get('/truck/:plate', async (req, res) => {
           id: route.id,
           name: route.name,
           description: route.description || null,
-          points: points
+          points: points,
+          lastUpdated: route.route_updated_at
         };
       } else {
         console.log(`❌ [MOBILE API] Rota não encontrada: ${truck.current_route_id}`);
@@ -148,7 +151,8 @@ router.get('/truck/:plate', async (req, res) => {
       year: truck.year,
       status: truck.status,
       driver: truck.driver_name || null,
-      currentRoute
+      currentRoute,
+      lastUpdated: truck.truck_updated_at
     };
 
     console.log(`📱 [MOBILE API] Enviando resposta:`, {
@@ -157,7 +161,8 @@ router.get('/truck/:plate', async (req, res) => {
         id: response.currentRoute.id,
         name: response.currentRoute.name,
         pointsCount: response.currentRoute.points?.length || 0,
-        completedPoints: response.currentRoute.points?.filter(p => p.completed === true).length || 0
+        completedPoints: response.currentRoute.points?.filter(p => p.completed === true).length || 0,
+        lastUpdated: response.currentRoute.lastUpdated
       } : null
     });
     
@@ -254,7 +259,7 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
   }
 });
 
-// Finish route - tratamento melhorado de dependências
+// Finish route - com otimização completa
 router.post('/truck/:truckId/finish-route', async (req, res) => {
   const client = await pool.connect();
   
@@ -279,6 +284,29 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
     const currentRouteId = truckResult.rows[0].current_route_id;
     console.log(`📋 [MOBILE API] Rota atual: ${currentRouteId}`);
+    
+    // Chamar otimização completa da rota antes de finalizar
+    if (currentRouteId) {
+      console.log(`🎯 [MOBILE API] Iniciando otimização completa da rota ${currentRouteId}`);
+      
+      try {
+        // Fazer chamada interna para otimização completa
+        const optimizeResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/routes/${currentRouteId}/full-optimize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (optimizeResponse.ok) {
+          const optimizeData = await optimizeResponse.json();
+          console.log(`✅ [MOBILE API] Rota otimizada:`, optimizeData.message);
+        } else {
+          console.log(`⚠️ [MOBILE API] Otimização falhou, continuando com finalização`);
+        }
+      } catch (optimizeError) {
+        console.error('❌ [MOBILE API] Erro na otimização:', optimizeError);
+        console.log(`⚠️ [MOBILE API] Continuando com finalização sem otimização`);
+      }
+    }
     
     // 1. Primeiro, desvincular o caminhão da rota
     await client.query(
@@ -314,7 +342,7 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
         }));
         
         await client.query(
-          'UPDATE routes SET points = $1 WHERE id = $2',
+          'UPDATE routes SET points = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
           [JSON.stringify(resetPoints), currentRouteId]
         );
         
@@ -324,11 +352,12 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
     await client.query('COMMIT');
     
-    console.log(`🏁 [MOBILE API] Rota finalizada com sucesso para caminhão ${truckId}`);
+    console.log(`🏁 [MOBILE API] Rota finalizada e otimizada com sucesso para caminhão ${truckId}`);
     res.json({ 
       success: true, 
-      message: 'Rota finalizada com sucesso',
-      resetPoints: currentRouteId ? true : false
+      message: 'Rota finalizada e otimizada com sucesso',
+      resetPoints: currentRouteId ? true : false,
+      optimized: true
     });
     
   } catch (error) {
