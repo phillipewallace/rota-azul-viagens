@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = Router();
 
@@ -81,7 +82,7 @@ router.get('/cep/:cep', async (req, res) => {
   }
 });
 
-// Algoritmo de otimização de rotas inteligente usando TSP (Traveling Salesman Problem)
+// Algoritmo de otimização ATUALIZADO usando Google Maps APIs avançadas
 router.post('/optimize', async (req, res) => {
   try {
     const { points } = req.body;
@@ -90,86 +91,94 @@ router.post('/optimize', async (req, res) => {
       return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
     }
 
-    // Identificar origem e destino
-    const origin = points.find((p: any) => p.type === 'origin') || points[0];
-    const destination = points.find((p: any) => p.type === 'destination') || points[points.length - 1];
-    const waypoints = points.filter((p: any) => p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id));
+    console.log(`🚀 [GEOCODING OPTIMIZE] Otimizando ${points.length} pontos com Google Maps APIs avançadas`);
 
-    let optimizedRoute;
-    let totalDistance = 0;
-    let totalDuration = 0;
-    let optimizedPoints = [origin];
-
-    // Implementar algoritmo de otimização inteligente
-    if (waypoints.length > 0) {
-      // Usar Google Directions API com otimização automática
-      const waypointsParam = `optimize:true|${waypoints.map((p: any) => `${p.lat},${p.lng}`).join('|')}`;
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&waypoints=${waypointsParam}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
-
-      const response = await fetch(url);
-      const data = await response.json() as GoogleDirectionsResponse;
-
-      if (data.status === 'OK' && data.routes.length > 0) {
-        optimizedRoute = data.routes[0];
-        totalDistance = optimizedRoute.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0) / 1000;
-        totalDuration = optimizedRoute.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
-        
-        // Reordenar pontos conforme otimização do Google
-        if (optimizedRoute.waypoint_order && optimizedRoute.waypoint_order.length > 0) {
-          const reorderedWaypoints = optimizedRoute.waypoint_order.map((index: number) => waypoints[index]);
-          optimizedPoints = [origin, ...reorderedWaypoints, destination];
-        } else {
-          optimizedPoints = [origin, ...waypoints, destination];
-        }
-      } else {
-        // Fallback: usar algoritmo simples de vizinho mais próximo
-        optimizedPoints = nearestNeighborTSP([origin, ...waypoints, destination]);
-        totalDistance = calculateTotalDistance(optimizedPoints);
-        totalDuration = totalDistance * 60; // Estimativa: 1 km/min
-      }
-    } else {
-      // Rota simples entre dois pontos
-      optimizedPoints = [origin, destination];
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
-      
-      const response = await fetch(url);
-      const data = await response.json() as GoogleDirectionsResponse;
-
-      if (data.status === 'OK' && data.routes.length > 0) {
-        optimizedRoute = data.routes[0];
-        totalDistance = optimizedRoute.legs[0].distance.value / 1000;
-        totalDuration = optimizedRoute.legs[0].duration.value;
-      } else {
-        totalDistance = calculateDistance(origin, destination);
-        totalDuration = totalDistance * 60;
-      }
-    }
-
-    // Atualizar ordem e tipo dos pontos otimizados
-    const finalOptimizedPoints = optimizedPoints.map((point, index) => ({
-      ...point,
-      order: index,
-      type: index === 0 ? 'origin' : 
-            index === optimizedPoints.length - 1 ? 'destination' : 'waypoint'
+    // Formatar pontos para o otimizador
+    const formattedPoints = points.map((point: any, index: number) => ({
+      id: point.id || `point-${index}`,
+      address: point.address || '',
+      lat: Number(point.lat || 0),
+      lng: Number(point.lng || 0),
+      order: Number(point.order || index),
+      type: point.type || (index === 0 ? 'origin' : 
+             index === points.length - 1 ? 'destination' : 'waypoint')
     }));
 
-    const hours = Math.floor(totalDuration / 3600);
-    const minutes = Math.floor((totalDuration % 3600) / 60);
-    const estimatedTime = `${hours}h ${minutes}min`;
+    // Usar Google Maps Optimizer avançado
+    const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
+
+    // Calcular tempo estimado em formato legível
+    const hours = Math.floor(optimized.totalDuration / 3600);
+    const minutes = Math.floor((optimized.totalDuration % 3600) / 60);
+    const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+
+    console.log(`✅ [GEOCODING OPTIMIZE] Otimização concluída: ${optimized.totalDistance.toFixed(1)}km, ${estimatedTime}`);
 
     res.json({
-      points: finalOptimizedPoints,
-      optimizedOrder: finalOptimizedPoints.map(p => p.id),
-      totalDistance: totalDistance,
+      points: optimized.optimizedPoints,
+      optimizedOrder: optimized.optimizedOrder,
+      totalDistance: optimized.totalDistance,
       estimatedTime: estimatedTime,
-      polyline: optimizedRoute?.overview_polyline?.points || null
+      polyline: optimized.polyline,
+      optimization: 'GOOGLE_MAPS_ADVANCED'
     });
 
   } catch (error) {
-    console.error('Error optimizing route:', error);
-    res.status(500).json({ error: 'Erro ao otimizar rota' });
+    console.error('❌ [GEOCODING OPTIMIZE] Erro ao otimizar rota:', error);
+    
+    // Fallback para otimização básica em caso de falha
+    try {
+      console.log(`🔄 [GEOCODING OPTIMIZE] Tentando fallback para otimização básica`);
+      const basicOptimized = basicOptimization(req.body.points);
+      res.json(basicOptimized);
+    } catch (fallbackError) {
+      console.error('❌ [GEOCODING OPTIMIZE] Fallback também falhou:', fallbackError);
+      res.status(500).json({ error: 'Erro ao otimizar rota com todas as APIs' });
+    }
   }
 });
+
+// Função de fallback para otimização básica
+function basicOptimization(points: any[]) {
+  console.log(`⚡ [BASIC OPTIMIZE] Usando algoritmo básico de fallback`);
+  
+  const origin = points.find((p: any) => p.type === 'origin') || points[0];
+  const destination = points.find((p: any) => p.type === 'destination') || points[points.length - 1];
+  const waypoints = points.filter((p: any) => p.type === 'waypoint' || 
+    (p.id !== origin.id && p.id !== destination.id));
+
+  let optimizedPoints;
+  let totalDistance = 0;
+
+  if (waypoints.length > 0) {
+    optimizedPoints = nearestNeighborTSP([origin, ...waypoints, destination]);
+    totalDistance = calculateTotalDistance(optimizedPoints);
+  } else {
+    optimizedPoints = [origin, destination];
+    totalDistance = calculateDistance(origin, destination);
+  }
+
+  const finalOptimizedPoints = optimizedPoints.map((point, index) => ({
+    ...point,
+    order: index,
+    type: index === 0 ? 'origin' : 
+          index === optimizedPoints.length - 1 ? 'destination' : 'waypoint'
+  }));
+
+  const estimatedDuration = totalDistance * 60; // 1 km/min estimate
+  const hours = Math.floor(estimatedDuration / 3600);
+  const minutes = Math.floor((estimatedDuration % 3600) / 60);
+  const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+
+  return {
+    points: finalOptimizedPoints,
+    optimizedOrder: finalOptimizedPoints.map(p => p.id),
+    totalDistance: totalDistance,
+    estimatedTime: estimatedTime,
+    polyline: null,
+    optimization: 'BASIC_FALLBACK'
+  };
+}
 
 // Algoritmo de vizinho mais próximo para TSP
 function nearestNeighborTSP(points: any[]): any[] {

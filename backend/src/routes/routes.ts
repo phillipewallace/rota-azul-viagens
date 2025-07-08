@@ -1,6 +1,6 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
+import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = Router();
 
@@ -136,6 +136,140 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Função para atualização inteligente de rota em uso - ATUALIZADA
+async function handleIntelligentRouteUpdate(client: any, routeId: string, truckId: string, newPoints: any[]) {
+  try {
+    console.log(`🧠 [INTELLIGENT UPDATE] Processando atualização inteligente para caminhão ${truckId}`);
+    
+    // Buscar pontos atuais já concluídos
+    const completedPointsResult = await client.query(
+      'SELECT * FROM route_points WHERE route_id = $1 AND completed = true ORDER BY point_order',
+      [routeId]
+    );
+
+    const completedPoints = completedPointsResult.rows.map(p => ({
+      id: p.id,
+      address: p.address,
+      lat: parseFloat(p.lat),
+      lng: parseFloat(p.lng),
+      order: p.point_order,
+      type: p.point_order === 0 ? 'origin' : 'waypoint',
+      completed: true,
+      completedAt: p.completed_at
+    }));
+
+    console.log(`✅ [INTELLIGENT UPDATE] ${completedPoints.length} pontos já concluídos`);
+    
+    if (completedPoints.length === 0) {
+      // Se nenhum ponto foi concluído, pode otimizar a rota completa
+      console.log(`🔄 [INTELLIGENT UPDATE] Nenhum ponto concluído, otimizando rota completa`);
+      
+      const formattedPoints = newPoints.map(p => ({
+        id: p.id || `point-${p.order}`,
+        address: p.address,
+        lat: p.lat,
+        lng: p.lng,
+        order: p.order,
+        type: p.order === 0 ? 'origin' : p.order === newPoints.length - 1 ? 'destination' : 'waypoint'
+      }));
+
+      const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
+      
+      // Atualizar pontos otimizados
+      await client.query('DELETE FROM route_points WHERE route_id = $1', [routeId]);
+      
+      for (const point of optimized.optimizedPoints) {
+        await client.query(
+          `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
+           VALUES ($1, $2, $3, $4, $5, $6, false)`,
+          [routeId, point.address, point.lat, point.lng, point.order, point.type]
+        );
+      }
+      
+      return;
+    }
+    
+    // Encontrar pontos pendentes + novos pontos
+    const pendingPointsResult = await client.query(
+      'SELECT * FROM route_points WHERE route_id = $1 AND completed = false ORDER BY point_order',
+      [routeId]
+    );
+    
+    const pendingPoints = pendingPointsResult.rows.map(p => ({
+      id: p.id,
+      address: p.address,
+      lat: parseFloat(p.lat),
+      lng: parseFloat(p.lng),
+      order: p.point_order,
+      type: 'waypoint'
+    }));
+
+    // Determinar último ponto concluído para continuar dali
+    const lastCompletedOrder = Math.max(...completedPoints.map(p => p.order));
+    
+    // Novos pontos que vêm depois dos concluídos
+    const newPointsToAdd = newPoints
+      .filter(p => p.order > lastCompletedOrder)
+      .map(p => ({
+        id: p.id || `new-point-${p.order}`,
+        address: p.address,
+        lat: p.lat,
+        lng: p.lng,
+        order: p.order,
+        type: p.order === newPoints.length - 1 ? 'destination' : 'waypoint'
+      }));
+
+    if (newPointsToAdd.length > 0 || pendingPoints.length > 0) {
+      console.log(`🎯 [INTELLIGENT UPDATE] Otimizando ${pendingPoints.length} pendentes + ${newPointsToAdd.length} novos pontos`);
+      
+      // Combinar pontos pendentes + novos
+      const pointsToOptimize = [...pendingPoints, ...newPointsToAdd];
+      
+      if (pointsToOptimize.length >= 2) {
+        // Usar Google Maps para otimizar pontos restantes
+        const optimized = await googleMapsOptimizer.optimizePartialRoute(completedPoints, pointsToOptimize);
+        
+        // Remover pontos não concluídos existentes
+        await client.query(
+          'DELETE FROM route_points WHERE route_id = $1 AND completed = false',
+          [routeId]
+        );
+        
+        // Inserir pontos otimizados (apenas os não concluídos)
+        const pointsToInsert = optimized.optimizedPoints.filter(p => !p.completed);
+        
+        for (const point of pointsToInsert) {
+          await client.query(
+            `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
+             VALUES ($1, $2, $3, $4, $5, $6, false)`,
+            [routeId, point.address, point.lat, point.lng, point.order, point.type]
+          );
+        }
+        
+        console.log(`🎯 [INTELLIGENT UPDATE] Otimização inteligente concluída com Google Maps APIs`);
+      } else {
+        // Se só há 1 ponto restante, apenas inserir
+        for (const point of pointsToOptimize) {
+          await client.query(
+            `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
+             VALUES ($1, $2, $3, $4, $5, $6, false)
+             ON CONFLICT (id) DO UPDATE SET
+             point_order = EXCLUDED.point_order,
+             address = EXCLUDED.address,
+             lat = EXCLUDED.lat,
+             lng = EXCLUDED.lng`,
+            [routeId, point.address, point.lat, point.lng, point.order, point.type]
+          );
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ [INTELLIGENT UPDATE] Erro na atualização inteligente:', error);
+    throw error;
+  }
+}
+
 router.put('/:id', async (req, res) => {
   const client = await pool.connect();
   
@@ -224,79 +358,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Função para atualização inteligente de rota em uso
-async function handleIntelligentRouteUpdate(client: any, routeId: string, truckId: string, newPoints: any[]) {
-  try {
-    console.log(`🧠 [INTELLIGENT UPDATE] Processando atualização para caminhão ${truckId}`);
-    
-    // Buscar pontos atuais já concluídos
-    const completedPointsResult = await client.query(
-      'SELECT * FROM route_points WHERE route_id = $1 AND completed = true ORDER BY point_order',
-      [routeId]
-    );
-    
-    const completedPoints = completedPointsResult.rows;
-    console.log(`✅ [INTELLIGENT UPDATE] ${completedPoints.length} pontos já concluídos`);
-    
-    if (completedPoints.length === 0) {
-      // Se nenhum ponto foi concluído, pode atualizar normalmente
-      console.log(`🔄 [INTELLIGENT UPDATE] Nenhum ponto concluído, atualizando rota completa`);
-      return;
-    }
-    
-    // Encontrar próximos pontos não concluídos
-    const pendingPointsResult = await client.query(
-      'SELECT * FROM route_points WHERE route_id = $1 AND completed = false ORDER BY point_order',
-      [routeId]
-    );
-    
-    const pendingPoints = pendingPointsResult.rows;
-    console.log(`⏳ [INTELLIGENT UPDATE] ${pendingPoints.length} pontos pendentes`);
-    
-    // Manter pontos concluídos e otimizar apenas os novos + pendentes
-    const lastCompletedOrder = completedPoints.length > 0 ? 
-      Math.max(...completedPoints.map(p => p.point_order)) : 0;
-    
-    // Novos pontos que vêm depois dos concluídos
-    const newPointsToAdd = newPoints.filter(p => p.order > lastCompletedOrder);
-    
-    if (newPointsToAdd.length > 0) {
-      console.log(`➕ [INTELLIGENT UPDATE] Adicionando ${newPointsToAdd.length} novos pontos`);
-      
-      // Reordenar apenas os pontos pendentes + novos para otimização
-      const pointsToOptimize = [...pendingPoints, ...newPointsToAdd];
-      
-      // Aqui você pode implementar a lógica de otimização
-      // Por simplicidade, vou apenas reordenar por ordem atual
-      let currentOrder = lastCompletedOrder + 1;
-      
-      for (const point of pointsToOptimize) {
-        if (point.id) {
-          // Atualizar ponto existente
-          await client.query(
-            'UPDATE route_points SET point_order = $1 WHERE id = $2',
-            [currentOrder, point.id]
-          );
-        } else {
-          // Inserir novo ponto
-          await client.query(
-            `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
-             VALUES ($1, $2, $3, $4, $5, $6, false)`,
-            [routeId, point.address, point.lat, point.lng, currentOrder, point.type || 'waypoint']
-          );
-        }
-        currentOrder++;
-      }
-      
-      console.log(`🎯 [INTELLIGENT UPDATE] Pontos reordenados mantendo ${completedPoints.length} concluídos`);
-    }
-    
-  } catch (error) {
-    console.error('❌ [INTELLIGENT UPDATE] Erro na atualização inteligente:', error);
-    throw error;
-  }
-}
-
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -331,9 +392,12 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Endpoint de otimização ATUALIZADO para usar Google Maps APIs
 router.post('/:id/optimize', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    console.log(`🚀 [ROUTE OPTIMIZE] Iniciando otimização avançada da rota ${id}`);
     
     // Get route points
     const pointsResult = await pool.query(
@@ -341,26 +405,85 @@ router.post('/:id/optimize', async (req, res) => {
       [id]
     );
     
-    const points = pointsResult.rows;
+    const points = pointsResult.rows.map(p => ({
+      id: p.id,
+      address: p.address,
+      lat: parseFloat(p.lat),
+      lng: parseFloat(p.lng),
+      order: p.point_order,
+      type: p.point_order === 0 ? 'origin' : 
+            p.point_order === pointsResult.rows.length - 1 ? 'destination' : 'waypoint',
+      completed: p.completed
+    }));
+
+    if (points.length < 2) {
+      return res.json({ message: 'Rota precisa de pelo menos 2 pontos para otimizar' });
+    }
+
+    // Usar Google Maps Optimizer
+    const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(points);
     
-    // Simple optimization - for now just return the points as is
-    // In a real implementation, you would use a routing service like Google Maps or OSRM
-    const optimizedOrder = points.map((_, index) => index);
+    // Update route points with optimized order
+    const client = await pool.connect();
     
-    // Update the route with optimized order
-    await pool.query(
-      'UPDATE routes SET optimized_order = $1 WHERE id = $2',
-      [JSON.stringify(optimizedOrder), id]
-    );
+    try {
+      await client.query('BEGIN');
+      
+      // Delete existing points
+      await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
+      
+      // Insert optimized points
+      for (const point of optimized.optimizedPoints) {
+        await client.query(
+          `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [id, point.address, point.lat, point.lng, point.order, point.type, point.completed || false]
+        );
+      }
+      
+      // Update route metadata
+      await client.query(
+        `UPDATE routes SET 
+         total_distance = $1, 
+         estimated_duration = $2, 
+         polyline = $3,
+         optimized_order = $4,
+         updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $5`,
+        [
+          optimized.totalDistance,
+          optimized.totalDuration,
+          optimized.polyline,
+          JSON.stringify(optimized.optimizedOrder),
+          id
+        ]
+      );
+      
+      await client.query('COMMIT');
+      
+      console.log(`✅ [ROUTE OPTIMIZE] Rota ${id} otimizada com Google Maps APIs`);
+      res.json({ 
+        message: 'Rota otimizada com sucesso usando Google Maps APIs',
+        optimizedPoints: optimized.optimizedPoints.length,
+        totalDistance: optimized.totalDistance,
+        totalDuration: Math.round(optimized.totalDuration / 60) + ' min',
+        newOrder: optimized.optimizedOrder
+      });
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
     
-    res.json({ optimizedOrder, points });
   } catch (error) {
-    console.error('❌ Error optimizing route:', error);
-    res.status(500).json({ error: 'Erro ao otimizar rota' });
+    console.error('❌ [ROUTE OPTIMIZE] Erro na otimização:', error);
+    res.status(500).json({ error: 'Erro ao otimizar rota com Google Maps APIs' });
   }
 });
 
-// Novo endpoint para otimização completa ao finalizar rota
+// Endpoint de otimização completa ATUALIZADO
 router.post('/:id/full-optimize', async (req, res) => {
   const client = await pool.connect();
   
@@ -369,7 +492,7 @@ router.post('/:id/full-optimize', async (req, res) => {
     
     const { id } = req.params;
     
-    console.log(`🎯 [FULL OPTIMIZE] Iniciando otimização completa da rota ${id}`);
+    console.log(`🎯 [FULL OPTIMIZE] Iniciando otimização completa com Google Maps APIs da rota ${id}`);
     
     // Buscar todos os pontos da rota
     const pointsResult = await client.query(
@@ -377,100 +500,92 @@ router.post('/:id/full-optimize', async (req, res) => {
       [id]
     );
     
-    const points = pointsResult.rows;
+    const points = pointsResult.rows.map(p => ({
+      id: p.id,
+      address: p.address,
+      lat: parseFloat(p.lat),
+      lng: parseFloat(p.lng),
+      order: p.point_order,
+      type: p.point_order === 0 ? 'origin' : 
+            p.point_order === pointsResult.rows.length - 1 ? 'destination' : 'waypoint'
+    }));
     
     if (points.length < 2) {
       await client.query('COMMIT');
       return res.json({ message: 'Rota tem poucos pontos para otimizar' });
     }
     
-    // Resetar status de completed para permitir reotimização
+    // Resetar status de completed para permitir reotimização completa
     await client.query(
       'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1',
       [id]
     );
     
-    // Aqui você implementaria a lógica de otimização real
-    // Por exemplo, usando algoritmo de TSP ou chamada para Google Maps Directions API
-    
-    // Por simplicidade, vou fazer uma otimização básica por distância
-    const optimizedPoints = await optimizePointsByDistance(points);
+    // Usar Google Maps Optimizer para otimização completa
+    const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(points);
     
     // Atualizar ordem dos pontos
-    for (let i = 0; i < optimizedPoints.length; i++) {
+    await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
+    
+    for (const point of optimized.optimizedPoints) {
       await client.query(
-        'UPDATE route_points SET point_order = $1 WHERE id = $2',
-        [i + 1, optimizedPoints[i].id]
+        `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
+         VALUES ($1, $2, $3, $4, $5, $6, false)`,
+        [id, point.address, point.lat, point.lng, point.order, point.type]
       );
     }
     
     // Atualizar JSONB da rota também
-    const jsonbPoints = optimizedPoints.map((point, index) => ({
+    const jsonbPoints = optimized.optimizedPoints.map(point => ({
       id: point.id,
       address: point.address,
-      lat: parseFloat(point.lat),
-      lng: parseFloat(point.lng),
-      order: index + 1,
+      lat: point.lat,
+      lng: point.lng,
+      order: point.order,
       type: point.type,
       completed: false
     }));
     
     await client.query(
-      'UPDATE routes SET points = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [JSON.stringify(jsonbPoints), id]
+      `UPDATE routes SET 
+       points = $1, 
+       total_distance = $2,
+       estimated_duration = $3,
+       polyline = $4,
+       optimized_order = $5,
+       updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $6`,
+      [
+        JSON.stringify(jsonbPoints), 
+        optimized.totalDistance,
+        optimized.totalDuration,
+        optimized.polyline,
+        JSON.stringify(optimized.optimizedOrder),
+        id
+      ]
     );
     
     await client.query('COMMIT');
     
-    console.log(`✅ [FULL OPTIMIZE] Rota ${id} otimizada com ${optimizedPoints.length} pontos`);
+    console.log(`✅ [FULL OPTIMIZE] Rota ${id} otimizada completamente com Google Maps APIs`);
     res.json({ 
-      message: 'Rota otimizada com sucesso', 
-      optimizedPoints: optimizedPoints.length,
-      newOrder: optimizedPoints.map(p => p.id)
+      message: 'Rota otimizada completamente com Google Maps APIs', 
+      optimizedPoints: optimized.optimizedPoints.length,
+      totalDistance: optimized.totalDistance,
+      totalDuration: Math.round(optimized.totalDuration / 60) + ' min',
+      newOrder: optimized.optimizedOrder
     });
     
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ [FULL OPTIMIZE] Erro na otimização completa:', error);
-    res.status(500).json({ error: 'Erro ao otimizar rota' });
+    res.status(500).json({ error: 'Erro ao otimizar rota completamente' });
   } finally {
     client.release();
   }
 });
 
-// Função básica de otimização por distância
-async function optimizePointsByDistance(points: any[]) {
-  if (points.length <= 2) return points;
-  
-  // Algoritmo simples: começar do primeiro ponto e sempre ir para o mais próximo não visitado
-  const optimized = [];
-  const remaining = [...points];
-  
-  // Começar com o primeiro ponto (origem)
-  let current = remaining.shift();
-  optimized.push(current);
-  
-  while (remaining.length > 0) {
-    let nearestIndex = 0;
-    let nearestDistance = calculateDistance(current, remaining[0]);
-    
-    for (let i = 1; i < remaining.length; i++) {
-      const distance = calculateDistance(current, remaining[i]);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestIndex = i;
-      }
-    }
-    
-    current = remaining.splice(nearestIndex, 1)[0];
-    optimized.push(current);
-  }
-  
-  return optimized;
-}
-
-// Calcular distância euclidiana simples entre dois pontos
-function calculateDistance(point1: any, point2: any) {
+function calculateDistance(point1: any, point2: any): number {
   const lat1 = parseFloat(point1.lat);
   const lng1 = parseFloat(point1.lng);
   const lat2 = parseFloat(point2.lat);
