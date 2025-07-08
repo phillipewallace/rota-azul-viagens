@@ -70,6 +70,19 @@ app.use('/api/upload', uploadRoutes);
 
 console.log('✅ [SERVER] Todas as rotas registradas com sucesso');
 
+// Debug: Lista todas as rotas registradas
+app._router.stack.forEach((middleware: any) => {
+  if (middleware.route) {
+    console.log(`🔍 [DEBUG] Rota registrada: ${middleware.route.path}`);
+  } else if (middleware.name === 'router') {
+    middleware.handle.stack.forEach((handler: any) => {
+      if (handler.route) {
+        console.log(`🔍 [DEBUG] Sub-rota: ${handler.route.path}`);
+      }
+    });
+  }
+});
+
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
   console.log('🏭 [SERVER] Modo produção - servindo arquivos estáticos');
@@ -97,10 +110,25 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
   console.log('❌ [SERVER] Rota API não encontrada:', req.method, req.path);
+  console.log('❌ [SERVER] Headers da requisição:', req.headers);
   res.status(404).json({ 
     error: 'API route not found',
     path: req.path,
-    method: req.method
+    method: req.method,
+    available_routes: [
+      '/api/auth',
+      '/api/routes', 
+      '/api/trucks',
+      '/api/drivers',
+      '/api/schedules',
+      '/api/geocoding',
+      '/api/mobile',
+      '/api/reports',
+      '/api/maintenance',
+      '/api/management',
+      '/api/settings',
+      '/api/upload'
+    ]
   });
 });
 
@@ -108,4 +136,5 @@ app.listen(PORT, () => {
   console.log(`🚀 [SERVER] Servidor rodando na porta ${PORT}`);
   console.log(`🌐 [SERVER] API disponível em: http://localhost:${PORT}/api`);
   console.log(`📊 [SERVER] Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🎯 [SERVER] Geocoding disponível em: http://localhost:${PORT}/api/geocoding`);
 });

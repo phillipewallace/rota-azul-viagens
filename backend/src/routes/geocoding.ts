@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
@@ -43,9 +44,18 @@ interface GoogleDirectionsResponse {
   }>;
 }
 
+// Debug middleware para todas as rotas de geocoding
+router.use((req, res, next) => {
+  console.log(`🔍 [GEOCODING] ${req.method} ${req.path} - IP: ${req.ip}`);
+  console.log(`🔍 [GEOCODING] Headers:`, req.headers);
+  console.log(`🔍 [GEOCODING] Body:`, req.body);
+  next();
+});
+
 // Get address by CEP
 router.get('/cep/:cep', async (req, res) => {
   try {
+    console.log('🔍 [GEOCODING CEP] Buscando CEP:', req.params.cep);
     const { cep } = req.params;
     
     // Busca no ViaCEP
@@ -72,14 +82,17 @@ router.get('/cep/:cep', async (req, res) => {
       lng = location.lng;
     }
 
-    res.json({
+    const result = {
       address: address,
       cep: cep,
       lat: lat,
       lng: lng
-    });
+    };
+
+    console.log('✅ [GEOCODING CEP] Resultado:', result);
+    res.json(result);
   } catch (error) {
-    console.error('Error fetching address by CEP:', error);
+    console.error('❌ [GEOCODING CEP] Error fetching address by CEP:', error);
     res.status(500).json({ error: 'Erro ao buscar endereço' });
   }
 });
@@ -87,7 +100,11 @@ router.get('/cep/:cep', async (req, res) => {
 // Algoritmo de otimização ATUALIZADO usando Google Maps APIs avançadas
 router.post('/optimize', async (req, res) => {
   try {
+    console.log('🚀 [GEOCODING OPTIMIZE] ===============================');
     console.log('🚀 [GEOCODING OPTIMIZE] Recebida requisição de otimização');
+    console.log('🚀 [GEOCODING OPTIMIZE] Method:', req.method);
+    console.log('🚀 [GEOCODING OPTIMIZE] URL:', req.url);
+    console.log('🚀 [GEOCODING OPTIMIZE] Headers:', JSON.stringify(req.headers, null, 2));
     console.log('📦 [GEOCODING OPTIMIZE] Body da requisição:', JSON.stringify(req.body, null, 2));
     
     const { points } = req.body;
@@ -132,6 +149,8 @@ router.post('/optimize', async (req, res) => {
     };
 
     console.log('📤 [GEOCODING OPTIMIZE] Enviando resposta com', response.points.length, 'pontos otimizados');
+    console.log('🚀 [GEOCODING OPTIMIZE] ===============================');
+    
     res.json(response);
 
   } catch (error) {
@@ -250,4 +269,7 @@ function toRadians(degrees: number): number {
 }
 
 console.log('✅ [GEOCODING ROUTES] Rotas de geocoding registradas com sucesso');
+console.log('✅ [GEOCODING ROUTES] Rota POST /optimize disponível');
+console.log('✅ [GEOCODING ROUTES] Rota GET /cep/:cep disponível');
+
 export default router;
