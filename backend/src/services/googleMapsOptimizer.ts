@@ -20,6 +20,7 @@ interface OptimizationResult {
 
 class GoogleMapsOptimizer {
   private apiKey = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
+  private readonly MAX_WAYPOINTS = 23; // Google Maps limit is 25, deixando margem de segurança
 
   async optimizeRouteWithGoogleAPIs(points: OptimizationPoint[]): Promise<OptimizationResult> {
     console.log(`🎯 [GOOGLE OPTIMIZER] Otimizando rota com ${points.length} pontos usando APIs avançadas`);
@@ -33,8 +34,58 @@ class GoogleMapsOptimizer {
       return await this.optimizeTwoPointRoute(points);
     }
 
-    // Para rotas complexas, usar Routes API avançado
+    // NOVO: Se há muitos pontos, usar estratégia simplificada
+    if (points.length > this.MAX_WAYPOINTS + 2) {
+      console.log(`⚠️ [GOOGLE OPTIMIZER] Rota com ${points.length} pontos excede limite. Usando estratégia simplificada.`);
+      return await this.handleLargeRoute(points);
+    }
+
+    // Para rotas normais, usar otimização completa
     return await this.optimizeComplexRoute(points);
+  }
+
+  private async handleLargeRoute(points: OptimizationPoint[]): Promise<OptimizationResult> {
+    console.log(`📊 [LARGE ROUTE] Processando rota grande com ${points.length} pontos`);
+    
+    // Identificar origem e destino
+    const origin = points.find(p => p.type === 'origin') || points[0];
+    const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
+    const waypoints = points.filter(p => 
+      p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id)
+    );
+
+    // Para rotas grandes, apenas manter ordem atual sem otimizar
+    let orderedPoints = [
+      { ...origin, order: 0, type: 'origin' as const }
+    ];
+
+    waypoints.forEach((wp, index) => {
+      orderedPoints.push({
+        ...wp,
+        order: index + 1,
+        type: 'waypoint' as const
+      });
+    });
+
+    orderedPoints.push({
+      ...destination,
+      order: orderedPoints.length,
+      type: 'destination' as const
+    });
+
+    // Calcular distância estimada (simplificada)
+    const estimatedDistance = Math.max(10, points.length * 2); // 2km por ponto estimado
+    const estimatedDuration = Math.max(1800, points.length * 300); // 5 min por ponto estimado
+
+    console.log(`✅ [LARGE ROUTE] Rota grande processada sem otimização: ${estimatedDistance}km estimado`);
+
+    return {
+      optimizedPoints: orderedPoints,
+      totalDistance: estimatedDistance,
+      totalDuration: estimatedDuration,
+      polyline: '', // Sem polyline para rotas grandes
+      optimizedOrder: orderedPoints.map(p => p.id)
+    };
   }
 
   private async optimizeTwoPointRoute(points: OptimizationPoint[]): Promise<OptimizationResult> {
@@ -78,6 +129,12 @@ class GoogleMapsOptimizer {
     const waypoints = points.filter(p => 
       p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id)
     );
+
+    // IMPORTANTE: Verificar limite de waypoints antes de fazer requisição
+    if (waypoints.length > this.MAX_WAYPOINTS) {
+      console.log(`⚠️ [GOOGLE OPTIMIZER] Muitos waypoints (${waypoints.length}), usando estratégia simplificada`);
+      return await this.handleLargeRoute(points);
+    }
 
     // Usar Routes API v2 (mais avançado)
     const routesUrl = 'https://routes.googleapis.com/directions/v2:computeRoutes';
@@ -160,7 +217,7 @@ class GoogleMapsOptimizer {
         );
       }
 
-      // Adicionar destino
+      // CRÍTICO: Sempre garantir que o destino seja o último ponto
       optimizedPoints.push({
         ...destination,
         order: optimizedPoints.length,
@@ -195,6 +252,12 @@ class GoogleMapsOptimizer {
       p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id)
     );
 
+    // CRÍTICO: Verificar limite de waypoints ANTES da requisição
+    if (waypoints.length > this.MAX_WAYPOINTS) {
+      console.log(`⚠️ [FALLBACK] Muitos waypoints (${waypoints.length}), usando estratégia simplificada`);
+      return await this.handleLargeRoute(points);
+    }
+
     const waypointsParam = waypoints.length > 0 
       ? `optimize:true|${waypoints.map(p => `${p.lat},${p.lng}`).join('|')}`
       : '';
@@ -211,6 +274,11 @@ class GoogleMapsOptimizer {
     const data = await response.json();
 
     if (data.status !== 'OK' || !data.routes?.length) {
+      // Se ainda assim falhar, usar estratégia simplificada
+      if (data.status === 'MAX_WAYPOINTS_EXCEEDED') {
+        console.log(`⚠️ [FALLBACK] MAX_WAYPOINTS_EXCEEDED confirmado, usando estratégia simplificada`);
+        return await this.handleLargeRoute(points);
+      }
       throw new Error(`Directions API error: ${data.status}`);
     }
 
@@ -237,6 +305,7 @@ class GoogleMapsOptimizer {
       );
     }
 
+    // CRÍTICO: Sempre garantir que o destino seja preservado
     optimizedPoints.push({
       ...destination,
       order: optimizedPoints.length,
@@ -272,7 +341,26 @@ class GoogleMapsOptimizer {
       };
     }
 
-    // Otimizar apenas os pontos restantes
+    // NOVO: Verificar se há muitos pontos restantes
+    if (remainingPoints.length > this.MAX_WAYPOINTS + 2) {
+      console.log(`⚠️ [PARTIAL OPTIMIZER] Muitos pontos restantes (${remainingPoints.length}), mantendo ordem atual`);
+      
+      // Manter ordem atual sem otimizar
+      const reorderedRemaining = remainingPoints.map((p, index) => ({
+        ...p,
+        order: completedPoints.length + index
+      }));
+
+      return {
+        optimizedPoints: [...completedPoints, ...reorderedRemaining],
+        totalDistance: Math.max(5, remainingPoints.length * 1.5),
+        totalDuration: Math.max(900, remainingPoints.length * 180),
+        polyline: '',
+        optimizedOrder: [...completedPoints, ...reorderedRemaining].map(p => p.id)
+      };
+    }
+
+    // Otimizar apenas os pontos restantes se não forem muitos
     const optimizedRemaining = await this.optimizeRouteWithGoogleAPIs(remainingPoints);
     
     // Recalcular ordem global
