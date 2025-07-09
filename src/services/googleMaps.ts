@@ -1,4 +1,3 @@
-
 declare global {
   interface Window {
     google: any;
@@ -63,9 +62,9 @@ export class GoogleMapsService {
       this.directionsService = new window.google.maps.DirectionsService();
       this.geocoder = new window.google.maps.Geocoder();
       this.isLoaded = true;
-      console.log('✅ [GOOGLE MAPS] Google Maps services initialized successfully');
+      console.log('✅ Google Maps services initialized successfully');
     } catch (error) {
-      console.error('❌ [GOOGLE MAPS] Error initializing Google Maps services:', error);
+      console.error('❌ Error initializing Google Maps services:', error);
       throw error;
     }
   }
@@ -103,7 +102,6 @@ export class GoogleMapsService {
     });
   }
 
-  // ATUALIZADO: Usar Google Maps JavaScript API com otimização básica
   async optimizeRoute(points: any[]): Promise<{
     optimizedOrder: string[];
     totalDistance: number;
@@ -115,19 +113,9 @@ export class GoogleMapsService {
       await this.initialize();
     }
 
-    console.log(`🚀 [GOOGLE MAPS] Otimizando rota com ${points.length} pontos (JavaScript API)`);
-
     const origin = points.find(p => p.type === 'origin') || points[0];
     const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
     const waypoints = points.filter(p => p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id));
-
-    // Limite do Google Maps JavaScript API
-    const MAX_WAYPOINTS = 23;
-    
-    if (waypoints.length > MAX_WAYPOINTS) {
-      console.log(`⚠️ [GOOGLE MAPS] Muitos waypoints (${waypoints.length}), usando apenas os primeiros ${MAX_WAYPOINTS}`);
-      waypoints.splice(MAX_WAYPOINTS);
-    }
 
     const waypointsFormatted = waypoints.map(p => ({
       location: new window.google.maps.LatLng(p.lat, p.lng),
@@ -165,8 +153,6 @@ export class GoogleMapsService {
           }
           optimizedOrder.push(destination.id);
 
-          console.log(`✅ [GOOGLE MAPS] Rota otimizada: ${(totalDistance/1000).toFixed(1)}km, ${estimatedTime}`);
-
           resolve({
             optimizedOrder,
             totalDistance: totalDistance / 1000, // Convert to km
@@ -175,7 +161,6 @@ export class GoogleMapsService {
             detailedRoute: result
           });
         } else {
-          console.error(`❌ [GOOGLE MAPS] Directions request failed: ${status}`);
           reject(new Error(`Directions request failed: ${status}`));
         }
       });
