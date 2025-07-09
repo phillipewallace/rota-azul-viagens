@@ -28,8 +28,6 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
     try {
       setSyncState(prev => ({ ...prev, isChecking: true }));
       
-      console.log('🔄 [ROUTE SYNC] Verificando atualizações da rota...');
-      
       // Buscar dados atualizados do caminhão
       const updatedTruckData = await getTruckByPlate(truckData.plate);
       
@@ -39,7 +37,7 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
         
         // Verificar se a rota foi atualizada
         if (currentLastUpdate && newLastUpdate && newLastUpdate > currentLastUpdate) {
-          console.log('🔄 [ROUTE SYNC] Rota foi atualizada! Dados disponíveis para sincronização...');
+          console.log('🔄 [ROUTE SYNC] Rota atualizada detectada');
           
           setSyncState(prev => ({
             ...prev,
@@ -47,10 +45,6 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
             hasRouteChanged: true,
             newRouteData: updatedTruckData
           }));
-          
-          console.log('✅ [ROUTE SYNC] Notificação de mudança preparada');
-        } else {
-          console.log('ℹ️ [ROUTE SYNC] Nenhuma atualização de rota detectada');
         }
       }
       
@@ -61,23 +55,21 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
     }
   }, [truckData, getTruckByPlate]);
 
-  // Polling a cada 30 segundos para verificar mudanças
+  // OTIMIZADO: Polling reduzido - só verifica mudanças quando necessário
   useEffect(() => {
     if (!truckData?.currentRoute) {
       return;
     }
 
-    // Primeira verificação
-    checkForRouteUpdates();
+    // Verificação inicial
+    const initialCheck = setTimeout(checkForRouteUpdates, 5000);
     
-    // Configurar polling
-    const interval = setInterval(checkForRouteUpdates, 30000); // 30 segundos
-    
-    console.log('🔄 [ROUTE SYNC] Polling iniciado para detectar mudanças na rota');
+    // Polling reduzido para 2 minutos (apenas para mudanças críticas)
+    const interval = setInterval(checkForRouteUpdates, 120000);
     
     return () => {
+      clearTimeout(initialCheck);
       clearInterval(interval);
-      console.log('⏹️ [ROUTE SYNC] Polling interrompido');
     };
   }, [truckData?.currentRoute?.id, checkForRouteUpdates]);
 

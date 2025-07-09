@@ -21,10 +21,10 @@ interface OptimizationResult {
 class GoogleMapsOptimizer {
   private apiKey = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
   private readonly ROUTES_API_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
-  private readonly MAX_WAYPOINTS_PER_REQUEST = 25; // Routes API v2 limit
+  private readonly MAX_WAYPOINTS_PER_REQUEST = 25;
 
   async optimizeRouteWithGoogleAPIs(points: OptimizationPoint[]): Promise<OptimizationResult> {
-    console.log(`🎯 [ROUTES V2] Otimizando rota com ${points.length} pontos usando Routes API v2`);
+    console.log(`🎯 [OPTIMIZER] Otimizando ${points.length} pontos`);
     
     if (points.length < 2) {
       throw new Error('Necessário pelo menos 2 pontos para otimizar');
@@ -37,7 +37,7 @@ class GoogleMapsOptimizer {
 
     // Para rotas com muitos pontos, dividir em segmentos
     if (points.length > this.MAX_WAYPOINTS_PER_REQUEST) {
-      console.log(`📊 [ROUTES V2] Rota grande com ${points.length} pontos - processando em segmentos`);
+      console.log(`📊 [OPTIMIZER] Rota grande - processando em segmentos`);
       return await this.handleLargeRouteV2(points);
     }
 
@@ -46,8 +46,6 @@ class GoogleMapsOptimizer {
   }
 
   private async optimizeTwoPointRoute(points: OptimizationPoint[]): Promise<OptimizationResult> {
-    console.log(`🚀 [ROUTES V2] Otimizando rota de 2 pontos`);
-    
     const [origin, destination] = points;
     
     const requestBody = {
@@ -68,7 +66,7 @@ class GoogleMapsOptimizer {
         }
       },
       travelMode: 'DRIVE',
-      routingPreference: 'TRAFFIC_UNAWARE', // Básico sem traffic
+      routingPreference: 'TRAFFIC_UNAWARE',
       computeAlternativeRoutes: false,
       languageCode: 'pt-BR',
       units: 'METRIC'
@@ -86,8 +84,6 @@ class GoogleMapsOptimizer {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ [ROUTES V2] Erro na API:`, response.status, errorText);
         throw new Error(`Routes API v2 error: ${response.status}`);
       }
 
@@ -98,10 +94,8 @@ class GoogleMapsOptimizer {
       }
 
       const route = data.routes[0];
-      const totalDistance = route.distanceMeters / 1000; // Convert to km
+      const totalDistance = route.distanceMeters / 1000;
       const totalDuration = parseInt(route.duration?.replace('s', '') || '0');
-
-      console.log(`✅ [ROUTES V2] Rota 2 pontos: ${totalDistance.toFixed(1)}km, ${Math.round(totalDuration/60)}min`);
 
       return {
         optimizedPoints: [
@@ -115,14 +109,12 @@ class GoogleMapsOptimizer {
       };
 
     } catch (error) {
-      console.error('❌ [ROUTES V2] Erro na otimização 2 pontos:', error);
+      console.error('❌ [OPTIMIZER] Erro na otimização 2 pontos:', error);
       throw error;
     }
   }
 
   private async optimizeWithRoutesAPIv2(points: OptimizationPoint[]): Promise<OptimizationResult> {
-    console.log(`🚀 [ROUTES V2] Usando Routes API v2 para ${points.length} pontos`);
-    
     const origin = points.find(p => p.type === 'origin') || points[0];
     const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
     const waypoints = points.filter(p => 
@@ -155,8 +147,8 @@ class GoogleMapsOptimizer {
         }
       })),
       travelMode: 'DRIVE',
-      routingPreference: 'TRAFFIC_UNAWARE', // Básico sem considerações de trânsito
-      optimizeWaypointOrder: true, // Otimizar ordem dos waypoints
+      routingPreference: 'TRAFFIC_UNAWARE',
+      optimizeWaypointOrder: true,
       computeAlternativeRoutes: false,
       languageCode: 'pt-BR',
       units: 'METRIC'
@@ -174,8 +166,6 @@ class GoogleMapsOptimizer {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ [ROUTES V2] Erro na API:`, response.status, errorText);
         throw new Error(`Routes API v2 error: ${response.status}`);
       }
 
@@ -215,10 +205,8 @@ class GoogleMapsOptimizer {
         type: 'destination' as const
       });
 
-      const totalDistance = route.distanceMeters / 1000; // Convert to km
+      const totalDistance = route.distanceMeters / 1000;
       const totalDuration = parseInt(route.duration?.replace('s', '') || '0');
-
-      console.log(`✅ [ROUTES V2] Rota otimizada: ${totalDistance.toFixed(1)}km, ${Math.round(totalDuration/60)}min`);
 
       return {
         optimizedPoints,
@@ -229,13 +217,13 @@ class GoogleMapsOptimizer {
       };
 
     } catch (error) {
-      console.error('❌ [ROUTES V2] Erro na otimização:', error);
+      console.error('❌ [OPTIMIZER] Erro na otimização Routes API v2:', error);
       throw error;
     }
   }
 
   private async handleLargeRouteV2(points: OptimizationPoint[]): Promise<OptimizationResult> {
-    console.log(`📊 [ROUTES V2] Processando rota grande com ${points.length} pontos`);
+    console.log(`📊 [OPTIMIZER] Processando rota grande com ${points.length} pontos`);
     
     const origin = points.find(p => p.type === 'origin') || points[0];
     const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
@@ -248,9 +236,6 @@ class GoogleMapsOptimizer {
     let totalDistance = 0;
     let totalDuration = 0;
     let allOptimizedPoints: OptimizationPoint[] = [];
-    let combinedPolyline = '';
-
-    console.log(`🔄 [ROUTES V2] Dividindo em ${segments.length} segmentos`);
 
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i];
@@ -259,30 +244,21 @@ class GoogleMapsOptimizer {
       
       const segmentPoints = [
         segmentOrigin,
-        ...segment.slice(0, -1), // Excluir último ponto se não for o último segmento
+        ...segment.slice(0, -1),
         segmentDestination
       ];
 
       try {
         const segmentResult = await this.optimizeWithRoutesAPIv2(segmentPoints);
         
-        // Somar distâncias e durações
         totalDistance += segmentResult.totalDistance;
         totalDuration += segmentResult.totalDuration;
         
-        // Adicionar pontos (excluindo duplicatas)
         if (i === 0) {
           allOptimizedPoints.push(...segmentResult.optimizedPoints);
         } else {
-          allOptimizedPoints.push(...segmentResult.optimizedPoints.slice(1)); // Pular origem duplicada
+          allOptimizedPoints.push(...segmentResult.optimizedPoints.slice(1));
         }
-        
-        // Combinar polylines (simplificado)
-        if (segmentResult.polyline) {
-          combinedPolyline = segmentResult.polyline; // Usar apenas o último por simplicidade
-        }
-        
-        console.log(`✅ [ROUTES V2] Segmento ${i + 1}/${segments.length} processado`);
         
         // Pequena pausa para não sobrecarregar a API
         if (i < segments.length - 1) {
@@ -290,8 +266,7 @@ class GoogleMapsOptimizer {
         }
         
       } catch (error) {
-        console.error(`❌ [ROUTES V2] Erro no segmento ${i + 1}:`, error);
-        // Continuar com próximo segmento em caso de erro
+        console.error(`❌ [OPTIMIZER] Erro no segmento ${i + 1}:`, error);
       }
     }
 
@@ -301,13 +276,11 @@ class GoogleMapsOptimizer {
       order: index
     }));
 
-    console.log(`✅ [ROUTES V2] Rota grande processada: ${totalDistance.toFixed(1)}km, ${Math.round(totalDuration/60)}min`);
-
     return {
       optimizedPoints: finalOptimizedPoints,
       totalDistance,
       totalDuration,
-      polyline: combinedPolyline,
+      polyline: '',
       optimizedOrder: finalOptimizedPoints.map(p => p.id)
     };
   }
@@ -322,41 +295,91 @@ class GoogleMapsOptimizer {
     return segments;
   }
 
+  // NOVO: Implementação do remapeamento manual correto
   async optimizePartialRoute(
     completedPoints: OptimizationPoint[], 
     remainingPoints: OptimizationPoint[]
   ): Promise<OptimizationResult> {
-    console.log(`🎯 [ROUTES V2 PARTIAL] Otimizando ${remainingPoints.length} pontos restantes`);
+    console.log(`🎯 [OPTIMIZER PARTIAL] Remapeamento manual - ${completedPoints.length} concluídos, ${remainingPoints.length} restantes`);
     
-    if (remainingPoints.length < 2) {
+    if (remainingPoints.length === 0) {
       return {
-        optimizedPoints: [...completedPoints, ...remainingPoints],
+        optimizedPoints: completedPoints,
         totalDistance: 0,
         totalDuration: 0,
         polyline: '',
-        optimizedOrder: [...completedPoints, ...remainingPoints].map(p => p.id)
+        optimizedOrder: completedPoints.map(p => p.id)
       };
     }
 
-    // Usar Routes API v2 para otimizar pontos restantes
-    const optimizedRemaining = await this.optimizeRouteWithGoogleAPIs(remainingPoints);
+    if (remainingPoints.length === 1) {
+      // Se só tem 1 ponto restante, apenas adiciona aos concluídos
+      const allPoints = [
+        ...completedPoints,
+        { ...remainingPoints[0], order: completedPoints.length }
+      ];
+      
+      return {
+        optimizedPoints: allPoints,
+        totalDistance: 0,
+        totalDuration: 0,
+        polyline: '',
+        optimizedOrder: allPoints.map(p => p.id)
+      };
+    }
+
+    // REMAPEAMENTO MANUAL: Usar último ponto concluído como origin
+    const lastCompletedPoint = completedPoints[completedPoints.length - 1];
     
-    // Recalcular ordem global
-    const allPoints = [
-      ...completedPoints,
-      ...optimizedRemaining.optimizedPoints.map(p => ({
-        ...p,
-        order: p.order + completedPoints.length
-      }))
+    // Criar nova lista com último concluído como origin
+    const pointsToOptimize = [
+      { ...lastCompletedPoint, type: 'origin' as const },
+      ...remainingPoints.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
+      { ...remainingPoints[remainingPoints.length - 1], type: 'destination' as const }
     ];
 
-    return {
-      optimizedPoints: allPoints,
-      totalDistance: optimizedRemaining.totalDistance,
-      totalDuration: optimizedRemaining.totalDuration,
-      polyline: optimizedRemaining.polyline,
-      optimizedOrder: allPoints.map(p => p.id)
-    };
+    console.log(`🔄 [OPTIMIZER PARTIAL] Otimizando ${pointsToOptimize.length} pontos a partir do último concluído`);
+
+    try {
+      const optimizedRemaining = await this.optimizeRouteWithGoogleAPIs(pointsToOptimize);
+      
+      // Combinar pontos concluídos (exceto o último) + pontos otimizados
+      const finalPoints = [
+        ...completedPoints.slice(0, -1), // Todos exceto o último
+        ...optimizedRemaining.optimizedPoints.map(p => ({
+          ...p,
+          order: p.order + completedPoints.length - 1
+        }))
+      ];
+
+      return {
+        optimizedPoints: finalPoints,
+        totalDistance: optimizedRemaining.totalDistance,
+        totalDuration: optimizedRemaining.totalDuration,
+        polyline: optimizedRemaining.polyline,
+        optimizedOrder: finalPoints.map(p => p.id)
+      };
+      
+    } catch (error) {
+      console.error('❌ [OPTIMIZER PARTIAL] Erro no remapeamento:', error);
+      
+      // Fallback: manter ordem atual
+      const fallbackPoints = [
+        ...completedPoints,
+        ...remainingPoints.map(p => ({
+          ...p,
+          order: p.order + completedPoints.length
+        }))
+      ];
+      
+      return {
+        optimizedPoints: fallbackPoints,
+        totalDistance: 0,
+        totalDuration: 0,
+        polyline: '',
+        optimizedOrder: fallbackPoints.map(p => p.id)
+      };
+    }
   }
 }
 
