@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -34,8 +33,8 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState<number | null>(null);
 
-  const { getAddressByCep, optimizeRoute } = useRoutes();
-  const { createRoute, updateRoute } = useRoutesCRUD();
+  const { getAddressByCep, optimizeRoute, createRoute } = useRoutes();
+  const { updateRoute } = useRoutesCRUD();
 
   const isEditing = !!editingRoute?.id;
 
