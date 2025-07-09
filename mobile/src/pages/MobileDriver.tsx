@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { MapPin, Navigation, Truck, Play, CheckCircle, ExternalLink, AlertCircle, Locate, ArrowLeft } from 'lucide-react';
+import { MapPin, Navigation, Truck, Play, CheckCircle, ExternalLink, AlertCircle, Locate, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useMobile, TruckMobileData, RoutePoint } from '../hooks/useMobile';
+import { useRouteSync } from '../hooks/useRouteSync';
+import RouteUpdateNotification from '../components/RouteUpdateNotification';
 import { GOOGLE_MAPS_API_KEY } from '../services/config';
 import { toast } from 'sonner';
 
@@ -23,6 +25,9 @@ const MobileDriver = () => {
   const userMarker = useRef<any>(null);
   
   const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute } = useMobile();
+  
+  // Hook de sincronização de rota
+  const { hasRouteChanged, newRouteData, isChecking, acceptRouteUpdate, dismissRouteUpdate, checkForRouteUpdates } = useRouteSync(truckData);
 
   const handlePlateSubmit = async () => {
     if (!plate.trim()) return;
@@ -83,6 +88,43 @@ const MobileDriver = () => {
     }
     if (mapInstance.current) {
       mapInstance.current = null;
+    }
+  };
+
+  // Função para aceitar atualização da rota
+  const handleAcceptRouteUpdate = (newTruckData: TruckMobileData) => {
+    console.log('🔄 [MOBILE] Aceitando atualização da rota...');
+    
+    // Atualizar dados do caminhão preservando pontos concluídos
+    setTruckData(newTruckData);
+    
+    // Recalcular índice do ponto atual
+    if (newTruckData.currentRoute) {
+      const sortedPoints = newTruckData.currentRoute.points.sort((a: RoutePoint, b: RoutePoint) => a.order - b.order);
+      const firstIncompleteIndex = sortedPoints.findIndex(point => !point.completed);
+      setCurrentPointIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : sortedPoints.length);
+      
+      // Reinicializar mapa com novos pontos
+      initializeRouteMap(newTruckData.currentRoute);
+    }
+    
+    acceptRouteUpdate(newTruckData);
+    toast.success('Rota atualizada com sucesso!');
+  };
+
+  // Função para atualização manual via pull-to-refresh
+  const handleManualRefresh = async () => {
+    if (!truckData?.plate) return;
+    
+    try {
+      setLoading(true);
+      await checkForRouteUpdates();
+      toast.success('Verificação de atualização concluída');
+    } catch (error) {
+      console.error('Erro na atualização manual:', error);
+      toast.error('Erro ao verificar atualizações');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -536,6 +578,15 @@ const MobileDriver = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Notificação de atualização da rota */}
+      <RouteUpdateNotification
+        isVisible={hasRouteChanged}
+        newRouteData={newRouteData}
+        onAccept={handleAcceptRouteUpdate}
+        onDismiss={dismissRouteUpdate}
+        isChecking={isChecking}
+      />
+
       {/* Header with gradient */}
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-lg">
         <div className="px-6 py-4">
@@ -550,6 +601,17 @@ const MobileDriver = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Botão de refresh manual */}
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={handleManualRefresh}
+                disabled={loading}
+                className="text-white hover:bg-white/20 rounded-xl flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+              
               <Badge 
                 variant={routeStarted ? "default" : "secondary"}
                 className={`px-3 py-1 rounded-full font-semibold ${
