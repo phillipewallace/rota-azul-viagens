@@ -7,13 +7,15 @@ interface RouteSync {
   lastRouteUpdate: string | null;
   hasRouteChanged: boolean;
   isChecking: boolean;
+  newRouteData: TruckMobileData | null;
 }
 
-export const useRouteSync = (truckData: TruckMobileData | null, onRouteUpdate?: (newData: TruckMobileData) => void) => {
+export const useRouteSync = (truckData: TruckMobileData | null) => {
   const [syncState, setSyncState] = useState<RouteSync>({
     lastRouteUpdate: null,
     hasRouteChanged: false,
-    isChecking: false
+    isChecking: false,
+    newRouteData: null
   });
   
   const { getTruckByPlate } = useMobile();
@@ -26,8 +28,6 @@ export const useRouteSync = (truckData: TruckMobileData | null, onRouteUpdate?: 
     try {
       setSyncState(prev => ({ ...prev, isChecking: true }));
       
-      console.log('🔄 [ROUTE SYNC] Verificando atualizações da rota...');
-      
       // Buscar dados atualizados do caminhão
       const updatedTruckData = await getTruckByPlate(truckData.plate);
       
@@ -37,49 +37,14 @@ export const useRouteSync = (truckData: TruckMobileData | null, onRouteUpdate?: 
         
         // Verificar se a rota foi atualizada
         if (currentLastUpdate && newLastUpdate && newLastUpdate > currentLastUpdate) {
-          console.log('🔄 [ROUTE SYNC] Rota foi atualizada! Sincronizando...');
-          
-          // Verificar se pontos concluídos ainda estão preservados
-          const completedPoints = truckData.currentRoute.points?.filter(p => p.completed) || [];
-          const newPoints = updatedTruckData.currentRoute.points || [];
-          
-          // Manter status dos pontos já concluídos
-          const syncedPoints = newPoints.map(newPoint => {
-            const existingPoint = completedPoints.find(cp => 
-              cp.id === newPoint.id || 
-              (cp.address === newPoint.address && cp.lat === newPoint.lat && cp.lng === newPoint.lng)
-            );
-            
-            if (existingPoint && existingPoint.completed) {
-              return { ...newPoint, completed: true, completedAt: existingPoint.completedAt };
-            }
-            
-            return newPoint;
-          });
-          
-          // Criar dados sincronizados
-          const syncedTruckData = {
-            ...updatedTruckData,
-            currentRoute: {
-              ...updatedTruckData.currentRoute,
-              points: syncedPoints
-            }
-          };
+          console.log('🔄 [ROUTE SYNC] Rota atualizada detectada');
           
           setSyncState(prev => ({
             ...prev,
             lastRouteUpdate: newLastUpdate,
-            hasRouteChanged: true
+            hasRouteChanged: true,
+            newRouteData: updatedTruckData
           }));
-          
-          // Notificar sobre a mudança
-          if (onRouteUpdate) {
-            onRouteUpdate(syncedTruckData);
-          }
-          
-          console.log(`✅ [ROUTE SYNC] Rota sincronizada! Preservados ${completedPoints.length} pontos concluídos`);
-        } else {
-          console.log('ℹ️ [ROUTE SYNC] Nenhuma atualização de rota detectada');
         }
       }
       
@@ -88,35 +53,47 @@ export const useRouteSync = (truckData: TruckMobileData | null, onRouteUpdate?: 
     } finally {
       setSyncState(prev => ({ ...prev, isChecking: false }));
     }
-  }, [truckData, getTruckByPlate, onRouteUpdate]);
+  }, [truckData, getTruckByPlate]);
 
-  // Polling a cada 30 segundos para verificar mudanças
+  // OTIMIZADO: Polling reduzido - só verifica mudanças quando necessário
   useEffect(() => {
     if (!truckData?.currentRoute) {
       return;
     }
 
-    // Primeira verificação
-    checkForRouteUpdates();
+    // Verificação inicial
+    const initialCheck = setTimeout(checkForRouteUpdates, 5000);
     
-    // Configurar polling
-    const interval = setInterval(checkForRouteUpdates, 30000); // 30 segundos
-    
-    console.log('🔄 [ROUTE SYNC] Polling iniciado para detectar mudanças na rota');
+    // Polling reduzido para 2 minutos (apenas para mudanças críticas)
+    const interval = setInterval(checkForRouteUpdates, 120000);
     
     return () => {
+      clearTimeout(initialCheck);
       clearInterval(interval);
-      console.log('⏹️ [ROUTE SYNC] Polling interrompido');
     };
   }, [truckData?.currentRoute?.id, checkForRouteUpdates]);
 
-  const markRouteChangeAsRead = useCallback(() => {
-    setSyncState(prev => ({ ...prev, hasRouteChanged: false }));
+  const acceptRouteUpdate = useCallback((newData: TruckMobileData) => {
+    setSyncState(prev => ({ 
+      ...prev, 
+      hasRouteChanged: false,
+      newRouteData: null
+    }));
+    return newData;
+  }, []);
+
+  const dismissRouteUpdate = useCallback(() => {
+    setSyncState(prev => ({ 
+      ...prev, 
+      hasRouteChanged: false,
+      newRouteData: null
+    }));
   }, []);
 
   return {
     ...syncState,
     checkForRouteUpdates,
-    markRouteChangeAsRead
+    acceptRouteUpdate,
+    dismissRouteUpdate
   };
 };
