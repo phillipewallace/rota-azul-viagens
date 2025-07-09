@@ -56,13 +56,13 @@ export const useRoutes = () => {
 
   const optimizeRoute = async (allPoints: RoutePoint[]) => {
     try {
-      console.log('🚀 [USE ROUTES] Iniciando otimização com Google Maps APIs avançadas');
+      console.log('🚀 [USE ROUTES V2] Iniciando otimização com Routes API v2');
       
       if (allPoints.length < 2) {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      // Chamar API de otimização que agora usa Google Maps APIs avançadas
+      // Chamar API de otimização que agora usa Routes API v2
       const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
         method: 'POST',
         headers: {
@@ -83,14 +83,14 @@ export const useRoutes = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ [USE ROUTES] Erro na resposta da API:', response.status, errorText);
-        throw new Error('Erro na otimização da rota');
+        console.error('❌ [USE ROUTES V2] Erro na resposta da API:', response.status, errorText);
+        throw new Error('Erro na otimização da rota com Routes API v2');
       }
 
       const optimizedData = await response.json();
       
-      console.log(`✅ [USE ROUTES] Rota otimizada com ${optimizedData.optimization || 'GOOGLE_MAPS_ADVANCED'}`);
-      console.log(`📊 [USE ROUTES] Resultado: ${optimizedData.totalDistance}km, ${optimizedData.estimatedTime}`);
+      console.log(`✅ [USE ROUTES V2] Rota otimizada com Routes API v2`);
+      console.log(`📊 [USE ROUTES V2] Resultado: ${optimizedData.totalDistance}km, ${optimizedData.estimatedTime}`);
       
       return {
         optimizedOrder: optimizedData.optimizedOrder,
@@ -109,7 +109,7 @@ export const useRoutes = () => {
         }))
       };
     } catch (error) {
-      console.error('❌ [USE ROUTES] Error optimizing route:', error);
+      console.error('❌ [USE ROUTES V2] Error optimizing route:', error);
       throw error;
     }
   };
