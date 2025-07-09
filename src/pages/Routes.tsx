@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ const Routes = () => {
   const [viewingRoute, setViewingRoute] = useState<any>(null);
 
   const { routes, loading, loadRoutes } = useRoutes();
-  const { deleteRoute, updateRoute, isLoading } = useRoutesCRUD();
+  const { deleteRoute, updateRoute, resetRoute, isLoading } = useRoutesCRUD();
 
   const handleEdit = (route: any) => {
     if (route.status === 'completed') {
@@ -56,6 +56,19 @@ const Routes = () => {
     } catch (error) {
       console.error('Error reactivating route:', error);
       toast.error('Erro ao reativar rota');
+    }
+  };
+
+  const handleReset = async (route: any) => {
+    if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"? Todos os pontos concluídos serão marcados como não concluídos.`)) {
+      try {
+        await resetRoute(route.id);
+        toast.success('Rota resetada com sucesso! Todos os pontos foram marcados como não concluídos.');
+        loadRoutes();
+      } catch (error: any) {
+        console.error('Error resetting route:', error);
+        toast.error(error.message || 'Erro ao resetar rota');
+      }
     }
   };
 
@@ -240,6 +253,16 @@ const Routes = () => {
                         Editar
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleReset(route)}
+                      className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
+                      disabled={isLoading}
+                      title="Resetar rota - marca todos os pontos como não concluídos"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

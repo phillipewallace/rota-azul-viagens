@@ -259,7 +259,7 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
   }
 });
 
-// Finish route - com otimização completa
+// Finish route - CORRIGIDO para resetar pontos corretamente
 router.post('/truck/:truckId/finish-route', async (req, res) => {
   const client = await pool.connect();
   
@@ -285,30 +285,44 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     const currentRouteId = truckResult.rows[0].current_route_id;
     console.log(`📋 [MOBILE API] Rota atual: ${currentRouteId}`);
     
-    // Chamar otimização completa da rota antes de finalizar
-    if (currentRouteId) {
-      console.log(`🎯 [MOBILE API] Iniciando otimização completa da rota ${currentRouteId}`);
-      
-      try {
-        // Fazer chamada interna para otimização completa
-        const optimizeResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/routes/${currentRouteId}/full-optimize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (optimizeResponse.ok) {
-          const optimizeData = await optimizeResponse.json();
-          console.log(`✅ [MOBILE API] Rota otimizada:`, optimizeData.message);
-        } else {
-          console.log(`⚠️ [MOBILE API] Otimização falhou, continuando com finalização`);
-        }
-      } catch (optimizeError) {
-        console.error('❌ [MOBILE API] Erro na otimização:', optimizeError);
-        console.log(`⚠️ [MOBILE API] Continuando com finalização sem otimização`);
-      }
+    if (!currentRouteId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Caminhão não possui rota ativa' });
     }
     
-    // 1. Primeiro, desvincular o caminhão da rota
+    // 1. Resetar TODOS os pontos da rota (tanto na tabela route_points quanto no JSONB)
+    console.log(`🔄 [MOBILE API] Resetando pontos da rota ${currentRouteId}`);
+    
+    // Resetar na tabela route_points
+    const resetPointsResult = await client.query(
+      'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
+      [currentRouteId]
+    );
+    
+    console.log(`✅ [MOBILE API] ${resetPointsResult.rows.length} pontos resetados na tabela route_points`);
+    
+    // Resetar também no JSONB como fallback
+    const routeResult = await client.query(
+      'SELECT points FROM routes WHERE id = $1',
+      [currentRouteId]
+    );
+    
+    if (routeResult.rows[0]?.points) {
+      const points = routeResult.rows[0].points;
+      const resetPoints = points.map((point: any) => ({
+        ...point,
+        completed: false
+      }));
+      
+      await client.query(
+        'UPDATE routes SET points = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [JSON.stringify(resetPoints), currentRouteId]
+      );
+      
+      console.log(`✅ [MOBILE API] Pontos resetados também no JSONB`);
+    }
+    
+    // 2. Desvincular o caminhão da rota
     await client.query(
       'UPDATE trucks SET current_route_id = NULL, status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       ['available', truckId]
@@ -316,48 +330,14 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
     console.log(`✅ [MOBILE API] Caminhão ${truckId} desvinculado da rota`);
     
-    // 2. Resetar pontos da rota (tanto na tabela route_points quanto no JSONB)
-    if (currentRouteId) {
-      // Resetar na tabela route_points
-      const resetPointsResult = await client.query(
-        'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
-        [currentRouteId]
-      );
-      
-      if (resetPointsResult.rows.length > 0) {
-        console.log(`🔄 [MOBILE API] ${resetPointsResult.rows.length} pontos resetados na tabela route_points`);
-      }
-      
-      // Resetar também no JSONB como fallback
-      const routeResult = await client.query(
-        'SELECT points FROM routes WHERE id = $1',
-        [currentRouteId]
-      );
-      
-      if (routeResult.rows[0]?.points) {
-        const points = routeResult.rows[0].points;
-        const resetPoints = points.map((point: any) => ({
-          ...point,
-          completed: false
-        }));
-        
-        await client.query(
-          'UPDATE routes SET points = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-          [JSON.stringify(resetPoints), currentRouteId]
-        );
-        
-        console.log(`🔄 [MOBILE API] Pontos resetados também no JSONB`);
-      }
-    }
-    
     await client.query('COMMIT');
     
-    console.log(`🏁 [MOBILE API] Rota finalizada e otimizada com sucesso para caminhão ${truckId}`);
+    console.log(`🏁 [MOBILE API] Rota finalizada e resetada com sucesso para caminhão ${truckId}`);
     res.json({ 
       success: true, 
-      message: 'Rota finalizada e otimizada com sucesso',
-      resetPoints: currentRouteId ? true : false,
-      optimized: true
+      message: 'Rota finalizada e pontos resetados com sucesso',
+      pointsReset: resetPointsResult.rows.length,
+      routeId: currentRouteId
     });
     
   } catch (error) {

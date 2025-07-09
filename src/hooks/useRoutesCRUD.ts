@@ -1,66 +1,76 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRoutes, Route } from './useRoutes';
+import { API_CONFIG } from '@/services/config';
+import { Route } from './useRoutes';
 
 export const useRoutesCRUD = () => {
   const queryClient = useQueryClient();
-  const { createRoute: createRouteService, updateRoute: updateRouteService, deleteRoute: deleteRouteService } = useRoutes();
 
-  const createMutation = useMutation({
-    mutationFn: async (route: Omit<Route, 'id' | 'createdAt'>) => {
-      console.log('Creating route:', route);
-      return await createRouteService(route);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['routes'] });
-    },
-    onError: (error) => {
-      console.error('Error creating route:', error);
-    }
-  });
-
-  const updateMutation = useMutation({
+  const updateRoute = useMutation({
     mutationFn: async ({ id, route }: { id: string; route: Partial<Route> }) => {
-      console.log('Updating route with ID:', id, 'Data:', route);
-      
-      // Verificar se estamos tentando criar uma nova rota sem ID
-      if (!id || id === 'undefined' || id === 'null' || typeof id !== 'string' || id.trim() === '') {
-        console.log('No valid ID provided, creating new route instead');
-        return await createRouteService(route as Omit<Route, 'id' | 'createdAt'>);
+      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(route),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar rota');
       }
-      
-      return await updateRouteService(id, route);
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] });
     },
-    onError: (error) => {
-      console.error('Error updating route:', error);
-    }
   });
 
-  const deleteMutation = useMutation({
+  const deleteRoute = useMutation({
     mutationFn: async (id: string) => {
-      console.log('Deleting route with ID:', id);
-      
-      if (!id || id === 'undefined' || id === 'null' || typeof id !== 'string' || id.trim() === '') {
-        throw new Error('ID da rota é obrigatório para exclusão');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao excluir rota');
       }
-      
-      return await deleteRouteService(id);
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] });
     },
-    onError: (error) => {
-      console.error('Error deleting route:', error);
-    }
+  });
+
+  const resetRoute = useMutation({
+    mutationFn: async (id: string) => {
+      console.log(`🔄 [RESET ROUTE] Resetando rota ${id}`);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao resetar rota');
+      }
+
+      const result = await response.json();
+      console.log(`✅ [RESET ROUTE] Rota resetada:`, result);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routes'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+    },
   });
 
   return {
-    createRoute: createMutation.mutateAsync,
-    updateRoute: updateMutation.mutateAsync,
-    deleteRoute: deleteMutation.mutateAsync,
-    isLoading: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending,
+    updateRoute: updateRoute.mutateAsync,
+    deleteRoute: deleteRoute.mutateAsync,
+    resetRoute: resetRoute.mutateAsync,
+    isLoading: updateRoute.isPending || deleteRoute.isPending || resetRoute.isPending,
   };
 };
