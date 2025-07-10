@@ -53,25 +53,15 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
     } finally {
       setSyncState(prev => ({ ...prev, isChecking: false }));
     }
-  }, [truckData, getTruckByPlate]);
+  }, [truckData?.plate, truckData?.currentRoute?.lastUpdated, getTruckByPlate]);
 
-  // OTIMIZADO: Polling reduzido - só verifica mudanças quando necessário
+  // OTIMIZADO: Verificação apenas manual ou em eventos específicos
   useEffect(() => {
-    if (!truckData?.currentRoute) {
-      return;
-    }
-
-    // Verificação inicial
-    const initialCheck = setTimeout(checkForRouteUpdates, 5000);
-    
-    // Polling reduzido para 2 minutos (apenas para mudanças críticas)
-    const interval = setInterval(checkForRouteUpdates, 120000);
-    
+    // Não fazer polling automático para reduzir requisições
     return () => {
-      clearTimeout(initialCheck);
-      clearInterval(interval);
+      // Cleanup se necessário
     };
-  }, [truckData?.currentRoute?.id, checkForRouteUpdates]);
+  }, []);
 
   const acceptRouteUpdate = useCallback((newData: TruckMobileData) => {
     setSyncState(prev => ({ 

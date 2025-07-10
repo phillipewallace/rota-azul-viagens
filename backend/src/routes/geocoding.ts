@@ -1,10 +1,7 @@
-
 import { Router } from 'express';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = Router();
-
-console.log('🔧 [GEOCODING ROUTES] Registrando rotas de geocoding...');
 
 interface ViaCepResponse {
   cep: string;
@@ -19,38 +16,6 @@ interface ViaCepResponse {
   siafi: string;
   erro?: boolean;
 }
-
-interface GoogleGeocodeResponse {
-  status: string;
-  results: Array<{
-    geometry: {
-      location: {
-        lat: number;
-        lng: number;
-      };
-    };
-  }>;
-}
-
-interface GoogleDirectionsResponse {
-  status: string;
-  routes: Array<{
-    legs: Array<{
-      distance: { value: number };
-      duration: { value: number; text: string };
-    }>;
-    waypoint_order: number[];
-    overview_polyline: { points: string };
-  }>;
-}
-
-// Debug middleware para todas as rotas de geocoding
-router.use((req, res, next) => {
-  console.log(`🔍 [GEOCODING] ${req.method} ${req.path} - IP: ${req.ip}`);
-  console.log(`🔍 [GEOCODING] Headers:`, req.headers);
-  console.log(`🔍 [GEOCODING] Body:`, req.body);
-  next();
-});
 
 // Get address by CEP
 router.get('/cep/:cep', async (req, res) => {
@@ -71,7 +36,7 @@ router.get('/cep/:cep', async (req, res) => {
     // Use Google Maps Geocoding API para obter coordenadas
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
     const geocodeResponse = await fetch(geocodeUrl);
-    const geocodeData = await geocodeResponse.json() as GoogleGeocodeResponse;
+    const geocodeData = await geocodeResponse.json();
     
     let lat = -23.5505; // Coordenadas padrão (São Paulo)
     let lng = -46.6333;
@@ -89,7 +54,7 @@ router.get('/cep/:cep', async (req, res) => {
       lng: lng
     };
 
-    console.log('✅ [GEOCODING CEP] Resultado:', result);
+    console.log('✅ [GEOCODING CEP] Resultado encontrado');
     res.json(result);
   } catch (error) {
     console.error('❌ [GEOCODING CEP] Error fetching address by CEP:', error);
@@ -97,15 +62,10 @@ router.get('/cep/:cep', async (req, res) => {
   }
 });
 
-// Algoritmo de otimização ATUALIZADO usando Google Maps APIs avançadas
+// Endpoint de otimização usando Routes API v2
 router.post('/optimize', async (req, res) => {
   try {
-    console.log('🚀 [GEOCODING OPTIMIZE] ===============================');
-    console.log('🚀 [GEOCODING OPTIMIZE] Recebida requisição de otimização');
-    console.log('🚀 [GEOCODING OPTIMIZE] Method:', req.method);
-    console.log('🚀 [GEOCODING OPTIMIZE] URL:', req.url);
-    console.log('🚀 [GEOCODING OPTIMIZE] Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('📦 [GEOCODING OPTIMIZE] Body da requisição:', JSON.stringify(req.body, null, 2));
+    console.log('🚀 [GEOCODING OPTIMIZE] Iniciando otimização com Routes API v2');
     
     const { points } = req.body;
     
@@ -114,7 +74,7 @@ router.post('/optimize', async (req, res) => {
       return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
     }
 
-    console.log(`🚀 [GEOCODING OPTIMIZE] Otimizando ${points.length} pontos com Google Maps APIs avançadas`);
+    console.log(`🚀 [GEOCODING OPTIMIZE] Otimizando ${points.length} pontos com Routes API v2`);
 
     // Formatar pontos para o otimizador
     const formattedPoints = points.map((point: any, index: number) => ({
@@ -129,7 +89,7 @@ router.post('/optimize', async (req, res) => {
 
     console.log('🎯 [GEOCODING OPTIMIZE] Pontos formatados:', formattedPoints.length);
 
-    // Usar Google Maps Optimizer avançado
+    // Usar Google Maps Optimizer com Routes API v2
     const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
 
     // Calcular tempo estimado em formato legível
@@ -145,11 +105,10 @@ router.post('/optimize', async (req, res) => {
       totalDistance: optimized.totalDistance,
       estimatedTime: estimatedTime,
       polyline: optimized.polyline,
-      optimization: 'GOOGLE_MAPS_ADVANCED'
+      optimization: 'ROUTES_API_V2'
     };
 
     console.log('📤 [GEOCODING OPTIMIZE] Enviando resposta com', response.points.length, 'pontos otimizados');
-    console.log('🚀 [GEOCODING OPTIMIZE] ===============================');
     
     res.json(response);
 
@@ -210,13 +169,12 @@ function basicOptimization(points: any[]) {
   };
 }
 
-// Algoritmo de vizinho mais próximo para TSP
 function nearestNeighborTSP(points: any[]): any[] {
   if (points.length <= 2) return points;
   
-  const result = [points[0]]; // Começar com o primeiro ponto (origem)
-  const remaining = points.slice(1, -1); // Pontos intermediários
-  const destination = points[points.length - 1]; // Último ponto (destino)
+  const result = [points[0]];
+  const remaining = points.slice(1, -1);
+  const destination = points[points.length - 1];
   
   let currentPoint = points[0];
   
@@ -237,13 +195,12 @@ function nearestNeighborTSP(points: any[]): any[] {
     remaining.splice(nearestIndex, 1);
   }
   
-  result.push(destination); // Adicionar destino no final
+  result.push(destination);
   return result;
 }
 
-// Calcular distância entre dois pontos (fórmula de Haversine)
 function calculateDistance(point1: any, point2: any): number {
-  const R = 6371; // Raio da Terra em km
+  const R = 6371;
   const dLat = toRadians(point2.lat - point1.lat);
   const dLng = toRadians(point2.lng - point1.lng);
   
@@ -255,7 +212,6 @@ function calculateDistance(point1: any, point2: any): number {
   return R * c;
 }
 
-// Calcular distância total de uma rota
 function calculateTotalDistance(points: any[]): number {
   let total = 0;
   for (let i = 0; i < points.length - 1; i++) {
@@ -267,9 +223,5 @@ function calculateTotalDistance(points: any[]): number {
 function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180);
 }
-
-console.log('✅ [GEOCODING ROUTES] Rotas de geocoding registradas com sucesso');
-console.log('✅ [GEOCODING ROUTES] Rota POST /optimize disponível');
-console.log('✅ [GEOCODING ROUTES] Rota GET /cep/:cep disponível');
 
 export default router;

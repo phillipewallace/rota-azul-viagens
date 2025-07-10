@@ -36,11 +36,14 @@ router.get('/truck/:plate', async (req, res) => {
     }
 
     const truck = truckResult.rows[0];
+    console.log(`✅ [MOBILE] Caminhão encontrado: ${truck.name} (${truck.plate})`);
     
     // Buscar dados da rota se existir
     let currentRoute = null;
     
     if (truck.current_route_id) {
+      console.log(`📋 [MOBILE] Buscando rota: ${truck.current_route_id}`);
+      
       const routeQuery = `
         SELECT 
           r.id,
@@ -56,14 +59,14 @@ router.get('/truck/:plate', async (req, res) => {
       if (routeResult.rows.length > 0) {
         const route = routeResult.rows[0];
         
-        // Buscar pontos da rota sempre da tabela route_points para ter dados mais atualizados
+        // Buscar pontos da rota
         const pointsQuery = `
           SELECT 
             rp.id,
             rp.address,
             COALESCE(rp.lat, 0) as lat,
             COALESCE(rp.lng, 0) as lng,
-            COALESCE(rp.point_order, 0) as "order",
+            COALESCE(rp.point_order, 0) as point_order,
             COALESCE(rp.type, 'waypoint') as type,
             CASE 
               WHEN rp.completed IS TRUE THEN true
@@ -76,6 +79,7 @@ router.get('/truck/:plate', async (req, res) => {
         `;
         
         const pointsResult = await pool.query(pointsQuery, [truck.current_route_id]);
+        console.log(`📍 [MOBILE] Pontos da rota encontrados: ${pointsResult.rows.length}`);
         
         let points = [];
         
@@ -85,7 +89,7 @@ router.get('/truck/:plate', async (req, res) => {
             address: point.address,
             lat: Number(point.lat),
             lng: Number(point.lng),
-            order: Number(point.order),
+            order: Number(point.point_order),
             type: point.type,
             completed: point.completed === true || point.completed === 't' || point.completed === 'true',
             completedAt: point.completed_at
@@ -93,12 +97,15 @@ router.get('/truck/:plate', async (req, res) => {
         }
         
         const completedCount = points.filter(p => p.completed === true).length;
+        console.log(`📊 [MOBILE] Status: ${completedCount}/${points.length} pontos concluídos`);
         
         currentRoute = {
           id: route.id,
           name: route.name,
           description: route.description || null,
           points: points,
+          pointsCount: points.length,
+          completedPoints: completedCount,
           lastUpdated: route.route_updated_at
         };
       }
@@ -116,7 +123,7 @@ router.get('/truck/:plate', async (req, res) => {
       lastUpdated: truck.truck_updated_at
     };
 
-    console.log(`✅ [MOBILE] Resposta enviada - Rota: ${currentRoute ? 'Sim' : 'Não'}`);
+    console.log(`📱 [MOBILE] Enviando resposta`);
     res.json(response);
     
   } catch (error) {

@@ -1,233 +1,189 @@
 
-
-import { useState } from 'react';
-import { API_BASE_URL, APP_CONFIG } from '../services/config';
-
-export interface RoutePoint {
-  id: string;
-  address: string;
-  lat: number;
-  lng: number;
-  order: number;
-  type: 'origin' | 'destination' | 'waypoint';
-  completed: boolean;
-}
+import { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '@/services/config';
 
 export interface TruckMobileData {
   id: string;
   name: string;
   plate: string;
-  model: string;
-  year: number;
   status: string;
   driver?: string;
   currentRoute?: {
     id: string;
     name: string;
     description?: string;
-    points: RoutePoint[];
+    points: Array<{
+      id: string;
+      address: string;
+      lat: number;
+      lng: number;
+      order: number;
+      type: 'origin' | 'destination' | 'waypoint';
+      completed: boolean;
+      completedAt?: string;
+    }>;
+    lastUpdated?: string;
   };
+  location?: {
+    lat: number;
+    lng: number;
+  };
+  lastUpdated?: string;
 }
 
-console.log('📡 [MOBILE CONFIG] API URL configurada:', API_BASE_URL);
-
 export const useMobile = () => {
-  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+  // Cache para evitar requisições desnecessárias
+  const [requestCache, setRequestCache] = useState<Map<string, { data: any; timestamp: number }>>(new Map());
+  const CACHE_DURATION = 10000; // 10 segundos de cache
 
-  const getTruckByPlate = async (plate: string): Promise<TruckMobileData> => {
-    try {
-      console.log(`🔍 [MOBILE] Buscando caminhão com placa: ${plate}`);
-      console.log(`🔍 [MOBILE] URL da API: ${API_BASE_URL}/mobile/truck/${plate}`);
-      
+  const getCachedOrFetch = useCallback(async (key: string, fetchFn: () => Promise<any>) => {
+    const cached = requestCache.get(key);
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+      console.log(`🔄 [MOBILE CACHE] Usando cache para: ${key}`);
+      return cached.data;
+    }
+    
+    console.log(`🔍 [MOBILE] Fazendo requisição para: ${key}`);
+    const data = await fetchFn();
+    
+    setRequestCache(prev => {
+      const newCache = new Map(prev);
+      newCache.set(key, { data, timestamp: now });
+      return newCache;
+    });
+    
+    return data;
+  }, [requestCache]);
+
+  const getTruckByPlate = useCallback(async (plate: string): Promise<TruckMobileData> => {
+    return getCachedOrFetch(`truck-${plate}`, async () => {
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': `${APP_CONFIG.name}/${APP_CONFIG.version}`,
         },
         credentials: 'omit',
-        signal: AbortSignal.timeout(APP_CONFIG.apiTimeout),
       });
       
-      console.log(`📡 [MOBILE] Response status: ${response.status}`);
-      
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [MOBILE] Erro na resposta:', errorText);
-        
-        if (response.status === 404) {
-          throw new Error('Caminhão não encontrado com esta placa');
-        } else if (response.status >= 500) {
-          throw new Error('Erro no servidor. Tente novamente em alguns momentos.');
-        } else {
-          throw new Error(`Erro ${response.status}: ${response.statusText}`);
-        }
+        const errorData = await response.text();
+        console.error('❌ [MOBILE] Erro:', errorData);
+        throw new Error('Caminhão não encontrado');
       }
       
       const data = await response.json();
-      console.log('✅ [MOBILE] Dados brutos do caminhão recebidos:', data);
-      
-      // Processar e garantir que completed seja boolean
-      if (data.currentRoute?.points) {
-        data.currentRoute.points = data.currentRoute.points.map((point: any) => ({
-          id: point.id,
-          address: point.address,
-          lat: Number(point.lat) || 0,
-          lng: Number(point.lng) || 0,
-          order: Number(point.order) || 0,
-          type: point.type || 'waypoint',
-          completed: Boolean(point.completed) // Garantir que seja boolean
-        }));
-        
-        console.log('📍 [MOBILE] Pontos processados:', 
-          data.currentRoute.points.map((point: RoutePoint) => ({
-            id: point.id,
-            order: point.order,
-            address: point.address.substring(0, 50) + '...',
-            completed: point.completed,
-            completedType: typeof point.completed
-          }))
-        );
-        
-        // Log do status geral da rota
-        const completedCount = data.currentRoute.points.filter((p: RoutePoint) => p.completed === true).length;
-        const totalCount = data.currentRoute.points.length;
-        console.log(`📊 [MOBILE] Status da rota: ${completedCount}/${totalCount} pontos concluídos`);
-      }
-      
-      console.log('✅ [MOBILE] Dados finais do caminhão:', {
-        id: data.id,
-        name: data.name,
-        plate: data.plate,
-        status: data.status,
-        hasRoute: !!data.currentRoute,
-        pointsCount: data.currentRoute?.points?.length || 0,
-        completedPoints: data.currentRoute?.points?.filter((p: RoutePoint) => p.completed === true).length || 0
-      });
-      
-      if (!data.id || !data.name || !data.plate) {
-        throw new Error('Dados do caminhão incompletos recebidos do servidor');
-      }
-      
+      console.log('✅ [MOBILE] Dados do caminhão recebidos');
       return data;
-    } catch (error) {
-      console.error('❌ [MOBILE] Erro ao buscar caminhão:', error);
-      
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Erro de conexão com o servidor. Verifique sua conexão com a internet.');
-      }
-      
-      if (error instanceof Error && error.name === 'TimeoutError') {
-        throw new Error('Timeout na conexão com o servidor. Tente novamente.');
-      }
-      
-      throw error;
-    }
-  };
+    });
+  }, [getCachedOrFetch]);
 
-  const updateTruckLocation = async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
-    try {
-      setIsUpdatingLocation(true);
-      
-      console.log(`📍 [MOBILE] Atualizando localização do caminhão ${truckId}:`, { lat, lng });
-      
-      const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': `${APP_CONFIG.name}/${APP_CONFIG.version}`,
-        },
-        credentials: 'omit',
-        body: JSON.stringify({ lat, lng }),
-        signal: AbortSignal.timeout(8000),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [MOBILE] Erro ao atualizar localização:', errorText);
-        throw new Error('Erro ao atualizar localização no servidor');
-      }
-      
-      const result = await response.json();
-      console.log('✅ [MOBILE] Localização atualizada com sucesso');
-      return result;
-    } catch (error) {
-      console.error('❌ [MOBILE] Erro ao atualizar localização:', error);
-      throw error;
-    } finally {
-      setIsUpdatingLocation(false);
+  const updateTruckLocation = useCallback(async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
+    console.log('📍 [MOBILE] Atualizando localização do caminhão:', { truckId, lat, lng });
+    
+    const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'omit',
+      body: JSON.stringify({ lat, lng }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ [MOBILE] Erro ao atualizar localização:', errorData);
+      throw new Error('Erro ao atualizar localização');
     }
-  };
+    
+    const result = await response.json();
+    console.log('✅ [MOBILE] Localização atualizada com sucesso');
+    
+    // Limpar cache relacionado
+    setRequestCache(prev => {
+      const newCache = new Map(prev);
+      for (const key of newCache.keys()) {
+        if (key.includes(truckId)) {
+          newCache.delete(key);
+        }
+      }
+      return newCache;
+    });
+    
+    return result;
+  }, []);
 
-  const updateRoutePoint = async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
-    try {
-      console.log(`🎯 [MOBILE] Marcando ponto ${pointId} como completed: ${completed} (type: ${typeof completed})`);
-      
-      const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': `${APP_CONFIG.name}/${APP_CONFIG.version}`,
-        },
-        credentials: 'omit',
-        body: JSON.stringify({ completed }),
-        signal: AbortSignal.timeout(8000),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [MOBILE] Erro ao atualizar ponto:', errorText);
-        throw new Error('Erro ao atualizar ponto da rota no servidor');
-      }
-      
-      const result = await response.json();
-      console.log('✅ [MOBILE] Ponto da rota atualizado com sucesso:', result);
-      return result;
-    } catch (error) {
-      console.error('❌ [MOBILE] Erro ao atualizar ponto da rota:', error);
-      throw error;
+  const updateRoutePoint = useCallback(async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
+    console.log('🎯 [MOBILE] Atualizando ponto da rota:', { truckId, pointId, completed });
+    
+    const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'omit',
+      body: JSON.stringify({ completed }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ [MOBILE] Erro ao atualizar ponto:', errorData);
+      throw new Error('Erro ao atualizar ponto da rota');
     }
-  };
+    
+    const result = await response.json();
+    console.log('✅ [MOBILE] Ponto da rota atualizado com sucesso');
+    
+    // Limpar cache relacionado
+    setRequestCache(prev => {
+      const newCache = new Map(prev);
+      for (const key of newCache.keys()) {
+        if (key.includes(truckId)) {
+          newCache.delete(key);
+        }
+      }
+      return newCache;
+    });
+    
+    return result;
+  }, []);
 
-  const finishRoute = async (truckId: string) => {
-    try {
-      console.log(`🏁 [MOBILE] Finalizando rota do caminhão: ${truckId}`);
-      
-      const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': `${APP_CONFIG.name}/${APP_CONFIG.version}`,
-        },
-        credentials: 'omit',
-        signal: AbortSignal.timeout(8000),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [MOBILE] Erro ao finalizar rota:', errorText);
-        throw new Error('Erro ao finalizar rota no servidor');
-      }
-      
-      const result = await response.json();
-      console.log('✅ [MOBILE] Rota finalizada com sucesso:', result);
-      return result;
-    } catch (error) {
-      console.error('❌ [MOBILE] Erro ao finalizar rota:', error);
-      throw error;
+  const finishRoute = useCallback(async (truckId: string) => {
+    console.log('🏁 [MOBILE] Finalizando rota do caminhão:', truckId);
+    
+    const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'omit',
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ [MOBILE] Erro ao finalizar rota:', errorData);
+      throw new Error('Erro ao finalizar rota');
     }
-  };
+    
+    const result = await response.json();
+    console.log('✅ [MOBILE] Rota finalizada com sucesso');
+    
+    // Limpar todo o cache
+    setRequestCache(new Map());
+    
+    return result;
+  }, []);
 
   return {
     getTruckByPlate,
     updateTruckLocation,
     updateRoutePoint,
     finishRoute,
-    isUpdatingLocation
+    clearCache: () => setRequestCache(new Map())
   };
 };
-
