@@ -1,91 +1,223 @@
 
-import React, { useState } from 'react';
-import { Menu, MapPin, Route, Truck, Calendar, BarChart3, Settings, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import Map from '@/components/Map';
-import TrackingPanel from '@/components/TrackingPanel';
-import LinkRouteModal from '@/components/LinkRouteModal';
+import { Truck, Route, Calendar, Users, MapPin, TrendingUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useTrucks } from '@/hooks/useTrucks';
+import { useRoutes } from '@/hooks/useRoutes';
 
 const Index = () => {
-  const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
+  const { trucks, loading: trucksLoading } = useTrucks();
+  const { routes, loading: routesLoading } = useRoutes();
 
-  const menuItems = [
-    { icon: Truck, label: 'Vincular Rota ao Caminhão', action: () => setIsLinkRouteOpen(true) },
-  ];
+  const activeTrucks = trucks?.filter(truck => truck.status === 'in-route') || [];
+  const availableTrucks = trucks?.filter(truck => truck.status === 'available') || [];
+  const activeRoutes = routes?.filter(route => route.status === 'active') || [];
 
-  const navigationItems = [
-    { icon: MapPin, label: 'Mapa Principal', to: '/' },
-    { icon: Route, label: 'Rotas', to: '/routes' },
-    { icon: Truck, label: 'Caminhões', to: '/trucks' },
-    { icon: Settings, label: 'Gerenciamento', to: '/management' },
-    { icon: BarChart3, label: 'Relatórios', to: '/reports' },
-    { icon: Calendar, label: 'Agenda', to: '/schedule' },
-    { icon: Users, label: 'Motoristas', to: '/drivers' },
-    { icon: Settings, label: 'Configurações', to: '/settings' },
+  const stats = [
+    {
+      title: "Caminhões Ativos",
+      value: activeTrucks.length,
+      total: trucks?.length || 0,
+      icon: Truck,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      link: "/trucks"
+    },
+    {
+      title: "Rotas Ativas", 
+      value: activeRoutes.length,
+      total: routes?.length || 0,
+      icon: Route,
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+      link: "/routes"
+    },
+    {
+      title: "Caminhões Disponíveis",
+      value: availableTrucks.length,
+      total: trucks?.length || 0,
+      icon: Users,
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+      link: "/trucks"
+    }
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button 
-            size="icon" 
-            className="fixed top-4 left-4 z-20 bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-80 max-w-[85vw] p-0">
-          <div className="flex flex-col h-full bg-gray-900 text-white">
-            <div className="p-4 sm:p-6 border-b border-gray-700">
-              <h2 className="text-lg sm:text-xl font-bold text-blue-400">AlchemyRotas</h2>
-              <p className="text-xs sm:text-sm text-gray-400">Sistema de Roteirização</p>
-            </div>
-            
-            <div className="flex-1 p-3 sm:p-4">
-              <div className="space-y-2">
-                {menuItems.map((item, index) => (
-                  <Button
-                    key={index}
-                    variant="ghost"
-                    className="w-full justify-start text-left text-white hover:bg-gray-800 hover:text-blue-400 text-sm"
-                    onClick={item.action}
-                  >
-                    <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                  </Button>
-                ))}
-              </div>
-              
-              <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-700">
-                <h3 className="text-xs sm:text-sm font-semibold text-gray-400 mb-3">NAVEGAÇÃO</h3>
-                <div className="space-y-2">
-                  {navigationItems.map((item, index) => (
-                    <Button key={index} variant="ghost" className="w-full justify-start text-white hover:bg-gray-800 text-sm" asChild>
-                      <Link to={item.to}>
-                        <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{item.label}</span>
-                      </Link>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Main Content */}
-      <div className="flex-1 relative w-full">
-        <Map />
-        <TrackingPanel />
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Visão geral do sistema de gerenciamento de frota
+          </p>
+        </div>
       </div>
 
-      {/* Modals */}
-      <LinkRouteModal open={isLinkRouteOpen} onOpenChange={setIsLinkRouteOpen} />
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {stats.map((stat) => (
+          <Link key={stat.title} to={stat.link}>
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {stat.title}
+                </CardTitle>
+                <div className={`p-2 rounded-md ${stat.bgColor}`}>
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <p className="text-xs text-muted-foreground">
+                  de {stat.total} total
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Caminhões em Rota
+            </CardTitle>
+            <CardDescription>
+              Status atual dos caminhões ativos
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trucksLoading ? (
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+              </div>
+            ) : activeTrucks.length > 0 ? (
+              <div className="space-y-3">
+                {activeTrucks.slice(0, 5).map((truck) => (
+                  <div key={truck.id} className="flex items-center justify-between p-2 border rounded">
+                    <div>
+                      <p className="font-medium">{truck.name}</p>
+                      <p className="text-sm text-muted-foreground">{truck.plate}</p>
+                    </div>
+                    <Badge variant="default">Em Rota</Badge>
+                  </div>
+                ))}
+                {activeTrucks.length > 5 && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    +{activeTrucks.length - 5} mais caminhões
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                Nenhum caminhão em rota no momento
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Route className="h-5 w-5" />
+              Rotas Ativas
+            </CardTitle>
+            <CardDescription>
+              Rotas em execução no sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {routesLoading ? (
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+              </div>
+            ) : activeRoutes.length > 0 ? (
+              <div className="space-y-3">
+                {activeRoutes.slice(0, 5).map((route) => (
+                  <div key={route.id} className="flex items-center justify-between p-2 border rounded">
+                    <div>
+                      <p className="font-medium">{route.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {route.points?.length || 0} pontos
+                      </p>
+                    </div>
+                    <Badge variant="outline">Ativa</Badge>
+                  </div>
+                ))}
+                {activeRoutes.length > 5 && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    +{activeRoutes.length - 5} mais rotas
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                Nenhuma rota ativa no momento
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Ações Rápidas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button asChild className="w-full justify-start">
+              <Link to="/routes">
+                <Route className="mr-2 h-4 w-4" />
+                Nova Rota
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/trucks">
+                <Truck className="mr-2 h-4 w-4" />
+                Gerenciar Caminhões
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/schedule">
+                <Calendar className="mr-2 h-4 w-4" />
+                Agendamentos
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Estatísticas Rápidas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="p-4 border rounded">
+                <div className="text-2xl font-bold text-blue-600">
+                  {trucks?.length || 0}
+                </div>
+                <p className="text-sm text-muted-foreground">Total de Caminhões</p>
+              </div>
+              <div className="p-4 border rounded">
+                <div className="text-2xl font-bold text-green-600">
+                  {routes?.length || 0}
+                </div>
+                <p className="text-sm text-muted-foreground">Total de Rotas</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

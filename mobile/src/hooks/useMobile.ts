@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/services/config';
 
 export interface TruckMobileData {
@@ -32,33 +32,69 @@ export interface TruckMobileData {
 }
 
 export const useMobile = () => {
-  // Cache para evitar requisições desnecessárias
+  // Cache inteligente com debounce real
   const [requestCache, setRequestCache] = useState<Map<string, { data: any; timestamp: number }>>(new Map());
-  const CACHE_DURATION = 10000; // 10 segundos de cache
+  const requestTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const CACHE_DURATION = 30000; // 30 segundos
+  const DEBOUNCE_TIME = 1000; // 1 segundo
 
-  const getCachedOrFetch = useCallback(async (key: string, fetchFn: () => Promise<any>) => {
-    const cached = requestCache.get(key);
-    const now = Date.now();
-    
-    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-      console.log(`🔄 [MOBILE CACHE] Usando cache para: ${key}`);
-      return cached.data;
-    }
-    
-    console.log(`🔍 [MOBILE] Fazendo requisição para: ${key}`);
-    const data = await fetchFn();
-    
-    setRequestCache(prev => {
-      const newCache = new Map(prev);
-      newCache.set(key, { data, timestamp: now });
-      return newCache;
+  // Cleanup na desmontagem
+  useEffect(() => {
+    return () => {
+      requestTimers.current.forEach(timer => clearTimeout(timer));
+      requestTimers.current.clear();
+    };
+  }, []);
+
+  const debouncedRequest = useCallback((key: string, fetchFn: () => Promise<any>) => {
+    return new Promise((resolve, reject) => {
+      // Cancelar timer anterior se existir
+      const existingTimer = requestTimers.current.get(key);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      // Verificar cache primeiro
+      const cached = requestCache.get(key);
+      const now = Date.now();
+      
+      if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+        console.log(`🔄 [MOBILE CACHE] Cache hit para: ${key}`);
+        resolve(cached.data);
+        return;
+      }
+
+      // Criar novo timer debounced
+      const timer = setTimeout(async () => {
+        try {
+          console.log(`🔍 [MOBILE] Fazendo requisição debounced para: ${key}`);
+          const data = await fetchFn();
+          
+          setRequestCache(prev => {
+            const newCache = new Map(prev);
+            newCache.set(key, { data, timestamp: now });
+            // Limitar tamanho do cache (máximo 10 itens)
+            if (newCache.size > 10) {
+              const firstKey = newCache.keys().next().value;
+              newCache.delete(firstKey);
+            }
+            return newCache;
+          });
+          
+          requestTimers.current.delete(key);
+          resolve(data);
+        } catch (error) {
+          requestTimers.current.delete(key);
+          reject(error);
+        }
+      }, DEBOUNCE_TIME);
+
+      requestTimers.current.set(key, timer);
     });
-    
-    return data;
   }, [requestCache]);
 
   const getTruckByPlate = useCallback(async (plate: string): Promise<TruckMobileData> => {
-    return getCachedOrFetch(`truck-${plate}`, async () => {
+    return debouncedRequest(`truck-${plate}`, async () => {
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${plate}`, {
         method: 'GET',
         headers: {
@@ -78,10 +114,11 @@ export const useMobile = () => {
       console.log('✅ [MOBILE] Dados do caminhão recebidos');
       return data;
     });
-  }, [getCachedOrFetch]);
+  }, [debouncedRequest]);
 
   const updateTruckLocation = useCallback(async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
-    console.log('📍 [MOBILE] Atualizando localização do caminhão:', { truckId, lat, lng });
+    // Não fazer cache de updates, sempre executar
+    console.log('📍 [MOBILE] Atualizando localização:', { truckId, lat, lng });
     
     const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
       method: 'PUT',
@@ -100,9 +137,9 @@ export const useMobile = () => {
     }
     
     const result = await response.json();
-    console.log('✅ [MOBILE] Localização atualizada com sucesso');
+    console.log('✅ [MOBILE] Localização atualizada');
     
-    // Limpar cache relacionado
+    // Invalidar cache relacionado
     setRequestCache(prev => {
       const newCache = new Map(prev);
       for (const key of newCache.keys()) {
@@ -117,7 +154,7 @@ export const useMobile = () => {
   }, []);
 
   const updateRoutePoint = useCallback(async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
-    console.log('🎯 [MOBILE] Atualizando ponto da rota:', { truckId, pointId, completed });
+    console.log('🎯 [MOBILE] Atualizando ponto:', { truckId, pointId, completed });
     
     const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
       method: 'PUT',
@@ -136,9 +173,9 @@ export const useMobile = () => {
     }
     
     const result = await response.json();
-    console.log('✅ [MOBILE] Ponto da rota atualizado com sucesso');
+    console.log('✅ [MOBILE] Ponto atualizado');
     
-    // Limpar cache relacionado
+    // Invalidar cache relacionado
     setRequestCache(prev => {
       const newCache = new Map(prev);
       for (const key of newCache.keys()) {
@@ -153,7 +190,7 @@ export const useMobile = () => {
   }, []);
 
   const finishRoute = useCallback(async (truckId: string) => {
-    console.log('🏁 [MOBILE] Finalizando rota do caminhão:', truckId);
+    console.log('🏁 [MOBILE] Finalizando rota:', truckId);
     
     const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/finish-route`, {
       method: 'POST',
@@ -171,7 +208,7 @@ export const useMobile = () => {
     }
     
     const result = await response.json();
-    console.log('✅ [MOBILE] Rota finalizada com sucesso');
+    console.log('✅ [MOBILE] Rota finalizada');
     
     // Limpar todo o cache
     setRequestCache(new Map());
@@ -179,11 +216,17 @@ export const useMobile = () => {
     return result;
   }, []);
 
+  const clearCache = useCallback(() => {
+    setRequestCache(new Map());
+    requestTimers.current.forEach(timer => clearTimeout(timer));
+    requestTimers.current.clear();
+  }, []);
+
   return {
     getTruckByPlate,
     updateTruckLocation,
     updateRoutePoint,
     finishRoute,
-    clearCache: () => setRequestCache(new Map())
+    clearCache
   };
 };
