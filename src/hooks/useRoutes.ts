@@ -56,52 +56,55 @@ export const useRoutes = () => {
     }
   };
 
-  const optimizeRoute = async (allPoints: RoutePoint[]) => {
-    try {
-      console.log('🚀 [USE ROUTES V2] Iniciando otimização com Routes API v2');
+const optimizeRoute = async (allPoints: RoutePoint[]) => {
+  try {
+    console.log('🚀 [USE ROUTES V2] Iniciando otimização com Routes API v2');
 
-      if (allPoints.length < 2) {
-        throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
-      }
+    if (allPoints.length < 2) {
+      throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
+    }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          points: allPoints.map((point, index) => ({
-            id: point.id,
-            address: point.address,
-            cep: point.cep,
-            lat: point.lat,
-            lng: point.lng,
-            order: index,
-            type: point.type,
-            completed: point.completed ?? false,           // <-- Mantém o valor original
-            completedAt: point.completedAt ?? null         // <-- Mantém o valor original
-          }))
-        }),
-      });
+    const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        points: allPoints.map((point, index) => ({
+          id: point.id,
+          address: point.address,
+          cep: point.cep,
+          lat: point.lat,
+          lng: point.lng,
+          order: index,
+          type: point.type,
+          completed: point.completed ?? false,
+          completedAt: point.completedAt ?? null,
+        })),
+      }),
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [USE ROUTES V2] Erro na resposta da API:', response.status, errorText);
-        throw new Error('Erro na otimização da rota com Routes API v2');
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [USE ROUTES V2] Erro na resposta da API:', response.status, errorText);
+      throw new Error('Erro na otimização da rota com Routes API v2');
+    }
 
-      const optimizedData = await response.json();
+    const optimizedData = await response.json();
 
-      console.log(`✅ [USE ROUTES V2] Rota otimizada com Routes API v2`);
-      console.log(`📊 [USE ROUTES V2] Resultado: ${optimizedData.totalDistance}km, ${optimizedData.estimatedTime}`);
+    console.log(`✅ [USE ROUTES V2] Rota otimizada com Routes API v2`);
+    console.log(`📊 [USE ROUTES V2] Resultado: ${optimizedData.totalDistance}km, ${optimizedData.estimatedTime}`);
 
-      return {
-        optimizedOrder: optimizedData.optimizedOrder,
-        totalDistance: optimizedData.totalDistance,
-        estimatedTime: optimizedData.estimatedTime,
-        polyline: optimizedData.polyline,
-        detailedRoute: null,
-        points: optimizedData.points.map((p: any, index: number) => ({
+    return {
+      optimizedOrder: optimizedData.optimizedOrder,
+      totalDistance: optimizedData.totalDistance,
+      estimatedTime: optimizedData.estimatedTime,
+      polyline: optimizedData.polyline,
+      detailedRoute: null,
+      points: optimizedData.points.map((p: any, index: number) => {
+        const original = allPoints.find(op => op.id === p.id);
+
+        return {
           id: p.id,
           address: p.address,
           cep: p.cep || '',
@@ -109,15 +112,16 @@ export const useRoutes = () => {
           lng: p.lng,
           order: index,
           type: p.type,
-          completed: p.completed ?? false,         // <-- Preserva
-          completedAt: p.completedAt ?? null       // <-- Preserva
-        }))
-      };
-    } catch (error) {
-      console.error('❌ [USE ROUTES V2] Error optimizing route:', error);
-      throw error;
-    }
-  };
+          completed: original?.completed ?? false,
+          completedAt: original?.completedAt ?? null,
+        };
+      }),
+    };
+  } catch (error) {
+    console.error('❌ [USE ROUTES V2] Error optimizing route:', error);
+    throw error;
+  }
+};
 
   const createRoute = async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
     try {
