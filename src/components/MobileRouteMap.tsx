@@ -20,40 +20,45 @@ const MobileRouteMap: React.FC<MobileRouteMapProps> = ({ route }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
     const initializeMap = async () => {
-      if (!mapContainer.current || !route.points?.length) {
-        console.log('❌ Map container or points not available');
+      if (!mapContainer.current || !route.points?.length || isInitializing) {
+        console.log('❌ [MOBILE MAP] Condições insuficientes para inicializar');
         return;
       }
 
       try {
-        console.log('🗺️ Initializing mobile route map...');
+        setIsInitializing(true);
+        setMapError(null);
+        console.log('🗺️ [MOBILE MAP] Inicializando mapa mobile...');
+        
+        // Aguardar inicialização do Google Maps
         await googleMapsService.initialize();
         
         if (!window.google || !window.google.maps) {
-          console.log('❌ Google Maps API not loaded');
-          return;
+          throw new Error('Google Maps API não carregou corretamente');
         }
 
         const validPoints = route.points
           .filter(point => point.lat && point.lng && typeof point.lat === 'number' && typeof point.lng === 'number')
           .sort((a, b) => a.order - b.order);
 
-        console.log('📍 Valid points:', validPoints.length);
+        console.log('📍 [MOBILE MAP] Pontos válidos:', validPoints.length);
 
         if (validPoints.length === 0) {
-          console.log('❌ No valid points found');
-          return;
+          throw new Error('Nenhum ponto válido encontrado');
         }
 
-        // Calculate center point
+        // Calcular centro do mapa
         const centerLat = validPoints.reduce((sum, point) => sum + point.lat, 0) / validPoints.length;
         const centerLng = validPoints.reduce((sum, point) => sum + point.lng, 0) / validPoints.length;
 
-        console.log('🎯 Map center:', { lat: centerLat, lng: centerLng });
+        console.log('🎯 [MOBILE MAP] Centro do mapa:', { lat: centerLat, lng: centerLng });
 
+        // Criar instância do mapa
         map.current = new window.google.maps.Map(mapContainer.current, {
           center: { lat: centerLat, lng: centerLng },
           zoom: 12,
@@ -64,9 +69,9 @@ const MobileRouteMap: React.FC<MobileRouteMapProps> = ({ route }) => {
           mapTypeId: 'roadmap',
         });
 
-        // Add markers for each point
+        // Adicionar marcadores
         validPoints.forEach((point, index) => {
-          const marker = new window.google.maps.Marker({
+          new window.google.maps.Marker({
             position: { lat: point.lat, lng: point.lng },
             map: map.current,
             title: point.address,
@@ -87,26 +92,45 @@ const MobileRouteMap: React.FC<MobileRouteMapProps> = ({ route }) => {
           });
         });
 
-        // Draw route if more than one point
+        // Desenhar rota se tiver mais de um ponto
         if (validPoints.length > 1) {
-          const origin = validPoints[0];
-          const destination = validPoints[validPoints.length - 1];
-          const waypoints = validPoints.slice(1, -1).map(point => ({
-            location: new window.google.maps.LatLng(point.lat, point.lng),
-            stopover: true
-          }));
+          await drawRoute(validPoints);
+        }
 
-          const directionsService = new window.google.maps.DirectionsService();
-          const directionsRenderer = new window.google.maps.DirectionsRenderer({
-            map: map.current,
-            suppressMarkers: true,
-            polylineOptions: {
-              strokeColor: '#3b82f6',
-              strokeWeight: 4,
-              strokeOpacity: 0.8
-            }
-          });
+        setMapLoaded(true);
+        console.log('✅ [MOBILE MAP] Mapa inicializado com sucesso');
+        
+      } catch (error) {
+        console.error('❌ [MOBILE MAP] Erro ao inicializar mapa:', error);
+        setMapError(error instanceof Error ? error.message : 'Erro desconhecido');
+      } finally {
+        setIsInitializing(false);
+      }
+    };
 
+    const drawRoute = async (points: any[]) => {
+      if (!map.current || points.length < 2) return;
+
+      try {
+        const directionsService = new window.google.maps.DirectionsService();
+        const directionsRenderer = new window.google.maps.DirectionsRenderer({
+          map: map.current,
+          suppressMarkers: true,
+          polylineOptions: {
+            strokeColor: '#3b82f6',
+            strokeWeight: 4,
+            strokeOpacity: 0.8
+          }
+        });
+
+        const origin = points[0];
+        const destination = points[points.length - 1];
+        const waypoints = points.slice(1, -1).map((point: any) => ({
+          location: new window.google.maps.LatLng(point.lat, point.lng),
+          stopover: true
+        }));
+
+        return new Promise((resolve, reject) => {
           directionsService.route({
             origin: new window.google.maps.LatLng(origin.lat, origin.lng),
             destination: new window.google.maps.LatLng(destination.lat, destination.lng),
@@ -116,22 +140,34 @@ const MobileRouteMap: React.FC<MobileRouteMapProps> = ({ route }) => {
           }, (result: any, status: string) => {
             if (status === 'OK') {
               directionsRenderer.setDirections(result);
-              console.log('✅ Route drawn successfully');
+              console.log('✅ [MOBILE MAP] Rota desenhada');
+              resolve(result);
             } else {
-              console.error('❌ Directions service failed:', status);
+              console.error('❌ [MOBILE MAP] Erro ao desenhar rota:', status);
+              reject(new Error(`Erro ao desenhar rota: ${status}`));
             }
           });
-        }
-
-        setMapLoaded(true);
-        console.log('✅ Mobile route map initialized successfully');
+        });
       } catch (error) {
-        console.error('❌ Error initializing mobile route map:', error);
+        console.error('❌ [MOBILE MAP] Erro ao desenhar rota:', error);
       }
     };
 
+    // Limpar mapa existente antes de inicializar novo
+    if (map.current) {
+      map.current = null;
+    }
+    
+    setMapLoaded(false);
     initializeMap();
-  }, [route]);
+
+    // Cleanup
+    return () => {
+      if (map.current) {
+        map.current = null;
+      }
+    };
+  }, [route.points, isInitializing]);
 
   if (!route.points?.length) {
     return (
@@ -144,7 +180,17 @@ const MobileRouteMap: React.FC<MobileRouteMapProps> = ({ route }) => {
   return (
     <div className="relative w-full h-64 bg-gray-200 rounded-lg overflow-hidden">
       <div ref={mapContainer} className="absolute inset-0" />
-      {!mapLoaded && (
+      
+      {mapError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-100">
+          <div className="text-center text-red-600">
+            <p className="font-semibold">Erro ao carregar mapa</p>
+            <p className="text-sm">{mapError}</p>
+          </div>
+        </div>
+      )}
+      
+      {!mapLoaded && !mapError && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center text-gray-500">
             <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>

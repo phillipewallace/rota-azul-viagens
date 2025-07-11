@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
@@ -128,12 +127,12 @@ router.post('/', async (req, res) => {
   }
 });
 
-// CORRIGIDO: Função para preservar pontos concluídos durante atualizações
+// CORRIGIDO: Função para preservar pontos concluídos de forma mais robusta
 async function handleIntelligentRouteUpdate(client: any, routeId: string, newPoints: any[]) {
   try {
     console.log(`🧠 [ROUTES INTELLIGENT] Processando preservação para rota ${routeId}`);
     
-    // 1. Buscar pontos concluídos
+    // 1. Buscar pontos concluídos da rota atual
     const completedPointsResult = await client.query(
       'SELECT * FROM route_points WHERE route_id = $1 AND completed = true ORDER BY point_order',
       [routeId]
@@ -152,8 +151,9 @@ async function handleIntelligentRouteUpdate(client: any, routeId: string, newPoi
 
     console.log(`✅ [ROUTES INTELLIGENT] ${completedPoints.length} pontos concluídos encontrados`);
     
+    // 2. Se não há pontos concluídos, substituir completamente
     if (completedPoints.length === 0) {
-      console.log(`🔄 [ROUTES INTELLIGENT] Nenhum ponto concluído - substituindo completamente`);
+      console.log(`🔄 [ROUTES INTELLIGENT] Nenhum ponto concluído - atualizando normalmente`);
       
       await client.query('DELETE FROM route_points WHERE route_id = $1', [routeId]);
       
@@ -168,62 +168,34 @@ async function handleIntelligentRouteUpdate(client: any, routeId: string, newPoi
       return;
     }
     
-    // 2. FILTRO CORRETO: Separar pontos que ainda não foram concluídos
+    // 3. Preservar pontos concluídos e adicionar novos pontos não concluídos
     const maxCompletedOrder = Math.max(...completedPoints.map(p => p.order));
-    const remainingNewPoints = newPoints.filter(p => p.order > maxCompletedOrder);
     
-    console.log(`🔍 [ROUTES INTELLIGENT] Preservando ${completedPoints.length} pontos concluídos`);
-    console.log(`🔍 [ROUTES INTELLIGENT] ${remainingNewPoints.length} novos pontos para processar`);
+    // Separar pontos novos que vêm após os concluídos
+    const newPendingPoints = newPoints.filter(p => p.order > maxCompletedOrder);
     
-    if (remainingNewPoints.length > 0) {
-      try {
-        const optimizedResult = await googleMapsOptimizer.optimizePartialRoute(
-          completedPoints,
-          remainingNewPoints
-        );
-        
-        console.log(`✅ [ROUTES INTELLIGENT] Otimização parcial concluída`);
-        
-        // 4. Remover apenas pontos não concluídos
+    console.log(`🔍 [ROUTES INTELLIGENT] ${newPendingPoints.length} novos pontos pendentes após ordem ${maxCompletedOrder}`);
+    
+    // 4. Remover apenas pontos não concluídos
+    await client.query(
+      'DELETE FROM route_points WHERE route_id = $1 AND (completed = false OR completed IS NULL)',
+      [routeId]
+    );
+    
+    // 5. Inserir novos pontos pendentes
+    if (newPendingPoints.length > 0) {
+      for (const point of newPendingPoints) {
         await client.query(
-          'DELETE FROM route_points WHERE route_id = $1 AND (completed = false OR completed IS NULL)',
-          [routeId]
+          `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
+           VALUES ($1, $2, $3, $4, $5, $6, false)`,
+          [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
         );
-        
-        // 5. Inserir apenas os novos pontos otimizados
-        const pointsToInsert = optimizedResult.optimizedPoints.filter(p => !p.completed);
-        
-        for (const point of pointsToInsert) {
-          await client.query(
-            `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
-             VALUES ($1, $2, $3, $4, $5, $6, false)`,
-            [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
-          );
-        }
-        
-        console.log(`✅ [ROUTES INTELLIGENT] ${pointsToInsert.length} novos pontos inseridos`);
-        
-      } catch (optimizationError) {
-        console.error('❌ [ROUTES INTELLIGENT] Erro na otimização:', optimizationError);
-        
-        // Fallback seguro: preservar concluídos e adicionar novos sem otimizar
-        await client.query(
-          'DELETE FROM route_points WHERE route_id = $1 AND (completed = false OR completed IS NULL)',
-          [routeId]
-        );
-        
-        for (const point of remainingNewPoints) {
-          await client.query(
-            `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
-             VALUES ($1, $2, $3, $4, $5, $6, false)`,
-            [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
-          );
-        }
-        
-        console.log(`⚠️ [ROUTES INTELLIGENT] Fallback aplicado`);
       }
+      
+      console.log(`✅ [ROUTES INTELLIGENT] ${newPendingPoints.length} novos pontos inseridos`);
     }
     
+    // 6. Atualizar timestamp da rota
     await client.query(
       'UPDATE routes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
       [routeId]
@@ -246,7 +218,14 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, description, points, totalDistance, estimatedTime, estimatedDuration, optimizedOrder, polyline, status } = req.body;
     
-    console.log(`🔄 [ROUTES UPDATE] Atualizando rota ${id}`);
+    console.log(`🔄 [ROUTES UPDATE] Atualizando rota ${id} com ${points?.length || 0} pontos`);
+    
+    // Verificar se a rota existe
+    const routeExists = await client.query('SELECT id FROM routes WHERE id = $1', [id]);
+    if (routeExists.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Rota não encontrada' });
+    }
     
     // Verificar se a rota está sendo usada por algum caminhão
     const trucksUsingRoute = await client.query(
@@ -254,27 +233,28 @@ router.put('/:id', async (req, res) => {
       [id]
     );
     
-    if (trucksUsingRoute.rows.length > 0) {
-      console.log(`📍 [ROUTES UPDATE] Rota em uso - aplicando preservação inteligente`);
+    if (trucksUsingRoute.rows.length > 0 && points && points.length > 0) {
+      console.log(`📍 [ROUTES UPDATE] Rota em uso por ${trucksUsingRoute.rows.length} caminhão(ões) - aplicando preservação inteligente`);
       await handleIntelligentRouteUpdate(client, id, points);
     } else {
       console.log(`🔄 [ROUTES UPDATE] Rota não está em uso - atualizando normalmente`);
       
-      await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
-      
+      // Atualização normal para rotas não em uso
       if (points && points.length > 0) {
+        await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
+        
         for (const point of points) {
           await client.query(
-            `INSERT INTO route_points (route_id, address, lat, lng, point_order, type)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
+            `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
+             VALUES ($1, $2, $3, $4, $5, $6, false)`,
             [id, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
           );
         }
       }
     }
     
-    // Atualizar a rota principal
-    const query = `
+    // Atualizar dados da rota principal
+    const updateQuery = `
       UPDATE routes 
       SET name = $1, description = $2, points = $3, total_distance = $4, 
           estimated_time = $5, estimated_duration = $6, optimized_order = $7, 
@@ -283,7 +263,7 @@ router.put('/:id', async (req, res) => {
       RETURNING *
     `;
     
-    const result = await client.query(query, [
+    const result = await client.query(updateQuery, [
       name,
       description,
       JSON.stringify(points || []),
@@ -296,11 +276,6 @@ router.put('/:id', async (req, res) => {
       id
     ]);
     
-    if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Rota não encontrada' });
-    }
-    
     await client.query('COMMIT');
     
     const responseRoute = {
@@ -311,6 +286,7 @@ router.put('/:id', async (req, res) => {
     
     console.log(`✅ [ROUTES UPDATE] Rota atualizada com sucesso`);
     res.json(responseRoute);
+    
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ [ROUTES UPDATE] Error updating route:', error);
@@ -350,7 +326,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// CORRIGIDO: Endpoint para resetar rota manualmente
+// CORRIGIDO: Endpoint para resetar rota
 router.post('/:id/reset', async (req, res) => {
   const client = await pool.connect();
   
@@ -369,7 +345,7 @@ router.post('/:id/reset', async (req, res) => {
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
     
-    // Resetar todos os pontos da rota
+    // Resetar TODOS os pontos da rota (completed = false)
     const resetResult = await client.query(
       'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
       [id]
@@ -400,7 +376,7 @@ router.post('/:id/reset', async (req, res) => {
   }
 });
 
-// Endpoint de otimização ATUALIZADO para Routes API v2
+// Endpoint de otimização 
 router.post('/:id/optimize', async (req, res) => {
   try {
     const { id } = req.params;

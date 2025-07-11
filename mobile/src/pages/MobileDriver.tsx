@@ -19,6 +19,7 @@ const MobileDriver = () => {
   const [currentPointIndex, setCurrentPointIndex] = useState(0);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [mapInitialized, setMapInitialized] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const directionsRenderer = useRef<any>(null);
@@ -42,6 +43,7 @@ const MobileDriver = () => {
       // Reset route state when loading new truck data
       setRouteStarted(false);
       setCurrentPointIndex(0);
+      setMapInitialized(false);
       
       if (data.currentRoute) {
         // Find first non-completed point
@@ -49,7 +51,10 @@ const MobileDriver = () => {
         const firstIncompleteIndex = sortedPoints.findIndex(point => !point.completed);
         setCurrentPointIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0);
         
-        await initializeRouteMap(data.currentRoute);
+        // Inicializar mapa imediatamente quando há rota
+        setTimeout(() => {
+          initializeRouteMap(data.currentRoute);
+        }, 100);
       }
       
       toast.success('Caminhão encontrado!');
@@ -76,6 +81,7 @@ const MobileDriver = () => {
     setError(null);
     setMapLoaded(false);
     setMapError(null);
+    setMapInitialized(false);
     
     // Cleanup map
     if (directionsRenderer.current) {
@@ -105,7 +111,10 @@ const MobileDriver = () => {
       setCurrentPointIndex(firstIncompleteIndex >= 0 ? firstIncompleteIndex : sortedPoints.length);
       
       // Reinicializar mapa com novos pontos
-      initializeRouteMap(newTruckData.currentRoute);
+      setMapInitialized(false);
+      setTimeout(() => {
+        initializeRouteMap(newTruckData.currentRoute);
+      }, 100);
     }
     
     acceptRouteUpdate(newTruckData);
@@ -236,13 +245,14 @@ const MobileDriver = () => {
   };
 
   const initializeRouteMap = async (route: any) => {
-    if (!mapRef.current || !route.points || route.points.length < 1) {
-      console.log('❌ [MOBILE MAP] Referência do mapa ou pontos não disponíveis');
+    if (!mapRef.current || !route.points || route.points.length < 1 || mapInitialized) {
+      console.log('❌ [MOBILE MAP] Condições insuficientes ou mapa já inicializado');
       return;
     }
 
     try {
       setMapError(null);
+      setMapLoaded(false);
       console.log('🗺️ [MOBILE MAP] Inicializando mapa da rota...');
       
       // Load Google Maps script
@@ -294,6 +304,7 @@ const MobileDriver = () => {
       await drawRoute(route);
       
       setMapLoaded(true);
+      setMapInitialized(true);
       console.log('✅ [MOBILE MAP] Mapa inicializado com sucesso');
       
     } catch (error) {
