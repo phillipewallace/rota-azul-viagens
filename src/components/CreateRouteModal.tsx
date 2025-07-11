@@ -200,39 +200,46 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   };
 
   const generatePreview = async () => {
-    try {
-      setLoading(true);
-      
-      const validPoints = allPoints.filter(p => p.lat && p.lng && p.address);
-      if (validPoints.length < 2) {
-        toast.error('É necessário pelo menos 2 pontos válidos (origem e destino)');
-        return;
-      }
+  try {
+    setLoading(true);
 
-      console.log('Gerando preview com pontos:', validPoints.length);
-      
-      // Otimizar rota
-      const optimizedData = await optimizeRoute(validPoints);
-      
-      const preview = {
-        name: routeName,
-        description: routeDescription,
-        points: optimizedData.points,
-        totalDistance: optimizedData.totalDistance,
-        estimatedTime: optimizedData.estimatedTime,
-        optimizedOrder: optimizedData.optimizedOrder,
-        status: 'active'
-      };
-
-      setPreviewData(preview);
-      setShowPreview(true);
-    } catch (error) {
-      console.error('Error generating preview:', error);
-      toast.error('Erro ao gerar preview da rota');
-    } finally {
-      setLoading(false);
+    const validPoints = allPoints.filter(p => p.lat && p.lng && p.address);
+    if (validPoints.length < 2) {
+      toast.error('É necessário pelo menos 2 pontos válidos (origem e destino)');
+      return;
     }
-  };
+
+    console.log('Gerando preview com pontos:', validPoints.length);
+
+    // Otimizar rota
+    const optimizedData = await optimizeRoute(validPoints);
+
+    const preview = {
+      name: routeName,
+      description: routeDescription,
+      points: optimizedData.points.map((optimizedPoint: RoutePoint) => {
+        const original = allPoints.find(p => p.id === optimizedPoint.id);
+        return {
+          ...optimizedPoint,
+          completed: original?.completed ?? false,
+          completedAt: original?.completedAt ?? null,
+        };
+      }),
+      totalDistance: optimizedData.totalDistance,
+      estimatedTime: optimizedData.estimatedTime,
+      optimizedOrder: optimizedData.optimizedOrder,
+      status: 'active'
+    };
+
+    setPreviewData(preview);
+    setShowPreview(true);
+  } catch (error) {
+    console.error('Error generating preview:', error);
+    toast.error('Erro ao gerar preview da rota');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSave = async () => {
     if (!previewData) return;

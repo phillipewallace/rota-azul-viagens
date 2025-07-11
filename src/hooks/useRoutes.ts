@@ -10,6 +10,8 @@ export interface RoutePoint {
   lng: number;
   order: number;
   type: 'origin' | 'destination' | 'waypoint';
+  completed?: boolean;         // <-- Adicionado
+  completedAt?: string | null; // <-- Adicionado
 }
 
 export interface Route {
@@ -57,12 +59,11 @@ export const useRoutes = () => {
   const optimizeRoute = async (allPoints: RoutePoint[]) => {
     try {
       console.log('🚀 [USE ROUTES V2] Iniciando otimização com Routes API v2');
-      
+
       if (allPoints.length < 2) {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      // Chamar API de otimização que agora usa Routes API v2
       const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
         method: 'POST',
         headers: {
@@ -76,7 +77,9 @@ export const useRoutes = () => {
             lat: point.lat,
             lng: point.lng,
             order: index,
-            type: point.type
+            type: point.type,
+            completed: point.completed ?? false,           // <-- Mantém o valor original
+            completedAt: point.completedAt ?? null         // <-- Mantém o valor original
           }))
         }),
       });
@@ -88,10 +91,10 @@ export const useRoutes = () => {
       }
 
       const optimizedData = await response.json();
-      
+
       console.log(`✅ [USE ROUTES V2] Rota otimizada com Routes API v2`);
       console.log(`📊 [USE ROUTES V2] Resultado: ${optimizedData.totalDistance}km, ${optimizedData.estimatedTime}`);
-      
+
       return {
         optimizedOrder: optimizedData.optimizedOrder,
         totalDistance: optimizedData.totalDistance,
@@ -105,7 +108,9 @@ export const useRoutes = () => {
           lat: p.lat,
           lng: p.lng,
           order: index,
-          type: p.type
+          type: p.type,
+          completed: p.completed ?? false,         // <-- Preserva
+          completedAt: p.completedAt ?? null       // <-- Preserva
         }))
       };
     } catch (error) {
