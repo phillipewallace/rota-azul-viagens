@@ -9,8 +9,6 @@ router.get('/truck/:plate', async (req, res) => {
   try {
     const { plate } = req.params;
     
-    console.log(`🔍 [MOBILE] Buscando caminhão: ${plate}`);
-    
     // Query para buscar dados do caminhão
     const truckQuery = `
       SELECT 
@@ -31,19 +29,15 @@ router.get('/truck/:plate', async (req, res) => {
     const truckResult = await pool.query(truckQuery, [plate]);
 
     if (truckResult.rows.length === 0) {
-      console.log(`❌ [MOBILE] Caminhão não encontrado: ${plate}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
 
     const truck = truckResult.rows[0];
-    console.log(`✅ [MOBILE] Caminhão encontrado: ${truck.name} (${truck.plate})`);
     
     // Buscar dados da rota se existir
     let currentRoute = null;
     
     if (truck.current_route_id) {
-      console.log(`📋 [MOBILE] Buscando rota: ${truck.current_route_id}`);
-      
       const routeQuery = `
         SELECT 
           r.id,
@@ -79,7 +73,6 @@ router.get('/truck/:plate', async (req, res) => {
         `;
         
         const pointsResult = await pool.query(pointsQuery, [truck.current_route_id]);
-        console.log(`📍 [MOBILE] Pontos da rota encontrados: ${pointsResult.rows.length}`);
         
         let points = [];
         
@@ -97,7 +90,6 @@ router.get('/truck/:plate', async (req, res) => {
         }
         
         const completedCount = points.filter(p => p.completed === true).length;
-        console.log(`📊 [MOBILE] Status: ${completedCount}/${points.length} pontos concluídos`);
         
         currentRoute = {
           id: route.id,
@@ -123,7 +115,6 @@ router.get('/truck/:plate', async (req, res) => {
       lastUpdated: truck.truck_updated_at
     };
 
-    console.log(`📱 [MOBILE] Enviando resposta`);
     res.json(response);
     
   } catch (error) {
@@ -156,8 +147,6 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     const { truckId, pointId } = req.params;
     const { completed } = req.body;
 
-    console.log(`🎯 [MOBILE] Atualizando ponto ${pointId} - completed: ${completed}`);
-
     const completedValue = Boolean(completed);
 
     // Atualizar na tabela route_points
@@ -167,12 +156,10 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     );
 
     if (updateRoutePointsResult.rows.length > 0) {
-      console.log(`✅ [MOBILE] Ponto ${pointId} atualizado`);
       res.json({ success: true, point: updateRoutePointsResult.rows[0] });
       return;
     }
 
-    console.log(`❌ [MOBILE] Ponto ${pointId} não encontrado`);
     res.status(404).json({ error: 'Ponto não encontrado' });
     
   } catch (error) {
@@ -189,8 +176,6 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     await client.query('BEGIN');
     
     const { truckId } = req.params;
-    
-    console.log(`🏁 [MOBILE] Finalizando rota para caminhão ${truckId}`);
     
     // Buscar a rota atual do caminhão
     const truckResult = await client.query(
@@ -224,7 +209,6 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
     await client.query('COMMIT');
     
-    console.log(`✅ [MOBILE] Rota finalizada - ${resetPointsResult.rows.length} pontos resetados`);
     res.json({ 
       success: true, 
       message: 'Rota finalizada e pontos resetados com sucesso',
