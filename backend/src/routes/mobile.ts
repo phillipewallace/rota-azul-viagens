@@ -36,12 +36,14 @@ router.get('/truck/:plate', async (req, res) => {
     }
 
     const truck = truckResult.rows[0];
-    console.log(`✅ [MOBILE] Caminhão encontrado: ${truck.name}`);
+    console.log(`✅ [MOBILE] Caminhão encontrado: ${truck.name} (${truck.plate})`);
     
     // Buscar dados da rota se existir
     let currentRoute = null;
     
     if (truck.current_route_id) {
+      console.log(`📋 [MOBILE] Buscando rota: ${truck.current_route_id}`);
+      
       const routeQuery = `
         SELECT 
           r.id,
@@ -77,6 +79,7 @@ router.get('/truck/:plate', async (req, res) => {
         `;
         
         const pointsResult = await pool.query(pointsQuery, [truck.current_route_id]);
+        console.log(`📍 [MOBILE] Pontos da rota encontrados: ${pointsResult.rows.length}`);
         
         let points = [];
         
@@ -94,6 +97,7 @@ router.get('/truck/:plate', async (req, res) => {
         }
         
         const completedCount = points.filter(p => p.completed === true).length;
+        console.log(`📊 [MOBILE] Status: ${completedCount}/${points.length} pontos concluídos`);
         
         currentRoute = {
           id: route.id,
@@ -119,6 +123,7 @@ router.get('/truck/:plate', async (req, res) => {
       lastUpdated: truck.truck_updated_at
     };
 
+    console.log(`📱 [MOBILE] Enviando resposta`);
     res.json(response);
     
   } catch (error) {

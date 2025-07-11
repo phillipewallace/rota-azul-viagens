@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useMobile } from './useMobile';
 import type { TruckMobileData } from './useMobile';
 
@@ -20,7 +20,6 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
   
   const { getTruckByPlate } = useMobile();
 
-  // Verificação manual apenas - sem polling automático
   const checkForRouteUpdates = useCallback(async () => {
     if (!truckData?.plate || !truckData.currentRoute) {
       return;
@@ -29,15 +28,16 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
     try {
       setSyncState(prev => ({ ...prev, isChecking: true }));
       
+      // Buscar dados atualizados do caminhão
       const updatedTruckData = await getTruckByPlate(truckData.plate);
       
       if (updatedTruckData.currentRoute?.lastUpdated) {
         const currentLastUpdate = truckData.currentRoute.lastUpdated;
         const newLastUpdate = updatedTruckData.currentRoute.lastUpdated;
         
-        // Verificar se a rota foi realmente atualizada
+        // Verificar se a rota foi atualizada
         if (currentLastUpdate && newLastUpdate && newLastUpdate > currentLastUpdate) {
-          console.log('🔄 [ROUTE SYNC] Nova atualização detectada');
+          console.log('🔄 [ROUTE SYNC] Rota atualizada detectada');
           
           setSyncState(prev => ({
             ...prev,
@@ -49,11 +49,19 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
       }
       
     } catch (error) {
-      console.error('❌ [ROUTE SYNC] Erro na verificação:', error);
+      console.error('❌ [ROUTE SYNC] Erro ao verificar atualizações:', error);
     } finally {
       setSyncState(prev => ({ ...prev, isChecking: false }));
     }
   }, [truckData?.plate, truckData?.currentRoute?.lastUpdated, getTruckByPlate]);
+
+  // OTIMIZADO: Verificação apenas manual ou em eventos específicos
+  useEffect(() => {
+    // Não fazer polling automático para reduzir requisições
+    return () => {
+      // Cleanup se necessário
+    };
+  }, []);
 
   const acceptRouteUpdate = useCallback((newData: TruckMobileData) => {
     setSyncState(prev => ({ 

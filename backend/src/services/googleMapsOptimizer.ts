@@ -37,7 +37,7 @@ class GoogleMapsOptimizer {
 
     // Para rotas com muitos pontos, dividir em segmentos
     if (points.length > this.MAX_INTERMEDIATES + 2) {
-      console.log(`📊 [OPTIMIZER V2] Rota grande (${points.length} pontos) - processando em segmentos`);
+      console.log(`📊 [OPTIMIZER V2] Rota grande - processando em segmentos`);
       return await this.handleLargeRouteV2(points);
     }
 
@@ -310,12 +310,12 @@ class GoogleMapsOptimizer {
     return segments;
   }
 
-  // CORRIGIDO: Preservação de pontos concluídos no remapeamento
+  // CORRIGIDO: Implementação do remapeamento manual para preservar pontos concluídos
   async optimizePartialRoute(
     completedPoints: OptimizationPoint[], 
     remainingPoints: OptimizationPoint[]
   ): Promise<OptimizationResult> {
-    console.log(`🎯 [OPTIMIZER PARTIAL] Remapeamento preservando ${completedPoints.length} concluídos, otimizando ${remainingPoints.length} restantes`);
+    console.log(`🎯 [OPTIMIZER PARTIAL] Remapeamento manual - ${completedPoints.length} concluídos, ${remainingPoints.length} restantes`);
     
     if (remainingPoints.length === 0) {
       return {
@@ -345,7 +345,7 @@ class GoogleMapsOptimizer {
     // CHAVE: Usar último ponto concluído como origem para otimização
     const lastCompletedPoint = completedPoints[completedPoints.length - 1];
     
-    // Criar nova lista com último concluído como origin, restantes como waypoints/destination
+    // Criar nova lista com último concluído como origin
     const pointsToOptimize = [
       { ...lastCompletedPoint, type: 'origin' as const },
       ...remainingPoints.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
@@ -359,15 +359,12 @@ class GoogleMapsOptimizer {
       
       // Combinar pontos concluídos (exceto o último) + pontos otimizados
       const finalPoints = [
-        ...completedPoints.slice(0, -1), // Todos concluídos exceto o último
+        ...completedPoints.slice(0, -1), // Todos exceto o último
         ...optimizedRemaining.optimizedPoints.map((p, index) => ({
           ...p,
-          order: completedPoints.length - 1 + index,
-          completed: index === 0 ? true : false // Primeiro ponto (último concluído) mantém completed=true
+          order: completedPoints.length - 1 + index
         }))
       ];
-
-      console.log(`✅ [OPTIMIZER PARTIAL] Remapeamento concluído: ${finalPoints.filter(p => p.completed).length} preservados, ${finalPoints.filter(p => !p.completed).length} novos`);
 
       return {
         optimizedPoints: finalPoints,
