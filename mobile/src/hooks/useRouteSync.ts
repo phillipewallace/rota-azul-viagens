@@ -20,8 +20,8 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
   
   const { getTruckByPlate } = useMobile();
 
-  // OTIMIZADO: Verificação manual com cache inteligente
-  const checkForRouteUpdates = useCallback(async (forceCheck = false) => {
+  // Verificação manual apenas - sem polling automático
+  const checkForRouteUpdates = useCallback(async () => {
     if (!truckData?.plate || !truckData.currentRoute) {
       return;
     }
@@ -29,8 +29,7 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
     try {
       setSyncState(prev => ({ ...prev, isChecking: true }));
       
-      // Usar cache do useMobile, mas permitir forceRefresh se necessário
-      const updatedTruckData = await getTruckByPlate(truckData.plate, forceCheck);
+      const updatedTruckData = await getTruckByPlate(truckData.plate);
       
       if (updatedTruckData.currentRoute?.lastUpdated) {
         const currentLastUpdate = truckData.currentRoute.lastUpdated;
@@ -60,8 +59,7 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
     setSyncState(prev => ({ 
       ...prev, 
       hasRouteChanged: false,
-      newRouteData: null,
-      lastRouteUpdate: newData.currentRoute?.lastUpdated || null
+      newRouteData: null
     }));
     return newData;
   }, []);

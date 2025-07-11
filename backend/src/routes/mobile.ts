@@ -1,7 +1,6 @@
 
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -10,7 +9,7 @@ router.get('/truck/:plate', async (req, res) => {
   try {
     const { plate } = req.params;
     
-    logger.debug(`Buscando caminhão: ${plate}`);
+    console.log(`🔍 [MOBILE] Buscando caminhão: ${plate}`);
     
     // Query para buscar dados do caminhão
     const truckQuery = `
@@ -32,11 +31,12 @@ router.get('/truck/:plate', async (req, res) => {
     const truckResult = await pool.query(truckQuery, [plate]);
 
     if (truckResult.rows.length === 0) {
-      logger.warn(`Caminhão não encontrado: ${plate}`);
+      console.log(`❌ [MOBILE] Caminhão não encontrado: ${plate}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
 
     const truck = truckResult.rows[0];
+    console.log(`✅ [MOBILE] Caminhão encontrado: ${truck.name}`);
     
     // Buscar dados da rota se existir
     let currentRoute = null;
@@ -119,11 +119,10 @@ router.get('/truck/:plate', async (req, res) => {
       lastUpdated: truck.truck_updated_at
     };
 
-    logger.debug(`Caminhão encontrado: ${truck.name} com ${currentRoute?.points?.length || 0} pontos`);
     res.json(response);
     
   } catch (error) {
-    logger.error('Erro ao buscar caminhão:', error);
+    console.error('❌ [MOBILE] Erro ao buscar caminhão:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -139,10 +138,9 @@ router.put('/truck/:id/location', async (req, res) => {
       [lat, lng, id]
     );
 
-    logger.debug(`Localização atualizada para caminhão ${id}: ${lat}, ${lng}`);
     res.json({ success: true });
   } catch (error) {
-    logger.error('Erro ao atualizar localização:', error);
+    console.error('❌ [MOBILE] Erro ao atualizar localização:', error);
     res.status(500).json({ error: 'Erro ao atualizar localização' });
   }
 });
@@ -153,6 +151,8 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     const { truckId, pointId } = req.params;
     const { completed } = req.body;
 
+    console.log(`🎯 [MOBILE] Atualizando ponto ${pointId} - completed: ${completed}`);
+
     const completedValue = Boolean(completed);
 
     // Atualizar na tabela route_points
@@ -162,16 +162,16 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     );
 
     if (updateRoutePointsResult.rows.length > 0) {
-      logger.debug(`Ponto ${pointId} atualizado - completed: ${completedValue}`);
+      console.log(`✅ [MOBILE] Ponto ${pointId} atualizado`);
       res.json({ success: true, point: updateRoutePointsResult.rows[0] });
       return;
     }
 
-    logger.warn(`Ponto ${pointId} não encontrado`);
+    console.log(`❌ [MOBILE] Ponto ${pointId} não encontrado`);
     res.status(404).json({ error: 'Ponto não encontrado' });
     
   } catch (error) {
-    logger.error('Erro ao atualizar ponto:', error);
+    console.error('❌ [MOBILE] Erro ao atualizar ponto:', error);
     res.status(500).json({ error: 'Erro ao atualizar ponto da rota' });
   }
 });
@@ -185,7 +185,7 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
     const { truckId } = req.params;
     
-    logger.info(`Finalizando rota para caminhão ${truckId}`);
+    console.log(`🏁 [MOBILE] Finalizando rota para caminhão ${truckId}`);
     
     // Buscar a rota atual do caminhão
     const truckResult = await client.query(
@@ -219,7 +219,7 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
     await client.query('COMMIT');
     
-    logger.info(`Rota finalizada - ${resetPointsResult.rows.length} pontos resetados`);
+    console.log(`✅ [MOBILE] Rota finalizada - ${resetPointsResult.rows.length} pontos resetados`);
     res.json({ 
       success: true, 
       message: 'Rota finalizada e pontos resetados com sucesso',
@@ -228,7 +228,7 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
   } catch (error) {
     await client.query('ROLLBACK');
-    logger.error('Erro ao finalizar rota:', error);
+    console.error('❌ [MOBILE] Erro ao finalizar rota:', error);
     res.status(500).json({ error: 'Erro ao finalizar rota' });
   } finally {
     client.release();
