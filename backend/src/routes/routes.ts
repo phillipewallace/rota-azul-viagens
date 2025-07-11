@@ -253,7 +253,23 @@ router.put('/:id', async (req, res) => {
       }
     }
     
-    // Atualizar dados da rota principal
+    // === AQUI: buscar os pontos atualizados na tabela `route_points` para atualizar a coluna `points` da tabela `routes` ===
+    const updatedPointsResult = await client.query(
+      'SELECT address, lat, lng, point_order, type, completed, completed_at FROM route_points WHERE route_id = $1 ORDER BY point_order',
+      [id]
+    );
+
+    const updatedPoints = updatedPointsResult.rows.map(p => ({
+      address: p.address,
+      lat: parseFloat(p.lat),
+      lng: parseFloat(p.lng),
+      order: p.point_order,
+      type: p.type,
+      completed: p.completed,
+      completedAt: p.completed_at
+    }));
+
+    // Atualizar dados da rota principal, usando os pontos atualizados
     const updateQuery = `
       UPDATE routes 
       SET name = $1, description = $2, points = $3, total_distance = $4, 
@@ -266,7 +282,7 @@ router.put('/:id', async (req, res) => {
     const result = await client.query(updateQuery, [
       name,
       description,
-      JSON.stringify(points || []),
+      JSON.stringify(updatedPoints), // <-- Aqui usa os pontos atualizados
       parseFloat(totalDistance) || 0,
       estimatedTime,
       parseInt(estimatedDuration) || 0,
@@ -295,6 +311,7 @@ router.put('/:id', async (req, res) => {
     client.release();
   }
 });
+
 
 router.delete('/:id', async (req, res) => {
   try {
