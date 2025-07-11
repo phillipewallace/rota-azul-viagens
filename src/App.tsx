@@ -7,7 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 // Pages
 import Login from "./pages/Login";
 import Index from "./pages/Index";
-import Routes as RoutesPage from "./pages/Routes";
+import RoutesPage from "./pages/Routes";
 import Trucks from "./pages/Trucks";
 import Drivers from "./pages/Drivers";
 import Schedule from "./pages/Schedule";
