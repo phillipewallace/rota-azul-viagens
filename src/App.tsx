@@ -1,36 +1,33 @@
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/hooks/use-toast";
-import ProtectedRoute from "./components/ProtectedRoute";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 // Pages
-import Login from "./pages/Login";
 import Index from "./pages/Index";
-import RoutesPage from "./pages/Routes";
 import Trucks from "./pages/Trucks";
 import Drivers from "./pages/Drivers";
+import RoutesPage from "./pages/Routes";
 import Schedule from "./pages/Schedule";
 import Reports from "./pages/Reports";
-import Maintenance from "./pages/Maintenance";
-import Management from "./pages/Management";
 import Settings from "./pages/Settings";
+import Management from "./pages/Management";
+import Maintenance from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
 import MobileDriver from "./pages/MobileDriver";
 
-// OTIMIZAÇÃO: Configuração otimizada do React Query
+// Components
+import ProtectedRoute from "./components/ProtectedRoute";
+
+import "./App.css";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutos
-      gcTime: 10 * 60 * 1000, // 10 minutos
+      staleTime: 5 * 60 * 1000,
       retry: 2,
-      refetchOnWindowFocus: false,
-      refetchOnMount: 'always',
-      refetchInterval: false,
-    },
-    mutations: {
-      retry: 1,
     },
   },
 });
@@ -38,24 +35,20 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <div className="min-h-screen bg-background">
+      <TooltipProvider>
+        <Toaster />
+        <BrowserRouter>
           <Routes>
+            {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/mobile" element={<MobileDriver />} />
+            
+            {/* Protected Routes */}
             <Route
               path="/"
               element={
                 <ProtectedRoute>
                   <Index />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/routes"
-              element={
-                <ProtectedRoute>
-                  <RoutesPage />
                 </ProtectedRoute>
               }
             />
@@ -76,6 +69,14 @@ function App() {
               }
             />
             <Route
+              path="/routes"
+              element={
+                <ProtectedRoute>
+                  <RoutesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/schedule"
               element={
                 <ProtectedRoute>
@@ -92,18 +93,18 @@ function App() {
               }
             />
             <Route
-              path="/maintenance"
-              element={
-                <ProtectedRoute>
-                  <Maintenance />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/management"
               element={
                 <ProtectedRoute>
                   <Management />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/maintenance"
+              element={
+                <ProtectedRoute>
+                  <Maintenance />
                 </ProtectedRoute>
               }
             />
@@ -115,11 +116,12 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            
+            {/* 404 Route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </div>
-        <Toaster />
-      </BrowserRouter>
+        </BrowserRouter>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

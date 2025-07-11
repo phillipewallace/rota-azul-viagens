@@ -21,18 +21,20 @@ interface OptimizationResult {
 class GoogleMapsOptimizer {
   private apiKey = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
   private readonly ROUTES_API_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
-  private readonly MAX_WAYPOINTS = 25;
-  private readonly MAX_SEGMENTS = 8;
+  private readonly MAX_WAYPOINTS = 25; // Routes API v2 limit
+  private readonly MAX_SEGMENTS = 8; // Máximo de segmentos paralelos
 
   async optimizeRouteWithGoogleAPIs(points: OptimizationPoint[]): Promise<OptimizationResult> {
     if (points.length < 2) {
       throw new Error('Necessário pelo menos 2 pontos para otimizar');
     }
 
+    // Para rotas com até MAX_WAYPOINTS + 2, usar otimização direta
     if (points.length <= this.MAX_WAYPOINTS + 2) {
       return await this.optimizeWithRoutesAPIv2(points);
     }
 
+    // Para rotas maiores, usar segmentação inteligente
     return await this.optimizeLargeRouteIntelligent(points);
   }
 
@@ -100,6 +102,7 @@ class GoogleMapsOptimizer {
       const route = data.routes[0];
       let optimizedPoints = [{ ...origin, order: 0, type: 'origin' as const }];
 
+      // Aplicar ordem otimizada do Google
       if (route.optimizedIntermediateWaypointIndex && waypoints.length > 0) {
         const reorderedWaypoints = route.optimizedIntermediateWaypointIndex
           .map((index: number, newOrder: number) => ({
@@ -136,6 +139,7 @@ class GoogleMapsOptimizer {
       };
 
     } catch (error) {
+      console.error('❌ [OPTIMIZER] Erro Routes API v2:', error);
       throw error;
     }
   }
@@ -147,11 +151,13 @@ class GoogleMapsOptimizer {
       p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id)
     );
 
+    // Dividir em segmentos otimizáveis
     const segments = this.createIntelligentSegments(waypoints, this.MAX_WAYPOINTS);
     let totalDistance = 0;
     let totalDuration = 0;
     let allOptimizedPoints: OptimizationPoint[] = [];
 
+    // Processar segmentos em paralelo (máximo 3 por vez para não sobrecarregar API)
     for (let i = 0; i < segments.length; i += 3) {
       const batch = segments.slice(i, i + 3);
       
@@ -165,6 +171,7 @@ class GoogleMapsOptimizer {
         try {
           return await this.optimizeWithRoutesAPIv2(segmentPoints);
         } catch (error) {
+          console.error(`❌ [OPTIMIZER] Erro no segmento ${segmentIndex}:`, error);
           return null;
         }
       });
@@ -185,11 +192,13 @@ class GoogleMapsOptimizer {
         }
       }
 
+      // Pausa entre batches
       if (i + 3 < segments.length) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
+    // Recalcular ordens finais
     const finalOptimizedPoints = allOptimizedPoints.map((point, index) => ({
       ...point,
       order: index
@@ -215,7 +224,7 @@ class GoogleMapsOptimizer {
     return segments;
   }
 
-  // CORREÇÃO CRÍTICA: Preservação por coordenadas e IDs exatos
+  // CORRIGIDO: Preservação inteligente de pontos concluídos por ID
   async optimizePartialRoute(
     completedPoints: OptimizationPoint[], 
     remainingPoints: OptimizationPoint[]
@@ -230,9 +239,10 @@ class GoogleMapsOptimizer {
       };
     }
 
-    // CORREÇÃO: Usar último ponto concluído como origem
+    // Usar último ponto concluído como origem da otimização
     const lastCompletedPoint = completedPoints[completedPoints.length - 1];
     
+    // Otimizar apenas pontos restantes
     const pointsToOptimize = [
       { ...lastCompletedPoint, type: 'origin' as const },
       ...remainingPoints
@@ -241,14 +251,13 @@ class GoogleMapsOptimizer {
     try {
       const optimizedRemaining = await this.optimizeRouteWithGoogleAPIs(pointsToOptimize);
       
-      // CORREÇÃO: Preservar todos os concluídos exceto o último + otimizados
+      // Combinar: todos concluídos (exceto último) + otimizados (incluindo último como primeiro)
       const finalPoints = [
         ...completedPoints.slice(0, -1),
         ...optimizedRemaining.optimizedPoints.map((p, index) => ({
           ...p,
           order: completedPoints.length - 1 + index,
-          completed: index === 0 ? true : false,
-          completedAt: index === 0 ? lastCompletedPoint.completedAt : undefined
+          completed: index === 0 ? true : false // Primeiro = último concluído
         }))
       ];
 
@@ -261,7 +270,9 @@ class GoogleMapsOptimizer {
       };
       
     } catch (error) {
-      // CORREÇÃO: Fallback preservando estrutura
+      console.error('❌ [OPTIMIZER PARTIAL] Erro:', error);
+      
+      // Fallback sem otimização
       const fallbackPoints = [
         ...completedPoints,
         ...remainingPoints.map((p, index) => ({

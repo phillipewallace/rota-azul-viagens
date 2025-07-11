@@ -1,7 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { trucksService } from '@/services/trucks';
-import { toast } from '@/hooks/use-toast';
 
 export interface Truck {
   id: string;
@@ -9,110 +8,76 @@ export interface Truck {
   plate: string;
   model: string;
   year: number;
-  status: 'available' | 'in_transit' | 'maintenance';
+  status: 'available' | 'in-route' | 'maintenance';
+  currentRoute?: string;
+  currentRouteName?: string;
+  driver?: string;
+  driverName?: string;
+  lastMaintenance: string;
+  mileage: number;
   location?: {
     lat: number;
     lng: number;
-    lastUpdate: string;
   };
-  currentRoute?: {
-    id: string;
-    name: string;
-  };
-  driver?: {
-    id: string;
-    name: string;
-  };
-  lastMaintenance?: string;
-  nextMaintenance?: string;
-  fuelLevel?: number;
-  mileage?: number;
 }
 
 export const useTrucks = () => {
   const queryClient = useQueryClient();
 
-  // OTIMIZAÇÃO: Query com cache melhorado
-  const {
-    data: trucks = [],
-    isLoading,
-    error,
-    refetch
+  const { 
+    data: trucks = [], 
+    isLoading: loading, 
+    error, 
+    refetch 
   } = useQuery({
     queryKey: ['trucks'],
     queryFn: () => trucksService.getTrucks(),
-    staleTime: 3 * 60 * 1000, // 3 minutos
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const createTruckMutation = useMutation({
-    mutationFn: (truck: Omit<Truck, 'id'>) => trucksService.createTruck(truck),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      toast({
-        title: "Sucesso",
-        description: "Caminhão cadastrado com sucesso!",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Erro ao cadastrar caminhão. Tente novamente.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateTruckMutation = useMutation({
-    mutationFn: ({ id, truck }: { id: string; truck: Partial<Truck> }) => 
-      trucksService.updateTruck(id, truck),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      toast({
-        title: "Sucesso",
-        description: "Caminhão atualizado com sucesso!",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro", 
-        description: "Erro ao atualizar caminhão. Tente novamente.",
-        variant: "destructive",
-      });
-    },
+    refetchInterval: 30000,
+    retry: 2,
+    staleTime: 25000,
   });
 
   const updateLocationMutation = useMutation({
     mutationFn: ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) =>
       trucksService.updateTruckLocation(truckId, lat, lng),
-    onSuccess: () => {
-      // OTIMIZAÇÃO: Invalidação específica apenas para tracking
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      queryClient.invalidateQueries({ queryKey: ['tracking'] });
+    onSuccess: (_, { truckId, lat, lng }) => {
+      queryClient.setQueryData(['trucks'], (oldData: Truck[] | undefined) => {
+        if (!oldData || !Array.isArray(oldData)) return [];
+        return oldData.map(truck => 
+          truck.id === truckId 
+            ? { ...truck, location: { lat, lng } }
+            : truck
+        );
+      });
     },
+    onError: (error) => {
+      console.error('Error updating truck location:', error);
+    }
   });
+
+  const updateTruckLocation = (truckId: string, lat: number, lng: number) => {
+    if (!truckId || typeof lat !== 'number' || typeof lng !== 'number') {
+      console.error('Invalid parameters for updateTruckLocation');
+      return;
+    }
+    updateLocationMutation.mutate({ truckId, lat, lng });
+  };
+
+  const loadTrucks = async () => {
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['trucks'] });
+    } catch (error) {
+      console.error('Error reloading trucks:', error);
+    }
+  };
 
   return {
-    trucks,
-    isLoading,
-    error,
+    trucks: Array.isArray(trucks) ? trucks : [],
+    loading,
+    error: error ? 'Erro ao carregar caminhões' : null,
+    loadTrucks,
+    updateTruckLocation,
     refetch,
-    createTruck: createTruckMutation.mutateAsync,
-    updateTruck: updateTruckMutation.mutateAsync,
-    updateLocation: updateLocationMutation.mutateAsync,
-    isCreating: createTruckMutation.isPending,
-    isUpdating: updateTruckMutation.isPending,
-    isUpdatingLocation: updateLocationMutation.isPending,
+    isUpdatingLocation: updateLocationMutation.isPending
   };
-};
-
-// OTIMIZAÇÃO: Hook específico para truck único
-export const useTruck = (id: string) => {
-  return useQuery({
-    queryKey: ['truck', id],
-    queryFn: () => trucksService.getTrucks().then(trucks => trucks.find(t => t.id === id)),
-    enabled: !!id,
-    staleTime: 3 * 60 * 1000,
-  });
 };

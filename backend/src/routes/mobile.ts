@@ -119,7 +119,7 @@ router.get('/truck/:plate', async (req, res) => {
       lastUpdated: truck.truck_updated_at
     };
 
-    logger.debug(`Dados do caminhão processados`);
+    logger.debug(`Caminhão encontrado: ${truck.name} com ${currentRoute?.points?.length || 0} pontos`);
     res.json(response);
     
   } catch (error) {
@@ -139,7 +139,7 @@ router.put('/truck/:id/location', async (req, res) => {
       [lat, lng, id]
     );
 
-    logger.debug(`Localização atualizada para caminhão ${id}`);
+    logger.debug(`Localização atualizada para caminhão ${id}: ${lat}, ${lng}`);
     res.json({ success: true });
   } catch (error) {
     logger.error('Erro ao atualizar localização:', error);
@@ -162,7 +162,7 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     );
 
     if (updateRoutePointsResult.rows.length > 0) {
-      logger.debug(`Ponto ${pointId} atualizado`);
+      logger.debug(`Ponto ${pointId} atualizado - completed: ${completedValue}`);
       res.json({ success: true, point: updateRoutePointsResult.rows[0] });
       return;
     }
