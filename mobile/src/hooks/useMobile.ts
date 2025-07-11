@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, usecallback, useRef } from 'react';
 import { API_BASE_URL } from '@/services/config';
 
 export interface TruckMobileData {
@@ -38,29 +38,61 @@ interface CacheEntry {
 }
 
 export const useMobile = () => {
-  // Cache persistente com expiração inteligente
-  const [cache, setCache] = useState<Map<string, CacheEntry>>(new Map());
+  // CORREÇÃO: Cache persistente otimizado com localStorage
+  const [cache, setCache] = useState<Map<string, CacheEntry>>(() => {
+    try {
+      const stored = localStorage.getItem('mobile-cache');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const now = Date.now();
+        const validEntries = Object.entries(parsed).filter(
+          ([, entry]: [string, any]) => now < entry.expiry
+        );
+        return new Map(validEntries);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar cache:', error);
+    }
+    return new Map();
+  });
+
   const requestTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const pendingRequests = useRef<Map<string, Promise<any>>>(new Map());
   
-  const CACHE_DURATION = 30000; // 30 segundos
-  const DEBOUNCE_TIME = 2000; // 2 segundos - aumentado
-  const MAX_CACHE_SIZE = 20;
+  // OTIMIZAÇÃO: Configurações de cache mais agressivas
+  const CACHE_DURATION = 120000; // 2 minutos - aumentado
+  const DEBOUNCE_TIME = 5000; // 5 segundos - aumentado significativamente
+  const MAX_CACHE_SIZE = 10; // Reduzido para otimizar memória
 
-  // Cleanup automático
+  // CORREÇÃO: Persistir cache no localStorage automaticamente
+  useEffect(() => {
+    try {
+      const cacheObj = Object.fromEntries(cache);
+      localStorage.setItem('mobile-cache', JSON.stringify(cacheObj));
+    } catch (error) {
+      console.error('Erro ao salvar cache:', error);
+    }
+  }, [cache]);
+
+  // OTIMIZAÇÃO: Cleanup automático melhorado
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
       const now = Date.now();
       setCache(prev => {
-        const newCache = new Map(prev);
-        for (const [key, entry] of newCache) {
-          if (now > entry.expiry) {
-            newCache.delete(key);
+        const newCache = new Map();
+        let hasChanges = false;
+        
+        for (const [key, entry] of prev) {
+          if (now < entry.expiry) {
+            newCache.set(key, entry);
+          } else {
+            hasChanges = true;
           }
         }
-        return newCache;
+        
+        return hasChanges ? newCache : prev;
       });
-    }, 60000); // Cleanup a cada minuto
+    }, 60000);
 
     return () => {
       clearInterval(cleanupInterval);
@@ -70,12 +102,12 @@ export const useMobile = () => {
     };
   }, []);
 
-  // Cache inteligente com debounce real
+  // CORREÇÃO: Smart request com debounce real e cache inteligente
   const smartRequest = useCallback((key: string, fetchFn: () => Promise<any>, forceRefresh = false) => {
     return new Promise((resolve, reject) => {
       const now = Date.now();
       
-      // Verificar cache válido primeiro
+      // OTIMIZAÇÃO: Verificar cache válido primeiro (mais agressivo)
       if (!forceRefresh) {
         const cached = cache.get(key);
         if (cached && now < cached.expiry) {
@@ -84,20 +116,20 @@ export const useMobile = () => {
         }
       }
 
-      // Verificar se já existe requisição pendente
+      // CORREÇÃO: Verificar se já existe requisição pendente (evita duplicatas)
       const pendingRequest = pendingRequests.current.get(key);
       if (pendingRequest) {
         pendingRequest.then(resolve).catch(reject);
         return;
       }
 
-      // Cancelar timer anterior
+      // CORREÇÃO: Cancelar timer anterior se existir
       const existingTimer = requestTimers.current.get(key);
       if (existingTimer) {
         clearTimeout(existingTimer);
       }
 
-      // Criar nova requisição debounced
+      // OTIMIZAÇÃO: Debounce mais agressivo
       const timer = setTimeout(async () => {
         try {
           const fetchPromise = fetchFn();
@@ -105,14 +137,15 @@ export const useMobile = () => {
           
           const data = await fetchPromise;
           
-          // Atualizar cache
+          // CORREÇÃO: Atualizar cache com controle de tamanho
           setCache(prev => {
             const newCache = new Map(prev);
             
-            // Limitar tamanho do cache
+            // Limpar cache antigo se necessário
             if (newCache.size >= MAX_CACHE_SIZE) {
-              const firstKey = newCache.keys().next().value;
-              newCache.delete(firstKey);
+              const oldestKey = Array.from(newCache.entries())
+                .sort(([,a], [,b]) => a.timestamp - b.timestamp)[0][0];
+              newCache.delete(oldestKey);
             }
             
             newCache.set(key, {
@@ -137,7 +170,7 @@ export const useMobile = () => {
 
       requestTimers.current.set(key, timer);
     });
-  }, [cache]);
+  }, [cache, CACHE_DURATION, DEBOUNCE_TIME, MAX_CACHE_SIZE]);
 
   const getTruckByPlate = useCallback(async (plate: string, forceRefresh = false): Promise<TruckMobileData> => {
     return smartRequest(`truck-${plate}`, async () => {
@@ -152,7 +185,6 @@ export const useMobile = () => {
       
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('❌ [MOBILE] Erro:', errorData);
         throw new Error('Caminhão não encontrado');
       }
       
@@ -162,7 +194,7 @@ export const useMobile = () => {
   }, [smartRequest]);
 
   const updateTruckLocation = useCallback(async ({ truckId, lat, lng }: { truckId: string; lat: number; lng: number }) => {
-    // Updates não devem ser cached - sempre executar
+    // CORREÇÃO: Updates não devem ser cached - sempre executar imediatamente
     const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/location`, {
       method: 'PUT',
       headers: { 
@@ -175,17 +207,16 @@ export const useMobile = () => {
     
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('❌ [MOBILE] Erro ao atualizar localização:', errorData);
       throw new Error('Erro ao atualizar localização');
     }
     
     const result = await response.json();
     
-    // Invalidar cache relacionado
+    // OTIMIZAÇÃO: Invalidar cache relacionado de forma inteligente
     setCache(prev => {
       const newCache = new Map(prev);
       for (const key of newCache.keys()) {
-        if (key.includes(truckId)) {
+        if (key.includes(truckId) || key.includes('truck-')) {
           newCache.delete(key);
         }
       }
@@ -208,13 +239,12 @@ export const useMobile = () => {
     
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('❌ [MOBILE] Erro ao atualizar ponto:', errorData);
       throw new Error('Erro ao atualizar ponto da rota');
     }
     
     const result = await response.json();
     
-    // Invalidar cache relacionado
+    // OTIMIZAÇÃO: Invalidação específica de cache
     setCache(prev => {
       const newCache = new Map(prev);
       for (const key of newCache.keys()) {
@@ -240,14 +270,14 @@ export const useMobile = () => {
     
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('❌ [MOBILE] Erro ao finalizar rota:', errorData);
       throw new Error('Erro ao finalizar rota');
     }
     
     const result = await response.json();
     
-    // Limpar todo o cache
+    // CORREÇÃO: Limpar cache completamente após finalizar rota
     setCache(new Map());
+    localStorage.removeItem('mobile-cache');
     requestTimers.current.forEach(timer => clearTimeout(timer));
     requestTimers.current.clear();
     pendingRequests.current.clear();
@@ -257,6 +287,7 @@ export const useMobile = () => {
 
   const clearCache = useCallback(() => {
     setCache(new Map());
+    localStorage.removeItem('mobile-cache');
     requestTimers.current.forEach(timer => clearTimeout(timer));
     requestTimers.current.clear();
     pendingRequests.current.clear();
