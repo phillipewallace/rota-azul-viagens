@@ -1,4 +1,3 @@
-
 declare global {
   interface Window {
     google: any;
@@ -103,7 +102,7 @@ export class GoogleMapsService {
     });
   }
 
-  // ATUALIZADO: Usar Google Maps JavaScript API com otimização básica
+  // ✅ ATUALIZADO: Usar Routes API v2 com máximo de 25 waypoints
   async optimizeRoute(points: any[]): Promise<{
     optimizedOrder: string[];
     totalDistance: number;
@@ -115,14 +114,14 @@ export class GoogleMapsService {
       await this.initialize();
     }
 
-    console.log(`🚀 [GOOGLE MAPS] Otimizando rota com ${points.length} pontos (JavaScript API)`);
+    console.log(`🚀 [GOOGLE MAPS] Otimizando rota com ${points.length} pontos (preferindo Routes API v2)`);
 
     const origin = points.find(p => p.type === 'origin') || points[0];
     const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
     const waypoints = points.filter(p => p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id));
 
-    // Limite do Google Maps JavaScript API
-    const MAX_WAYPOINTS = 23;
+    // ✅ ATUALIZADO: Limite da Routes API v2 é 25 waypoints
+    const MAX_WAYPOINTS = 25;
     
     if (waypoints.length > MAX_WAYPOINTS) {
       console.log(`⚠️ [GOOGLE MAPS] Muitos waypoints (${waypoints.length}), usando apenas os primeiros ${MAX_WAYPOINTS}`);
