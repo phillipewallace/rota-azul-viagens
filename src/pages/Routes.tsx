@@ -25,6 +25,7 @@ const Routes = () => {
       toast.error('Não é possível editar uma rota concluída');
       return;
     }
+    console.log('🔧 [ROUTES PAGE] Abrindo rota para edição:', route.name);
     // Clear any existing state first
     setViewingRoute(null);
     setEditingRoute(route);
@@ -34,6 +35,7 @@ const Routes = () => {
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta rota? Isso também removerá todos os agendamentos relacionados.')) {
       try {
+        console.log('🗑️ [ROUTES PAGE] Excluindo rota:', id);
         await deleteRoute(id);
         toast.success('Rota excluída com sucesso!');
         loadRoutes();
@@ -50,6 +52,7 @@ const Routes = () => {
 
   const handleReactivate = async (route: any) => {
     try {
+      console.log('♻️ [ROUTES PAGE] Reativando rota:', route.name);
       await updateRoute({ id: route.id, route: { status: 'active' } });
       toast.success('Rota reativada com sucesso!');
       loadRoutes();
@@ -59,9 +62,11 @@ const Routes = () => {
     }
   };
 
+  // ✅ ÚNICO PONTO AUTORIZADO DE RESET - Via botão específico
   const handleReset = async (route: any) => {
-    if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"? Todos os pontos concluídos serão marcados como não concluídos.`)) {
+    if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"? TODOS os pontos concluídos serão marcados como não concluídos.`)) {
       try {
+        console.log('🔄 [ROUTES PAGE] Resetando rota via botão reset:', route.name);
         await resetRoute(route.id);
         toast.success('Rota resetada com sucesso! Todos os pontos foram marcados como não concluídos.');
         loadRoutes();
@@ -80,6 +85,7 @@ const Routes = () => {
   };
 
   const handleCloseModal = () => {
+    console.log('❌ [ROUTES PAGE] Fechando modal de edição/criação');
     setIsCreateModalOpen(false);
     // Clear the editing route state after a delay to prevent visual glitches
     setTimeout(() => {
@@ -89,6 +95,7 @@ const Routes = () => {
   };
 
   const handleNewRoute = () => {
+    console.log('➕ [ROUTES PAGE] Criando nova rota');
     // Clear any existing state
     setViewingRoute(null);
     setEditingRoute(null);
@@ -253,13 +260,14 @@ const Routes = () => {
                         Editar
                       </Button>
                     )}
+                    {/* ✅ ÚNICO BOTÃO DE RESET AUTORIZADO */}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleReset(route)}
                       className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
                       disabled={isLoading}
-                      title="Resetar rota - marca todos os pontos como não concluídos"
+                      title="Resetar rota - marca TODOS os pontos como não concluídos"
                     >
                       <RotateCcw className="h-4 w-4" />
                     </Button>
@@ -347,6 +355,9 @@ const Routes = () => {
                               <p className="font-medium">{point.address}</p>
                               <p className="text-sm text-gray-600 capitalize">{point.type}</p>
                               {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
+                              {point.completed && (
+                                <p className="text-xs text-green-600 font-medium">✅ Concluído</p>
+                              )}
                             </div>
                           </div>
                         ))}

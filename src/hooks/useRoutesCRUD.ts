@@ -50,9 +50,10 @@ export const useRoutesCRUD = () => {
     },
   });
 
+  // ✅ CORRIGIDO: Hook de reset usando o endpoint correto
   const resetRoute = useMutation({
     mutationFn: async (id: string) => {
-      console.log(`🔄 [ROUTES CRUD] Resetando rota ${id}`);
+      console.log(`🔄 [ROUTES CRUD] Resetando rota ${id} via endpoint /reset`);
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}/reset`, {
         method: 'POST',

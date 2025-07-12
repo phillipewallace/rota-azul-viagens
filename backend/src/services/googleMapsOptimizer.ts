@@ -1,4 +1,3 @@
-
 interface OptimizationPoint {
   id: string;
   address: string;
@@ -371,14 +370,15 @@ class GoogleMapsOptimizer {
     }
   }
 
-  // CORRIGIDO: Implementação do remapeamento manual para preservar pontos concluídos
+  // ✅ IMPLEMENTAÇÃO CORRIGIDA: Otimização parcial para preservar pontos concluídos
   async optimizePartialRoute(
     completedPoints: OptimizationPoint[], 
     remainingPoints: OptimizationPoint[]
   ): Promise<OptimizationResult> {
-    console.log(`🎯 [OPTIMIZER PARTIAL] Remapeamento - ${completedPoints.length} concluídos, ${remainingPoints.length} restantes`);
+    console.log(`🎯 [OPTIMIZER PARTIAL] Otimização parcial - ${completedPoints.length} concluídos, ${remainingPoints.length} restantes`);
     
     if (remainingPoints.length === 0) {
+      console.log(`✅ [OPTIMIZER PARTIAL] Nenhum ponto pendente - retornando pontos concluídos`);
       return {
         optimizedPoints: completedPoints,
         totalDistance: 0,
@@ -389,6 +389,7 @@ class GoogleMapsOptimizer {
     }
 
     if (remainingPoints.length === 1) {
+      console.log(`✅ [OPTIMIZER PARTIAL] Apenas 1 ponto pendente - concatenando`);
       const allPoints = [
         ...completedPoints,
         { ...remainingPoints[0], order: completedPoints.length }
@@ -403,47 +404,56 @@ class GoogleMapsOptimizer {
       };
     }
 
-    // Usar último ponto concluído como origem para otimização
-    const lastCompletedPoint = completedPoints[completedPoints.length - 1];
-    
-    // Criar nova lista com último concluído como origin
-    const pointsToOptimize = [
-      { ...lastCompletedPoint, type: 'origin' as const },
-      ...remainingPoints.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
-      { ...remainingPoints[remainingPoints.length - 1], type: 'destination' as const }
-    ];
-
     try {
-      const optimizedRemaining = await this.optimizeRouteWithGoogleAPIs(pointsToOptimize);
+      // Usar último ponto concluído como origem para otimização dos pendentes
+      const lastCompletedPoint = completedPoints[completedPoints.length - 1];
       
-      // Combinar pontos concluídos (exceto o último) + pontos otimizados
+      console.log(`🚀 [OPTIMIZER PARTIAL] Otimizando a partir do último ponto concluído: ${lastCompletedPoint.address}`);
+      
+      // Criar lista para otimização: último concluído + pontos pendentes
+      const pointsToOptimize = [
+        { ...lastCompletedPoint, type: 'origin' as const },
+        ...remainingPoints.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
+        { ...remainingPoints[remainingPoints.length - 1], type: 'destination' as const }
+      ];
+
+      // Otimizar apenas os pontos pendentes
+      const optimizationResult = await this.optimizeRouteWithGoogleAPIs(pointsToOptimize);
+      
+      // Combinar: pontos concluídos (exceto o último, que foi usado como origem) + pontos otimizados
       const finalPoints = [
-        ...completedPoints.slice(0, -1), // Todos exceto o último
-        ...optimizedRemaining.optimizedPoints.map((p, index) => ({
+        ...completedPoints.slice(0, -1), // Todos os concluídos exceto o último
+        ...optimizationResult.optimizedPoints.map((p, index) => ({
           ...p,
-          order: completedPoints.length - 1 + index
+          order: completedPoints.length - 1 + index, // Reordenar a partir do último concluído
+          completed: index === 0 ? true : false // Primeiro ponto é o último concluído, resto são pendentes
         }))
       ];
 
+      console.log(`✅ [OPTIMIZER PARTIAL] Otimização parcial concluída - ${finalPoints.length} pontos finais`);
+
       return {
         optimizedPoints: finalPoints,
-        totalDistance: optimizedRemaining.totalDistance,
-        totalDuration: optimizedRemaining.totalDuration,
-        polyline: optimizedRemaining.polyline,
+        totalDistance: optimizationResult.totalDistance,
+        totalDuration: optimizationResult.totalDuration,
+        polyline: optimizationResult.polyline,
         optimizedOrder: finalPoints.map(p => p.id)
       };
       
     } catch (error) {
-      console.error('❌ [OPTIMIZER PARTIAL] Erro no remapeamento:', error);
+      console.error('❌ [OPTIMIZER PARTIAL] Erro na otimização parcial:', error);
       
-      // Fallback: manter ordem atual
+      // Fallback: manter ordem atual sem otimização
       const fallbackPoints = [
         ...completedPoints,
         ...remainingPoints.map((p, index) => ({
           ...p,
-          order: completedPoints.length + index
+          order: completedPoints.length + index,
+          completed: false
         }))
       ];
+      
+      console.log(`⚠️ [OPTIMIZER PARTIAL] Usando fallback - ${fallbackPoints.length} pontos sem otimização`);
       
       return {
         optimizedPoints: fallbackPoints,
