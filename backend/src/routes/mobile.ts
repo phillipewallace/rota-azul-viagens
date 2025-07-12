@@ -9,6 +9,8 @@ router.get('/truck/:plate', async (req, res) => {
   try {
     const { plate } = req.params;
     
+    console.log(`🔍 [MOBILE API] Buscando caminhão com placa: ${plate}`);
+    
     // Query para buscar dados do caminhão
     const truckQuery = `
       SELECT 
@@ -29,15 +31,19 @@ router.get('/truck/:plate', async (req, res) => {
     const truckResult = await pool.query(truckQuery, [plate]);
 
     if (truckResult.rows.length === 0) {
+      console.log(`❌ [MOBILE API] Caminhão não encontrado: ${plate}`);
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
 
     const truck = truckResult.rows[0];
+    console.log(`✅ [MOBILE API] Caminhão encontrado: ${truck.name} (${truck.plate})`);
     
     // Buscar dados da rota se existir
     let currentRoute = null;
     
     if (truck.current_route_id) {
+      console.log(`📋 [MOBILE API] Buscando rota: ${truck.current_route_id}`);
+      
       const routeQuery = `
         SELECT 
           r.id,
@@ -53,7 +59,7 @@ router.get('/truck/:plate', async (req, res) => {
       if (routeResult.rows.length > 0) {
         const route = routeResult.rows[0];
         
-        // Buscar pontos da rota
+        // ✅ CRÍTICO: Buscar pontos da rota COM ESTADO COMPLETED CORRETO
         const pointsQuery = `
           SELECT 
             rp.id,
@@ -62,10 +68,7 @@ router.get('/truck/:plate', async (req, res) => {
             COALESCE(rp.lng, 0) as lng,
             COALESCE(rp.point_order, 0) as point_order,
             COALESCE(rp.type, 'waypoint') as type,
-            CASE 
-              WHEN rp.completed IS TRUE THEN true
-              ELSE false 
-            END as completed,
+            COALESCE(rp.completed, false) as completed,
             rp.completed_at
           FROM route_points rp
           WHERE rp.route_id = $1
@@ -73,23 +76,41 @@ router.get('/truck/:plate', async (req, res) => {
         `;
         
         const pointsResult = await pool.query(pointsQuery, [truck.current_route_id]);
+        console.log(`📍 [MOBILE API] Pontos da rota encontrados: ${pointsResult.rows.length}`);
         
         let points = [];
+        let completedCount = 0;
         
         if (pointsResult.rows.length > 0) {
-          points = pointsResult.rows.map((point) => ({
-            id: point.id,
-            address: point.address,
-            lat: Number(point.lat),
-            lng: Number(point.lng),
-            order: Number(point.point_order),
-            type: point.type,
-            completed: point.completed === true || point.completed === 't' || point.completed === 'true',
-            completedAt: point.completed_at
-          }));
+          points = pointsResult.rows.map((point) => {
+            const isCompleted = point.completed === true || point.completed === 't' || point.completed === 'true';
+            
+            if (isCompleted) {
+              completedCount++;
+            }
+            
+            console.log(`📍 [MOBILE API] Ponto: {
+  id: '${point.id}',
+  order: ${point.point_order},
+  address: '${point.address.substring(0, 50)}...',
+  completed: ${isCompleted},
+  type: '${point.type}'
+}`);
+            
+            return {
+              id: point.id,
+              address: point.address,
+              lat: Number(point.lat),
+              lng: Number(point.lng),
+              order: Number(point.point_order),
+              type: point.type,
+              completed: isCompleted,
+              completedAt: point.completed_at
+            };
+          });
         }
         
-        const completedCount = points.filter(p => p.completed === true).length;
+        console.log(`📊 [MOBILE API] Status final: ${completedCount}/${points.length} pontos concluídos`);
         
         currentRoute = {
           id: route.id,
@@ -115,10 +136,28 @@ router.get('/truck/:plate', async (req, res) => {
       lastUpdated: truck.truck_updated_at
     };
 
+    console.log(`📱 [MOBILE API] Enviando resposta: {
+  id: '${response.id}',
+  name: '${response.name}',
+  plate: '${response.plate}',
+  model: '${response.model}',
+  year: ${response.year},
+  status: '${response.status}',
+  driver: ${response.driver},
+  currentRoute: ${response.currentRoute ? `{
+    id: '${response.currentRoute.id}',
+    name: '${response.currentRoute.name}',
+    pointsCount: ${response.currentRoute.pointsCount},
+    completedPoints: ${response.currentRoute.completedPoints},
+    lastUpdated: ${response.currentRoute.lastUpdated}
+  }` : 'null'},
+  lastUpdated: ${response.lastUpdated}
+}`);
+
     res.json(response);
     
   } catch (error) {
-    console.error('❌ [MOBILE] Erro ao buscar caminhão:', error);
+    console.error('❌ [MOBILE API] Erro ao buscar caminhão:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -129,14 +168,17 @@ router.put('/truck/:id/location', async (req, res) => {
     const { id } = req.params;
     const { lat, lng } = req.body;
 
+    console.log(`📍 [MOBILE API] Atualizando localização do caminhão ${id}: { lat: ${lat}, lng: ${lng} }`);
+
     await pool.query(
       'UPDATE trucks SET location_lat = $1, location_lng = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
       [lat, lng, id]
     );
 
+    console.log(`✅ [MOBILE API] Localização atualizada para caminhão ${id}`);
     res.json({ success: true });
   } catch (error) {
-    console.error('❌ [MOBILE] Erro ao atualizar localização:', error);
+    console.error('❌ [MOBILE API] Erro ao atualizar localização:', error);
     res.status(500).json({ error: 'Erro ao atualizar localização' });
   }
 });
@@ -149,6 +191,8 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
 
     const completedValue = Boolean(completed);
 
+    console.log(`🎯 [MOBILE API] Atualizando ponto ${pointId} do caminhão ${truckId} para completed: ${completedValue}`);
+
     // Atualizar na tabela route_points
     const updateRoutePointsResult = await pool.query(
       'UPDATE route_points SET completed = $1, completed_at = $2 WHERE id = $3 RETURNING *',
@@ -156,14 +200,16 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     );
 
     if (updateRoutePointsResult.rows.length > 0) {
+      console.log(`✅ [MOBILE API] Ponto ${pointId} atualizado na tabela route_points`);
       res.json({ success: true, point: updateRoutePointsResult.rows[0] });
       return;
     }
 
+    console.log(`❌ [MOBILE API] Ponto ${pointId} não encontrado`);
     res.status(404).json({ error: 'Ponto não encontrado' });
     
   } catch (error) {
-    console.error('❌ [MOBILE] Erro ao atualizar ponto:', error);
+    console.error('❌ [MOBILE API] Erro ao atualizar ponto:', error);
     res.status(500).json({ error: 'Erro ao atualizar ponto da rota' });
   }
 });
@@ -176,6 +222,8 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     await client.query('BEGIN');
     
     const { truckId } = req.params;
+    
+    console.log(`🏁 [MOBILE API] Finalizando rota do caminhão ${truckId}`);
     
     // Buscar a rota atual do caminhão
     const truckResult = await client.query(
@@ -201,6 +249,8 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
       [currentRouteId]
     );
     
+    console.log(`🔄 [MOBILE API] ${resetPointsResult.rows.length} pontos resetados na rota ${currentRouteId}`);
+    
     // Desvincular o caminhão da rota
     await client.query(
       'UPDATE trucks SET current_route_id = NULL, status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
@@ -208,6 +258,8 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     );
     
     await client.query('COMMIT');
+    
+    console.log(`✅ [MOBILE API] Rota finalizada para caminhão ${truckId}`);
     
     res.json({ 
       success: true, 
@@ -217,7 +269,7 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('❌ [MOBILE] Erro ao finalizar rota:', error);
+    console.error('❌ [MOBILE API] Erro ao finalizar rota:', error);
     res.status(500).json({ error: 'Erro ao finalizar rota' });
   } finally {
     client.release();
