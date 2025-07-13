@@ -155,30 +155,32 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       }
 
       console.log('🎯 [ROUTE FORM] ========================================');
-      console.log('🎯 [ROUTE FORM] INICIANDO OTIMIZAÇÃO COM PRIORIDADE INTELIGENTE');
+      console.log('🎯 [ROUTE FORM] INICIANDO OTIMIZAÇÃO PRIORITÁRIA');
       console.log(`🎯 [ROUTE FORM] Route ID: ${editingRoute?.id || 'NOVA ROTA'}`);
       console.log(`🎯 [ROUTE FORM] Pontos: ${points.length}`);
       
-      // ✅ USAR SISTEMA PRIORIZADO - INTELLIGENT PRIMEIRO
+      // 🚫 BLOQUEIO: NUNCA CHAMAR GEOCODING DIRETAMENTE
+      // ✅ SEMPRE USAR A FUNÇÃO optimizeRoute QUE JÁ TEM A LÓGICA CORRETA
       const result = await optimizeRoute(points, editingRoute?.id);
       
-      console.log('✅ [ROUTE FORM] OTIMIZAÇÃO CONCLUÍDA:', result);
+      console.log('✅ [ROUTE FORM] RESULTADO RECEBIDO:', result);
       
+      // ✅ APLICAR RESULTADOS NO FORMULÁRIO
       setPoints(result.points);
       setTotalDistance(result.totalDistance);
       setEstimatedTime(result.estimatedTime);
       setOptimizedOrder(result.optimizedOrder);
       
-      // ✅ LOG DETALHADO DO RESULTADO
+      // ✅ FEEDBACK INTELIGENTE BASEADO NO RESULTADO
       const completedCount = result.points.filter((p: RoutePoint) => p.completed).length;
-      const pendingCount = result.points.filter((p: RoutePoint) => !p.completed).length;
+      const totalCount = result.points.length;
       
       if (completedCount > 0) {
-        toast.success(`🧠 Otimização inteligente: ${completedCount} pontos preservados, ${pendingCount} otimizados`);
-        console.log(`🛡️ [ROUTE FORM] INTELLIGENT: ${completedCount} preservados + ${pendingCount} otimizados`);
+        toast.success(`🧠 Otimização Inteligente: ${completedCount} pontos preservados, ${totalCount - completedCount} otimizados`);
+        console.log(`🛡️ [ROUTE FORM] INTELLIGENT APLICADA: ${completedCount} preservados + ${totalCount - completedCount} otimizados`);
       } else {
-        toast.success('🆓 Rota otimizada tradicionalmente');
-        console.log(`🆓 [ROUTE FORM] TRADITIONAL: ${result.points.length} pontos otimizados`);
+        toast.success(`🆓 Otimização Tradicional: ${totalCount} pontos otimizados`);
+        console.log(`🆓 [ROUTE FORM] GEOCODING FALLBACK: ${totalCount} pontos`);
       }
       
       console.log('🎯 [ROUTE FORM] ========================================');
@@ -332,7 +334,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                 onClick={handleOptimize}
                 disabled={optimizing}
               >
-                {optimizing ? 'Otimizando...' : '🧠 Otimizar Rota (Inteligente)'}
+                {optimizing ? 'Otimizando...' : '🧠 Otimizar Rota (Prioridade Inteligente)'}
               </Button>
 
               <div className="flex gap-2">

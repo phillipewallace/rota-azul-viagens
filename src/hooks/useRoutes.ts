@@ -75,7 +75,7 @@ export const useRoutes = () => {
   const optimizeRoute = async (allPoints: RoutePoint[], routeId?: string) => {
     try {
       console.log('🎯 [USE ROUTES] ========================================');
-      console.log('🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO COM PRIORIDADE INTELIGENTE');
+      console.log('🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO PRIORITÁRIA INTELIGENTE');
       console.log(`🎯 [USE ROUTES] Route ID: ${routeId || 'NOVA ROTA'}`);
       console.log(`🎯 [USE ROUTES] Pontos para otimizar: ${allPoints.length}`);
 
@@ -83,47 +83,46 @@ export const useRoutes = () => {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      // ✅ PASSO 1: VERIFICAR SE ROTA EXISTE E ESTÁ EM USO
+      // 🚫 BLOQUEIO ABSOLUTO DO GEOCODING DIRETO
+      console.log('🛡️ [USE ROUTES] VERIFICAÇÃO OBRIGATÓRIA: Route ID existe?', !!routeId);
+
+      // ✅ PASSO 1: SE TEMOS ROUTE ID -> VERIFICAR USO E TENTAR INTELLIGENT
       if (routeId) {
-        console.log('🔍 [USE ROUTES] PASSO 1: Verificando se rota está em uso...');
+        console.log('🔍 [USE ROUTES] PASSO 1: Verificando uso da rota existente...');
         
         const isRouteInUse = await checkRouteInUse(routeId);
         console.log(`${isRouteInUse ? '🚛' : '🆓'} [USE ROUTES] Rota ${routeId} ${isRouteInUse ? 'EM USO' : 'LIVRE'}`);
 
-        // ✅ PASSO 2A: SE ROTA EM USO -> USAR INTELLIGENT OPTIMIZER
-        if (isRouteInUse) {
-          console.log('🧠 [USE ROUTES] PASSO 2A: USANDO OTIMIZAÇÃO INTELIGENTE PRIORITÁRIA');
-          
-          try {
-            const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                points: allPoints.map((point, index) => ({
-                  id: point.id,
-                  address: point.address,
-                  cep: point.cep,
-                  lat: point.lat,
-                  lng: point.lng,
-                  order: index,
-                  type: point.type,
-                  completed: point.completed ?? false,
-                  completedAt: point.completedAt ?? null,
-                })),
-              }),
-            });
+        // ✅ TENTAR INTELLIGENT SEMPRE PRIMEIRO (independente do uso)
+        console.log('🧠 [USE ROUTES] TENTATIVA OBRIGATÓRIA: Otimização Inteligente');
+        
+        try {
+          const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              points: allPoints.map((point, index) => ({
+                id: point.id,
+                address: point.address,
+                cep: point.cep,
+                lat: point.lat,
+                lng: point.lng,
+                order: index,
+                type: point.type,
+                completed: point.completed ?? false,
+                completedAt: point.completedAt ?? null,
+              })),
+            }),
+          });
 
-            if (!response.ok) {
-              console.error('❌ [USE ROUTES] Intelligent optimizer falhou, tentando fallback');
-              throw new Error('Erro na otimização inteligente da rota');
-            }
-
+          if (response.ok) {
             const intelligentData = await response.json();
-            console.log(`✅ [USE ROUTES] OTIMIZAÇÃO INTELIGENTE CONCLUÍDA COM SUCESSO`);
-            console.log(`🛡️ [USE ROUTES] ${intelligentData.preservedPoints || 0} pontos preservados`);
-            console.log(`🎯 [USE ROUTES] ${intelligentData.optimizedPoints || 0} pontos otimizados`);
+            console.log(`✅ [USE ROUTES] SUCESSO INTELLIGENT: ${intelligentData.optimizedOrder?.length || 0} pontos`);
+            console.log(`🛡️ [USE ROUTES] Pontos preservados: ${intelligentData.preservedPoints || 0}`);
+            console.log(`🎯 [USE ROUTES] Pontos otimizados: ${intelligentData.optimizedPoints || 0}`);
+            console.log('🎯 [USE ROUTES] ========================================');
 
             return {
               optimizedOrder: intelligentData.optimizedOrder,
@@ -143,17 +142,19 @@ export const useRoutes = () => {
                 completedAt: p.completedAt ?? null,
               })),
             };
-
-          } catch (intelligentError) {
-            console.error('❌ [USE ROUTES] Intelligent optimizer falhou:', intelligentError);
-            console.log('🔄 [USE ROUTES] Tentando fallback para geocoding...');
-            // Continua para o fallback geocoding abaixo
+          } else {
+            console.log('⚠️ [USE ROUTES] Intelligent falhou com status:', response.status);
+            const errorText = await response.text();
+            console.log('⚠️ [USE ROUTES] Erro da API:', errorText);
           }
+
+        } catch (intelligentError) {
+          console.error('❌ [USE ROUTES] Erro na chamada Intelligent:', intelligentError);
         }
       }
 
-      // ✅ PASSO 2B: ROTA LIVRE OU FALLBACK -> USAR GEOCODING TRADICIONAL
-      console.log('🆓 [USE ROUTES] PASSO 2B: USANDO OTIMIZAÇÃO TRADICIONAL (GEOCODING)');
+      // ✅ FALLBACK: GEOCODING TRADICIONAL (APENAS SE INTELLIGENT FALHOU)
+      console.log('🔄 [USE ROUTES] FALLBACK: Usando otimização tradicional');
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
         method: 'POST',
@@ -180,7 +181,8 @@ export const useRoutes = () => {
       }
 
       const optimizedData = await response.json();
-      console.log(`✅ [USE ROUTES] OTIMIZAÇÃO TRADICIONAL CONCLUÍDA`);
+      console.log(`✅ [USE ROUTES] GEOCODING FALLBACK CONCLUÍDO`);
+      console.log('🎯 [USE ROUTES] ========================================');
 
       return {
         optimizedOrder: optimizedData.optimizedOrder,
@@ -205,8 +207,6 @@ export const useRoutes = () => {
       console.error('❌ [USE ROUTES] ERRO CRÍTICO NA OTIMIZAÇÃO:', error);
       console.log('🎯 [USE ROUTES] ========================================');
       throw error;
-    } finally {
-      console.log('🎯 [USE ROUTES] ========================================');
     }
   };
 

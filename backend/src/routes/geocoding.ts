@@ -62,19 +62,22 @@ router.get('/cep/:cep', async (req, res) => {
   }
 });
 
-// Endpoint de otimização usando Routes API v2
+// ⚠️ ENDPOINT DE FALLBACK - USADO APENAS QUANDO INTELLIGENT FALHA
 router.post('/optimize', async (req, res) => {
   try {
-    console.log('🚀 [GEOCODING OPTIMIZE] Iniciando otimização com Routes API v2');
+    console.log('🔄 [GEOCODING FALLBACK] ========================================');
+    console.log('🔄 [GEOCODING FALLBACK] ATENÇÃO: Este endpoint deveria ser usado apenas como FALLBACK');
+    console.log('🔄 [GEOCODING FALLBACK] Se você está vendo isso, significa que a otimização inteligente falhou');
+    console.log('🔄 [GEOCODING FALLBACK] ========================================');
     
     const { points } = req.body;
     
     if (!points || points.length < 2) {
-      console.log('❌ [GEOCODING OPTIMIZE] Pontos insuficientes:', points?.length || 0);
+      console.log('❌ [GEOCODING FALLBACK] Pontos insuficientes:', points?.length || 0);
       return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
     }
 
-    console.log(`🚀 [GEOCODING OPTIMIZE] Otimizando ${points.length} pontos com Routes API v2`);
+    console.log(`🔄 [GEOCODING FALLBACK] Processando ${points.length} pontos com Routes API tradicional`);
 
     // Formatar pontos para o otimizador
     const formattedPoints = points.map((point: any, index: number) => ({
@@ -84,10 +87,12 @@ router.post('/optimize', async (req, res) => {
       lng: Number(point.lng || 0),
       order: Number(point.order || index),
       type: point.type || (index === 0 ? 'origin' : 
-             index === points.length - 1 ? 'destination' : 'waypoint')
+             index === points.length - 1 ? 'destination' : 'waypoint'),
+      completed: point.completed || false,
+      completedAt: point.completedAt || null
     }));
 
-    console.log('🎯 [GEOCODING OPTIMIZE] Pontos formatados:', formattedPoints.length);
+    console.log('🎯 [GEOCODING FALLBACK] Pontos formatados:', formattedPoints.length);
 
     // Usar Google Maps Optimizer com Routes API v2
     const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
@@ -97,7 +102,7 @@ router.post('/optimize', async (req, res) => {
     const minutes = Math.floor((optimized.totalDuration % 3600) / 60);
     const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
 
-    console.log(`✅ [GEOCODING OPTIMIZE] Otimização concluída: ${optimized.totalDistance.toFixed(1)}km, ${estimatedTime}`);
+    console.log(`✅ [GEOCODING FALLBACK] Fallback concluído: ${optimized.totalDistance.toFixed(1)}km, ${estimatedTime}`);
 
     const response = {
       points: optimized.optimizedPoints,
@@ -105,23 +110,24 @@ router.post('/optimize', async (req, res) => {
       totalDistance: optimized.totalDistance,
       estimatedTime: estimatedTime,
       polyline: optimized.polyline,
-      optimization: 'ROUTES_API_V2'
+      optimization: 'GEOCODING_FALLBACK'
     };
 
-    console.log('📤 [GEOCODING OPTIMIZE] Enviando resposta com', response.points.length, 'pontos otimizados');
+    console.log('📤 [GEOCODING FALLBACK] Enviando resposta de fallback com', response.points.length, 'pontos');
+    console.log('🔄 [GEOCODING FALLBACK] ========================================');
     
     res.json(response);
 
   } catch (error) {
-    console.error('❌ [GEOCODING OPTIMIZE] Erro ao otimizar rota:', error);
+    console.error('❌ [GEOCODING FALLBACK] Erro no fallback:', error);
     
-    // Fallback para otimização básica em caso de falha
+    // Último recurso: otimização básica
     try {
-      console.log(`🔄 [GEOCODING OPTIMIZE] Tentando fallback para otimização básica`);
+      console.log(`⚡ [BASIC FALLBACK] Usando algoritmo básico de emergência`);
       const basicOptimized = basicOptimization(req.body.points);
       res.json(basicOptimized);
     } catch (fallbackError) {
-      console.error('❌ [GEOCODING OPTIMIZE] Fallback também falhou:', fallbackError);
+      console.error('❌ [BASIC FALLBACK] Todos os fallbacks falharam:', fallbackError);
       res.status(500).json({ error: 'Erro ao otimizar rota com todas as APIs' });
     }
   }
