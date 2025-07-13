@@ -186,42 +186,246 @@ router.put('/truck/:id/location', async (req, res) => {
   }
 });
 
-// Update route point status
-router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
+// ✅ IMPLEMENTAÇÃO BRUTA E ASSERTIVA - VALIDAÇÃO COMPLETA DE PONTOS
+async function validatePointCompletionInDatabase(client: any, pointId: string, expectedCompleted: boolean, truckId: string) {
+  const timestamp = new Date().toISOString();
+  
+  console.log(`🔍 [DB VALIDATION] ========================================`);
+  console.log(`🔍 [DB VALIDATION] Iniciando validação COMPLETA do ponto ${pointId}`);
+  console.log(`🔍 [DB VALIDATION] Esperado completed: ${expectedCompleted}`);
+  console.log(`🔍 [DB VALIDATION] Caminhão: ${truckId}`);
+  console.log(`🔍 [DB VALIDATION] Timestamp: ${timestamp}`);
+  
   try {
+    // 1️⃣ VERIFICAR SE O PONTO EXISTE
+    const pointExistsQuery = `
+      SELECT 
+        rp.id,
+        rp.route_id,
+        rp.address,
+        rp.point_order,
+        rp.type,
+        rp.completed,
+        rp.completed_at,
+        rp.created_at,
+        r.name as route_name,
+        t.name as truck_name,
+        t.plate as truck_plate
+      FROM route_points rp
+      LEFT JOIN routes r ON rp.route_id = r.id
+      LEFT JOIN trucks t ON r.id = t.current_route_id
+      WHERE rp.id = $1
+    `;
+    
+    const pointExistsResult = await client.query(pointExistsQuery, [pointId]);
+    
+    if (pointExistsResult.rows.length === 0) {
+      console.error(`❌ [DB VALIDATION] ERRO CRÍTICO: Ponto ${pointId} não existe no banco!`);
+      throw new Error(`Ponto ${pointId} não encontrado no banco de dados`);
+    }
+    
+    const currentPointData = pointExistsResult.rows[0];
+    console.log(`✅ [DB VALIDATION] Ponto encontrado:`);
+    console.log(`   - ID: ${currentPointData.id}`);
+    console.log(`   - Endereço: ${currentPointData.address}`);
+    console.log(`   - Ordem: ${currentPointData.point_order}`);
+    console.log(`   - Tipo: ${currentPointData.type}`);
+    console.log(`   - Completed ATUAL: ${currentPointData.completed}`);
+    console.log(`   - Completed_at ATUAL: ${currentPointData.completed_at}`);
+    console.log(`   - Rota: ${currentPointData.route_name} (${currentPointData.route_id})`);
+    console.log(`   - Caminhão: ${currentPointData.truck_name} (${currentPointData.truck_plate})`);
+    
+    // 2️⃣ VERIFICAR SE O CAMINHÃO ESTÁ REALMENTE VINCULADO À ROTA
+    const truckRouteValidation = `
+      SELECT 
+        t.id as truck_id,
+        t.current_route_id,
+        r.id as route_id,
+        r.name as route_name
+      FROM trucks t
+      LEFT JOIN routes r ON t.current_route_id = r.id
+      WHERE t.id = $1 AND r.id = $2
+    `;
+    
+    const truckRouteResult = await client.query(truckRouteValidation, [truckId, currentPointData.route_id]);
+    
+    if (truckRouteResult.rows.length === 0) {
+      console.error(`❌ [DB VALIDATION] ERRO CRÍTICO: Caminhão ${truckId} não está vinculado à rota ${currentPointData.route_id}!`);
+      throw new Error(`Caminhão não vinculado à rota do ponto`);
+    }
+    
+    console.log(`✅ [DB VALIDATION] Vinculação caminhão-rota confirmada`);
+    
+    // 3️⃣ ATUALIZAR O PONTO COM VALIDAÇÃO TRIPLA
+    const updateTimestamp = expectedCompleted ? new Date() : null;
+    
+    console.log(`🔄 [DB VALIDATION] Executando UPDATE com:`);
+    console.log(`   - completed: ${expectedCompleted}`);
+    console.log(`   - completed_at: ${updateTimestamp}`);
+    
+    const updateResult = await client.query(
+      'UPDATE route_points SET completed = $1, completed_at = $2 WHERE id = $3 RETURNING *',
+      [expectedCompleted, updateTimestamp, pointId]
+    );
+    
+    if (updateResult.rows.length === 0) {
+      console.error(`❌ [DB VALIDATION] ERRO CRÍTICO: UPDATE falhou para ponto ${pointId}!`);
+      throw new Error(`Falha ao atualizar ponto no banco`);
+    }
+    
+    const updatedPoint = updateResult.rows[0];
+    console.log(`✅ [DB VALIDATION] UPDATE executado com sucesso`);
+    
+    // 4️⃣ VERIFICAÇÃO PÓS-UPDATE - LEITURA IMEDIATA DO BANCO
+    const verificationQuery = `
+      SELECT 
+        id,
+        completed,
+        completed_at,
+        CASE 
+          WHEN completed = true OR completed = 't' OR completed = 'true' THEN true
+          ELSE false
+        END as completed_normalized
+      FROM route_points 
+      WHERE id = $1
+    `;
+    
+    const verificationResult = await client.query(verificationQuery, [pointId]);
+    
+    if (verificationResult.rows.length === 0) {
+      console.error(`❌ [DB VALIDATION] ERRO CRÍTICO: Ponto desapareceu após UPDATE!`);
+      throw new Error(`Ponto não encontrado após UPDATE`);
+    }
+    
+    const verifiedPoint = verificationResult.rows[0];
+    const actualCompleted = verifiedPoint.completed_normalized;
+    
+    console.log(`🔍 [DB VALIDATION] Verificação pós-UPDATE:`);
+    console.log(`   - completed (bruto): ${verifiedPoint.completed}`);
+    console.log(`   - completed (normalizado): ${actualCompleted}`);
+    console.log(`   - completed_at: ${verifiedPoint.completed_at}`);
+    console.log(`   - Esperado: ${expectedCompleted}`);
+    
+    // 5️⃣ VALIDAÇÃO FINAL - COMPARAÇÃO ASSERTIVA
+    if (actualCompleted !== expectedCompleted) {
+      console.error(`❌ [DB VALIDATION] DISCREPÂNCIA CRÍTICA DETECTADA!`);
+      console.error(`   - Esperado: ${expectedCompleted}`);
+      console.error(`   - Atual no banco: ${actualCompleted}`);
+      console.error(`   - Valor bruto no banco: ${verifiedPoint.completed}`);
+      
+      // Log detalhado da discrepância
+      console.error(`🚨 [DB VALIDATION] DADOS PARA DEBUG:`);
+      console.error(`   - Point ID: ${pointId}`);
+      console.error(`   - Truck ID: ${truckId}`);
+      console.error(`   - Route ID: ${currentPointData.route_id}`);
+      console.error(`   - Update Timestamp: ${updateTimestamp}`);
+      console.error(`   - Verification Result: ${JSON.stringify(verifiedPoint)}`);
+      
+      throw new Error(`Discrepância crítica: esperado ${expectedCompleted}, encontrado ${actualCompleted}`);
+    }
+    
+    // 6️⃣ ATUALIZAR TIMESTAMP DA ROTA
+    await client.query(
+      'UPDATE routes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [currentPointData.route_id]
+    );
+    
+    console.log(`✅ [DB VALIDATION] Timestamp da rota atualizado`);
+    
+    // 7️⃣ LOG DE SUCESSO COMPLETO
+    console.log(`🎯 [DB VALIDATION] VALIDAÇÃO COMPLETA REALIZADA COM SUCESSO!`);
+    console.log(`   - Ponto ${pointId} atualizado para completed: ${actualCompleted}`);
+    console.log(`   - Completed_at: ${verifiedPoint.completed_at}`);
+    console.log(`   - Rota ${currentPointData.route_id} timestamp atualizado`);
+    console.log(`   - Caminhão ${truckId} mantém vinculação correta`);
+    console.log(`🔍 [DB VALIDATION] ========================================`);
+    
+    return {
+      success: true,
+      pointId: pointId,
+      actualCompleted: actualCompleted,
+      completedAt: verifiedPoint.completed_at,
+      routeId: currentPointData.route_id,
+      truckId: truckId
+    };
+    
+  } catch (error) {
+    console.error(`❌ [DB VALIDATION] ERRO NA VALIDAÇÃO:`, error);
+    console.error(`🔍 [DB VALIDATION] ========================================`);
+    throw error;
+  }
+}
+
+// Update route point status with BRUTAL VALIDATION
+router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
     const { truckId, pointId } = req.params;
     const { completed } = req.body;
 
     const completedValue = Boolean(completed);
 
-    console.log(`🎯 [MOBILE API] Atualizando ponto ${pointId} do caminhão ${truckId} para completed: ${completedValue}`);
+    console.log(`🎯 [MOBILE API] ========================================`);
+    console.log(`🎯 [MOBILE API] ATUALIZAÇÃO DE PONTO COM VALIDAÇÃO BRUTA`);
+    console.log(`🎯 [MOBILE API] Ponto: ${pointId}`);
+    console.log(`🎯 [MOBILE API] Caminhão: ${truckId}`);
+    console.log(`🎯 [MOBILE API] Novo status: ${completedValue}`);
+    console.log(`🎯 [MOBILE API] Timestamp: ${new Date().toISOString()}`);
 
-    // ✅ CRÍTICO: Atualizar COM TIMESTAMP quando concluído
-    const updateResult = await pool.query(
-      'UPDATE route_points SET completed = $1, completed_at = $2 WHERE id = $3 RETURNING *',
-      [completedValue, completedValue ? new Date() : null, pointId]
+    // ✅ EXECUTAR VALIDAÇÃO COMPLETA E BRUTA
+    const validationResult = await validatePointCompletionInDatabase(
+      client, 
+      pointId, 
+      completedValue, 
+      truckId
     );
 
-    if (updateResult.rows.length > 0) {
-      // ✅ CRÍTICO: Atualizar timestamp da rota também
-      await pool.query(
-        'UPDATE routes SET updated_at = CURRENT_TIMESTAMP WHERE id = (SELECT route_id FROM route_points WHERE id = $1)',
-        [pointId]
-      );
+    await client.query('COMMIT');
 
-      console.log(`✅ [MOBILE API] Ponto ${pointId} atualizado na tabela route_points`);
-      console.log(`✅ [MOBILE API] Timestamp da rota também atualizado`);
+    console.log(`✅ [MOBILE API] SUCESSO TOTAL - PONTO VALIDADO E ATUALIZADO`);
+    console.log(`   - Point ID: ${validationResult.pointId}`);
+    console.log(`   - Status final: ${validationResult.actualCompleted}`);
+    console.log(`   - Completed at: ${validationResult.completedAt}`);
+    console.log(`   - Route ID: ${validationResult.routeId}`);
+    console.log(`   - Truck ID: ${validationResult.truckId}`);
+    console.log(`🎯 [MOBILE API] ========================================`);
 
-      res.json({ success: true, point: updateResult.rows[0] });
-      return;
-    }
-
-    console.log(`❌ [MOBILE API] Ponto ${pointId} não encontrado`);
-    res.status(404).json({ error: 'Ponto não encontrado' });
+    res.json({ 
+      success: true, 
+      point: {
+        id: validationResult.pointId,
+        completed: validationResult.actualCompleted,
+        completedAt: validationResult.completedAt
+      },
+      validation: {
+        verified: true,
+        routeUpdated: true,
+        truckValidated: true
+      }
+    });
     
   } catch (error) {
-    console.error('❌ [MOBILE API] Erro ao atualizar ponto:', error);
-    res.status(500).json({ error: 'Erro ao atualizar ponto da rota' });
+    await client.query('ROLLBACK');
+    
+    console.error(`❌ [MOBILE API] FALHA CRÍTICA NA ATUALIZAÇÃO DO PONTO`);
+    console.error(`   - Point ID: ${req.params.pointId}`);
+    console.error(`   - Truck ID: ${req.params.truckId}`);
+    console.error(`   - Erro: ${error.message}`);
+    console.error(`   - Stack: ${error.stack}`);
+    console.log(`🎯 [MOBILE API] ========================================`);
+    
+    res.status(500).json({ 
+      error: 'Erro crítico ao atualizar ponto da rota',
+      details: error.message,
+      pointId: req.params.pointId,
+      truckId: req.params.truckId,
+      timestamp: new Date().toISOString()
+    });
+  } finally {
+    client.release();
   }
 });
 
