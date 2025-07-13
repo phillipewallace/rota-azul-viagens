@@ -127,7 +127,159 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ✅ NOVA IMPLEMENTAÇÃO ROBUSTA DE PRESERVAÇÃO DE PONTOS
+// ✅ NOVO ENDPOINT - VERIFICAR SE ROTA ESTÁ EM USO
+router.get('/:id/check-usage', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log(`🔍 [ROUTE USAGE] Verificando uso da rota ${id}`);
+    
+    const trucksUsingRoute = await pool.query(
+      'SELECT id, name, plate FROM trucks WHERE current_route_id = $1',
+      [id]
+    );
+    
+    const inUse = trucksUsingRoute.rows.length > 0;
+    
+    console.log(`${inUse ? '🚛' : '🆓'} [ROUTE USAGE] Rota ${id} ${inUse ? 'EM USO' : 'LIVRE'} por ${trucksUsingRoute.rows.length} caminhão(ões)`);
+    
+    res.json({
+      inUse: inUse,
+      trucksCount: trucksUsingRoute.rows.length,
+      trucks: trucksUsingRoute.rows
+    });
+    
+  } catch (error) {
+    console.error('❌ [ROUTE USAGE] Erro ao verificar uso da rota:', error);
+    res.status(500).json({ error: 'Erro ao verificar uso da rota' });
+  }
+});
+
+// ✅ NOVO ENDPOINT - OTIMIZAÇÃO INTELIGENTE PRIORITÁRIA
+router.post('/:id/optimize-intelligent', async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    const { id } = req.params;
+    const { points } = req.body;
+    
+    console.log(`🧠 [INTELLIGENT OPTIMIZE] ========================================`);
+    console.log(`🧠 [INTELLIGENT OPTIMIZE] Iniciando otimização inteligente para rota ${id}`);
+    console.log(`🧠 [INTELLIGENT OPTIMIZE] Pontos recebidos: ${points?.length || 0}`);
+    
+    if (!points || points.length < 2) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
+    }
+
+    // ✅ VERIFICAR SE ROTA EXISTE
+    const routeCheck = await client.query('SELECT id, name FROM routes WHERE id = $1', [id]);
+    if (routeCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Rota não encontrada' });
+    }
+
+    // ✅ VERIFICAR SE ESTÁ EM USO
+    const trucksUsingRoute = await client.query(
+      'SELECT id, name, plate FROM trucks WHERE current_route_id = $1',
+      [id]
+    );
+
+    if (trucksUsingRoute.rows.length === 0) {
+      await client.query('ROLLBACK');
+      console.log(`🆓 [INTELLIGENT OPTIMIZE] Rota não está em uso - usar otimização tradicional`);
+      return res.status(400).json({ 
+        error: 'Rota não está em uso - usar otimização tradicional',
+        useTraditional: true 
+      });
+    }
+
+    console.log(`🚛 [INTELLIGENT OPTIMIZE] Rota em uso por ${trucksUsingRoute.rows.length} caminhão(ões)`);
+
+    // ✅ APLICAR PRESERVAÇÃO INTELIGENTE
+    const finalPoints = await preserveCompletedPointsIntelligently(client, id, points);
+
+    // ✅ CALCULAR MÉTRICAS
+    const totalDistance = calculateTotalDistanceFromPoints(finalPoints);
+    const estimatedDuration = totalDistance * 60; // 1 km/min estimate
+    const hours = Math.floor(estimatedDuration / 3600);
+    const minutes = Math.floor((estimatedDuration % 3600) / 60);
+    const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+
+    // ✅ ATUALIZAR ROTA COM DADOS PRESERVADOS
+    await client.query(
+      `UPDATE routes SET 
+       points = $1, 
+       total_distance = $2, 
+       estimated_time = $3, 
+       estimated_duration = $4,
+       updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $5`,
+      [
+        JSON.stringify(finalPoints),
+        totalDistance,
+        estimatedTime,
+        Math.round(estimatedDuration),
+        id
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    console.log(`✅ [INTELLIGENT OPTIMIZE] Otimização inteligente concluída com preservação`);
+    console.log(`📊 [INTELLIGENT OPTIMIZE] ${finalPoints.filter(p => p.completed).length} pontos preservados`);
+    console.log(`📊 [INTELLIGENT OPTIMIZE] ${finalPoints.filter(p => !p.completed).length} pontos otimizados`);
+    console.log(`🧠 [INTELLIGENT OPTIMIZE] ========================================`);
+
+    res.json({
+      message: 'Otimização inteligente concluída',
+      points: finalPoints,
+      optimizedOrder: finalPoints.map(p => p.id),
+      totalDistance: totalDistance,
+      estimatedTime: estimatedTime,
+      preservedPoints: finalPoints.filter(p => p.completed).length,
+      optimizedPoints: finalPoints.filter(p => !p.completed).length
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ [INTELLIGENT OPTIMIZE] Erro na otimização inteligente:', error);
+    res.status(500).json({ error: 'Erro na otimização inteligente' });
+  } finally {
+    client.release();
+  }
+});
+
+// ✅ FUNÇÃO AUXILIAR - CALCULAR DISTÂNCIA TOTAL
+function calculateTotalDistanceFromPoints(points: any[]): number {
+  if (points.length < 2) return 0;
+  
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    total += calculateDistance(points[i], points[i + 1]);
+  }
+  return total;
+}
+
+function calculateDistance(point1: any, point2: any): number {
+  const R = 6371;
+  const dLat = toRadians(point2.lat - point1.lat);
+  const dLng = toRadians(point2.lng - point1.lng);
+  
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+           Math.cos(toRadians(point1.lat)) * Math.cos(toRadians(point2.lat)) *
+           Math.sin(dLng/2) * Math.sin(dLng/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function toRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
+}
+
 async function preserveCompletedPointsIntelligently(client: any, routeId: string, newPoints: any[]) {
   try {
     console.log(`🛡️ [INTELLIGENT PRESERVATION] Iniciando preservação ROBUSTA para rota ${routeId}`);
