@@ -127,47 +127,46 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ✅ IMPLEMENTAÇÃO DO FLUXO COMPLETO DE PRESERVAÇÃO DE PONTOS CONCLUÍDOS
-async function handleIntelligentRoutePreservation(client: any, routeId: string, newPoints: any[]) {
+// ✅ NOVA IMPLEMENTAÇÃO ROBUSTA DE PRESERVAÇÃO DE PONTOS
+async function preserveCompletedPointsIntelligently(client: any, routeId: string, newPoints: any[]) {
   try {
-    console.log(`🧠 [ROUTES PRESERVATION] Iniciando preservação inteligente para rota ${routeId}`);
+    console.log(`🛡️ [INTELLIGENT PRESERVATION] Iniciando preservação ROBUSTA para rota ${routeId}`);
     
-    // 1️⃣ CRÍTICO: Buscar pontos REALMENTE concluídos do banco de dados
-    const completedPointsResult = await client.query(
-      `SELECT rp.*, 
-              CASE 
-                WHEN rp.completed = true OR rp.completed = 't' OR rp.completed = 'true' THEN true
-                ELSE false
-              END as is_completed
-       FROM route_points rp 
-       WHERE rp.route_id = $1 
-       AND (rp.completed = true OR rp.completed = 't' OR rp.completed = 'true')
-       ORDER BY rp.point_order`,
-      [routeId]
-    );
-
-    const completedPoints = completedPointsResult.rows;
-    console.log(`🔒 [ROUTES PRESERVATION] ${completedPoints.length} pontos concluídos encontrados no banco`);
-
+    // 1️⃣ BUSCAR PONTOS REALMENTE CONCLUÍDOS DO BANCO
+    const completedPointsQuery = `
+      SELECT rp.*, 
+             CASE 
+               WHEN rp.completed = true OR rp.completed = 't' OR rp.completed = 'true' THEN true
+               ELSE false
+             END as is_truly_completed
+      FROM route_points rp 
+      WHERE rp.route_id = $1 
+      AND (rp.completed = true OR rp.completed = 't' OR rp.completed = 'true')
+      ORDER BY rp.point_order ASC
+    `;
+    
+    const completedResult = await client.query(completedPointsQuery, [routeId]);
+    const trulyCompletedPoints = completedResult.rows;
+    
+    console.log(`🔒 [INTELLIGENT PRESERVATION] ${trulyCompletedPoints.length} pontos REALMENTE concluídos no banco`);
+    
     // Log detalhado dos pontos concluídos
-    completedPoints.forEach((point, index) => {
-      console.log(`🔒 [ROUTES PRESERVATION] Ponto concluído ${index + 1}: {
+    trulyCompletedPoints.forEach((point, index) => {
+      console.log(`🔒 [PRESERVATION] Ponto concluído ${index + 1}: {
   id: '${point.id}',
   order: ${point.point_order},
-  address: '${point.address.substring(0, 30)}...',
+  address: '${point.address.substring(0, 40)}...',
   completed: ${point.completed},
   completed_at: ${point.completed_at}
 }`);
     });
 
-    // Se não há pontos concluídos, substituir completamente
-    if (completedPoints.length === 0) {
-      console.log(`🔄 [ROUTES PRESERVATION] Nenhum ponto concluído - substituindo rota completamente`);
+    // 2️⃣ SE NÃO HÁ PONTOS CONCLUÍDOS, FAZER ATUALIZAÇÃO NORMAL
+    if (trulyCompletedPoints.length === 0) {
+      console.log(`🆕 [INTELLIGENT PRESERVATION] Nenhum ponto concluído - atualização normal`);
       
-      // Remover todos os pontos antigos
       await client.query('DELETE FROM route_points WHERE route_id = $1', [routeId]);
       
-      // Inserir novos pontos
       for (const point of newPoints) {
         await client.query(
           `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
@@ -179,14 +178,14 @@ async function handleIntelligentRoutePreservation(client: any, routeId: string, 
       return newPoints;
     }
 
-    // 2️⃣ REDEFINIR ORIGEM - Encontrar o último ponto concluído
-    const lastCompletedPoint = completedPoints[completedPoints.length - 1];
+    // 3️⃣ ENCONTRAR O ÚLTIMO PONTO CONCLUÍDO
+    const lastCompletedPoint = trulyCompletedPoints[trulyCompletedPoints.length - 1];
     const lastCompletedOrder = lastCompletedPoint.point_order;
     
-    console.log(`📍 [ROUTES PRESERVATION] Último ponto concluído: ordem ${lastCompletedOrder}, id ${lastCompletedPoint.id}`);
+    console.log(`📍 [INTELLIGENT PRESERVATION] Último ponto concluído na ordem: ${lastCompletedOrder}`);
 
-    // 3️⃣ PROTEGER PONTOS CONCLUÍDOS - Criar lista de pontos fixos
-    const fixedPoints = completedPoints.map(p => ({
+    // 4️⃣ CRIAR LISTA DE PONTOS PRESERVADOS (CONCLUÍDOS)
+    const preservedPoints = trulyCompletedPoints.map(p => ({
       id: p.id,
       address: p.address,
       lat: parseFloat(p.lat),
@@ -197,56 +196,61 @@ async function handleIntelligentRoutePreservation(client: any, routeId: string, 
       completedAt: p.completed_at
     }));
 
-    // 4️⃣ IDENTIFICAR PONTOS PENDENTES - Novos pontos que vêm após os concluídos
-    const pendingPoints = newPoints.filter(p => p.order > lastCompletedOrder);
+    // 5️⃣ IDENTIFICAR NOVOS PONTOS QUE VÊM APÓS OS CONCLUÍDOS
+    const pendingNewPoints = newPoints
+      .filter(p => p.order > lastCompletedOrder)
+      .map((p, index) => ({
+        ...p,
+        order: lastCompletedOrder + index + 1,
+        completed: false,
+        completedAt: null
+      }));
     
-    console.log(`🎯 [ROUTES PRESERVATION] ${pendingPoints.length} pontos pendentes para otimização`);
+    console.log(`🎯 [INTELLIGENT PRESERVATION] ${pendingNewPoints.length} novos pontos para inserir após concluídos`);
 
-    let optimizedPendingPoints = pendingPoints;
-
-    // Se há pontos pendentes, otimizar usando o último concluído como origem
-    if (pendingPoints.length > 0) {
+    // 6️⃣ OTIMIZAR APENAS OS PONTOS PENDENTES SE NECESSÁRIO
+    let optimizedPendingPoints = pendingNewPoints;
+    
+    if (pendingNewPoints.length > 1) {
       try {
-        console.log(`🚀 [ROUTES PRESERVATION] Otimizando ${pendingPoints.length} pontos pendentes`);
+        console.log(`🚀 [INTELLIGENT PRESERVATION] Otimizando ${pendingNewPoints.length} pontos pendentes`);
         
         const optimizationResult = await googleMapsOptimizer.optimizePartialRoute(
-          [fixedPoints[fixedPoints.length - 1]], // Último ponto concluído como origem
-          pendingPoints // Pontos pendentes
+          [preservedPoints[preservedPoints.length - 1]], // Último concluído como origem
+          pendingNewPoints
         );
-
-        // Extrair apenas os pontos otimizados (excluindo o ponto origem que já está nos fixedPoints)
+        
         optimizedPendingPoints = optimizationResult.optimizedPoints
           .filter(p => !p.completed)
           .map((p, index) => ({
             ...p,
-            order: lastCompletedOrder + index + 1
+            order: lastCompletedOrder + index + 1,
+            completed: false,
+            completedAt: null
           }));
-
-        console.log(`✅ [ROUTES PRESERVATION] Otimização concluída - ${optimizedPendingPoints.length} pontos otimizados`);
+        
+        console.log(`✅ [INTELLIGENT PRESERVATION] ${optimizedPendingPoints.length} pontos otimizados`);
         
       } catch (optimizationError) {
-        console.error(`⚠️ [ROUTES PRESERVATION] Erro na otimização, mantendo ordem original:`, optimizationError);
-        // Manter pontos pendentes na ordem original em caso de erro
-        optimizedPendingPoints = pendingPoints.map((p, index) => ({
-          ...p,
-          order: lastCompletedOrder + index + 1,
-          completed: false
-        }));
+        console.error(`⚠️ [INTELLIGENT PRESERVATION] Erro na otimização:`, optimizationError);
+        // Manter ordem original em caso de erro
       }
     }
 
-    // 5️⃣ APLICAR ATUALIZAÇÕES NO BANCO - PRESERVANDO PONTOS CONCLUÍDOS
-    console.log(`🔄 [ROUTES PRESERVATION] Aplicando atualizações no banco`);
+    // 7️⃣ APLICAR MUDANÇAS NO BANCO - PRESERVANDO PONTOS CONCLUÍDOS
+    console.log(`💾 [INTELLIGENT PRESERVATION] Aplicando mudanças no banco`);
     
-    // ✅ CRÍTICO: Remover apenas pontos NÃO concluídos
+    // ✅ REMOVER APENAS PONTOS NÃO CONCLUÍDOS
     await client.query(
       `DELETE FROM route_points 
        WHERE route_id = $1 
        AND (completed = false OR completed IS NULL OR completed = 'f')`,
       [routeId]
     );
-
-    // ✅ INSERIR apenas pontos otimizados (os fixos já estão no banco e não foram removidos)
+    
+    console.log(`🗑️ [INTELLIGENT PRESERVATION] Pontos não concluídos removidos`);
+    
+    // ✅ INSERIR APENAS NOVOS PONTOS OTIMIZADOS
     for (const point of optimizedPendingPoints) {
       await client.query(
         `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, completed_at)
@@ -254,17 +258,18 @@ async function handleIntelligentRoutePreservation(client: any, routeId: string, 
         [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
       );
     }
-
-    // 6️⃣ CONCATENAR RESULTADO FINAL
-    const finalPoints = [...fixedPoints, ...optimizedPendingPoints];
     
-    console.log(`🔗 [ROUTES PRESERVATION] Concatenação final: ${fixedPoints.length} fixos + ${optimizedPendingPoints.length} otimizados = ${finalPoints.length} total`);
-    console.log(`✅ [ROUTES PRESERVATION] Preservação inteligente concluída com sucesso`);
+    console.log(`✅ [INTELLIGENT PRESERVATION] ${optimizedPendingPoints.length} novos pontos inseridos`);
+
+    // 8️⃣ RESULTADO FINAL - PONTOS PRESERVADOS + NOVOS OTIMIZADOS
+    const finalPoints = [...preservedPoints, ...optimizedPendingPoints];
+    
+    console.log(`🎯 [INTELLIGENT PRESERVATION] Resultado final: ${preservedPoints.length} preservados + ${optimizedPendingPoints.length} novos = ${finalPoints.length} total`);
     
     return finalPoints;
     
   } catch (error) {
-    console.error('❌ [ROUTES PRESERVATION] Erro na preservação inteligente:', error);
+    console.error('❌ [INTELLIGENT PRESERVATION] Erro crítico:', error);
     throw error;
   }
 }
@@ -278,30 +283,35 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, description, points, totalDistance, estimatedTime, estimatedDuration, optimizedOrder, polyline, status } = req.body;
     
+    console.log(`🔄 [ROUTE UPDATE] ========================================`);
     console.log(`🔄 [ROUTE UPDATE] Atualizando rota ${id} com ${points?.length || 0} pontos`);
     
     // Verificar se a rota existe
-    const routeExists = await client.query('SELECT id FROM routes WHERE id = $1', [id]);
+    const routeExists = await client.query('SELECT id, name FROM routes WHERE id = $1', [id]);
     if (routeExists.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
     
-    // ✅ CRÍTICO: Verificar se a rota está sendo usada por algum caminhão
+    // ✅ VERIFICAR SE A ROTA ESTÁ SENDO USADA POR ALGUM CAMINHÃO
     const trucksUsingRoute = await client.query(
-      'SELECT id, name FROM trucks WHERE current_route_id = $1',
+      'SELECT id, name, plate FROM trucks WHERE current_route_id = $1',
       [id]
     );
     
     let finalPoints = points || [];
-
+    
     if (trucksUsingRoute.rows.length > 0 && points && points.length > 0) {
-      console.log(`📍 [ROUTE UPDATE] Rota em uso por ${trucksUsingRoute.rows.length} caminhão(ões) - aplicando preservação inteligente`);
+      console.log(`🚛 [ROUTE UPDATE] Rota em uso por ${trucksUsingRoute.rows.length} caminhão(ões):`);
+      trucksUsingRoute.rows.forEach(truck => {
+        console.log(`   - ${truck.name} (${truck.plate})`);
+      });
       
-      // ✅ APLICAR PRESERVAÇÃO INTELIGENTE
-      finalPoints = await handleIntelligentRoutePreservation(client, id, points);
+      // ✅ APLICAR PRESERVAÇÃO INTELIGENTE ROBUSTA
+      finalPoints = await preserveCompletedPointsIntelligently(client, id, points);
+      
     } else {
-      console.log(`🔄 [ROUTE UPDATE] Rota não está em uso - atualizando normalmente`);
+      console.log(`🆓 [ROUTE UPDATE] Rota livre - atualização normal`);
       
       // Atualização normal para rotas não em uso
       if (points && points.length > 0) {
@@ -317,8 +327,8 @@ router.put('/:id', async (req, res) => {
       }
     }
     
-    // ✅ BUSCAR PONTOS ATUALIZADOS DO BANCO (com estado completed correto)
-    const updatedPointsResult = await client.query(
+    // ✅ BUSCAR PONTOS FINAIS DO BANCO (COM ESTADO CORRETO)
+    const finalPointsFromDB = await client.query(
       `SELECT address, lat, lng, point_order, type, 
               CASE 
                 WHEN completed = true OR completed = 't' OR completed = 'true' THEN true
@@ -327,11 +337,11 @@ router.put('/:id', async (req, res) => {
               completed_at 
        FROM route_points 
        WHERE route_id = $1 
-       ORDER BY point_order`,
+       ORDER BY point_order ASC`,
       [id]
     );
 
-    const updatedPoints = updatedPointsResult.rows.map(p => ({
+    const updatedPoints = finalPointsFromDB.rows.map(p => ({
       address: p.address,
       lat: parseFloat(p.lat),
       lng: parseFloat(p.lng),
@@ -341,7 +351,9 @@ router.put('/:id', async (req, res) => {
       completedAt: p.completed_at
     }));
 
-    console.log(`📊 [ROUTE UPDATE] Pontos finais: ${updatedPoints.length} total, ${updatedPoints.filter(p => p.completed).length} concluídos`);
+    console.log(`📊 [ROUTE UPDATE] Pontos finais no banco: ${updatedPoints.length} total`);
+    console.log(`📊 [ROUTE UPDATE] Pontos concluídos: ${updatedPoints.filter(p => p.completed).length}`);
+    console.log(`📊 [ROUTE UPDATE] Pontos pendentes: ${updatedPoints.filter(p => !p.completed).length}`);
 
     // Atualizar dados da rota principal
     const updateQuery = `
@@ -374,12 +386,14 @@ router.put('/:id', async (req, res) => {
       estimatedDuration: parseInt(result.rows[0].estimated_duration) || 0
     };
     
-    console.log(`✅ [ROUTE UPDATE] Rota atualizada com preservação inteligente: ${responseRoute.name}`);
+    console.log(`✅ [ROUTE UPDATE] Rota "${responseRoute.name}" atualizada com preservação inteligente`);
+    console.log(`✅ [ROUTE UPDATE] ========================================`);
+    
     res.json(responseRoute);
     
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('❌ [ROUTE UPDATE] Error updating route:', error);
+    console.error('❌ [ROUTE UPDATE] Erro ao atualizar rota:', error);
     res.status(500).json({ error: 'Erro ao atualizar rota' });
   } finally {
     client.release();

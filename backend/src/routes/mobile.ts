@@ -59,7 +59,7 @@ router.get('/truck/:plate', async (req, res) => {
       if (routeResult.rows.length > 0) {
         const route = routeResult.rows[0];
         
-        // ✅ CRÍTICO: Buscar pontos da rota COM ESTADO COMPLETED CORRETO
+        // ✅ CRÍTICO: Buscar pontos COM ESTADO COMPLETED CORRETO DIRETO DO BANCO
         const pointsQuery = `
           SELECT 
             rp.id,
@@ -68,7 +68,10 @@ router.get('/truck/:plate', async (req, res) => {
             COALESCE(rp.lng, 0) as lng,
             COALESCE(rp.point_order, 0) as point_order,
             COALESCE(rp.type, 'waypoint') as type,
-            COALESCE(rp.completed, false) as completed,
+            CASE 
+              WHEN rp.completed = true OR rp.completed = 't' OR rp.completed = 'true' THEN true
+              ELSE false
+            END as completed,
             rp.completed_at
           FROM route_points rp
           WHERE rp.route_id = $1
@@ -83,7 +86,7 @@ router.get('/truck/:plate', async (req, res) => {
         
         if (pointsResult.rows.length > 0) {
           points = pointsResult.rows.map((point) => {
-            const isCompleted = point.completed === true || point.completed === 't' || point.completed === 'true';
+            const isCompleted = point.completed === true;
             
             if (isCompleted) {
               completedCount++;
@@ -193,15 +196,23 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
 
     console.log(`🎯 [MOBILE API] Atualizando ponto ${pointId} do caminhão ${truckId} para completed: ${completedValue}`);
 
-    // Atualizar na tabela route_points
-    const updateRoutePointsResult = await pool.query(
+    // ✅ CRÍTICO: Atualizar COM TIMESTAMP quando concluído
+    const updateResult = await pool.query(
       'UPDATE route_points SET completed = $1, completed_at = $2 WHERE id = $3 RETURNING *',
       [completedValue, completedValue ? new Date() : null, pointId]
     );
 
-    if (updateRoutePointsResult.rows.length > 0) {
+    if (updateResult.rows.length > 0) {
+      // ✅ CRÍTICO: Atualizar timestamp da rota também
+      await pool.query(
+        'UPDATE routes SET updated_at = CURRENT_TIMESTAMP WHERE id = (SELECT route_id FROM route_points WHERE id = $1)',
+        [pointId]
+      );
+
       console.log(`✅ [MOBILE API] Ponto ${pointId} atualizado na tabela route_points`);
-      res.json({ success: true, point: updateRoutePointsResult.rows[0] });
+      console.log(`✅ [MOBILE API] Timestamp da rota também atualizado`);
+
+      res.json({ success: true, point: updateResult.rows[0] });
       return;
     }
 
