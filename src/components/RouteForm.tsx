@@ -1,36 +1,37 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
-import { TextField, Button, Box, Typography, Autocomplete, IconButton, Stack, Divider, InputAdornment } from '@mui/material';
-import { Add, Delete, LocationOn } from '@mui/icons-material';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { useRoutes, RoutePoint, Route } from '@/hooks/useRoutes';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Polyline } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 
-// Define o schema de validação com Yup
-const routeSchema = yup.object({
-  name: yup.string().required('O nome da rota é obrigatório'),
-  description: yup.string(),
-  points: yup.array().of(
-    yup.object().shape({
-      address: yup.string().required('O endereço é obrigatório'),
-      cep: yup.string(),
-      lat: yup.number().required('A latitude é obrigatória'),
-      lng: yup.number().required('A longitude é obrigatória'),
-      order: yup.number(),
-      type: yup.string().oneOf(['origin', 'destination', 'waypoint']),
-      completed: yup.boolean(),
-      completedAt: yup.string().nullable(),
-    })
-  ).min(2, 'É necessário pelo menos 2 pontos na rota'),
-  totalDistance: yup.number(),
-  estimatedTime: yup.string(),
-  optimizedOrder: yup.array().of(yup.string()),
-}).required();
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Plus, Trash2, MapPin } from 'lucide-react';
+import { toast } from 'sonner';
+import { useRoutes, RoutePoint, Route } from '@/hooks/useRoutes';
+
+// Define o schema de validação com Zod
+const routeSchema = z.object({
+  name: z.string().min(1, 'O nome da rota é obrigatório'),
+  description: z.string().optional(),
+  points: z.array(z.object({
+    address: z.string().min(1, 'O endereço é obrigatório'),
+    cep: z.string().optional(),
+    lat: z.number(),
+    lng: z.number(),
+    order: z.number(),
+    type: z.enum(['origin', 'destination', 'waypoint']),
+    completed: z.boolean(),
+    completedAt: z.string().nullable(),
+  })).min(2, 'É necessário pelo menos 2 pontos na rota'),
+  totalDistance: z.number().optional(),
+  estimatedTime: z.string().optional(),
+  optimizedOrder: z.array(z.string()).optional(),
+});
+
+type RouteFormData = z.infer<typeof routeSchema>;
 
 // Define a interface para as propriedades do componente
 interface RouteFormProps {
@@ -46,12 +47,11 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   const [totalDistance, setTotalDistance] = useState<number>(editingRoute?.totalDistance || 0);
   const [estimatedTime, setEstimatedTime] = useState<string>(editingRoute?.estimatedTime || '');
   const [optimizedOrder, setOptimizedOrder] = useState<string[]>(editingRoute?.optimizedOrder || []);
-  const [polyline, setPolyline] = useState<string>(editingRoute?.polyline || '');
   const [optimizing, setOptimizing] = useState(false);
 
   // Inicializa o formulário com react-hook-form
-  const { register, handleSubmit, control, setValue, formState: { errors }, reset } = useForm<yup.InferType<typeof routeSchema>>({
-    resolver: yupResolver(routeSchema),
+  const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm<RouteFormData>({
+    resolver: zodResolver(routeSchema),
     defaultValues: {
       name: editingRoute?.name || '',
       description: editingRoute?.description || '',
@@ -77,7 +77,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       setTotalDistance(editingRoute.totalDistance);
       setEstimatedTime(editingRoute.estimatedTime);
       setOptimizedOrder(editingRoute.optimizedOrder);
-      setPolyline(editingRoute.polyline || '');
     } else {
       reset({
         name: '',
@@ -91,7 +90,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       setTotalDistance(0);
       setEstimatedTime('');
       setOptimizedOrder([]);
-      setPolyline('');
     }
   }, [editingRoute, reset]);
 
@@ -168,7 +166,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       setTotalDistance(result.totalDistance);
       setEstimatedTime(result.estimatedTime);
       setOptimizedOrder(result.optimizedOrder);
-      setPolyline(result.polyline);
       
       // ✅ LOG DETALHADO DO RESULTADO
       const completedCount = result.points.filter((p: RoutePoint) => p.completed).length;
@@ -191,176 +188,164 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   };
 
   // Função para lidar com o envio do formulário
-  const onSubmitData = (data: yup.InferType<typeof routeSchema>) => {
+  const onSubmitData = (data: RouteFormData) => {
     const routeData = {
       ...data,
       points: points,
       totalDistance: totalDistance,
       estimatedTime: estimatedTime,
       optimizedOrder: optimizedOrder,
-      polyline: polyline,
     };
     console.log('Dados da rota a serem enviados:', routeData);
     onSubmit();
   };
 
-  const mapCenter = points.length > 0
-    ? [points[0].lat, points[0].lng]
-    : [-23.5505, -46.6333]; // Posição padrão: São Paulo
-
-  const polylinePositions = points.map(point => [point.lat, point.lng]);
-
-  // Custom icon
-  const customIcon = new L.Icon({
-    iconUrl: '/images/marker-blue.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowUrl: null,
-    shadowSize: null,
-    shadowAnchor: null
-  });
-
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmitData)} sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Typography variant="h6">{editingRoute ? 'Editar Rota' : 'Criar Nova Rota'}</Typography>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{editingRoute ? 'Editar Rota' : 'Criar Nova Rota'}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmitData)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome da Rota</Label>
+              <Input
+                id="name"
+                {...register("name")}
+                placeholder="Digite o nome da rota"
+              />
+              {errors.name && (
+                <p className="text-sm text-destructive">{errors.name.message}</p>
+              )}
+            </div>
 
-      <TextField
-        label="Nome da Rota"
-        {...register("name")}
-        error={!!errors.name}
-        helperText={errors.name?.message}
-        fullWidth
-        margin="normal"
-      />
+            <div className="space-y-2">
+              <Label htmlFor="description">Descrição da Rota</Label>
+              <Textarea
+                id="description"
+                {...register("description")}
+                placeholder="Digite uma descrição para a rota"
+                rows={3}
+              />
+            </div>
 
-      <TextField
-        label="Descrição da Rota"
-        {...register("description")}
-        fullWidth
-        margin="normal"
-        multiline
-        rows={2}
-      />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Pontos da Rota</Label>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddPoint}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Ponto
+                </Button>
+              </div>
 
-      <Typography variant="subtitle1">Pontos da Rota</Typography>
-      {points.map((point, index) => (
-        <Box key={point.id} sx={{ border: '1px solid #ccc', borderRadius: '4px', padding: 2, mb: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-            <Typography variant="subtitle2">Ponto {index + 1}</Typography>
-            <IconButton onClick={() => handleRemovePoint(index)} aria-label="Remover Ponto">
-              <Delete />
-            </IconButton>
-          </Stack>
+              {points.map((point, index) => (
+                <Card key={point.id} className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-medium">Ponto {index + 1}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemovePoint(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-          <Stack direction="row" spacing={2} mb={2}>
-            <TextField
-              label="CEP"
-              value={point.cep || ''}
-              onChange={(e) => {
-                handlePointChange(index, 'cep', e.target.value);
-              }}
-              onBlur={(e) => handleSearchCep(index, e.target.value)}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => handleSearchCep(index, point.cep || '')}>
-                      <LocationOn />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-            />
-            <TextField
-              label="Endereço"
-              value={point.address}
-              onChange={(e) => {
-                handlePointChange(index, 'address', e.target.value);
-                setValue(`points.${index}.address`, e.target.value);
-              }}
-              size="small"
-              error={!!errors.points?.[index]?.address}
-              helperText={errors.points?.[index]?.address?.message}
-            />
-          </Stack>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`cep-${index}`}>CEP</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id={`cep-${index}`}
+                          value={point.cep || ''}
+                          onChange={(e) => handlePointChange(index, 'cep', e.target.value)}
+                          placeholder="00000-000"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSearchCep(index, point.cep || '')}
+                        >
+                          <MapPin className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
 
-          <Stack direction="row" spacing={2}>
-            <TextField
-              label="Latitude"
-              value={point.lat}
-              onChange={(e) => {
-                const lat = parseFloat(e.target.value);
-                handlePointChange(index, 'lat', lat);
-                setValue(`points.${index}.lat`, lat);
-              }}
-              type="number"
-              size="small"
-              error={!!errors.points?.[index]?.lat}
-              helperText={errors.points?.[index]?.lat?.message}
-            />
-            <TextField
-              label="Longitude"
-              value={point.lng}
-              onChange={(e) => {
-                const lng = parseFloat(e.target.value);
-                handlePointChange(index, 'lng', lng);
-                setValue(`points.${index}.lng`, lng);
-              }}
-              type="number"
-              size="small"
-              error={!!errors.points?.[index]?.lng}
-              helperText={errors.points?.[index]?.lng?.message}
-            />
-          </Stack>
-        </Box>
-      ))}
+                    <div className="space-y-2">
+                      <Label htmlFor={`address-${index}`}>Endereço</Label>
+                      <Input
+                        id={`address-${index}`}
+                        value={point.address}
+                        onChange={(e) => handlePointChange(index, 'address', e.target.value)}
+                        placeholder="Digite o endereço"
+                      />
+                      {errors.points?.[index]?.address && (
+                        <p className="text-sm text-destructive">
+                          {errors.points[index]?.address?.message}
+                        </p>
+                      )}
+                    </div>
 
-      <Button startIcon={<Add />} variant="outlined" onClick={handleAddPoint}>
-        Adicionar Ponto
-      </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor={`lat-${index}`}>Latitude</Label>
+                      <Input
+                        id={`lat-${index}`}
+                        type="number"
+                        step="any"
+                        value={point.lat}
+                        onChange={(e) => handlePointChange(index, 'lat', parseFloat(e.target.value))}
+                        placeholder="0.000000"
+                      />
+                    </div>
 
-      <Divider sx={{ my: 2 }} />
+                    <div className="space-y-2">
+                      <Label htmlFor={`lng-${index}`}>Longitude</Label>
+                      <Input
+                        id={`lng-${index}`}
+                        type="number"
+                        step="any"
+                        value={point.lng}
+                        onChange={(e) => handlePointChange(index, 'lng', parseFloat(e.target.value))}
+                        placeholder="0.000000"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              ))}
 
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="subtitle1">Mapa da Rota</Typography>
-        <Button variant="contained" onClick={handleOptimize} disabled={optimizing}>
-          {optimizing ? 'Otimizando...' : 'Otimizar Rota'}
-        </Button>
-      </Stack>
+              {errors.points && (
+                <p className="text-sm text-destructive">{errors.points.message}</p>
+              )}
+            </div>
 
-      <Box sx={{ height: '400px', width: '100%', borderRadius: '4px', overflow: 'hidden' }}>
-        <MapContainer center={mapCenter} zoom={12} style={{ height: '100%', width: '100%' }}>
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
-          {points.map((point, index) => (
-            <Marker
-              key={point.id}
-              position={[point.lat, point.lng]}
-              icon={customIcon}
-            >
-              <Popup>
-                {point.address}
-              </Popup>
-            </Marker>
-          ))}
-          {polylinePositions.length > 1 && (
-            <Polyline positions={polylinePositions} color="blue" />
-          )}
-        </MapContainer>
-      </Box>
+            <div className="flex items-center justify-between pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleOptimize}
+                disabled={optimizing}
+              >
+                {optimizing ? 'Otimizando...' : 'Otimizar Rota'}
+              </Button>
 
-      <Stack direction="row" justifyContent="space-between">
-        {onCancel && (
-          <Button onClick={onCancel}>Cancelar</Button>
-        )}
-        <Button type="submit" variant="contained">
-          {editingRoute ? 'Salvar Alterações' : 'Criar Rota'}
-        </Button>
-      </Stack>
-    </Box>
+              <div className="flex gap-2">
+                {onCancel && (
+                  <Button type="button" variant="outline" onClick={onCancel}>
+                    Cancelar
+                  </Button>
+                )}
+                <Button type="submit">
+                  {editingRoute ? 'Salvar Alterações' : 'Criar Rota'}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
