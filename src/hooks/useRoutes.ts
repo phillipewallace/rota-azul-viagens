@@ -74,115 +74,139 @@ export const useRoutes = () => {
 
   const optimizeRoute = async (allPoints: RoutePoint[], routeId?: string) => {
     try {
-      console.log('🎯 [USE ROUTES] Iniciando otimização INTELIGENTE prioritária');
+      console.log('🎯 [USE ROUTES] ========================================');
+      console.log('🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO COM PRIORIDADE INTELIGENTE');
+      console.log(`🎯 [USE ROUTES] Route ID: ${routeId || 'NOVA ROTA'}`);
+      console.log(`🎯 [USE ROUTES] Pontos para otimizar: ${allPoints.length}`);
 
       if (allPoints.length < 2) {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      const isRouteInUse = await checkRouteInUse(routeId);
-      console.log(`🔍 [USE ROUTES] Rota ${routeId} em uso: ${isRouteInUse}`);
-
-      if (isRouteInUse && routeId) {
-        console.log('🧠 [USE ROUTES] Rota em uso - usando otimização INTELIGENTE');
+      // ✅ PASSO 1: VERIFICAR SE ROTA EXISTE E ESTÁ EM USO
+      if (routeId) {
+        console.log('🔍 [USE ROUTES] PASSO 1: Verificando se rota está em uso...');
         
-        const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            points: allPoints.map((point, index) => ({
-              id: point.id,
-              address: point.address,
-              cep: point.cep,
-              lat: point.lat,
-              lng: point.lng,
-              order: index,
-              type: point.type,
-              completed: point.completed ?? false,
-              completedAt: point.completedAt ?? null,
-            })),
-          }),
-        });
+        const isRouteInUse = await checkRouteInUse(routeId);
+        console.log(`${isRouteInUse ? '🚛' : '🆓'} [USE ROUTES] Rota ${routeId} ${isRouteInUse ? 'EM USO' : 'LIVRE'}`);
 
-        if (!response.ok) {
-          throw new Error('Erro na otimização inteligente da rota');
+        // ✅ PASSO 2A: SE ROTA EM USO -> USAR INTELLIGENT OPTIMIZER
+        if (isRouteInUse) {
+          console.log('🧠 [USE ROUTES] PASSO 2A: USANDO OTIMIZAÇÃO INTELIGENTE PRIORITÁRIA');
+          
+          try {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                points: allPoints.map((point, index) => ({
+                  id: point.id,
+                  address: point.address,
+                  cep: point.cep,
+                  lat: point.lat,
+                  lng: point.lng,
+                  order: index,
+                  type: point.type,
+                  completed: point.completed ?? false,
+                  completedAt: point.completedAt ?? null,
+                })),
+              }),
+            });
+
+            if (!response.ok) {
+              console.error('❌ [USE ROUTES] Intelligent optimizer falhou, tentando fallback');
+              throw new Error('Erro na otimização inteligente da rota');
+            }
+
+            const intelligentData = await response.json();
+            console.log(`✅ [USE ROUTES] OTIMIZAÇÃO INTELIGENTE CONCLUÍDA COM SUCESSO`);
+            console.log(`🛡️ [USE ROUTES] ${intelligentData.preservedPoints || 0} pontos preservados`);
+            console.log(`🎯 [USE ROUTES] ${intelligentData.optimizedPoints || 0} pontos otimizados`);
+
+            return {
+              optimizedOrder: intelligentData.optimizedOrder,
+              totalDistance: intelligentData.totalDistance,
+              estimatedTime: intelligentData.estimatedTime,
+              polyline: intelligentData.polyline,
+              detailedRoute: null,
+              points: intelligentData.points.map((p: any, index: number) => ({
+                id: p.id,
+                address: p.address,
+                cep: p.cep || '',
+                lat: p.lat,
+                lng: p.lng,
+                order: index,
+                type: p.type,
+                completed: p.completed ?? false,
+                completedAt: p.completedAt ?? null,
+              })),
+            };
+
+          } catch (intelligentError) {
+            console.error('❌ [USE ROUTES] Intelligent optimizer falhou:', intelligentError);
+            console.log('🔄 [USE ROUTES] Tentando fallback para geocoding...');
+            // Continua para o fallback geocoding abaixo
+          }
         }
-
-        const intelligentData = await response.json();
-        console.log(`✅ [USE ROUTES] Otimização inteligente concluída`);
-
-        return {
-          optimizedOrder: intelligentData.optimizedOrder,
-          totalDistance: intelligentData.totalDistance,
-          estimatedTime: intelligentData.estimatedTime,
-          polyline: intelligentData.polyline,
-          detailedRoute: null,
-          points: intelligentData.points.map((p: any, index: number) => ({
-            id: p.id,
-            address: p.address,
-            cep: p.cep || '',
-            lat: p.lat,
-            lng: p.lng,
-            order: index,
-            type: p.type,
-            completed: p.completed ?? false,
-            completedAt: p.completedAt ?? null,
-          })),
-        };
-      } else {
-        console.log('🆓 [USE ROUTES] Rota livre - usando otimização tradicional');
-        
-        const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            points: allPoints.map((point, index) => ({
-              id: point.id,
-              address: point.address,
-              cep: point.cep,
-              lat: point.lat,
-              lng: point.lng,
-              order: index,
-              type: point.type,
-              completed: point.completed ?? false,
-              completedAt: point.completedAt ?? null,
-            })),
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Erro na otimização tradicional da rota');
-        }
-
-        const optimizedData = await response.json();
-        console.log(`✅ [USE ROUTES] Otimização tradicional concluída`);
-
-        return {
-          optimizedOrder: optimizedData.optimizedOrder,
-          totalDistance: optimizedData.totalDistance,
-          estimatedTime: optimizedData.estimatedTime,
-          polyline: optimizedData.polyline,
-          detailedRoute: null,
-          points: optimizedData.points.map((p: any, index: number) => ({
-            id: p.id,
-            address: p.address,
-            cep: p.cep || '',
-            lat: p.lat,
-            lng: p.lng,
-            order: index,
-            type: p.type,
-            completed: p.completed ?? false,
-            completedAt: p.completedAt ?? null,
-          })),
-        };
       }
+
+      // ✅ PASSO 2B: ROTA LIVRE OU FALLBACK -> USAR GEOCODING TRADICIONAL
+      console.log('🆓 [USE ROUTES] PASSO 2B: USANDO OTIMIZAÇÃO TRADICIONAL (GEOCODING)');
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          points: allPoints.map((point, index) => ({
+            id: point.id,
+            address: point.address,
+            cep: point.cep,
+            lat: point.lat,
+            lng: point.lng,
+            order: index,
+            type: point.type,
+            completed: point.completed ?? false,
+            completedAt: point.completedAt ?? null,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro na otimização tradicional da rota');
+      }
+
+      const optimizedData = await response.json();
+      console.log(`✅ [USE ROUTES] OTIMIZAÇÃO TRADICIONAL CONCLUÍDA`);
+
+      return {
+        optimizedOrder: optimizedData.optimizedOrder,
+        totalDistance: optimizedData.totalDistance,
+        estimatedTime: optimizedData.estimatedTime,
+        polyline: optimizedData.polyline,
+        detailedRoute: null,
+        points: optimizedData.points.map((p: any, index: number) => ({
+          id: p.id,
+          address: p.address,
+          cep: p.cep || '',
+          lat: p.lat,
+          lng: p.lng,
+          order: index,
+          type: p.type,
+          completed: p.completed ?? false,
+          completedAt: p.completedAt ?? null,
+        })),
+      };
+
     } catch (error) {
-      console.error('❌ [USE ROUTES] Error optimizing route:', error);
+      console.error('❌ [USE ROUTES] ERRO CRÍTICO NA OTIMIZAÇÃO:', error);
+      console.log('🎯 [USE ROUTES] ========================================');
       throw error;
+    } finally {
+      console.log('🎯 [USE ROUTES] ========================================');
     }
   };
 

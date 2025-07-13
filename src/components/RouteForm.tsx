@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -155,12 +154,15 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         return;
       }
 
-      console.log('🎯 [ROUTE FORM] Iniciando otimização com prioridade inteligente');
+      console.log('🎯 [ROUTE FORM] ========================================');
+      console.log('🎯 [ROUTE FORM] INICIANDO OTIMIZAÇÃO COM PRIORIDADE INTELIGENTE');
+      console.log(`🎯 [ROUTE FORM] Route ID: ${editingRoute?.id || 'NOVA ROTA'}`);
+      console.log(`🎯 [ROUTE FORM] Pontos: ${points.length}`);
       
-      // ✅ USAR SISTEMA PRIORIZADO (inteligente primeiro, tradicional como fallback)
+      // ✅ USAR SISTEMA PRIORIZADO - INTELLIGENT PRIMEIRO
       const result = await optimizeRoute(points, editingRoute?.id);
       
-      console.log('✅ [ROUTE FORM] Otimização concluída:', result);
+      console.log('✅ [ROUTE FORM] OTIMIZAÇÃO CONCLUÍDA:', result);
       
       setPoints(result.points);
       setTotalDistance(result.totalDistance);
@@ -172,15 +174,17 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       const pendingCount = result.points.filter((p: RoutePoint) => !p.completed).length;
       
       if (completedCount > 0) {
-        toast.success(`Rota otimizada preservando ${completedCount} pontos concluídos`);
-        console.log(`🛡️ [ROUTE FORM] ${completedCount} pontos preservados, ${pendingCount} otimizados`);
+        toast.success(`🧠 Otimização inteligente: ${completedCount} pontos preservados, ${pendingCount} otimizados`);
+        console.log(`🛡️ [ROUTE FORM] INTELLIGENT: ${completedCount} preservados + ${pendingCount} otimizados`);
       } else {
-        toast.success('Rota otimizada com sucesso');
-        console.log(`🆓 [ROUTE FORM] ${result.points.length} pontos otimizados (rota livre)`);
+        toast.success('🆓 Rota otimizada tradicionalmente');
+        console.log(`🆓 [ROUTE FORM] TRADITIONAL: ${result.points.length} pontos otimizados`);
       }
       
+      console.log('🎯 [ROUTE FORM] ========================================');
+      
     } catch (error) {
-      console.error('❌ [ROUTE FORM] Erro na otimização:', error);
+      console.error('❌ [ROUTE FORM] ERRO NA OTIMIZAÇÃO:', error);
       toast.error('Erro ao otimizar rota');
     } finally {
       setOptimizing(false);
@@ -328,7 +332,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                 onClick={handleOptimize}
                 disabled={optimizing}
               >
-                {optimizing ? 'Otimizando...' : 'Otimizar Rota'}
+                {optimizing ? 'Otimizando...' : '🧠 Otimizar Rota (Inteligente)'}
               </Button>
 
               <div className="flex gap-2">
