@@ -215,7 +215,8 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         return;
       }
 
-      const optimizedData = await optimizeRoute(validPoints, useIntelligent);
+      const optimizedData = await optimizeRoute(validPoints, isEditing ? editingRoute.id : undefined, useIntelligent);
+
 
       const preview = {
         name: routeName,
