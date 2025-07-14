@@ -77,6 +77,7 @@ export const useRoutes = () => {
   routeId?: string,
   useIntelligent: boolean = true
 ) => {
+  console.log('📥 optimizeRoute() - routeId recebido:', routeId, typeof routeId);
   try {
     console.log('🎯 [USE ROUTES] ========================================');
     console.log(
@@ -96,7 +97,7 @@ export const useRoutes = () => {
 
     const isValidUUID = (id: string) =>
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-
+    console.log('📥 optimizeRoute() - routeId recebido:', routeId, typeof routeId);
     if (useIntelligent && routeId && typeof routeId === 'string' && isValidUUID(routeId)) {
       console.log('🔍 [USE ROUTES] PASSO 1: Verificando uso da rota existente...');
 
