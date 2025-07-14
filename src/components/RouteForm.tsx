@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Trash2, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRoutes, RoutePoint, Route } from '@/hooks/useRoutes';
+import RouteOptimizationDialog from './RouteOptimizationDialog';
 
 // Define o schema de validação com Zod
 const routeSchema = z.object({
@@ -41,12 +42,13 @@ interface RouteFormProps {
 
 // Componente funcional RouteForm
 const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
-  const { optimizeRoute, getAddressByCep } = useRoutes();
+  const { getAddressByCep } = useRoutes();
   const [points, setPoints] = useState<RoutePoint[]>(editingRoute?.points || []);
   const [totalDistance, setTotalDistance] = useState<number>(editingRoute?.totalDistance || 0);
   const [estimatedTime, setEstimatedTime] = useState<string>(editingRoute?.estimatedTime || '');
   const [optimizedOrder, setOptimizedOrder] = useState<string[]>(editingRoute?.optimizedOrder || []);
   const [optimizing, setOptimizing] = useState(false);
+  const [showOptimizationDialog, setShowOptimizationDialog] = useState(false);
 
   // Inicializa o formulário com react-hook-form
   const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm<RouteFormData>({
@@ -112,7 +114,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   const handleRemovePoint = (index: number) => {
     const newPoints = [...points];
     newPoints.splice(index, 1);
-    // Recalcula a ordem dos pontos restantes
     const updatedPoints = newPoints.map((point, i) => ({ ...point, order: i }));
     setPoints(updatedPoints);
   };
@@ -145,44 +146,131 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     setPoints(newPoints);
   };
 
-  const handleOptimize = async () => {
+  const handleOptimizeClick = () => {
+    if (points.length < 2) {
+      toast.error('É necessário pelo menos 2 pontos para otimizar a rota');
+      return;
+    }
+    setShowOptimizationDialog(true);
+  };
+
+  const handleOptimizationChoice = async (useIntelligent: boolean) => {
     try {
       setOptimizing(true);
       
-      if (points.length < 2) {
-        toast.error('É necessário pelo menos 2 pontos para otimizar a rota');
-        return;
-      }
-
       console.log('🎯 [ROUTE FORM] ========================================');
-      console.log('🎯 [ROUTE FORM] INICIANDO OTIMIZAÇÃO PRIORITÁRIA');
+      console.log(`🎯 [ROUTE FORM] OTIMIZAÇÃO ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'} ESCOLHIDA PELO USUÁRIO`);
       console.log(`🎯 [ROUTE FORM] Route ID: ${editingRoute?.id || 'NOVA ROTA'}`);
       console.log(`🎯 [ROUTE FORM] Pontos: ${points.length}`);
       
-      // 🚫 BLOQUEIO: NUNCA CHAMAR GEOCODING DIRETAMENTE
-      // ✅ SEMPRE USAR A FUNÇÃO optimizeRoute QUE JÁ TEM A LÓGICA CORRETA
-      const result = await optimizeRoute(points, editingRoute?.id);
+      let result;
       
-      console.log('✅ [ROUTE FORM] RESULTADO RECEBIDO:', result);
+      if (useIntelligent && editingRoute?.id) {
+        // ✅ FORÇAR OTIMIZAÇÃO INTELIGENTE
+        console.log('🧠 [ROUTE FORM] FORÇANDO OTIMIZAÇÃO INTELIGENTE');
+        
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/routes/${editingRoute.id}/optimize-intelligent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            points: points.map((point, index) => ({
+              id: point.id,
+              address: point.address,
+              cep: point.cep,
+              lat: point.lat,
+              lng: point.lng,
+              order: index,
+              type: point.type,
+              completed: point.completed ?? false,
+              completedAt: point.completedAt ?? null,
+            })),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro na otimização inteligente');
+        }
+
+        const intelligentData = await response.json();
+        
+        result = {
+          points: intelligentData.points.map((p: any, index: number) => ({
+            id: p.id,
+            address: p.address,
+            cep: p.cep || '',
+            lat: p.lat,
+            lng: p.lng,
+            order: index,
+            type: p.type,
+            completed: p.completed ?? false,
+            completedAt: p.completedAt ?? null,
+          })),
+          totalDistance: intelligentData.totalDistance,
+          estimatedTime: intelligentData.estimatedTime,
+          optimizedOrder: intelligentData.optimizedOrder,
+        };
+        
+        toast.success(`🧠 Otimização Inteligente: ${intelligentData.preservedPoints || 0} pontos preservados`);
+        
+      } else {
+        // ✅ FORÇAR OTIMIZAÇÃO TRADICIONAL
+        console.log('🆓 [ROUTE FORM] FORÇANDO OTIMIZAÇÃO TRADICIONAL');
+        
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/geocoding/optimize`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            points: points.map((point, index) => ({
+              id: point.id,
+              address: point.address,
+              cep: point.cep,
+              lat: point.lat,
+              lng: point.lng,
+              order: index,
+              type: point.type,
+              completed: point.completed ?? false,
+              completedAt: point.completedAt ?? null,
+            })),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro na otimização tradicional');
+        }
+
+        const optimizedData = await response.json();
+        
+        result = {
+          points: optimizedData.points.map((p: any, index: number) => ({
+            id: p.id,
+            address: p.address,
+            cep: p.cep || '',
+            lat: p.lat,
+            lng: p.lng,
+            order: index,
+            type: p.type,
+            completed: false,
+            completedAt: null,
+          })),
+          totalDistance: optimizedData.totalDistance,
+          estimatedTime: optimizedData.estimatedTime,
+          optimizedOrder: optimizedData.optimizedOrder,
+        };
+        
+        toast.success(`🆓 Otimização Tradicional: ${result.points.length} pontos otimizados`);
+      }
       
-      // ✅ APLICAR RESULTADOS NO FORMULÁRIO
+      // ✅ APLICAR RESULTADOS
       setPoints(result.points);
       setTotalDistance(result.totalDistance);
       setEstimatedTime(result.estimatedTime);
       setOptimizedOrder(result.optimizedOrder);
       
-      // ✅ FEEDBACK INTELIGENTE BASEADO NO RESULTADO
-      const completedCount = result.points.filter((p: RoutePoint) => p.completed).length;
-      const totalCount = result.points.length;
-      
-      if (completedCount > 0) {
-        toast.success(`🧠 Otimização Inteligente: ${completedCount} pontos preservados, ${totalCount - completedCount} otimizados`);
-        console.log(`🛡️ [ROUTE FORM] INTELLIGENT APLICADA: ${completedCount} preservados + ${totalCount - completedCount} otimizados`);
-      } else {
-        toast.success(`🆓 Otimização Tradicional: ${totalCount} pontos otimizados`);
-        console.log(`🆓 [ROUTE FORM] GEOCODING FALLBACK: ${totalCount} pontos`);
-      }
-      
+      console.log('✅ [ROUTE FORM] OTIMIZAÇÃO CONCLUÍDA');
       console.log('🎯 [ROUTE FORM] ========================================');
       
     } catch (error) {
@@ -331,10 +419,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleOptimize}
+                onClick={handleOptimizeClick}
                 disabled={optimizing}
               >
-                {optimizing ? 'Otimizando...' : '🧠 Otimizar Rota (Prioridade Inteligente)'}
+                {optimizing ? 'Otimizando...' : '🎯 Gerar Preview da Rota'}
               </Button>
 
               <div className="flex gap-2">
@@ -351,6 +439,13 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
           </form>
         </CardContent>
       </Card>
+
+      <RouteOptimizationDialog
+        open={showOptimizationDialog}
+        onOpenChange={setShowOptimizationDialog}
+        onConfirm={handleOptimizationChoice}
+        isOptimizing={optimizing}
+      />
     </div>
   );
 };
