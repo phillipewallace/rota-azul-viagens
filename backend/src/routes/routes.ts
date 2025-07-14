@@ -533,6 +533,10 @@ router.put('/:id', async (req, res) => {
             [id, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
           );
         }
+        
+        // ✅ USAR FUNÇÃO SEGURA DE REORDENAÇÃO (SEM TRIGGER)
+        console.log(`🔧 [ROUTE UPDATE] Reordenando pontos com função segura`);
+        await client.query('SELECT reorder_route_points($1)', [id]);
       }
     }
     
