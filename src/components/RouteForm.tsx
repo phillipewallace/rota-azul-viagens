@@ -35,14 +35,14 @@ type RouteFormData = z.infer<typeof routeSchema>;
 
 // Define a interface para as propriedades do componente
 interface RouteFormProps {
-  onSubmit: () => void;
+  onSubmit: (routeData: any) => void;
   editingRoute?: Route;
   onCancel?: () => void;
 }
 
 // Componente funcional RouteForm
 const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
-  const { getAddressByCep } = useRoutes();
+  const { getAddressByCep, createOrUpdateRoute } = useRoutes();
   const [points, setPoints] = useState<RoutePoint[]>(editingRoute?.points || []);
   const [totalDistance, setTotalDistance] = useState<number>(editingRoute?.totalDistance || 0);
   const [estimatedTime, setEstimatedTime] = useState<string>(editingRoute?.estimatedTime || '');
@@ -146,17 +146,24 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     setPoints(newPoints);
   };
 
+  // Função para gerar o preview da rota
   const handleOptimizeClick = () => {
+    console.log('🎯 [ROUTE FORM] Clicou em Gerar Preview - Forçando exibição do diálogo');
+    
     if (points.length < 2) {
       toast.error('É necessário pelo menos 2 pontos para otimizar a rota');
       return;
     }
+    
+    // Garantir que o diálogo seja exibido
     setShowOptimizationDialog(true);
+    console.log('🎯 [ROUTE FORM] Diálogo definido como TRUE');
   };
 
   const handleOptimizationChoice = async (useIntelligent: boolean) => {
     try {
       setOptimizing(true);
+      setShowOptimizationDialog(false); // Fechar diálogo primeiro
       
       console.log('🎯 [ROUTE FORM] ========================================');
       console.log(`🎯 [ROUTE FORM] OTIMIZAÇÃO ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'} ESCOLHIDA PELO USUÁRIO`);
@@ -166,7 +173,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       let result;
       
       if (useIntelligent && editingRoute?.id) {
-        // ✅ FORÇAR OTIMIZAÇÃO INTELIGENTE
         console.log('🧠 [ROUTE FORM] FORÇANDO OTIMIZAÇÃO INTELIGENTE');
         
         const response = await fetch(`${import.meta.env.VITE_API_URL}/routes/${editingRoute.id}/optimize-intelligent`, {
@@ -215,7 +221,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         toast.success(`🧠 Otimização Inteligente: ${intelligentData.preservedPoints || 0} pontos preservados`);
         
       } else {
-        // ✅ FORÇAR OTIMIZAÇÃO TRADICIONAL
         console.log('🆓 [ROUTE FORM] FORÇANDO OTIMIZAÇÃO TRADICIONAL');
         
         const response = await fetch(`${import.meta.env.VITE_API_URL}/geocoding/optimize`, {
@@ -282,16 +287,36 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   };
 
   // Função para lidar com o envio do formulário
-  const onSubmitData = (data: RouteFormData) => {
-    const routeData = {
-      ...data,
-      points: points,
-      totalDistance: totalDistance,
-      estimatedTime: estimatedTime,
-      optimizedOrder: optimizedOrder,
-    };
-    console.log('Dados da rota a serem enviados:', routeData);
-    onSubmit();
+  const onSubmitData = async (data: RouteFormData) => {
+    try {
+      console.log('📤 [ROUTE FORM] Enviando dados da rota...');
+      
+      const routeData = {
+        id: editingRoute?.id,
+        name: data.name,
+        description: data.description || '',
+        points: points,
+        totalDistance: totalDistance,
+        estimatedTime: estimatedTime,
+        optimizedOrder: optimizedOrder,
+        status: editingRoute?.status || 'active',
+      };
+      
+      console.log('📤 [ROUTE FORM] Dados da rota:', routeData);
+      
+      // ✅ USAR O MÉTODO createOrUpdateRoute
+      const result = await createOrUpdateRoute(routeData);
+      
+      console.log('✅ [ROUTE FORM] Rota salva com sucesso:', result);
+      toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
+      
+      // ✅ CHAMAR onSubmit para fechar o modal
+      onSubmit(result);
+      
+    } catch (error: any) {
+      console.error('❌ [ROUTE FORM] Erro ao salvar rota:', error);
+      toast.error(error.message || 'Erro ao salvar rota');
+    }
   };
 
   return (
@@ -440,6 +465,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         </CardContent>
       </Card>
 
+      {/* ✅ DIÁLOGO DE OTIMIZAÇÃO */}
       <RouteOptimizationDialog
         open={showOptimizationDialog}
         onOpenChange={setShowOptimizationDialog}
