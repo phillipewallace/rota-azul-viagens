@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
+import { ExtendedRouteOptimizer } from '../services/extendedRouteOptimizer';
 
 const router = Router();
 
@@ -155,7 +156,7 @@ router.get('/:id/check-usage', async (req, res) => {
   }
 });
 
-// ✅ NOVO ENDPOINT - OTIMIZAÇÃO INTELIGENTE PRIORITÁRIA
+// ✅ ENDPOINT APRIMORADO - OTIMIZAÇÃO INTELIGENTE PRIORITÁRIA COM SUPORTE EXTENDIDO
 router.post('/:id/optimize-intelligent', async (req, res) => {
   const client = await pool.connect();
   
@@ -198,7 +199,52 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
 
     console.log(`🚛 [INTELLIGENT OPTIMIZE] Rota em uso por ${trucksUsingRoute.rows.length} caminhão(ões)`);
 
-    // ✅ APLICAR PRESERVAÇÃO INTELIGENTE
+    // ✅ DETECTAR SE É ROTA EXTENSA
+    if (points.length > 25) {
+      console.log(`🔢 [INTELLIGENT OPTIMIZE] Rota extensa detectada (${points.length} pontos) - usando otimizador avançado`);
+      
+      const extendedResult = await ExtendedRouteOptimizer.optimizeExtendedRoute(id, points);
+      
+      // ✅ ATUALIZAR ROTA COM DADOS OTIMIZADOS ESTENDIDOS
+      await client.query(
+        `UPDATE routes SET 
+         points = $1, 
+         total_distance = $2, 
+         estimated_time = $3, 
+         estimated_duration = $4,
+         updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $5`,
+        [
+          JSON.stringify(extendedResult.points),
+          extendedResult.totalDistance,
+          extendedResult.estimatedTime,
+          Math.round(parseTimeToMinutes(extendedResult.estimatedTime)),
+          id
+        ]
+      );
+
+      await client.query('COMMIT');
+
+      console.log(`✅ [INTELLIGENT OPTIMIZE] Otimização extensa concluída`);
+      console.log(`📊 [INTELLIGENT OPTIMIZE] ${extendedResult.points.filter(p => p.completed).length} pontos preservados`);
+      console.log(`📊 [INTELLIGENT OPTIMIZE] ${extendedResult.points.filter(p => !p.completed).length} pontos otimizados`);
+      console.log(`📦 [INTELLIGENT OPTIMIZE] ${extendedResult.batchCount} lotes processados`);
+      console.log(`🧠 [INTELLIGENT OPTIMIZE] ========================================`);
+
+      return res.json({
+        message: 'Otimização inteligente extensa concluída',
+        points: extendedResult.points,
+        optimizedOrder: extendedResult.optimizedOrder,
+        totalDistance: extendedResult.totalDistance,
+        estimatedTime: extendedResult.estimatedTime,
+        preservedPoints: extendedResult.points.filter(p => p.completed).length,
+        optimizedPoints: extendedResult.points.filter(p => !p.completed).length,
+        batchCount: extendedResult.batchCount,
+        isExtended: true
+      });
+    }
+
+    // ✅ APLICAR PRESERVAÇÃO INTELIGENTE NORMAL (≤25 pontos)
     const finalPoints = await preserveCompletedPointsIntelligently(client, id, points);
 
     // ✅ CALCULAR MÉTRICAS
@@ -240,7 +286,8 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
       totalDistance: totalDistance,
       estimatedTime: estimatedTime,
       preservedPoints: finalPoints.filter(p => p.completed).length,
-      optimizedPoints: finalPoints.filter(p => !p.completed).length
+      optimizedPoints: finalPoints.filter(p => !p.completed).length,
+      isExtended: false
     });
 
   } catch (error) {
@@ -252,7 +299,17 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
   }
 });
 
-// ✅ FUNÇÃO AUXILIAR - CALCULAR DISTÂNCIA TOTAL
+// ✅ FUNÇÃO AUXILIAR APRIMORADA - PARSING DE TEMPO
+function parseTimeToMinutes(timeString: string): number {
+  const hourMatch = timeString.match(/(\d+)h/);
+  const minMatch = timeString.match(/(\d+)min/);
+  
+  const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
+  const minutes = minMatch ? parseInt(minMatch[1]) : 0;
+  
+  return hours * 60 + minutes;
+}
+
 function calculateTotalDistanceFromPoints(points: any[]): number {
   if (points.length < 2) return 0;
   

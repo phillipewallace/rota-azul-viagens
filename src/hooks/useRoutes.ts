@@ -83,8 +83,11 @@ export const useRoutes = () => {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      // 🚫 BLOQUEIO ABSOLUTO DO GEOCODING DIRETO
-      console.log('🛡️ [USE ROUTES] VERIFICAÇÃO OBRIGATÓRIA: Route ID existe?', !!routeId);
+      // 🔢 DETECTAR ROTA EXTENSA
+      if (allPoints.length > 25) {
+        console.log(`🔢 [USE ROUTES] ROTA EXTENSA DETECTADA (${allPoints.length} pontos)`);
+        console.log(`📦 [USE ROUTES] Será processada em lotes de até 23 pontos`);
+      }
 
       // ✅ PASSO 1: SE TEMOS ROUTE ID -> VERIFICAR USO E TENTAR INTELLIGENT
       if (routeId) {
@@ -122,6 +125,11 @@ export const useRoutes = () => {
             console.log(`✅ [USE ROUTES] SUCESSO INTELLIGENT: ${intelligentData.optimizedOrder?.length || 0} pontos`);
             console.log(`🛡️ [USE ROUTES] Pontos preservados: ${intelligentData.preservedPoints || 0}`);
             console.log(`🎯 [USE ROUTES] Pontos otimizados: ${intelligentData.optimizedPoints || 0}`);
+            
+            if (intelligentData.isExtended) {
+              console.log(`📦 [USE ROUTES] Processamento em lotes: ${intelligentData.batchCount} lotes`);
+            }
+            
             console.log('🎯 [USE ROUTES] ========================================');
 
             return {
@@ -141,6 +149,8 @@ export const useRoutes = () => {
                 completed: p.completed ?? false,
                 completedAt: p.completedAt ?? null,
               })),
+              isExtended: intelligentData.isExtended,
+              batchCount: intelligentData.batchCount
             };
           } else {
             console.log('⚠️ [USE ROUTES] Intelligent falhou com status:', response.status);
@@ -155,6 +165,12 @@ export const useRoutes = () => {
 
       // ✅ FALLBACK: GEOCODING TRADICIONAL (APENAS SE INTELLIGENT FALHOU)
       console.log('🔄 [USE ROUTES] FALLBACK: Usando otimização tradicional');
+      
+      // 🔢 VERIFICAR SE PRECISA PROCESSAR EM LOTES PARA GEOCODING
+      if (allPoints.length > 25) {
+        console.log(`⚠️ [USE ROUTES] ATENÇÃO: Geocoding com ${allPoints.length} pontos pode falhar`);
+        console.log(`💡 [USE ROUTES] RECOMENDAÇÃO: Use otimização inteligente para rotas extensas`);
+      }
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
         method: 'POST',
@@ -201,6 +217,8 @@ export const useRoutes = () => {
           completed: p.completed ?? false,
           completedAt: p.completedAt ?? null,
         })),
+        isExtended: false,
+        batchCount: 1
       };
 
     } catch (error) {
