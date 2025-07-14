@@ -42,7 +42,7 @@ interface RouteFormProps {
 
 // Componente funcional RouteForm
 const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
-  const { getAddressByCep, createOrUpdateRoute } = useRoutes();
+  const { getAddressByCep, createRoute, updateRoute } = useRoutes();
   const [points, setPoints] = useState<RoutePoint[]>(editingRoute?.points || []);
   const [totalDistance, setTotalDistance] = useState<number>(editingRoute?.totalDistance || 0);
   const [estimatedTime, setEstimatedTime] = useState<string>(editingRoute?.estimatedTime || '');
@@ -292,20 +292,25 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       console.log('📤 [ROUTE FORM] Enviando dados da rota...');
       
       const routeData = {
-        id: editingRoute?.id,
         name: data.name,
         description: data.description || '',
         points: points,
         totalDistance: totalDistance,
         estimatedTime: estimatedTime,
         optimizedOrder: optimizedOrder,
-        status: editingRoute?.status || 'active',
+        status: (editingRoute?.status || 'active') as 'active' | 'inactive' | 'completed',
       };
       
       console.log('📤 [ROUTE FORM] Dados da rota:', routeData);
       
-      // ✅ USAR O MÉTODO createOrUpdateRoute
-      const result = await createOrUpdateRoute(routeData);
+      let result;
+      if (editingRoute?.id) {
+        // ✅ ATUALIZAR ROTA EXISTENTE
+        result = await updateRoute(editingRoute.id, routeData);
+      } else {
+        // ✅ CRIAR NOVA ROTA
+        result = await createRoute(routeData);
+      }
       
       console.log('✅ [ROUTE FORM] Rota salva com sucesso:', result);
       toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
