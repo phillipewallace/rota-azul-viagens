@@ -72,10 +72,16 @@ export const useRoutes = () => {
     }
   };
 
-  const optimizeRoute = async (allPoints: RoutePoint[], routeId?: string) => {
+ const optimizeRoute = async (
+  allPoints: RoutePoint[],
+  routeId?: string,
+  useIntelligent: boolean = true
+) => {
   try {
     console.log('🎯 [USE ROUTES] ========================================');
-    console.log('🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO PRIORITÁRIA INTELIGENTE');
+    console.log(
+      `🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`
+    );
     console.log(`🎯 [USE ROUTES] Route ID: ${routeId || 'NOVA ROTA'}`);
     console.log(`🎯 [USE ROUTES] Pontos para otimizar: ${allPoints.length}`);
 
@@ -83,31 +89,29 @@ export const useRoutes = () => {
       throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
     }
 
-    // Detectar rota extensa
     if (allPoints.length > 25) {
       console.log(`🔢 [USE ROUTES] ROTA EXTENSA DETECTADA (${allPoints.length} pontos)`);
       console.log(`📦 [USE ROUTES] Será processada em lotes de até 23 pontos`);
     }
 
-    // Validar se routeId é uma string UUID válida antes de tentar otimização inteligente
     const isValidUUID = (id: string) =>
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
-    if (routeId && typeof routeId === 'string' && isValidUUID(routeId)) {
+    if (useIntelligent && routeId && typeof routeId === 'string' && isValidUUID(routeId)) {
       console.log('🔍 [USE ROUTES] PASSO 1: Verificando uso da rota existente...');
 
       const isRouteInUse = await checkRouteInUse(routeId);
-      console.log(`${isRouteInUse ? '🚛' : '🆓'} [USE ROUTES] Rota ${routeId} ${isRouteInUse ? 'EM USO' : 'LIVRE'}`);
-
-      // Tentativa obrigatória de otimização inteligente
-      console.log('🧠 [USE ROUTES] TENTATIVA OBRIGATÓRIA: Otimização Inteligente');
+      console.log(
+        `${isRouteInUse ? '🚛' : '🆓'} [USE ROUTES] Rota ${routeId} ${
+          isRouteInUse ? 'EM USO' : 'LIVRE'
+        }`
+      );
 
       try {
+        console.log('🧠 [USE ROUTES] TENTATIVA: Otimização Inteligente');
         const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             points: allPoints.map((point, index) => ({
               id: point.id,
@@ -129,7 +133,6 @@ export const useRoutes = () => {
           console.log(`✅ [USE ROUTES] SUCESSO INTELLIGENT: ${intelligentData.optimizedOrder?.length || 0} pontos`);
           console.log(`🛡️ [USE ROUTES] Pontos preservados: ${intelligentData.preservedPoints || 0}`);
           console.log(`🎯 [USE ROUTES] Pontos otimizados: ${intelligentData.optimizedPoints || 0}`);
-
           if (intelligentData.isExtended) {
             console.log(`📦 [USE ROUTES] Processamento em lotes: ${intelligentData.batchCount} lotes`);
           }
@@ -165,22 +168,17 @@ export const useRoutes = () => {
         console.error('❌ [USE ROUTES] Erro na chamada Intelligent:', intelligentError);
       }
     } else {
-      console.log('⚠️ [USE ROUTES] routeId inválido ou não fornecido, pulando otimização inteligente');
+      if (useIntelligent) {
+        console.log('⚠️ [USE ROUTES] routeId inválido ou não fornecido, pulando otimização inteligente');
+      }
     }
 
-    // Fallback: otimização tradicional
+    // Fallback tradicional
     console.log('🔄 [USE ROUTES] FALLBACK: Usando otimização tradicional');
-
-    if (allPoints.length > 25) {
-      console.log(`⚠️ [USE ROUTES] ATENÇÃO: Geocoding com ${allPoints.length} pontos pode falhar`);
-      console.log(`💡 [USE ROUTES] RECOMENDAÇÃO: Use otimização inteligente para rotas extensas`);
-    }
 
     const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         points: allPoints.map((point, index) => ({
           id: point.id,
