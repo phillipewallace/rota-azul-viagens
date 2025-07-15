@@ -56,28 +56,14 @@ export const useRoutes = () => {
     }
   };
 
-  const checkRouteInUse = async (routeId?: string) => {
-    if (!routeId) return false;
-    
-    try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/check-usage`);
-      if (response.ok) {
-        const data = await response.json();
-        return data.inUse || false;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error checking route usage:', error);
-      return false;
-    }
-  };
-
   const optimizeRoute = async (
     allPoints: RoutePoint[],
     routeId?: string,
     useIntelligent: boolean = true
   ) => {
     const startTime = Date.now();
+    const TIMEOUT_MS = 30000; // 30 segundos
+    
     try {
       console.log('🎯🎯🎯 [USE ROUTES] ========================================');
       console.log(`🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
@@ -89,20 +75,21 @@ export const useRoutes = () => {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      if (allPoints.length > 25) {
-        console.log(`🔢 [USE ROUTES] ROTA EXTENSA DETECTADA (${allPoints.length} pontos)`);
-        console.log(`📦 [USE ROUTES] Será processada em lotes de até 23 pontos`);
-      }
-
+      // ✅ VALIDAÇÃO MELHORADA DE UUID
       const isValidUUID = (id: string) =>
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
+      // ✅ OTIMIZAÇÃO INTELIGENTE COM TIMEOUT
       if (useIntelligent && routeId && typeof routeId === 'string' && isValidUUID(routeId)) {
         console.log('🧠 [USE ROUTES] EXECUTANDO: Otimização Inteligente');
-        console.log(`🧠 [USE ROUTES] Endpoint: ${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`);
+        console.log(`🧠 [USE ROUTES] Endpoint: ${API_CONFIG.BASE_URL}/api/routes/${routeId}/optimize-intelligent`);
 
         try {
-          const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
+          // ✅ IMPLEMENTAR TIMEOUT
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+          
+          const response = await fetch(`${API_CONFIG.BASE_URL}/api/routes/${routeId}/optimize-intelligent`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -118,8 +105,10 @@ export const useRoutes = () => {
                 completedAt: point.completedAt ?? null,
               })),
             }),
+            signal: controller.signal
           });
 
+          clearTimeout(timeoutId);
           console.log(`🌐 [USE ROUTES] Resposta do servidor: ${response.status} ${response.statusText}`);
 
           if (response.ok) {
@@ -130,13 +119,7 @@ export const useRoutes = () => {
             console.log(`   - Pontos na resposta: ${intelligentData.optimizedOrder?.length || 0}`);
             console.log(`   - Pontos preservados: ${intelligentData.preservedPoints || 0}`);
             console.log(`   - Pontos otimizados: ${intelligentData.optimizedPoints || 0}`);
-            console.log(`   - Processamento em lotes: ${intelligentData.isExtended ? 'SIM' : 'NÃO'}`);
             console.log(`   - Tempo total: ${processingTime}ms`);
-            
-            if (intelligentData.isExtended) {
-              console.log(`📦 [USE ROUTES] Lotes processados: ${intelligentData.batchCount}`);
-            }
-
             console.log('🎯🎯🎯 [USE ROUTES] ========================================');
 
             return {
@@ -166,6 +149,11 @@ export const useRoutes = () => {
             throw new Error(`Erro ${response.status}: ${errorText}`);
           }
         } catch (intelligentError) {
+          if (intelligentError.name === 'AbortError') {
+            console.error('❌❌❌ [USE ROUTES] Timeout na otimização inteligente');
+            throw new Error('Timeout na otimização inteligente. Tente novamente.');
+          }
+          
           console.error('❌❌❌ [USE ROUTES] Erro na chamada Intelligent:');
           console.error(`   - Erro: ${intelligentError.message}`);
           console.error(`   - Tipo: ${intelligentError.name}`);
@@ -177,11 +165,14 @@ export const useRoutes = () => {
         }
       }
 
-      // Fallback tradicional
+      // ✅ FALLBACK TRADICIONAL COM TIMEOUT
       console.log('🔄 [USE ROUTES] FALLBACK: Usando otimização tradicional');
-      console.log(`🔄 [USE ROUTES] Endpoint: ${API_CONFIG.BASE_URL}/geocoding/optimize`);
+      console.log(`🔄 [USE ROUTES] Endpoint: ${API_CONFIG.BASE_URL}/api/geocoding/optimize`);
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/geocoding/optimize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -197,7 +188,10 @@ export const useRoutes = () => {
             completedAt: point.completedAt ?? null,
           })),
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('Erro na otimização tradicional da rota');
@@ -231,6 +225,14 @@ export const useRoutes = () => {
       };
     } catch (error) {
       const processingTime = Date.now() - startTime;
+      
+      if (error.name === 'AbortError') {
+        console.error('❌❌❌ [USE ROUTES] TIMEOUT NA OTIMIZAÇÃO:');
+        console.error(`   - Tempo até o timeout: ${processingTime}ms`);
+        console.log('🎯🎯🎯 [USE ROUTES] ========================================');
+        throw new Error('Tempo limite excedido. A otimização está demorando muito.');
+      }
+      
       console.error('❌❌❌ [USE ROUTES] ERRO CRÍTICO NA OTIMIZAÇÃO:');
       console.error(`   - Erro: ${error.message}`);
       console.error(`   - Tempo até o erro: ${processingTime}ms`);
