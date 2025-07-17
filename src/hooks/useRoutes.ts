@@ -62,36 +62,40 @@ export const useRoutes = () => {
     useIntelligent: boolean = true
   ) => {
     const startTime = Date.now();
-    const TIMEOUT_MS = 30000; // 30 segundos
+    const TIMEOUT_MS = 45000; // 45 segundos para otimização
     
     try {
       console.log('🎯🎯🎯 [USE ROUTES] ========================================');
       console.log(`🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
       console.log(`🎯 [USE ROUTES] Route ID: ${routeId || 'NOVA ROTA'}`);
       console.log(`🎯 [USE ROUTES] Pontos para otimizar: ${allPoints.length}`);
+      console.log(`🎯 [USE ROUTES] API Base URL: ${API_CONFIG.BASE_URL}`);
       console.log(`🎯 [USE ROUTES] Timestamp: ${new Date().toISOString()}`);
 
       if (!allPoints || allPoints.length < 2) {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      // ✅ VALIDAÇÃO MELHORADA DE UUID
+      // ✅ VALIDAÇÃO DE UUID MELHORADA
       const isValidUUID = (id: string) =>
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
-      // ✅ OTIMIZAÇÃO INTELIGENTE COM TIMEOUT
+      // ✅ OTIMIZAÇÃO INTELIGENTE COM VALIDAÇÕES ROBUSTAS
       if (useIntelligent && routeId && typeof routeId === 'string' && isValidUUID(routeId)) {
         console.log('🧠 [USE ROUTES] EXECUTANDO: Otimização Inteligente');
-        console.log(`🧠 [USE ROUTES] Endpoint: ${API_CONFIG.BASE_URL}/api/routes/${routeId}/optimize-intelligent`);
+        const intelligentUrl = `${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`;
+        console.log(`🧠 [USE ROUTES] Endpoint: ${intelligentUrl}`);
 
         try {
-          // ✅ IMPLEMENTAR TIMEOUT
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
           
-          const response = await fetch(`${API_CONFIG.BASE_URL}/api/routes/${routeId}/optimize-intelligent`, {
+          const response = await fetch(intelligentUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
             body: JSON.stringify({
               points: allPoints.map((point, index) => ({
                 id: point.id,
@@ -110,16 +114,19 @@ export const useRoutes = () => {
 
           clearTimeout(timeoutId);
           console.log(`🌐 [USE ROUTES] Resposta do servidor: ${response.status} ${response.statusText}`);
+          console.log(`🌐 [USE ROUTES] Response headers:`, Object.fromEntries(response.headers.entries()));
 
           if (response.ok) {
             const intelligentData = await response.json();
             const processingTime = Date.now() - startTime;
 
             console.log(`✅✅✅ [USE ROUTES] SUCESSO INTELLIGENT:`);
-            console.log(`   - Pontos na resposta: ${intelligentData.optimizedOrder?.length || 0}`);
-            console.log(`   - Pontos preservados: ${intelligentData.preservedPoints || 0}`);
-            console.log(`   - Pontos otimizados: ${intelligentData.optimizedPoints || 0}`);
-            console.log(`   - Tempo total: ${processingTime}ms`);
+            console.log(`   📊 Pontos na resposta: ${intelligentData.optimizedOrder?.length || 0}`);
+            console.log(`   📊 Pontos preservados: ${intelligentData.preservedPoints || 0}`);
+            console.log(`   📊 Pontos otimizados: ${intelligentData.optimizedPoints || 0}`);
+            console.log(`   📊 Distância: ${intelligentData.totalDistance}km`);
+            console.log(`   📊 Tempo estimado: ${intelligentData.estimatedTime}`);
+            console.log(`   📊 Tempo total de processamento: ${processingTime}ms`);
             console.log('🎯🎯🎯 [USE ROUTES] ========================================');
 
             return {
@@ -155,8 +162,8 @@ export const useRoutes = () => {
           }
           
           console.error('❌❌❌ [USE ROUTES] Erro na chamada Intelligent:');
-          console.error(`   - Erro: ${intelligentError.message}`);
-          console.error(`   - Tipo: ${intelligentError.name}`);
+          console.error(`   💥 Erro: ${intelligentError.message}`);
+          console.error(`   💥 Tipo: ${intelligentError.name}`);
           throw intelligentError;
         }
       } else {
@@ -165,16 +172,20 @@ export const useRoutes = () => {
         }
       }
 
-      // ✅ FALLBACK TRADICIONAL COM TIMEOUT
+      // ✅ FALLBACK TRADICIONAL COM MELHORIAS
       console.log('🔄 [USE ROUTES] FALLBACK: Usando otimização tradicional');
-      console.log(`🔄 [USE ROUTES] Endpoint: ${API_CONFIG.BASE_URL}/api/geocoding/optimize`);
+      const traditionalUrl = `${API_CONFIG.BASE_URL}/geocoding/optimize`;
+      console.log(`🔄 [USE ROUTES] Endpoint: ${traditionalUrl}`);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/geocoding/optimize`, {
+      const response = await fetch(traditionalUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({
           points: allPoints.map((point, index) => ({
             id: point.id,
@@ -194,7 +205,8 @@ export const useRoutes = () => {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error('Erro na otimização tradicional da rota');
+        const errorText = await response.text();
+        throw new Error(`Erro na otimização tradicional: ${errorText}`);
       }
 
       const optimizedData = await response.json();
@@ -228,15 +240,15 @@ export const useRoutes = () => {
       
       if (error.name === 'AbortError') {
         console.error('❌❌❌ [USE ROUTES] TIMEOUT NA OTIMIZAÇÃO:');
-        console.error(`   - Tempo até o timeout: ${processingTime}ms`);
+        console.error(`   ⏱️ Tempo até o timeout: ${processingTime}ms`);
         console.log('🎯🎯🎯 [USE ROUTES] ========================================');
         throw new Error('Tempo limite excedido. A otimização está demorando muito.');
       }
       
       console.error('❌❌❌ [USE ROUTES] ERRO CRÍTICO NA OTIMIZAÇÃO:');
-      console.error(`   - Erro: ${error.message}`);
-      console.error(`   - Tempo até o erro: ${processingTime}ms`);
-      console.error(`   - Stack: ${error.stack}`);
+      console.error(`   💥 Erro: ${error.message}`);
+      console.error(`   ⏱️ Tempo até o erro: ${processingTime}ms`);
+      console.error(`   📋 Stack: ${error.stack}`);
       console.log('🎯🎯🎯 [USE ROUTES] ========================================');
       throw error;
     }

@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Brain, Settings } from 'lucide-react';
+import { Brain, Settings, Loader2 } from 'lucide-react';
 
 interface RouteOptimizationDialogProps {
   open: boolean;
@@ -27,101 +27,162 @@ const RouteOptimizationDialog = ({
 }: RouteOptimizationDialogProps) => {
   
   React.useEffect(() => {
-    console.log('🎯🎯🎯 [OPTIMIZATION DIALOG] Estado atual:', { open, isOptimizing });
+    console.log('🎯🎯🎯 [OPTIMIZATION DIALOG] Estado atualizado:', { 
+      open, 
+      isOptimizing,
+      timestamp: new Date().toISOString()
+    });
   }, [open, isOptimizing]);
 
   const handleIntelligentOptimization = () => {
-    console.log('🧠 [OPTIMIZATION DIALOG] Usuário escolheu: INTELIGENTE');
+    console.log('🧠 [OPTIMIZATION DIALOG] Usuário escolheu: OTIMIZAÇÃO INTELIGENTE');
     onConfirm(true);
   };
 
   const handleTraditionalOptimization = () => {
-    console.log('🆓 [OPTIMIZATION DIALOG] Usuário escolheu: TRADICIONAL');
+    console.log('🆓 [OPTIMIZATION DIALOG] Usuário escolheu: OTIMIZAÇÃO TRADICIONAL');
     onConfirm(false);
   };
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-lg mx-4 sm:mx-auto">
-        <AlertDialogHeader className="text-center space-y-3">
-          <AlertDialogTitle className="text-xl font-bold flex items-center justify-center gap-2">
-            <Settings className="h-6 w-6" />
+      <AlertDialogContent className="sm:max-w-2xl mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
+        <AlertDialogHeader className="text-center space-y-4 pb-6">
+          <AlertDialogTitle className="text-2xl font-bold flex items-center justify-center gap-3">
+            <Settings className="h-7 w-7 text-blue-600" />
             Escolha o Tipo de Otimização
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-base text-muted-foreground">
-            Como você gostaria de otimizar esta rota?
+          <AlertDialogDescription className="text-lg text-muted-foreground">
+            Selecione como você gostaria de otimizar esta rota:
           </AlertDialogDescription>
         </AlertDialogHeader>
         
-        <div className="space-y-3 my-6">
-          {/* Otimização Inteligente */}
+        <div className="space-y-4 py-6">
+          {/* ✅ OTIMIZAÇÃO INTELIGENTE - DESTAQUE */}
           <div 
-            className="group cursor-pointer p-4 rounded-lg border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all duration-200 animate-fade-in"
-            onClick={handleIntelligentOptimization}
+            className={`group cursor-pointer p-6 rounded-xl border-2 transition-all duration-300 ${
+              isOptimizing 
+                ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
+                : 'border-blue-300 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 hover:border-blue-400 hover:shadow-lg transform hover:scale-[1.02]'
+            }`}
+            onClick={!isOptimizing ? handleIntelligentOptimization : undefined}
           >
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
-                <Brain className="h-5 w-5" />
+            <div className="flex items-start gap-4">
+              <div className={`flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg ${
+                isOptimizing ? 'bg-gray-400' : 'bg-blue-600 group-hover:bg-blue-700'
+              }`}>
+                {isOptimizing ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <Brain className="h-6 w-6" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-blue-800 mb-1">
-                  Otimização Inteligente
+                <h3 className={`text-xl font-bold mb-2 ${
+                  isOptimizing ? 'text-gray-500' : 'text-blue-800 group-hover:text-blue-900'
+                }`}>
+                  🧠 Otimização Inteligente
+                  <span className="ml-2 text-xs font-normal bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
+                    RECOMENDADO
+                  </span>
                 </h3>
-                <p className="text-sm text-blue-700 leading-relaxed">
+                <p className={`text-base leading-relaxed ${
+                  isOptimizing ? 'text-gray-500' : 'text-blue-700 group-hover:text-blue-800'
+                }`}>
                   Preserva pontos já concluídos e otimiza apenas os pendentes. 
-                  Ideal para rotas em andamento.
+                  Mantém o progresso atual da rota e calcula a melhor sequência para os pontos restantes.
                 </p>
+                <div className="mt-3 flex items-center gap-2 text-sm text-blue-600">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Preserva progresso
+                  <span className="w-2 h-2 bg-blue-500 rounded-full ml-2"></span>
+                  Otimiza pendentes
+                </div>
               </div>
             </div>
           </div>
           
-          {/* Otimização Tradicional */}
+          {/* ✅ OTIMIZAÇÃO TRADICIONAL */}
           <div 
-            className="group cursor-pointer p-4 rounded-lg border-2 border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 animate-fade-in"
-            onClick={handleTraditionalOptimization}
+            className={`group cursor-pointer p-6 rounded-xl border-2 transition-all duration-300 ${
+              isOptimizing 
+                ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
+                : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 hover:shadow-md'
+            }`}
+            onClick={!isOptimizing ? handleTraditionalOptimization : undefined}
           >
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center text-white">
-                <Settings className="h-5 w-5" />
+            <div className="flex items-start gap-4">
+              <div className={`flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg ${
+                isOptimizing ? 'bg-gray-400' : 'bg-gray-600 group-hover:bg-gray-700'
+              }`}>
+                <Settings className="h-6 w-6" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-gray-800 mb-1">
-                  Otimização Tradicional
+                <h3 className={`text-xl font-bold mb-2 ${
+                  isOptimizing ? 'text-gray-400' : 'text-gray-800 group-hover:text-gray-900'
+                }`}>
+                  🔄 Otimização Tradicional
                 </h3>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  Otimização completa de todos os pontos. 
-                  Ideal para rotas novas ou recalculo total.
+                <p className={`text-base leading-relaxed ${
+                  isOptimizing ? 'text-gray-400' : 'text-gray-700 group-hover:text-gray-800'
+                }`}>
+                  Otimização completa de todos os pontos da rota. 
+                  Recalcula a melhor sequência ignorando o status atual dos pontos.
                 </p>
+                <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                  Recomeça do zero
+                  <span className="w-2 h-2 bg-gray-500 rounded-full ml-2"></span>
+                  Otimização total
+                </div>
               </div>
             </div>
           </div>
         </div>
         
-        <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-4 border-t">
+        <AlertDialogFooter className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
           <AlertDialogCancel 
             disabled={isOptimizing}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto order-2 sm:order-1"
           >
             Cancelar
           </AlertDialogCancel>
           
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto order-1 sm:order-2">
             <AlertDialogAction
               onClick={handleTraditionalOptimization}
               disabled={isOptimizing}
-              className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white"
+              className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white disabled:bg-gray-300"
             >
-              <Settings className="w-4 h-4 mr-2" />
-              Tradicional
+              {isOptimizing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Tradicional
+                </>
+              )}
             </AlertDialogAction>
             
             <AlertDialogAction
               onClick={handleIntelligentOptimization}
               disabled={isOptimizing}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white disabled:bg-blue-300"
             >
-              <Brain className="w-4 h-4 mr-2" />
-              Inteligente
+              {isOptimizing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <Brain className="w-4 h-4 mr-2" />
+                  Inteligente
+                </>
+              )}
             </AlertDialogAction>
           </div>
         </AlertDialogFooter>

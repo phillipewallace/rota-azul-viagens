@@ -24,10 +24,17 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// ✅ MIDDLEWARE DE DEBUG PARA CAPTURAR TODAS AS REQUISIÇÕES
+// ✅ MIDDLEWARE DE DEBUG DETALHADO PARA TODAS AS REQUISIÇÕES
 app.use((req, res, next) => {
-  console.log(`🌐 [SERVER] ${req.method} ${req.path} - Body:`, JSON.stringify(req.body, null, 2));
-  console.log(`🌐 [SERVER] Headers:`, req.headers);
+  const timestamp = new Date().toISOString();
+  console.log(`🌐 [${timestamp}] ${req.method} ${req.originalUrl}`);
+  console.log(`📍 [DEBUG] Path: ${req.path}`);
+  console.log(`📍 [DEBUG] Route: ${req.route?.path || 'N/A'}`);
+  console.log(`📍 [DEBUG] Params:`, req.params);
+  console.log(`📍 [DEBUG] Query:`, req.query);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`📍 [DEBUG] Body keys:`, Object.keys(req.body));
+  }
   next();
 });
 
@@ -36,12 +43,12 @@ pool.connect()
   .then(() => console.log('✅ Database connected'))
   .catch(err => console.error('❌ Database connection error:', err));
 
-// Routes
+// ✅ ORDEM CORRIGIDA: ROTAS ESPECÍFICAS PRIMEIRO
 app.use('/api/auth', authRoutes);
+app.use('/api/routes', routesRoutes); // ✅ Esta deve vir ANTES da route-maintenance
+app.use('/api/routes/maintenance', routeMaintenanceRoutes); // ✅ Agora vem depois
 app.use('/api/drivers', driversRoutes);
 app.use('/api/trucks', trucksRoutes);
-app.use('/api/routes', routesRoutes);
-app.use('/api/routes/maintenance', routeMaintenanceRoutes);
 app.use('/api/schedules', schedulesRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/geocoding', geocodingRoutes);
@@ -51,26 +58,57 @@ app.use('/api/management', managementRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/settings', settingsRoutes);
 
-// ✅ MIDDLEWARE PARA CAPTURAR ROTAS NÃO ENCONTRADAS
+// ✅ MIDDLEWARE PARA CAPTURAR ROTAS NÃO ENCONTRADAS COM MAIS DETALHES
 app.use('*', (req, res) => {
-  console.log(`❌ [SERVER] Rota API não encontrada: ${req.method} ${req.originalUrl}`);
-  console.log(`❌ [SERVER] Headers da requisição:`, req.headers);
+  console.log(`❌ [404] Rota não encontrada: ${req.method} ${req.originalUrl}`);
+  console.log(`❌ [404] Path completo: ${req.path}`);
+  console.log(`❌ [404] Base URL: ${req.baseUrl}`);
+  console.log(`❌ [404] Headers relevantes:`, {
+    'content-type': req.get('content-type'),
+    'user-agent': req.get('user-agent'),
+    'origin': req.get('origin')
+  });
   
   res.status(404).json({ 
     error: 'API route not found',
     path: req.originalUrl,
     method: req.method,
-    available_routes: ['/api/auth', '/api/routes', '/api/trucks', '/api/drivers', '/api/schedules', '/api/geocoding', '/api/mobile', '/api/reports', '/api/maintenance', '/api/management', '/api/settings', '/api/upload']
+    timestamp: new Date().toISOString(),
+    available_routes: [
+      '/api/auth', 
+      '/api/routes', 
+      '/api/routes/:id/optimize-intelligent',
+      '/api/routes/maintenance',
+      '/api/trucks', 
+      '/api/drivers', 
+      '/api/schedules', 
+      '/api/geocoding', 
+      '/api/mobile', 
+      '/api/reports', 
+      '/api/maintenance', 
+      '/api/management', 
+      '/api/settings', 
+      '/api/upload'
+    ]
   });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
+  console.error('💥 [SERVER ERROR]:', err.stack);
+  res.status(500).json({ 
+    error: 'Something broke!',
+    message: err.message,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Start the server
 app.listen(port, () => {
   console.log(`🚀 Server is running on port ${port}`);
+  console.log(`📍 Server routes registered in order:`);
+  console.log(`   1. /api/auth`);
+  console.log(`   2. /api/routes (includes /:id/optimize-intelligent)`);
+  console.log(`   3. /api/routes/maintenance`);
+  console.log(`   4. /api/drivers, trucks, schedules, etc.`);
 });
