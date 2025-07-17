@@ -11,7 +11,6 @@ import { Plus, Trash2, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRoutes, RoutePoint, Route } from '@/hooks/useRoutes';
 import RouteOptimizationDialog from './RouteOptimizationDialog';
-import { API_CONFIG } from '@/services/config';
 
 // Define o schema de validação com Zod
 const routeSchema = z.object({
@@ -152,12 +151,14 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     console.log('🎯 [ROUTE FORM] ===== GERAR PREVIEW CLICADO =====');
     console.log('🎯 [ROUTE FORM] Número de pontos:', points.length);
     
+    // Validar número mínimo de pontos
     if (points.length < 2) {
       console.log('❌ [ROUTE FORM] Pontos insuficientes');
       toast.error('É necessário pelo menos 2 pontos para otimizar a rota');
       return;
     }
     
+    // Validar se pontos têm coordenadas válidas
     const invalidPoints = points.filter(p => !p.lat || !p.lng || p.lat === 0 || p.lng === 0);
     if (invalidPoints.length > 0) {
       console.log('❌ [ROUTE FORM] Pontos sem coordenadas:', invalidPoints.length);
@@ -165,8 +166,14 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       return;
     }
     
-    console.log('🎯 [ROUTE FORM] Exibindo diálogo de escolha de otimização');
+    // ✅ FORÇAR EXIBIÇÃO DO DIÁLOGO
+    console.log('🎯 [ROUTE FORM] FORÇANDO EXIBIÇÃO DO DIÁLOGO');
     setShowOptimizationDialog(true);
+    
+    // Adicionar um timeout para debug
+    setTimeout(() => {
+      console.log('🎯 [ROUTE FORM] Estado do diálogo após 100ms:', showOptimizationDialog);
+    }, 100);
   };
 
   // ✅ FUNÇÃO CORRIGIDA: Lidar com escolha de otimização
@@ -182,31 +189,19 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       
       if (useIntelligent && editingRoute?.id) {
         console.log('🧠 [ROUTE FORM] Executando otimização INTELIGENTE');
-        console.log(`🧠 [ROUTE FORM] URL: ${API_CONFIG.BASE_URL}/routes/${editingRoute.id}/optimize-intelligent`);
         toast.info('🧠 Iniciando otimização inteligente...');
         
-        // ✅ USANDO URL CORRETA DA CONFIGURAÇÃO
-        const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${editingRoute.id}/optimize-intelligent`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/routes/${editingRoute.id}/optimize-intelligent`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            points: points.map((point, index) => ({ 
-              ...point, 
-              order: index 
-            })) 
-          }),
+          body: JSON.stringify({ points: points.map((point, index) => ({ ...point, order: index })) }),
         });
 
-        console.log(`🌐 [ROUTE FORM] Resposta do servidor: ${response.status} ${response.statusText}`);
-
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`❌ [ROUTE FORM] Erro na resposta: ${errorText}`);
-          throw new Error(`Erro ${response.status}: ${errorText}`);
+          throw new Error('Erro na otimização inteligente');
         }
 
         const intelligentData = await response.json();
-        console.log('✅ [ROUTE FORM] Dados da otimização inteligente:', intelligentData);
         
         result = {
           points: intelligentData.points.map((p: any, index: number) => ({
@@ -229,19 +224,12 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         
       } else {
         console.log('🆓 [ROUTE FORM] Executando otimização TRADICIONAL');
-        console.log(`🆓 [ROUTE FORM] URL: ${API_CONFIG.BASE_URL}/geocoding/optimize`);
         toast.info('🆓 Iniciando otimização tradicional...');
         
-        // ✅ USANDO URL CORRETA DA CONFIGURAÇÃO  
-        const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/geocoding/optimize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            points: points.map((point, index) => ({ 
-              ...point, 
-              order: index 
-            })) 
-          }),
+          body: JSON.stringify({ points: points.map((point, index) => ({ ...point, order: index })) }),
         });
 
         if (!response.ok) {
@@ -280,7 +268,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       
     } catch (error) {
       console.error('❌ [ROUTE FORM] Erro na otimização:', error);
-      toast.error(`Erro ao otimizar rota: ${error.message}`);
+      toast.error('Erro ao otimizar rota. Tente novamente.');
     } finally {
       setOptimizing(false);
     }
@@ -471,7 +459,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         </CardContent>
       </Card>
 
-      {/* ✅ DIÁLOGO SEMPRE PRESENTE COM PROPS CORRETAS */}
+      {/* ✅ DIÁLOGO SEMPRE PRESENTE */}
       <RouteOptimizationDialog
         open={showOptimizationDialog}
         onOpenChange={(open) => {
@@ -482,13 +470,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         isOptimizing={optimizing}
       />
       
-      {/* Debug info para desenvolvimento */}
+      {/* Debug info */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded text-xs z-50">
-          <div>Dialog: {showOptimizationDialog ? 'OPEN' : 'CLOSED'}</div>
-          <div>Optimizing: {optimizing ? 'YES' : 'NO'}</div>
-          <div>Points: {points.length}</div>
-          <div>API: {API_CONFIG.BASE_URL}</div>
+        <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded text-xs">
+          Dialog: {showOptimizationDialog ? 'OPEN' : 'CLOSED'} | Optimizing: {optimizing ? 'YES' : 'NO'}
         </div>
       )}
     </div>
