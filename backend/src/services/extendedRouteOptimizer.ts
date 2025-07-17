@@ -31,6 +31,8 @@ export class ExtendedRouteOptimizer {
     optimizedOrder: string[];
     points: RoutePoint[];
     batchCount: number;
+    preservedPoints?: number;
+    optimizedPoints?: number;
   }> {
     console.log(`🔢 [EXTENDED OPTIMIZER] Otimizando rota extensa: ${allPoints.length} pontos`);
     
@@ -41,7 +43,7 @@ export class ExtendedRouteOptimizer {
     
     console.log(`🎯 [EXTENDED OPTIMIZER] Rota extensa detectada - dividindo em lotes`);
     
-    // Separar pontos concluídos dos pendentes
+    // ✅ MELHORADO: Separar pontos concluídos dos pendentes
     const completedPoints = allPoints.filter(p => p.completed).sort((a, b) => a.order - b.order);
     const pendingPoints = allPoints.filter(p => !p.completed).sort((a, b) => a.order - b.order);
     
@@ -55,8 +57,38 @@ export class ExtendedRouteOptimizer {
         estimatedTime: this.formatTime(completedPoints.length * 10), // 10min por ponto
         optimizedOrder: completedPoints.map(p => p.id),
         points: completedPoints,
-        batchCount: 0
+        batchCount: 0,
+        preservedPoints: completedPoints.length,
+        optimizedPoints: 0
       };
+    }
+    
+    // ✅ MELHORADO: Otimizar apenas pontos pendentes se há pontos concluídos
+    if (completedPoints.length > 0) {
+      console.log(`🔧 [EXTENDED OPTIMIZER] Usando otimização parcial para preservar pontos concluídos`);
+      
+      try {
+        const partialResult = await googleMapsOptimizer.optimizePartialRoute(
+          completedPoints,
+          pendingPoints
+        );
+        
+        return {
+          totalDistance: partialResult.totalDistance,
+          estimatedTime: partialResult.totalDuration 
+            ? this.formatTime(partialResult.totalDuration / 60)
+            : this.formatTime(partialResult.optimizedPoints.length * 10),
+          optimizedOrder: partialResult.optimizedOrder,
+          points: partialResult.optimizedPoints,
+          batchCount: 1,
+          preservedPoints: completedPoints.length,
+          optimizedPoints: pendingPoints.length
+        };
+        
+      } catch (error) {
+        console.error('❌ [EXTENDED OPTIMIZER] Erro na otimização parcial:', error);
+        // Fallback para otimização em lotes
+      }
     }
     
     // Dividir pontos pendentes em lotes
@@ -118,7 +150,9 @@ export class ExtendedRouteOptimizer {
       estimatedTime: this.formatTime(totalMinutes),
       optimizedOrder: allOptimizedPoints.map(p => p.id),
       points: allOptimizedPoints,
-      batchCount: batches.length
+      batchCount: batches.length,
+      preservedPoints: completedPoints.length,
+      optimizedPoints: pendingPoints.length
     };
   }
   
@@ -182,7 +216,9 @@ export class ExtendedRouteOptimizer {
       estimatedTime: result.estimatedTime || this.formatTime(points.length * 10),
       optimizedOrder: result.optimizedOrder,
       points: result.optimizedPoints,
-      batchCount: 1
+      batchCount: 1,
+      preservedPoints: points.filter(p => p.completed).length,
+      optimizedPoints: points.filter(p => !p.completed).length
     };
   }
   

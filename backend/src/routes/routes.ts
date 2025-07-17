@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
+import { PartialRouteOptimizer } from '../services/partialRouteOptimizer';
 
 const router = Router();
 
@@ -40,6 +41,68 @@ async function getRouteWithPoints(routeId: string) {
     createdAt: route.created_at,
   };
 }
+
+// ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE - CRÍTICO
+router.post('../:id/optimize-intelligent', async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    const { points } = req.body;
+
+    console.log(`🧠 [INTELLIGENT OPTIMIZATION] Iniciando para rota ${id}`);
+    console.log(`📊 [INTELLIGENT OPTIMIZATION] Pontos recebidos: ${points?.length || 0}`);
+
+    if (!points || points.length < 2) {
+      return res.status(400).json({ 
+        error: 'É necessário pelo menos 2 pontos para otimização',
+        receivedPoints: points?.length || 0 
+      });
+    }
+
+    // Verificar se a rota existe
+    const existingRoute = await getRouteWithPoints(id);
+    if (!existingRoute) {
+      return res.status(404).json({ error: 'Rota não encontrada' });
+    }
+
+    console.log(`✅ [INTELLIGENT OPTIMIZATION] Rota encontrada: "${existingRoute.name}"`);
+
+    // Usar PartialRouteOptimizer para preservar pontos concluídos
+    const optimizationResult = await PartialRouteOptimizer.optimizeWithPreservation(points);
+
+    const response = {
+      optimizedOrder: optimizationResult.optimizedOrder,
+      totalDistance: optimizationResult.totalDistance,
+      estimatedTime: `${Math.round(optimizationResult.totalDuration / 60)}min`,
+      points: optimizationResult.optimizedPoints,
+      preservedPoints: optimizationResult.preservedPoints,
+      optimizedPoints: optimizationResult.optimizedPointsCount,
+      isExtended: false,
+      batchCount: 1,
+      polyline: optimizationResult.polyline,
+      processingTime: Date.now() - startTime
+    };
+
+    console.log(`✅ [INTELLIGENT OPTIMIZATION] Concluído: ${response.totalDistance}km, ${response.processingTime}ms`);
+    res.json(response);
+
+  } catch (error) {
+    const processingTime = Date.now() - startTime;
+    console.error(`❌ [INTELLIGENT OPTIMIZATION] Erro:`, error.message);
+    
+    res.status(500).json({ 
+      error: 'Erro na otimização inteligente',
+      details: error.message,
+      processingTime 
+    });
+  }
+});
+
+// ✅ VERIFICAÇÃO DE ROTAS REGISTRADAS
+router.use((req, res, next) => {
+  console.log(`📍 [ROUTES] Request interceptado: ${req.method} ${req.path}`);
+  next();
+});
 
 // Rota para obter todas as rotas
 router.get('/', async (req, res) => {
