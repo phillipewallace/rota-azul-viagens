@@ -17,34 +17,104 @@ interface ViaCepResponse {
   erro?: boolean;
 }
 
+// ✅ FUNÇÃO AUXILIAR PARA TIMEOUT
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
 // Get address by CEP
 router.get('/cep/:cep', async (req, res) => {
   try {
     console.log('🔍 [GEOCODING CEP] Buscando CEP:', req.params.cep);
     const { cep } = req.params;
     
-    // Busca no ViaCEP
-    const viaCepResponse = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-    const viaCepData = await viaCepResponse.json() as ViaCepResponse;
+    // ✅ MÚLTIPLAS TENTATIVAS COM DIFERENTES APIS
+    let viaCepData: ViaCepResponse | null = null;
+    let lastError: any = null;
     
-    if (viaCepData.erro) {
-      return res.status(404).json({ error: 'CEP não encontrado' });
+    // Tentativa 1: ViaCEP
+    try {
+      console.log('🔍 [GEOCODING CEP] Tentativa 1: ViaCEP');
+      const viaCepResponse = await fetchWithTimeout(`https://viacep.com.br/ws/${cep}/json/`, {}, 5000);
+      viaCepData = await viaCepResponse.json() as ViaCepResponse;
+      
+      if (viaCepData.erro) {
+        throw new Error('CEP não encontrado no ViaCEP');
+      }
+      console.log('✅ [GEOCODING CEP] ViaCEP respondeu com sucesso');
+    } catch (error) {
+      console.log('⚠️ [GEOCODING CEP] ViaCEP falhou:', error.message);
+      lastError = error;
+      
+      // Tentativa 2: API Alternativa (BrasilAPI)
+      try {
+        console.log('🔍 [GEOCODING CEP] Tentativa 2: BrasilAPI');
+        const brasilApiResponse = await fetchWithTimeout(`https://brasilapi.com.br/api/cep/v1/${cep}`, {}, 5000);
+        const brasilApiData = await brasilApiResponse.json();
+        
+        // Converter formato BrasilAPI para ViaCEP
+        viaCepData = {
+          cep: brasilApiData.cep,
+          logradouro: brasilApiData.street || '',
+          complemento: '',
+          bairro: brasilApiData.neighborhood || '',
+          localidade: brasilApiData.city || '',
+          uf: brasilApiData.state || '',
+          ibge: '',
+          gia: '',
+          ddd: '',
+          siafi: ''
+        };
+        console.log('✅ [GEOCODING CEP] BrasilAPI respondeu com sucesso');
+      } catch (brasilError) {
+        console.log('⚠️ [GEOCODING CEP] BrasilAPI também falhou:', brasilError.message);
+        lastError = brasilError;
+      }
+    }
+    
+    if (!viaCepData) {
+      console.log('❌ [GEOCODING CEP] Todas as APIs falharam');
+      return res.status(404).json({ 
+        error: 'CEP não encontrado em nenhuma API',
+        details: lastError?.message 
+      });
     }
 
     const address = `${viaCepData.logradouro}, ${viaCepData.bairro}, ${viaCepData.localidade}, ${viaCepData.uf}, Brasil`;
     
     // Use Google Maps Geocoding API para obter coordenadas
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
-    const geocodeResponse = await fetch(geocodeUrl);
-    const geocodeData = await geocodeResponse.json();
     
     let lat = -23.5505; // Coordenadas padrão (São Paulo)
     let lng = -46.6333;
     
-    if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
-      const location = geocodeData.results[0].geometry.location;
-      lat = location.lat;
-      lng = location.lng;
+    try {
+      const geocodeResponse = await fetchWithTimeout(geocodeUrl, {}, 8000);
+      const geocodeData = await geocodeResponse.json();
+      
+      if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
+        const location = geocodeData.results[0].geometry.location;
+        lat = location.lat;
+        lng = location.lng;
+        console.log('✅ [GEOCODING CEP] Google Geocoding respondeu com coordenadas');
+      } else {
+        console.log('⚠️ [GEOCODING CEP] Google Geocoding não encontrou coordenadas, usando padrão');
+      }
+    } catch (geocodeError) {
+      console.log('⚠️ [GEOCODING CEP] Google Geocoding falhou, usando coordenadas padrão:', geocodeError.message);
     }
 
     const result = {
@@ -54,11 +124,15 @@ router.get('/cep/:cep', async (req, res) => {
       lng: lng
     };
 
-    console.log('✅ [GEOCODING CEP] Resultado encontrado');
+    console.log('✅ [GEOCODING CEP] Resultado final preparado');
     res.json(result);
+    
   } catch (error) {
-    console.error('❌ [GEOCODING CEP] Error fetching address by CEP:', error);
-    res.status(500).json({ error: 'Erro ao buscar endereço' });
+    console.error('❌ [GEOCODING CEP] Error fatal:', error);
+    res.status(500).json({ 
+      error: 'Erro interno ao buscar endereço',
+      details: error.message 
+    });
   }
 });
 

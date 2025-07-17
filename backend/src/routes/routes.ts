@@ -44,7 +44,19 @@ async function getRouteWithPoints(routeId: string) {
   };
 }
 
-// ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE CORRIGIDO
+// ✅ MIDDLEWARE ESPECÍFICO PARA DEBUG DA ROTA DE OTIMIZAÇÃO
+router.use('/:id/optimize-intelligent', (req, res, next) => {
+  console.log('🎯🎯🎯 [ROUTES MIDDLEWARE] ========================================');
+  console.log(`🎯 [ROUTES MIDDLEWARE] Rota optimize-intelligent interceptada!`);
+  console.log(`🎯 [ROUTES MIDDLEWARE] Method: ${req.method}`);
+  console.log(`🎯 [ROUTES MIDDLEWARE] Route ID: ${req.params.id}`);
+  console.log(`🎯 [ROUTES MIDDLEWARE] Full URL: ${req.originalUrl}`);
+  console.log(`🎯 [ROUTES MIDDLEWARE] Body keys: ${Object.keys(req.body || {}).join(', ')}`);
+  console.log('🎯🎯🎯 [ROUTES MIDDLEWARE] ========================================');
+  next();
+});
+
+// ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE - DEVE ESTAR NO TOPO
 router.post('/:id/optimize-intelligent', async (req, res) => {
   const startTime = Date.now();
   try {
@@ -55,6 +67,8 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     console.log(`🧠 [INTELLIGENT OPTIMIZATION] Iniciando otimização inteligente para rota ${id}`);
     console.log(`🧠 [INTELLIGENT OPTIMIZATION] Timestamp: ${new Date().toISOString()}`);
     console.log(`📊 [INTELLIGENT OPTIMIZATION] Pontos recebidos: ${points?.length || 0}`);
+    console.log(`📊 [INTELLIGENT OPTIMIZATION] Method: ${req.method}`);
+    console.log(`📊 [INTELLIGENT OPTIMIZATION] URL: ${req.originalUrl}`);
 
     if (!points || points.length < 2) {
       console.log('❌ [INTELLIGENT OPTIMIZATION] Erro: Pontos insuficientes');
@@ -118,6 +132,12 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
       processingTime 
     });
   }
+});
+
+// ✅ VERIFICAÇÃO DE ROTAS REGISTRADAS
+router.use((req, res, next) => {
+  console.log(`📍 [ROUTES] Request interceptado: ${req.method} ${req.path}`);
+  next();
 });
 
 // Rota para obter todas as rotas
