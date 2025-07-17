@@ -43,7 +43,7 @@ async function getRouteWithPoints(routeId: string) {
 }
 
 // ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE - CRÍTICO
-router.post('/:id/optimize-intelligent', async (req, res) => {
+router.post('../:id/optimize-intelligent', async (req, res) => {
   const startTime = Date.now();
   try {
     const { id } = req.params;
