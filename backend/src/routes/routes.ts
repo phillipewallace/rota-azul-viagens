@@ -8,7 +8,7 @@ const router = Router();
 async function getRouteWithPoints(routeId: string) {
   const routeQuery = await pool.query('SELECT * FROM routes WHERE id = $1', [routeId]);
   if (routeQuery.rows.length === 0) {
-    return null; // Rota não encontrada
+    return null;
   }
 
   const pointsQuery = await pool.query(
@@ -43,7 +43,7 @@ async function getRouteWithPoints(routeId: string) {
 }
 
 // ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE - CRÍTICO
-router.post('../:id/optimize-intelligent', async (req, res) => {
+router.post('/:id/optimize-intelligent', async (req, res) => {
   const startTime = Date.now();
   try {
     const { id } = req.params;
@@ -143,11 +143,18 @@ router.post('/', async (req, res) => {
     await pool.query('BEGIN');
 
     try {
-      // 1. Inserir dados da rota
+      // 1. Inserir dados da rota - CORRIGIR optimizedOrder
       const routeResult = await pool.query(
         `INSERT INTO routes (name, description, total_distance, estimated_time, optimized_order, status) 
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [name, description, totalDistance, estimatedTime, optimizedOrder, status]
+        [
+          name, 
+          description, 
+          totalDistance, 
+          estimatedTime, 
+          Array.isArray(optimizedOrder) ? JSON.stringify(optimizedOrder) : optimizedOrder,
+          status
+        ]
       );
 
       const newRoute = routeResult.rows[0];
@@ -194,7 +201,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Atualizar rota existente
+// Atualizar rota existente - CORRIGIR ERRO JSON
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -206,13 +213,21 @@ router.put('/:id', async (req, res) => {
     await pool.query('BEGIN');
 
     try {
-      // 1. Atualizar dados da rota
+      // 1. Atualizar dados da rota - CORRIGIR optimizedOrder
       const routeResult = await pool.query(
         `UPDATE routes 
          SET name = $1, description = $2, total_distance = $3, estimated_time = $4, 
              optimized_order = $5, status = $6, updated_at = NOW()
          WHERE id = $7 RETURNING *`,
-        [name, description, totalDistance, estimatedTime, optimizedOrder, status, id]
+        [
+          name, 
+          description, 
+          totalDistance, 
+          estimatedTime, 
+          Array.isArray(optimizedOrder) ? JSON.stringify(optimizedOrder) : (optimizedOrder || '[]'),
+          status, 
+          id
+        ]
       );
 
       if (routeResult.rows.length === 0) {
@@ -223,7 +238,7 @@ router.put('/:id', async (req, res) => {
       // 2. Remover pontos antigos
       await pool.query('DELETE FROM route_points WHERE route_id = $1', [id]);
 
-      // 3. Inserir novos pontos (sem trigger automático)
+      // 3. Inserir novos pontos
       if (points && points.length > 0) {
         for (let i = 0; i < points.length; i++) {
           const point = points[i];
@@ -246,7 +261,7 @@ router.put('/:id', async (req, res) => {
           );
         }
 
-        // 4. Usar função segura para reordenação (opcional)
+        // 4. Usar função segura para reordenação
         console.log('🔧 [ROUTES] Aplicando reordenação segura...');
         await pool.query('SELECT safe_reorder_route_points($1)', [id]);
       }
@@ -330,7 +345,7 @@ router.get('/:id/check-usage', async (req, res) => {
   }
 });
 
-// Rota para resetar uma rota (remover completedBy e completionNotes)
+// Rota para resetar uma rota
 router.post('/:id/reset', async (req, res) => {
   try {
     const { id } = req.params;
