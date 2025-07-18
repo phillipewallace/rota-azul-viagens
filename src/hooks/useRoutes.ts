@@ -5,7 +5,7 @@ import { API_CONFIG } from '@/services/config';
 export interface RoutePoint {
   id: string;
   address: string;
-  cep: string;
+  cep?: string; // ✅ OPCIONAL - apenas para geocoding
   lat: number;
   lng: number;
   order: number;

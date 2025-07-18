@@ -106,7 +106,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     }
   }, [editingRoute, reset]);
 
-  // ✅ FUNÇÃO CORRIGIDA - USAR UUID VÁLIDO
+  // ✅ FUNÇÃO CORRIGIDA - USAR UUID VÁLIDO SEM CEP
   const handleAddPoint = () => {
     const newPoint: RoutePoint = {
       id: generateValidId(),
