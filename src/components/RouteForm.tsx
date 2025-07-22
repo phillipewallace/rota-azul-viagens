@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,6 +40,11 @@ interface RouteFormProps {
   onCancel?: () => void;
 }
 
+// ✅ FUNÇÃO PARA GARANTIR UUID VÁLIDO
+const generateValidId = (): string => {
+  return uuidv4();
+};
+
 const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   const { getAddressByCep, createRoute, updateRoute } = useRoutes();
   const [points, setPoints] = useState<RoutePoint[]>(editingRoute?.points || []);
@@ -53,7 +57,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   // ✅ ESTADO TEMPORÁRIO PARA CEP (NÃO PERSISTENTE)
   const [tempCeps, setTempCeps] = useState<Record<string, string>>({});
 
-  const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm<RouteFormData>({
+  const { register, handleSubmit, setValue, formState: { errors }, reset, watch } = useForm<RouteFormData>({
     resolver: zodResolver(routeSchema),
     defaultValues: {
       name: editingRoute?.name || '',
@@ -65,8 +69,33 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     }
   });
 
+  // ✅ SINCRONIZAR FORMULÁRIO COM ESTADOS
+  const syncFormWithState = () => {
+    console.log('🔄 [ROUTE FORM] Sincronizando formulário com estados atuais');
+    
+    // Sincronizar pontos com formulário
+    points.forEach((point, index) => {
+      setValue(`points.${index}.address`, point.address);
+      setValue(`points.${index}.lat`, point.lat);
+      setValue(`points.${index}.lng`, point.lng);
+      setValue(`points.${index}.order`, point.order);
+      setValue(`points.${index}.type`, point.type);
+      setValue(`points.${index}.completed`, point.completed || false);
+      setValue(`points.${index}.completedAt`, point.completedAt);
+    });
+    
+    // Sincronizar outros campos
+    setValue('totalDistance', totalDistance);
+    setValue('estimatedTime', estimatedTime);
+    setValue('optimizedOrder', optimizedOrder);
+    
+    console.log('✅ [ROUTE FORM] Formulário sincronizado');
+  };
+
   useEffect(() => {
     if (editingRoute) {
+      console.log('📝 [ROUTE FORM] Carregando rota para edição:', editingRoute.name);
+      
       reset({
         name: editingRoute.name,
         description: editingRoute.description || '',
@@ -75,11 +104,11 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         estimatedTime: editingRoute.estimatedTime,
         optimizedOrder: editingRoute.optimizedOrder,
       });
+      
       setPoints(editingRoute.points);
       setTotalDistance(editingRoute.totalDistance);
       setEstimatedTime(editingRoute.estimatedTime);
       setOptimizedOrder(editingRoute.optimizedOrder);
-      // ✅ CEP não é carregado do banco - campos ficam limpos
       setTempCeps({});
     } else {
       reset({
@@ -98,10 +127,14 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     }
   }, [editingRoute, reset]);
 
-  // ✅ FUNÇÃO CORRIGIDA - USAR UUID VÁLIDO SEM CEP
+  // ✅ SINCRONIZAR APÓS MUDANÇAS NOS ESTADOS
+  useEffect(() => {
+    syncFormWithState();
+  }, [points, totalDistance, estimatedTime, optimizedOrder]);
+
   const handleAddPoint = () => {
     const newPoint: RoutePoint = {
-      id: uuidv4(),
+      id: generateValidId(),
       address: '',
       lat: 0,
       lng: 0,
@@ -110,7 +143,9 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       completed: false,
       completedAt: null,
     };
-    setPoints([...points, newPoint]);
+    
+    console.log('➕ [ROUTE FORM] Adicionando novo ponto:', newPoint.id);
+    setPoints(prev => [...prev, newPoint]);
   };
 
   const handleRemovePoint = (index: number) => {
@@ -118,15 +153,16 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     const removedPointId = newPoints[index].id;
     newPoints.splice(index, 1);
     const updatedPoints = newPoints.map((point, i) => ({ ...point, order: i }));
+    
+    console.log('🗑️ [ROUTE FORM] Removendo ponto:', removedPointId);
     setPoints(updatedPoints);
     
-    // ✅ REMOVER CEP TEMPORÁRIO DO PONTO REMOVIDO
+    // Remover CEP temporário
     const newTempCeps = { ...tempCeps };
     delete newTempCeps[removedPointId];
     setTempCeps(newTempCeps);
   };
 
-  // ✅ FUNÇÃO CORRIGIDA - BUSCAR ENDEREÇO POR CEP
   const handleSearchCep = async (index: number, cep: string) => {
     if (!cep || cep.length < 8) {
       toast.error('Digite um CEP válido');
@@ -145,9 +181,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         lng: addressData.lng,
       };
       setPoints(newPoints);
-      setValue(`points.${index}.address`, addressData.address);
-      setValue(`points.${index}.lat`, addressData.lat);
-      setValue(`points.${index}.lng`, addressData.lng);
       
       console.log(`✅ [ROUTE FORM] Endereço encontrado: ${addressData.address}`);
       toast.success('Endereço encontrado!');
@@ -164,7 +197,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     setPoints(newPoints);
   };
 
-  // ✅ FUNÇÃO PARA ATUALIZAR CEP TEMPORÁRIO
   const handleCepChange = (pointId: string, cep: string) => {
     setTempCeps(prev => ({
       ...prev,
@@ -237,9 +269,9 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
             completed: p.completed ?? false,
             completedAt: p.completedAt ?? null,
           })),
-          totalDistance: intelligentData.totalDistance,
-          estimatedTime: intelligentData.estimatedTime,
-          optimizedOrder: intelligentData.optimizedOrder,
+          totalDistance: intelligentData.totalDistance || 0,
+          estimatedTime: intelligentData.estimatedTime || '0min',
+          optimizedOrder: intelligentData.optimizedOrder || [],
         };
         
         toast.success(`🧠 Otimização Inteligente concluída! ${intelligentData.preservedPoints || 0} pontos preservados.`);
@@ -276,19 +308,27 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
             completed: false,
             completedAt: null,
           })),
-          totalDistance: optimizedData.totalDistance,
-          estimatedTime: optimizedData.estimatedTime,
-          optimizedOrder: optimizedData.optimizedOrder,
+          totalDistance: optimizedData.totalDistance || 0,
+          estimatedTime: optimizedData.estimatedTime || '0min',
+          optimizedOrder: optimizedData.optimizedOrder || [],
         };
         
         toast.success(`🆓 Otimização Tradicional concluída! ${result.points.length} pontos otimizados.`);
       }
       
-      // ✅ APLICAR RESULTADOS
+      // ✅ APLICAR RESULTADOS E FORÇAR SINCRONIZAÇÃO
+      console.log('🔄 [ROUTE FORM] Aplicando resultados da otimização:', result);
+      
       setPoints(result.points);
       setTotalDistance(result.totalDistance);
       setEstimatedTime(result.estimatedTime);
       setOptimizedOrder(result.optimizedOrder);
+      
+      // ✅ FORÇAR SINCRONIZAÇÃO IMEDIATA DO FORMULÁRIO
+      setTimeout(() => {
+        syncFormWithState();
+        console.log('✅ [ROUTE FORM] Sincronização forçada após otimização');
+      }, 100);
       
       console.log('✅ [ROUTE FORM] Otimização aplicada com sucesso');
       
@@ -302,16 +342,28 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
 
   const onSubmitData = async (data: RouteFormData) => {
     try {
-      console.log('📤 [ROUTE FORM] Enviando dados da rota...');
+      console.log('📤 [ROUTE FORM] ===== INICIANDO SALVAMENTO =====');
+      console.log('📤 [ROUTE FORM] Dados do formulário:', data);
+      console.log('📤 [ROUTE FORM] Estados atuais:', {
+        pointsCount: points.length,
+        totalDistance,
+        estimatedTime,
+        optimizedOrderLength: optimizedOrder.length
+      });
       
-      // ✅ PRESERVAR PONTOS CONCLUÍDOS DURANTE SALVAMENTO
+      // ✅ USAR DADOS DOS ESTADOS (MAIS CONFIÁVEIS) EM VEZ DO FORMULÁRIO
       const routeData = {
         name: data.name,
         description: data.description || '',
         points: points.map(point => ({
-          ...point,
-          // ✅ Garantir que CEP não seja enviado
-          cep: undefined
+          id: point.id,
+          address: point.address,
+          lat: point.lat,
+          lng: point.lng,
+          order: point.order,
+          type: point.type,
+          completed: point.completed || false,
+          completedAt: point.completedAt || null,
         })),
         totalDistance: totalDistance,
         estimatedTime: estimatedTime,
@@ -319,12 +371,14 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         status: (editingRoute?.status || 'active') as 'active' | 'inactive' | 'completed',
       };
       
-      console.log('📤 [ROUTE FORM] Dados da rota:', routeData);
+      console.log('📤 [ROUTE FORM] Dados finais para salvamento:', routeData);
       
       let result;
       if (editingRoute?.id) {
+        console.log('📝 [ROUTE FORM] Atualizando rota existente:', editingRoute.id);
         result = await updateRoute(editingRoute.id, routeData);
       } else {
+        console.log('➕ [ROUTE FORM] Criando nova rota');
         result = await createRoute(routeData);
       }
       
@@ -338,6 +392,15 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       toast.error(error.message || 'Erro ao salvar rota');
     }
   };
+
+  // ✅ DEBUG: Adicionar logs para verificar estado atual
+  console.log('🔍 [ROUTE FORM] Estado atual:', {
+    pointsCount: points.length,
+    totalDistance,
+    estimatedTime,
+    optimizedOrderLength: optimizedOrder.length,
+    formPoints: watch('points')?.length || 0
+  });
 
   return (
     <div className="space-y-6">
@@ -378,6 +441,11 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                 </Button>
               </div>
 
+              {/* ✅ DEBUG INFO */}
+              <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                Debug: {points.length} pontos | Distância: {totalDistance}km | Tempo: {estimatedTime}
+              </div>
+
               {points.map((point, index) => (
                 <Card key={point.id} className="p-4">
                   <div className="flex items-center justify-between mb-3">
@@ -396,7 +464,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* ✅ CEP TEMPORÁRIO - NÃO PERSISTENTE */}
                     <div className="space-y-2">
                       <Label htmlFor={`cep-${index}`}>CEP (apenas para busca)</Label>
                       <div className="flex gap-2">
