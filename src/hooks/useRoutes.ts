@@ -43,33 +43,53 @@ export const useRoutes = () => {
       const data = await routesService.getRoutes();
       
       console.log('✅ [USE ROUTES] Rotas carregadas do servidor:', {
-        count: data?.length || 0,
-        routes: data?.map(r => ({ 
-          id: r.id.substring(0, 8) + '...', 
-          name: r.name, 
-          pointsCount: r.points?.length || 0,
-          completedPoints: r.points?.filter(p => p.completed).length || 0
-        }))
+        count: Array.isArray(data) ? data.length : 0,
+        routes: Array.isArray(data) ? data.map(r => ({ 
+          id: r?.id ? r.id.substring(0, 8) + '...' : 'ID inválido', 
+          name: r?.name || 'Nome não definido', 
+          pointsCount: Array.isArray(r?.points) ? r.points.length : 0,
+          completedPoints: Array.isArray(r?.points) ? r.points.filter(p => p?.completed).length : 0
+        })) : []
       });
       
       // ✅ GARANTIR QUE OS DADOS SEJAM VÁLIDOS E CONSISTENTES
-      const validatedRoutes = (data || []).map(route => ({
-        ...route,
-        points: (route.points || []).map((point, index) => ({
-          ...point,
-          order: point.order ?? index,
-          completed: point.completed ?? false,
-          completedAt: point.completedAt ?? null,
-        }))
-      }));
+      const validatedRoutes = (Array.isArray(data) ? data : []).map(route => {
+        // ✅ VALIDAR CADA ROTA INDIVIDUALMENTE
+        if (!route || !route.id) {
+          console.warn('⚠️ [USE ROUTES] Rota inválida ignorada:', route);
+          return null;
+        }
+
+        return {
+          ...route,
+          name: route.name || 'Rota sem nome',
+          description: route.description || '',
+          points: (Array.isArray(route.points) ? route.points : []).map((point, index) => ({
+            ...point,
+            id: point?.id || `point-${index}`,
+            address: point?.address || 'Endereço não definido',
+            lat: point?.lat || 0,
+            lng: point?.lng || 0,
+            order: point?.order ?? index,
+            type: point?.type || 'waypoint',
+            completed: point?.completed ?? false,
+            completedAt: point?.completedAt ?? null,
+          })),
+          totalDistance: route.totalDistance || 0,
+          estimatedTime: route.estimatedTime || '0min',
+          optimizedOrder: Array.isArray(route.optimizedOrder) ? route.optimizedOrder : [],
+          status: route.status || 'active',
+          createdAt: route.createdAt || new Date().toISOString()
+        };
+      }).filter(route => route !== null); // ✅ REMOVER ROTAS INVÁLIDAS
       
       console.log('✅ [USE ROUTES] Dados validados e prontos:', {
         count: validatedRoutes.length,
         detailedRoutes: validatedRoutes.map(r => ({
           id: r.id.substring(0, 8) + '...',
           name: r.name,
-          pointsCount: r.points?.length || 0,
-          completedPoints: r.points?.filter(p => p.completed).length || 0,
+          pointsCount: r.points.length,
+          completedPoints: r.points.filter(p => p.completed).length,
           totalDistance: r.totalDistance,
           estimatedTime: r.estimatedTime
         }))
@@ -88,6 +108,10 @@ export const useRoutes = () => {
   };
 
   const getAddressByCep = async (cep: string) => {
+    if (!cep || cep.trim().length === 0) {
+      throw new Error('CEP não pode estar vazio');
+    }
+
     const maxRetries = 3;
     let lastError: any;
     
@@ -138,10 +162,19 @@ export const useRoutes = () => {
       console.log(`🎯 [OPTIMIZE] ===== INICIANDO OTIMIZAÇÃO =====`);
       console.log(`🎯 [OPTIMIZE] Tipo: ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
       console.log(`🎯 [OPTIMIZE] Route ID: ${routeId || 'NOVA ROTA'}`);
-      console.log(`🎯 [OPTIMIZE] Pontos: ${allPoints.length}`);
+      console.log(`🎯 [OPTIMIZE] Pontos: ${Array.isArray(allPoints) ? allPoints.length : 0}`);
 
-      if (!allPoints || allPoints.length < 2) {
+      if (!Array.isArray(allPoints) || allPoints.length < 2) {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
+      }
+
+      // ✅ VALIDAR PONTOS ANTES DE PROSSEGUIR
+      const validPoints = allPoints.filter(point => {
+        return point && point.id && point.address && typeof point.lat === 'number' && typeof point.lng === 'number';
+      });
+
+      if (validPoints.length < 2) {
+        throw new Error('É necessário pelo menos 2 pontos válidos para criar uma rota');
       }
 
       const isValidUUID = (id: string) =>
@@ -168,14 +201,14 @@ export const useRoutes = () => {
                 'Accept': 'application/json'
               },
               body: JSON.stringify({
-                points: allPoints.map((point, index) => ({
+                points: validPoints.map((point, index) => ({
                   id: point.id,
                   address: point.address,
-                  cep: point.cep,
+                  cep: point.cep || '',
                   lat: point.lat,
                   lng: point.lng,
                   order: index,
-                  type: point.type,
+                  type: point.type || 'waypoint',
                   completed: point.completed ?? false,
                   completedAt: point.completedAt ?? null,
                 })),
@@ -192,24 +225,24 @@ export const useRoutes = () => {
               console.log(`✅ [OPTIMIZE] Inteligente concluída em ${processingTime}ms`);
               
               return {
-                optimizedOrder: intelligentData.optimizedOrder,
-                totalDistance: intelligentData.totalDistance,
-                estimatedTime: intelligentData.estimatedTime,
-                polyline: intelligentData.polyline,
+                optimizedOrder: Array.isArray(intelligentData.optimizedOrder) ? intelligentData.optimizedOrder : [],
+                totalDistance: intelligentData.totalDistance || 0,
+                estimatedTime: intelligentData.estimatedTime || '0min',
+                polyline: intelligentData.polyline || '',
                 detailedRoute: null,
-                points: intelligentData.points.map((p: any, index: number) => ({
-                  id: p.id,
-                  address: p.address,
-                  cep: p.cep || '',
-                  lat: p.lat,
-                  lng: p.lng,
+                points: Array.isArray(intelligentData.points) ? intelligentData.points.map((p: any, index: number) => ({
+                  id: p?.id || `point-${index}`,
+                  address: p?.address || 'Endereço não definido',
+                  cep: p?.cep || '',
+                  lat: p?.lat || 0,
+                  lng: p?.lng || 0,
                   order: index,
-                  type: p.type,
-                  completed: p.completed ?? false,
-                  completedAt: p.completedAt ?? null,
-                })),
-                isExtended: intelligentData.isExtended,
-                batchCount: intelligentData.batchCount,
+                  type: p?.type || 'waypoint',
+                  completed: p?.completed ?? false,
+                  completedAt: p?.completedAt ?? null,
+                })) : [],
+                isExtended: intelligentData.isExtended || false,
+                batchCount: intelligentData.batchCount || 1,
               };
             } else {
               const errorText = await response.text();
@@ -241,14 +274,14 @@ export const useRoutes = () => {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          points: allPoints.map((point, index) => ({
+          points: validPoints.map((point, index) => ({
             id: point.id,
             address: point.address,
-            cep: point.cep,
+            cep: point.cep || '',
             lat: point.lat,
             lng: point.lng,
             order: index,
-            type: point.type,
+            type: point.type || 'waypoint',
             completed: point.completed ?? false,
             completedAt: point.completedAt ?? null,
           })),
@@ -269,22 +302,22 @@ export const useRoutes = () => {
       console.log(`✅ [OPTIMIZE] Tradicional concluída em ${processingTime}ms`);
 
       return {
-        optimizedOrder: optimizedData.optimizedOrder,
-        totalDistance: optimizedData.totalDistance,
-        estimatedTime: optimizedData.estimatedTime,
-        polyline: optimizedData.polyline,
+        optimizedOrder: Array.isArray(optimizedData.optimizedOrder) ? optimizedData.optimizedOrder : [],
+        totalDistance: optimizedData.totalDistance || 0,
+        estimatedTime: optimizedData.estimatedTime || '0min',
+        polyline: optimizedData.polyline || '',
         detailedRoute: null,
-        points: optimizedData.points.map((p: any, index: number) => ({
-          id: p.id,
-          address: p.address,
-          cep: p.cep || '',
-          lat: p.lat,
-          lng: p.lng,
+        points: Array.isArray(optimizedData.points) ? optimizedData.points.map((p: any, index: number) => ({
+          id: p?.id || `point-${index}`,
+          address: p?.address || 'Endereço não definido',
+          cep: p?.cep || '',
+          lat: p?.lat || 0,
+          lng: p?.lng || 0,
           order: index,
-          type: p.type,
-          completed: p.completed ?? false,
-          completedAt: p.completedAt ?? null,
-        })),
+          type: p?.type || 'waypoint',
+          completed: p?.completed ?? false,
+          completedAt: p?.completedAt ?? null,
+        })) : [],
         isExtended: false,
         batchCount: 1,
       };
@@ -299,22 +332,32 @@ export const useRoutes = () => {
   const createRoute = async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
     try {
       console.log('➕ [USE ROUTES] ===== CRIANDO ROTA =====');
+      
+      // ✅ VALIDAR DADOS ANTES DE ENVIAR
+      if (!routeData || !routeData.name) {
+        throw new Error('Nome da rota é obrigatório');
+      }
+
+      if (!Array.isArray(routeData.points) || routeData.points.length < 2) {
+        throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
+      }
+
       console.log('➕ [USE ROUTES] Dados da rota:', {
         name: routeData.name,
-        pointsCount: routeData.points?.length || 0,
-        completedPoints: routeData.points?.filter(p => p.completed).length || 0
+        pointsCount: routeData.points.length,
+        completedPoints: routeData.points.filter(p => p?.completed).length
       });
       
       const newRoute = await routesService.createRoute(routeData);
       
       console.log('✅ [USE ROUTES] Rota criada com sucesso:', {
-        id: newRoute.id.substring(0, 8) + '...',
-        name: newRoute.name,
-        pointsCount: newRoute.points?.length || 0
+        id: newRoute?.id ? newRoute.id.substring(0, 8) + '...' : 'ID inválido',
+        name: newRoute?.name || 'Nome não definido',
+        pointsCount: Array.isArray(newRoute?.points) ? newRoute.points.length : 0
       });
       
       // ✅ AGUARDAR E RECARREGAR DADOS APÓS CRIAR
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       await loadRoutes();
       
       return newRoute;
@@ -327,26 +370,36 @@ export const useRoutes = () => {
   const updateRoute = async (id: string, routeData: Partial<Route>) => {
     try {
       console.log('📝 [USE ROUTES] ===== ATUALIZANDO ROTA =====');
+      
+      // ✅ VALIDAR DADOS ANTES DE ENVIAR
+      if (!id) {
+        throw new Error('ID da rota é obrigatório');
+      }
+
+      if (!routeData) {
+        throw new Error('Dados da rota são obrigatórios');
+      }
+
       console.log('📝 [USE ROUTES] ID da rota:', id.substring(0, 8) + '...');
       console.log('📝 [USE ROUTES] Dados de atualização:', {
-        name: routeData.name,
-        pointsCount: routeData.points?.length || 0,
-        completedPoints: routeData.points?.filter(p => p.completed).length || 0,
-        totalDistance: routeData.totalDistance,
-        estimatedTime: routeData.estimatedTime
+        name: routeData.name || 'Nome não alterado',
+        pointsCount: Array.isArray(routeData.points) ? routeData.points.length : 'Pontos não alterados',
+        completedPoints: Array.isArray(routeData.points) ? routeData.points.filter(p => p?.completed).length : 'N/A',
+        totalDistance: routeData.totalDistance || 'Distância não alterada',
+        estimatedTime: routeData.estimatedTime || 'Tempo não alterado'
       });
       
       const updatedRoute = await routesService.updateRoute(id, routeData);
       
       console.log('✅ [USE ROUTES] Rota atualizada com sucesso:', {
-        id: updatedRoute.id.substring(0, 8) + '...',
-        name: updatedRoute.name,
-        pointsCount: updatedRoute.points?.length || 0,
-        completedPoints: updatedRoute.points?.filter(p => p.completed).length || 0
+        id: updatedRoute?.id ? updatedRoute.id.substring(0, 8) + '...' : 'ID inválido',
+        name: updatedRoute?.name || 'Nome não definido',
+        pointsCount: Array.isArray(updatedRoute?.points) ? updatedRoute.points.length : 0,
+        completedPoints: Array.isArray(updatedRoute?.points) ? updatedRoute.points.filter(p => p?.completed).length : 0
       });
       
       // ✅ AGUARDAR E RECARREGAR DADOS APÓS ATUALIZAR
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       await loadRoutes();
       
       return updatedRoute;
@@ -358,6 +411,10 @@ export const useRoutes = () => {
 
   const deleteRoute = async (id: string) => {
     try {
+      if (!id) {
+        throw new Error('ID da rota é obrigatório');
+      }
+
       console.log('🗑️ [USE ROUTES] Excluindo rota:', id.substring(0, 8) + '...');
       await routesService.deleteRoute(id);
       

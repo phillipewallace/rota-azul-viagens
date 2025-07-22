@@ -27,18 +27,21 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: Creat
     }
   }, [open]);
 
-  // ✅ LOG DE DEBUG PARA VERIFICAR DADOS DE EDIÇÃO
+  // ✅ LOG DE DEBUG PARA VERIFICAR DADOS DE EDIÇÃO COM VALIDAÇÕES
   useEffect(() => {
-    if (editingRoute) {
+    if (editingRoute && editingRoute.id) {
+      // ✅ VALIDAR DADOS DA ROTA ANTES DE USAR
+      const safePoints = Array.isArray(editingRoute.points) ? editingRoute.points : [];
+      
       console.log('🔧 [CREATE ROUTE MODAL] Recebendo rota para edição:', {
         id: editingRoute.id,
-        name: editingRoute.name,
-        pointsCount: editingRoute.points?.length || 0,
-        points: editingRoute.points?.map((p, i) => ({
+        name: editingRoute.name || 'Nome não definido',
+        pointsCount: safePoints.length,
+        points: safePoints.map((p, i) => ({
           index: i,
-          id: p.id,
-          address: p.address.substring(0, 50) + '...',
-          completed: p.completed
+          id: p?.id || `point-${i}`,
+          address: p?.address ? p.address.substring(0, 50) + '...' : 'Endereço não definido',
+          completed: p?.completed || false
         }))
       });
     }
@@ -50,12 +53,19 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: Creat
       return;
     }
 
+    // ✅ VALIDAR DADOS ANTES DE PROCESSAR
+    if (!routeData) {
+      console.error('❌ [CREATE ROUTE MODAL] Dados da rota inválidos');
+      toast.error('Erro: dados da rota inválidos');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       console.log('📤 [CREATE ROUTE MODAL] Iniciando salvamento:', {
         isEditing: !!editingRoute,
-        routeName: routeData.name,
-        pointsCount: routeData.points?.length || 0
+        routeName: routeData.name || 'Nome não definido',
+        pointsCount: Array.isArray(routeData.points) ? routeData.points.length : 0
       });
 
       // ✅ AGUARDAR UM MOMENTO PARA GARANTIR QUE OS DADOS FORAM SALVOS
@@ -89,26 +99,35 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: Creat
     onOpenChange(false);
   };
 
+  // ✅ VALIDAR editingRoute ANTES DE USAR
+  const safeEditingRoute = editingRoute && editingRoute.id ? {
+    ...editingRoute,
+    points: Array.isArray(editingRoute.points) ? editingRoute.points : [],
+    totalDistance: editingRoute.totalDistance || 0,
+    estimatedTime: editingRoute.estimatedTime || '0min',
+    optimizedOrder: Array.isArray(editingRoute.optimizedOrder) ? editingRoute.optimizedOrder : []
+  } : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {editingRoute ? `Editar Rota (${editingRoute.id.substring(0, 8)}...)` : 'Criar Nova Rota'} - Passo 2 de 2
+            {safeEditingRoute ? `Editar Rota (${safeEditingRoute.id.substring(0, 8)}...)` : 'Criar Nova Rota'} - Passo 2 de 2
           </DialogTitle>
-          {editingRoute && (
+          {safeEditingRoute && (
             <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-              <strong>Debug:</strong> {editingRoute.points?.length || 0} pontos |{' '}
-              {editingRoute.points?.filter(p => p.completed).length || 0} concluídos |{' '}
-              Editando: {editingRoute.name}
+              <strong>Debug:</strong> {safeEditingRoute.points.length} pontos |{' '}
+              {safeEditingRoute.points.filter(p => p?.completed).length} concluídos |{' '}
+              Editando: {safeEditingRoute.name || 'Nome não definido'}
             </div>
           )}
         </DialogHeader>
         
         <RouteForm 
-          key={editingRoute ? `edit-${editingRoute.id}` : 'new'}
+          key={safeEditingRoute ? `edit-${safeEditingRoute.id}` : 'new'}
           onSubmit={handleSubmit} 
-          editingRoute={editingRoute}
+          editingRoute={safeEditingRoute}
           onCancel={handleCancel}
         />
       </DialogContent>

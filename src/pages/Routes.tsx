@@ -22,6 +22,9 @@ const Routes = () => {
   const { routes, loading, loadRoutes } = useRoutes();
   const { deleteRoute, updateRoute, resetRoute, isLoading } = useRoutesCRUD();
 
+  // ✅ GARANTIR QUE routes SEMPRE SEJA UM ARRAY
+  const safeRoutes = Array.isArray(routes) ? routes : [];
+
   // ✅ RECARREGAR ROTAS SEMPRE QUE O COMPONENTE FOR FOCADO
   useEffect(() => {
     const handleFocus = () => {
@@ -51,6 +54,12 @@ const Routes = () => {
   };
 
   const handleEdit = async (route: any) => {
+    if (!route || !route.id) {
+      console.error('❌ [ROUTES PAGE] Rota inválida para edição:', route);
+      toast.error('Erro: dados da rota inválidos');
+      return;
+    }
+
     if (route.status === 'completed') {
       toast.error('Não é possível editar uma rota concluída');
       return;
@@ -58,33 +67,59 @@ const Routes = () => {
     
     console.log('🔧 [ROUTES PAGE] Preparando rota para edição:', route.name);
     
-    // ✅ LIMPAR ESTADOS EXISTENTES
-    setViewingRoute(null);
-    setIsCreateModalOpen(false);
-    
-    // ✅ BUSCAR DADOS MAIS RECENTES ANTES DE EDITAR
-    console.log('🔄 [ROUTES PAGE] Buscando dados atualizados antes de editar...');
-    await forceRefresh();
-    
-    // ✅ AGUARDAR UM MOMENTO PARA GARANTIR DADOS FRESCOS
-    setTimeout(() => {
-      // Buscar a rota atualizada da lista atual
-      const freshRoute = routes.find(r => r.id === route.id);
-      const routeToEdit = freshRoute || route;
+    try {
+      // ✅ LIMPAR ESTADOS EXISTENTES
+      setViewingRoute(null);
+      setIsCreateModalOpen(false);
       
-      console.log('🔧 [ROUTES PAGE] Abrindo rota para edição:', {
-        id: routeToEdit.id,
-        name: routeToEdit.name,
-        pointsCount: routeToEdit.points?.length || 0,
-        completedPoints: routeToEdit.points?.filter(p => p.completed).length || 0
-      });
+      // ✅ BUSCAR DADOS MAIS RECENTES ANTES DE EDITAR
+      console.log('🔄 [ROUTES PAGE] Buscando dados atualizados antes de editar...');
+      await forceRefresh();
       
-      setEditingRoute(routeToEdit);
-      setIsCreateModalOpen(true);
-    }, 500);
+      // ✅ AGUARDAR UM MOMENTO PARA GARANTIR DADOS FRESCOS
+      setTimeout(() => {
+        // Buscar a rota atualizada da lista atual
+        const freshRoute = safeRoutes.find(r => r.id === route.id);
+        const routeToEdit = freshRoute || route;
+        
+        // ✅ VALIDAR DADOS DA ROTA ANTES DE EDITAR
+        if (!routeToEdit || !routeToEdit.id) {
+          console.error('❌ [ROUTES PAGE] Rota não encontrada após refresh:', route.id);
+          toast.error('Erro: rota não encontrada');
+          return;
+        }
+
+        // ✅ GARANTIR QUE POINTS SEJA SEMPRE UM ARRAY
+        const safeRouteToEdit = {
+          ...routeToEdit,
+          points: Array.isArray(routeToEdit.points) ? routeToEdit.points : [],
+          totalDistance: routeToEdit.totalDistance || 0,
+          estimatedTime: routeToEdit.estimatedTime || '0min',
+          optimizedOrder: Array.isArray(routeToEdit.optimizedOrder) ? routeToEdit.optimizedOrder : []
+        };
+        
+        console.log('🔧 [ROUTES PAGE] Abrindo rota para edição:', {
+          id: safeRouteToEdit.id,
+          name: safeRouteToEdit.name,
+          pointsCount: safeRouteToEdit.points.length,
+          completedPoints: safeRouteToEdit.points.filter(p => p?.completed).length
+        });
+        
+        setEditingRoute(safeRouteToEdit);
+        setIsCreateModalOpen(true);
+      }, 500);
+    } catch (error) {
+      console.error('❌ [ROUTES PAGE] Erro ao preparar edição:', error);
+      toast.error('Erro ao abrir rota para edição');
+    }
   };
 
   const handleDelete = async (id: string) => {
+    if (!id) {
+      toast.error('Erro: ID da rota inválido');
+      return;
+    }
+
     if (window.confirm('Tem certeza que deseja excluir esta rota? Isso também removerá todos os agendamentos relacionados.')) {
       try {
         console.log('🗑️ [ROUTES PAGE] Excluindo rota:', id);
@@ -103,6 +138,11 @@ const Routes = () => {
   };
 
   const handleReactivate = async (route: any) => {
+    if (!route || !route.id) {
+      toast.error('Erro: dados da rota inválidos');
+      return;
+    }
+
     try {
       console.log('♻️ [ROUTES PAGE] Reativando rota:', route.name);
       await updateRoute({ id: route.id, route: { status: 'active' } });
@@ -115,6 +155,11 @@ const Routes = () => {
   };
 
   const handleReset = async (route: any) => {
+    if (!route || !route.id) {
+      toast.error('Erro: dados da rota inválidos');
+      return;
+    }
+
     if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"? TODOS os pontos concluídos serão marcados como não concluídos.`)) {
       try {
         console.log('🔄 [ROUTES PAGE] Resetando rota via botão reset:', route.name);
@@ -129,30 +174,56 @@ const Routes = () => {
   };
 
   const handleView = async (route: any) => {
+    if (!route || !route.id) {
+      console.error('❌ [ROUTES PAGE] Rota inválida para visualização:', route);
+      toast.error('Erro: dados da rota inválidos');
+      return;
+    }
+
     console.log('👁️ [ROUTES PAGE] Preparando rota para visualização:', route.name);
     
-    // ✅ LIMPAR ESTADOS EXISTENTES
-    setIsCreateModalOpen(false);
-    setEditingRoute(null);
-    
-    // ✅ BUSCAR DADOS MAIS RECENTES ANTES DE VISUALIZAR
-    console.log('🔄 [ROUTES PAGE] Buscando dados atualizados antes de visualizar...');
-    await forceRefresh();
-    
-    // ✅ AGUARDAR UM MOMENTO PARA GARANTIR DADOS FRESCOS
-    setTimeout(() => {
-      const freshRoute = routes.find(r => r.id === route.id);
-      const routeToView = freshRoute || route;
+    try {
+      // ✅ LIMPAR ESTADOS EXISTENTES
+      setIsCreateModalOpen(false);
+      setEditingRoute(null);
       
-      console.log('👁️ [ROUTES PAGE] Abrindo rota para visualização:', {
-        id: routeToView.id,
-        name: routeToView.name,
-        pointsCount: routeToView.points?.length || 0,
-        completedPoints: routeToView.points?.filter(p => p.completed).length || 0
-      });
+      // ✅ BUSCAR DADOS MAIS RECENTES ANTES DE VISUALIZAR
+      console.log('🔄 [ROUTES PAGE] Buscando dados atualizados antes de visualizar...');
+      await forceRefresh();
       
-      setViewingRoute(routeToView);
-    }, 500);
+      // ✅ AGUARDAR UM MOMENTO PARA GARANTIR DADOS FRESCOS
+      setTimeout(() => {
+        const freshRoute = safeRoutes.find(r => r.id === route.id);
+        const routeToView = freshRoute || route;
+        
+        // ✅ VALIDAR DADOS DA ROTA ANTES DE VISUALIZAR
+        if (!routeToView || !routeToView.id) {
+          console.error('❌ [ROUTES PAGE] Rota não encontrada após refresh:', route.id);
+          toast.error('Erro: rota não encontrada');
+          return;
+        }
+
+        // ✅ GARANTIR QUE POINTS SEJA SEMPRE UM ARRAY
+        const safeRouteToView = {
+          ...routeToView,
+          points: Array.isArray(routeToView.points) ? routeToView.points : [],
+          totalDistance: routeToView.totalDistance || 0,
+          estimatedTime: routeToView.estimatedTime || '0min'
+        };
+        
+        console.log('👁️ [ROUTES PAGE] Abrindo rota para visualização:', {
+          id: safeRouteToView.id,
+          name: safeRouteToView.name,
+          pointsCount: safeRouteToView.points.length,
+          completedPoints: safeRouteToView.points.filter(p => p?.completed).length
+        });
+        
+        setViewingRoute(safeRouteToView);
+      }, 500);
+    } catch (error) {
+      console.error('❌ [ROUTES PAGE] Erro ao preparar visualização:', error);
+      toast.error('Erro ao abrir rota para visualização');
+    }
   };
 
   const handleCloseModal = async () => {
@@ -244,18 +315,18 @@ const Routes = () => {
 
         {/* ✅ DEBUG INFO MELHORADO */}
         <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
-          <strong>Debug:</strong> {routes.length} rotas carregadas | 
+          <strong>Debug:</strong> {safeRoutes.length} rotas carregadas | 
           Refresh key: {refreshKey} | 
           Status: {isRefreshing ? 'Atualizando...' : 'Pronto'}
-          {routes.length > 0 && (
+          {safeRoutes.length > 0 && (
             <div className="mt-1">
-              Última rota: {routes[0]?.name} ({routes[0]?.points?.length || 0} pontos, {routes[0]?.points?.filter(p => p.completed).length || 0} concluídos)
+              Última rota: {safeRoutes[0]?.name} ({(safeRoutes[0]?.points || []).length} pontos, {(safeRoutes[0]?.points || []).filter(p => p?.completed).length} concluídos)
             </div>
           )}
         </div>
 
         {/* Lista de Rotas */}
-        {routes.length === 0 ? (
+        {safeRoutes.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <Navigation className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -269,124 +340,138 @@ const Routes = () => {
           </Card>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {routes.map((route) => (
-              <Card key={route.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="flex items-center gap-2">
-                      <Navigation className="h-5 w-5 text-blue-600" />
-                      {route.name}
-                    </CardTitle>
-                    {getStatusBadge(route.status)}
-                  </div>
-                  {route.description && (
-                    <p className="text-sm text-gray-600">{route.description}</p>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Pontos:</span>
-                      <span className="text-sm">
-                        {route.points?.length || 0} locais
-                        {route.points && route.points.length > 0 && (
-                          <span className="text-green-600 ml-1">
-                            ({route.points.filter(p => p.completed).length} ✅)
-                          </span>
-                        )}
-                      </span>
+            {safeRoutes.map((route) => {
+              // ✅ VALIDAÇÕES DE SEGURANÇA PARA CADA ROTA
+              if (!route || !route.id) {
+                console.warn('⚠️ [ROUTES PAGE] Rota inválida ignorada:', route);
+                return null;
+              }
+
+              const safePoints = Array.isArray(route.points) ? route.points : [];
+              const completedPoints = safePoints.filter(p => p?.completed) || [];
+
+              return (
+                <Card key={route.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="flex items-center gap-2">
+                        <Navigation className="h-5 w-5 text-blue-600" />
+                        {route.name || 'Rota sem nome'}
+                      </CardTitle>
+                      {getStatusBadge(route.status || 'active')}
                     </div>
-                    
-                    {route.totalDistance && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Distância:</span>
-                        <span className="text-sm">{route.totalDistance.toFixed(2)} km</span>
-                      </div>
+                    {route.description && (
+                      <p className="text-sm text-gray-600">{route.description}</p>
                     )}
-                    
-                    {route.estimatedTime && (
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Tempo est.:</span>
-                        <span className="text-sm">{route.estimatedTime}</span>
-                      </div>
-                    )}
-
-                    {route.points && route.points.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-sm font-medium mb-2">Pontos principais:</p>
-                        <div className="space-y-1">
-                          {route.points.slice(0, 2).map((point, index) => (
-                            <div key={`${route.id}-point-${index}`} className="flex items-center gap-2 text-xs text-gray-600">
-                              <MapPin className="h-3 w-3" />
-                              <span className="truncate">{point.address}</span>
-                              {point.completed && <span className="text-green-600">✅</span>}
-                            </div>
-                          ))}
-                          {route.points.length > 2 && (
-                            <p className="text-xs text-gray-500">
-                              +{route.points.length - 2} pontos adicionais
-                            </p>
+                        <span className="text-sm font-medium">Pontos:</span>
+                        <span className="text-sm">
+                          {safePoints.length} locais
+                          {safePoints.length > 0 && (
+                            <span className="text-green-600 ml-1">
+                              ({completedPoints.length} ✅)
+                            </span>
                           )}
-                        </div>
+                        </span>
                       </div>
-                    )}
-                  </div>
+                      
+                      {route.totalDistance && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">Distância:</span>
+                          <span className="text-sm">{Number(route.totalDistance).toFixed(2)} km</span>
+                        </div>
+                      )}
+                      
+                      {route.estimatedTime && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">Tempo est.:</span>
+                          <span className="text-sm">{route.estimatedTime}</span>
+                        </div>
+                      )}
 
-                  <div className="flex gap-2 mt-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleView(route)}
-                      className="flex-1"
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      Ver
-                    </Button>
-                    {route.status === 'completed' ? (
+                      {safePoints.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium mb-2">Pontos principais:</p>
+                          <div className="space-y-1">
+                            {safePoints.slice(0, 2).map((point, index) => {
+                              if (!point) return null;
+                              return (
+                                <div key={`${route.id}-point-${index}`} className="flex items-center gap-2 text-xs text-gray-600">
+                                  <MapPin className="h-3 w-3" />
+                                  <span className="truncate">{point.address || 'Endereço não definido'}</span>
+                                  {point.completed && <span className="text-green-600">✅</span>}
+                                </div>
+                              );
+                            })}
+                            {safePoints.length > 2 && (
+                              <p className="text-xs text-gray-500">
+                                +{safePoints.length - 2} pontos adicionais
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 mt-6">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleReactivate(route)}
-                        className="flex-1 text-green-600 hover:text-green-700"
-                        disabled={isLoading}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Reativar
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(route)}
+                        onClick={() => handleView(route)}
                         className="flex-1"
                       >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Editar
+                        <Eye className="h-4 w-4 mr-1" />
+                        Ver
                       </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleReset(route)}
-                      className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
-                      disabled={isLoading}
-                      title="Resetar rota - marca TODOS os pontos como não concluídos"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(route.id)}
-                      className="text-red-600 hover:text-red-700 hover:border-red-300"
-                      disabled={isLoading}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      {route.status === 'completed' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReactivate(route)}
+                          className="flex-1 text-green-600 hover:text-green-700"
+                          disabled={isLoading}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          Reativar
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(route)}
+                          className="flex-1"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleReset(route)}
+                        className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
+                        disabled={isLoading}
+                        title="Resetar rota - marca TODOS os pontos como não concluídos"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(route.id)}
+                        className="text-red-600 hover:text-red-700 hover:border-red-300"
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -412,7 +497,7 @@ const Routes = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <h3 className="font-semibold text-lg">{viewingRoute.name}</h3>
+                    <h3 className="font-semibold text-lg">{viewingRoute.name || 'Rota sem nome'}</h3>
                     {viewingRoute.description && (
                       <p className="text-gray-600">{viewingRoute.description}</p>
                     )}
@@ -421,16 +506,16 @@ const Routes = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="font-medium">Status:</p>
-                      {getStatusBadge(viewingRoute.status)}
+                      {getStatusBadge(viewingRoute.status || 'active')}
                     </div>
                     <div>
                       <p className="font-medium">Total de Pontos:</p>
-                      <p>{viewingRoute.points?.length || 0}</p>
+                      <p>{(viewingRoute.points || []).length}</p>
                     </div>
                     {viewingRoute.totalDistance && (
                       <div>
                         <p className="font-medium">Distância Total:</p>
-                        <p>{viewingRoute.totalDistance.toFixed(2)} km</p>
+                        <p>{Number(viewingRoute.totalDistance).toFixed(2)} km</p>
                       </div>
                     )}
                     {viewingRoute.estimatedTime && (
@@ -441,30 +526,33 @@ const Routes = () => {
                     )}
                   </div>
 
-                  {viewingRoute.points && viewingRoute.points.length > 0 && (
+                  {Array.isArray(viewingRoute.points) && viewingRoute.points.length > 0 && (
                     <div>
                       <h4 className="font-medium mb-3">Pontos da Rota:</h4>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {viewingRoute.points
-                          .sort((a: any, b: any) => a.order - b.order)
-                          .map((point: any, index: number) => (
-                          <div key={`${viewingRoute.id}-detail-point-${point.id || index}`} className="flex items-center gap-3 p-3 border rounded-lg">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                              point.type === 'origin' ? 'bg-green-500' :
-                              point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'
-                            }`}>
-                              {index + 1}
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium">{point.address}</p>
-                              <p className="text-sm text-gray-600 capitalize">{point.type}</p>
-                              {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
-                              {point.completed && (
-                                <p className="text-xs text-green-600 font-medium">✅ Concluído</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          .sort((a: any, b: any) => (a?.order || 0) - (b?.order || 0))
+                          .map((point: any, index: number) => {
+                            if (!point) return null;
+                            return (
+                              <div key={`${viewingRoute.id}-detail-point-${point.id || index}`} className="flex items-center gap-3 p-3 border rounded-lg">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                                  point.type === 'origin' ? 'bg-green-500' :
+                                  point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'
+                                }`}>
+                                  {index + 1}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium">{point.address || 'Endereço não definido'}</p>
+                                  <p className="text-sm text-gray-600 capitalize">{point.type || 'waypoint'}</p>
+                                  {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
+                                  {point.completed && (
+                                    <p className="text-xs text-green-600 font-medium">✅ Concluído</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                       </div>
                     </div>
                   )}
