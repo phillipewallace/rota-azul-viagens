@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useRoutes, RoutePoint, Route } from '@/hooks/useRoutes';
 import RouteOptimizationDialog from './RouteOptimizationDialog';
 import { API_CONFIG } from '@/services/config';
+import { v4 as uuidv4 } from 'uuid';
 
 // ✅ SCHEMA CORRIGIDO - SEM CEP PERSISTENTE
 const routeSchema = z.object({
@@ -64,15 +65,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     }
   });
 
-  // ✅ FUNÇÃO PARA GERAR UUID VÁLIDO
-  const generateValidId = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  };
-
   useEffect(() => {
     if (editingRoute) {
       reset({
@@ -109,7 +101,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   // ✅ FUNÇÃO CORRIGIDA - USAR UUID VÁLIDO SEM CEP
   const handleAddPoint = () => {
     const newPoint: RoutePoint = {
-      id: generateValidId(),
+      id: uuidv4(),
       address: '',
       lat: 0,
       lng: 0,
@@ -312,10 +304,15 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     try {
       console.log('📤 [ROUTE FORM] Enviando dados da rota...');
       
+      // ✅ PRESERVAR PONTOS CONCLUÍDOS DURANTE SALVAMENTO
       const routeData = {
         name: data.name,
         description: data.description || '',
-        points: points,
+        points: points.map(point => ({
+          ...point,
+          // ✅ Garantir que CEP não seja enviado
+          cep: undefined
+        })),
         totalDistance: totalDistance,
         estimatedTime: estimatedTime,
         optimizedOrder: optimizedOrder,
@@ -384,7 +381,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
               {points.map((point, index) => (
                 <Card key={point.id} className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <Label className="text-sm font-medium">Ponto {index + 1}</Label>
+                    <Label className="text-sm font-medium">
+                      Ponto {index + 1} 
+                      {point.completed && <span className="text-green-600 ml-2">✅ Concluído</span>}
+                    </Label>
                     <Button
                       type="button"
                       variant="ghost"

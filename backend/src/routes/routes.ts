@@ -205,7 +205,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Atualizar rota existente - CORRIGIDA
+// ✅ ATUALIZAR ROTA - PRESERVAR PONTOS CONCLUÍDOS
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -217,7 +217,23 @@ router.put('/:id', async (req, res) => {
     await pool.query('BEGIN');
 
     try {
-      // 1. Atualizar dados da rota
+      // 1. Buscar pontos existentes para preservar status de conclusão
+      const existingPointsQuery = await pool.query(
+        'SELECT id, completed, completed_at FROM route_points WHERE route_id = $1',
+        [id]
+      );
+      
+      const existingPointsMap = new Map();
+      existingPointsQuery.rows.forEach(point => {
+        existingPointsMap.set(point.id, {
+          completed: point.completed,
+          completedAt: point.completed_at
+        });
+      });
+
+      console.log(`📝 [ROUTES] Pontos existentes encontrados: ${existingPointsMap.size}`);
+
+      // 2. Atualizar dados da rota
       const optimizedOrderString = Array.isArray(optimizedOrder) 
         ? JSON.stringify(optimizedOrder) 
         : JSON.stringify([]);
@@ -245,10 +261,10 @@ router.put('/:id', async (req, res) => {
         return res.status(404).json({ error: 'Rota não encontrada' });
       }
 
-      // 2. Remover pontos antigos
+      // 3. Remover pontos antigos
       await pool.query('DELETE FROM route_points WHERE route_id = $1', [id]);
 
-      // 3. Inserir novos pontos com UUIDs válidos
+      // 4. Inserir novos pontos PRESERVANDO status de conclusão
       if (points && points.length > 0) {
         for (let i = 0; i < points.length; i++) {
           const point = points[i];
@@ -256,7 +272,12 @@ router.put('/:id', async (req, res) => {
           // Garantir que o ID seja um UUID válido
           const pointId = point.id && point.id.includes('-') ? point.id : uuidv4();
           
-          console.log(`📍 [ROUTES] Inserindo ponto ${i + 1}: ${pointId} - ${point.address}`);
+          // ✅ PRESERVAR STATUS DE CONCLUSÃO DO PONTO EXISTENTE
+          const existingStatus = existingPointsMap.get(pointId);
+          const isCompleted = existingStatus?.completed || point.completed || false;
+          const completedAt = existingStatus?.completedAt || point.completedAt || null;
+          
+          console.log(`📍 [ROUTES] Inserindo ponto ${i + 1}: ${pointId} - ${point.address} (completed: ${isCompleted})`);
           
           await pool.query(
             `INSERT INTO route_points 
@@ -270,8 +291,8 @@ router.put('/:id', async (req, res) => {
               point.lng,
               i,
               point.type || 'waypoint',
-              point.completed || false,
-              point.completedAt || null
+              isCompleted,
+              completedAt
             ]
           );
         }
@@ -280,7 +301,7 @@ router.put('/:id', async (req, res) => {
       // Commit da transação
       await pool.query('COMMIT');
 
-      // 4. Buscar rota atualizada com pontos
+      // 5. Buscar rota atualizada com pontos
       const updatedRoute = await getRouteWithPoints(id);
       
       console.log(`✅ [ROUTES] Rota ${id} atualizada com sucesso`);
