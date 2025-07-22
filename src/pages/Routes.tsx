@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,19 +15,52 @@ const Routes = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
   const [viewingRoute, setViewingRoute] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { routes, loading, loadRoutes } = useRoutes();
   const { deleteRoute, updateRoute, resetRoute, isLoading } = useRoutesCRUD();
 
-  const handleEdit = (route: any) => {
+  // ✅ RECARREGAR ROTAS SEMPRE QUE O COMPONENTE FOR FOCADO
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 [ROUTES PAGE] Window focado - recarregando rotas');
+      loadRoutes();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [loadRoutes]);
+
+  // ✅ FORÇAR REFRESH DOS DADOS
+  const forceRefresh = async () => {
+    console.log('🔄 [ROUTES PAGE] Forçando refresh completo dos dados');
+    setRefreshKey(prev => prev + 1);
+    await loadRoutes();
+  };
+
+  const handleEdit = async (route: any) => {
     if (route.status === 'completed') {
       toast.error('Não é possível editar uma rota concluída');
       return;
     }
+    
     console.log('🔧 [ROUTES PAGE] Abrindo rota para edição:', route.name);
+    
+    // ✅ BUSCAR DADOS FRESCOS ANTES DE EDITAR
+    await forceRefresh();
+    const freshRoutes = await loadRoutes();
+    const freshRoute = Array.isArray(freshRoutes) 
+      ? freshRoutes.find(r => r.id === route.id)
+      : routes.find(r => r.id === route.id);
+    
+    console.log('🔧 [ROUTES PAGE] Dados frescos para edição:', {
+      original: route.points?.length,
+      fresh: freshRoute?.points?.length
+    });
+    
     // Clear any existing state first
     setViewingRoute(null);
-    setEditingRoute(route);
+    setEditingRoute(freshRoute || route);
     setIsCreateModalOpen(true);
   };
 
@@ -77,21 +109,38 @@ const Routes = () => {
     }
   };
 
-  const handleView = (route: any) => {
+  const handleView = async (route: any) => {
+    console.log('👁️ [ROUTES PAGE] Visualizando rota:', route.name);
+    
+    // ✅ BUSCAR DADOS FRESCOS ANTES DE VISUALIZAR
+    await forceRefresh();
+    const freshRoutes = await loadRoutes();
+    const freshRoute = Array.isArray(freshRoutes) 
+      ? freshRoutes.find(r => r.id === route.id)
+      : routes.find(r => r.id === route.id);
+    
+    console.log('👁️ [ROUTES PAGE] Dados frescos para visualização:', {
+      original: route.points?.length,
+      fresh: freshRoute?.points?.length
+    });
+    
     // Clear any existing modal state first
     setIsCreateModalOpen(false);
     setEditingRoute(null);
-    setViewingRoute(route);
+    setViewingRoute(freshRoute || route);
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = async () => {
     console.log('❌ [ROUTES PAGE] Fechando modal de edição/criação');
     setIsCreateModalOpen(false);
+    
     // Clear the editing route state after a delay to prevent visual glitches
     setTimeout(() => {
       setEditingRoute(null);
     }, 300);
-    loadRoutes();
+    
+    // ✅ FORÇAR REFRESH APÓS FECHAR MODAL
+    await forceRefresh();
   };
 
   const handleNewRoute = () => {
@@ -128,7 +177,7 @@ const Routes = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-6" key={refreshKey}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -148,6 +197,15 @@ const Routes = () => {
             </div>
           </div>
           <div className="flex gap-3">
+            {/* ✅ BOTÃO DE REFRESH MANUAL */}
+            <Button 
+              onClick={forceRefresh}
+              variant="outline"
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
             <Button 
               onClick={handleNewRoute}
               className="bg-blue-600 hover:bg-blue-700"
@@ -156,6 +214,11 @@ const Routes = () => {
               Nova Rota
             </Button>
           </div>
+        </div>
+
+        {/* ✅ DEBUG INFO */}
+        <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
+          <strong>Debug:</strong> {routes.length} rotas carregadas | Refresh key: {refreshKey}
         </div>
 
         {/* Lista de Rotas */}
@@ -289,6 +352,7 @@ const Routes = () => {
 
         {/* Modais */}
         <CreateRouteModal 
+          key={`modal-${editingRoute?.id || 'new'}-${refreshKey}`}
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen}
           editingRoute={editingRoute}

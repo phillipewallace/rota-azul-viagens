@@ -43,19 +43,40 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
 
   useEffect(() => {
     if (editingRoute && open) {
+      console.log('📝 [CREATE ROUTE MODAL] Carregando dados para edição:', {
+        name: editingRoute.name,
+        pointsCount: editingRoute.points?.length || 0,
+        editingRouteId: editingRoute.id
+      });
+      
       setRouteName(editingRoute.name || '');
       setRouteDescription(editingRoute.description || '');
       
       const points = editingRoute.points || [];
-      const sortedPoints = points.sort((a: any, b: any) => a.order - b.order);
+      const sortedPoints = points
+        .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+        .map((point: any, index: number) => ({
+          id: point.id || `temp-${Date.now()}-${index}`,
+          address: point.address || '',
+          lat: point.lat || 0,
+          lng: point.lng || 0,
+          order: index,
+          type: point.type || 'waypoint',
+          completed: point.completed || false,
+          completedAt: point.completedAt || null,
+        }));
+      
+      console.log('📝 [CREATE ROUTE MODAL] Pontos processados:', sortedPoints.length);
       setAllPoints(sortedPoints);
       setStep(2);
     } else if (open && !editingRoute) {
+      console.log('➕ [CREATE ROUTE MODAL] Modo criação - resetando formulário');
       resetForm();
     }
   }, [editingRoute, open]);
 
   const resetForm = () => {
+    console.log('🔄 [CREATE ROUTE MODAL] Resetando formulário');
     setStep(1);
     setRouteName('');
     setRouteDescription('');
@@ -67,6 +88,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   };
 
   const handleClose = () => {
+    console.log('❌ [CREATE ROUTE MODAL] Fechando modal');
     onOpenChange(false);
     setTimeout(() => {
       resetForm();
@@ -201,8 +223,12 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     }
   };
 
-  // Função que substitui o antigo generatePreview, com base na escolha do diálogo
   const handleOptimizationConfirm = async (useIntelligent: boolean) => {
+    console.log('🎯 [CREATE ROUTE MODAL] ===== INICIANDO OTIMIZAÇÃO =====');
+    console.log(`🎯 [CREATE ROUTE MODAL] Tipo: ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
+    console.log(`🎯 [CREATE ROUTE MODAL] Route ID: ${editingRoute?.id || 'NOVA'}`);
+    console.log(`🎯 [CREATE ROUTE MODAL] Pontos atuais: ${allPoints.length}`);
+    
     setIsOptimizationDialogOpen(false);
     setUseIntelligentOptimization(useIntelligent);
     setLoading(true);
@@ -215,55 +241,87 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         return;
       }
 
+      console.log('🎯 [CREATE ROUTE MODAL] Pontos válidos para otimização:', validPoints.length);
+
       const optimizedData = await optimizeRoute(validPoints, isEditing ? editingRoute.id : undefined, useIntelligent);
 
+      console.log('✅ [CREATE ROUTE MODAL] Dados otimizados recebidos:', {
+        pointsCount: optimizedData.points?.length || 0,
+        totalDistance: optimizedData.totalDistance,
+        estimatedTime: optimizedData.estimatedTime
+      });
 
       const preview = {
         name: routeName,
         description: routeDescription,
         points: optimizedData.points.map((optimizedPoint: RoutePoint) => {
           const original = allPoints.find(p => p.id === optimizedPoint.id);
-          return {
+          const resultPoint = {
             ...optimizedPoint,
             completed: original?.completed ?? false,
             completedAt: original?.completedAt ?? null,
           };
+          
+          console.log(`🔍 [CREATE ROUTE MODAL] Ponto ${optimizedPoint.id}: completed=${resultPoint.completed}`);
+          return resultPoint;
         }),
         totalDistance: optimizedData.totalDistance,
         estimatedTime: optimizedData.estimatedTime,
         optimizedOrder: optimizedData.optimizedOrder,
-        status: 'active'
+        status: editingRoute?.status || 'active'
       };
+
+      console.log('✅ [CREATE ROUTE MODAL] Preview gerado:', {
+        pointsCount: preview.points.length,
+        completedPointsCount: preview.points.filter(p => p.completed).length
+      });
 
       setPreviewData(preview);
       setShowPreview(true);
     } catch (error) {
-      console.error('Error generating preview:', error);
-      toast.error('Erro ao gerar preview da rota');
+      console.error('❌ [CREATE ROUTE MODAL] Erro na otimização:', error);
+      toast.error(`Erro ao gerar preview da rota: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!previewData) return;
+    if (!previewData) {
+      console.error('❌ [CREATE ROUTE MODAL] Sem dados de preview para salvar');
+      return;
+    }
 
     try {
       setLoading(true);
       
+      console.log('💾 [CREATE ROUTE MODAL] ===== INICIANDO SALVAMENTO =====');
+      console.log('💾 [CREATE ROUTE MODAL] Dados para salvar:', {
+        name: previewData.name,
+        pointsCount: previewData.points?.length || 0,
+        completedPointsCount: previewData.points?.filter(p => p.completed).length || 0,
+        isEditing,
+        routeId: editingRoute?.id
+      });
+      
+      let result;
       if (isEditing && editingRoute?.id) {
-        await updateRoute({ id: editingRoute.id, route: previewData });
+        console.log('📝 [CREATE ROUTE MODAL] Atualizando rota existente');
+        result = await updateRoute({ id: editingRoute.id, route: previewData });
         toast.success('Rota atualizada com sucesso!');
       } else {
-        await createRoute(previewData);
+        console.log('➕ [CREATE ROUTE MODAL] Criando nova rota');
+        result = await createRoute(previewData);
         toast.success('Rota criada com sucesso!');
       }
+      
+      console.log('✅ [CREATE ROUTE MODAL] Rota salva:', result);
       
       onSuccess();
       handleClose();
     } catch (error) {
-      console.error('Error saving route:', error);
-      toast.error('Erro ao salvar rota');
+      console.error('❌ [CREATE ROUTE MODAL] Erro ao salvar rota:', error);
+      toast.error(`Erro ao salvar rota: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -280,15 +338,32 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     return { label: `Ponto ${index}`, color: 'bg-blue-500', textColor: 'text-blue-700' };
   };
 
+  // ✅ DEBUG INFO
+  console.log('🔍 [CREATE ROUTE MODAL] Estado atual:', {
+    open,
+    isEditing,
+    editingRouteId: editingRoute?.id,
+    routeName,
+    pointsCount: allPoints.length,
+    step,
+    showPreview
+  });
+
   return (
     <>
       <Dialog open={open && !showPreview} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {isEditing ? 'Editar Rota' : 'Nova Rota'} - Passo {step} de 2
+              {isEditing ? `Editar Rota (${editingRoute?.id?.substring(0, 8)}...)` : 'Nova Rota'} - Passo {step} de 2
             </DialogTitle>
           </DialogHeader>
+          
+          <div className="text-xs bg-gray-100 p-2 rounded mb-4">
+            <strong>Debug:</strong> {allPoints.length} pontos | 
+            {allPoints.filter(p => p.completed).length} concluídos |
+            Editando: {editingRoute?.name || 'N/A'}
+          </div>
           
           {step === 1 && (
             <div className="space-y-4">

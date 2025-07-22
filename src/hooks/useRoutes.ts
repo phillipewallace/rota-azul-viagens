@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { routesService } from '@/services/routes';
 import { API_CONFIG } from '@/services/config';
@@ -33,11 +34,32 @@ export const useRoutes = () => {
 
   const loadRoutes = async () => {
     try {
+      console.log('🔄 [USE ROUTES] Carregando rotas do backend...');
       setLoading(true);
       const data = await routesService.getRoutes();
-      setRoutes(data);
+      
+      console.log('✅ [USE ROUTES] Rotas carregadas:', {
+        count: data?.length || 0,
+        routes: data?.map(r => ({ id: r.id, name: r.name, pointsCount: r.points?.length || 0 }))
+      });
+      
+      // ✅ GARANTIR QUE OS DADOS SEJAM VÁLIDOS
+      const validatedRoutes = (data || []).map(route => ({
+        ...route,
+        points: (route.points || []).map((point, index) => ({
+          ...point,
+          order: point.order ?? index,
+          completed: point.completed ?? false,
+          completedAt: point.completedAt ?? null,
+        }))
+      }));
+      
+      setRoutes(validatedRoutes);
+      return validatedRoutes; // ✅ RETORNAR OS DADOS
     } catch (error) {
-      console.error('Error loading routes:', error);
+      console.error('❌ [USE ROUTES] Erro ao carregar rotas:', error);
+      setRoutes([]);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -257,32 +279,55 @@ export const useRoutes = () => {
 
   const createRoute = async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
     try {
+      console.log('➕ [USE ROUTES] Criando rota:', {
+        name: routeData.name,
+        pointsCount: routeData.points?.length || 0
+      });
+      
       const newRoute = await routesService.createRoute(routeData);
+      
+      console.log('✅ [USE ROUTES] Rota criada:', newRoute);
+      
+      // ✅ RECARREGAR DADOS APÓS CRIAR
       await loadRoutes();
       return newRoute;
     } catch (error) {
-      console.error('Error creating route:', error);
+      console.error('❌ [USE ROUTES] Erro ao criar rota:', error);
       throw error;
     }
   };
 
   const updateRoute = async (id: string, routeData: Partial<Route>) => {
     try {
+      console.log('📝 [USE ROUTES] Atualizando rota:', {
+        id,
+        name: routeData.name,
+        pointsCount: routeData.points?.length || 0,
+        completedPointsCount: routeData.points?.filter(p => p.completed).length || 0
+      });
+      
       const updatedRoute = await routesService.updateRoute(id, routeData);
+      
+      console.log('✅ [USE ROUTES] Rota atualizada:', updatedRoute);
+      
+      // ✅ RECARREGAR DADOS APÓS ATUALIZAR
       await loadRoutes();
       return updatedRoute;
     } catch (error) {
-      console.error('Error updating route:', error);
+      console.error('❌ [USE ROUTES] Erro ao atualizar rota:', error);
       throw error;
     }
   };
 
   const deleteRoute = async (id: string) => {
     try {
+      console.log('🗑️ [USE ROUTES] Excluindo rota:', id);
       await routesService.deleteRoute(id);
+      
+      // ✅ RECARREGAR DADOS APÓS EXCLUIR
       await loadRoutes();
     } catch (error) {
-      console.error('Error deleting route:', error);
+      console.error('❌ [USE ROUTES] Erro ao excluir rota:', error);
       throw error;
     }
   };
