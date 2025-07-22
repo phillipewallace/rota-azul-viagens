@@ -34,16 +34,25 @@ export const useRoutes = () => {
 
   const loadRoutes = async () => {
     try {
-      console.log('🔄 [USE ROUTES] Carregando rotas do backend...');
+      console.log('🔄 [USE ROUTES] ===== CARREGANDO ROTAS DO BACKEND =====');
       setLoading(true);
+      
+      // ✅ AGUARDAR UM MOMENTO PARA GARANTIR DADOS FRESCOS
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       const data = await routesService.getRoutes();
       
-      console.log('✅ [USE ROUTES] Rotas carregadas:', {
+      console.log('✅ [USE ROUTES] Rotas carregadas do servidor:', {
         count: data?.length || 0,
-        routes: data?.map(r => ({ id: r.id, name: r.name, pointsCount: r.points?.length || 0 }))
+        routes: data?.map(r => ({ 
+          id: r.id.substring(0, 8) + '...', 
+          name: r.name, 
+          pointsCount: r.points?.length || 0,
+          completedPoints: r.points?.filter(p => p.completed).length || 0
+        }))
       });
       
-      // ✅ GARANTIR QUE OS DADOS SEJAM VÁLIDOS
+      // ✅ GARANTIR QUE OS DADOS SEJAM VÁLIDOS E CONSISTENTES
       const validatedRoutes = (data || []).map(route => ({
         ...route,
         points: (route.points || []).map((point, index) => ({
@@ -54,8 +63,21 @@ export const useRoutes = () => {
         }))
       }));
       
+      console.log('✅ [USE ROUTES] Dados validados e prontos:', {
+        count: validatedRoutes.length,
+        detailedRoutes: validatedRoutes.map(r => ({
+          id: r.id.substring(0, 8) + '...',
+          name: r.name,
+          pointsCount: r.points?.length || 0,
+          completedPoints: r.points?.filter(p => p.completed).length || 0,
+          totalDistance: r.totalDistance,
+          estimatedTime: r.estimatedTime
+        }))
+      });
+      
       setRoutes(validatedRoutes);
-      return validatedRoutes; // ✅ RETORNAR OS DADOS
+      return validatedRoutes;
+      
     } catch (error) {
       console.error('❌ [USE ROUTES] Erro ao carregar rotas:', error);
       setRoutes([]);
@@ -74,7 +96,7 @@ export const useRoutes = () => {
         console.log(`🔍 [CEP] Tentativa ${attempt}/${maxRetries} para CEP: ${cep}`);
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
         
         const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/cep/${cep}`, {
           signal: controller.signal
@@ -95,7 +117,6 @@ export const useRoutes = () => {
         console.log(`⚠️ [CEP] Tentativa ${attempt} falhou: ${error.message}`);
         
         if (attempt < maxRetries) {
-          // Delay progressivo: 1s, 2s, 3s
           await new Promise(resolve => setTimeout(resolve, attempt * 1000));
         }
       }
@@ -111,10 +132,11 @@ export const useRoutes = () => {
     useIntelligent: boolean = true
   ) => {
     const startTime = Date.now();
-    const TIMEOUT_MS = 60000; // 60 segundos
+    const TIMEOUT_MS = 60000;
     
     try {
-      console.log(`🎯 [OPTIMIZE] Iniciando ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
+      console.log(`🎯 [OPTIMIZE] ===== INICIANDO OTIMIZAÇÃO =====`);
+      console.log(`🎯 [OPTIMIZE] Tipo: ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
       console.log(`🎯 [OPTIMIZE] Route ID: ${routeId || 'NOVA ROTA'}`);
       console.log(`🎯 [OPTIMIZE] Pontos: ${allPoints.length}`);
 
@@ -122,14 +144,12 @@ export const useRoutes = () => {
         throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
       }
 
-      // Validação robusta de UUID
       const isValidUUID = (id: string) =>
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
-      // Tentar otimização inteligente se possível
+      // ✅ TENTAR OTIMIZAÇÃO INTELIGENTE SE POSSÍVEL
       if (useIntelligent && routeId && isValidUUID(routeId)) {
         const maxRetries = 2;
-        let lastError: any;
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
@@ -196,11 +216,10 @@ export const useRoutes = () => {
               throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
           } catch (error) {
-            lastError = error;
             console.log(`⚠️ [OPTIMIZE] Tentativa ${attempt} falhou: ${error.message}`);
             
             if (attempt < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 2000)); // 2s delay
+              await new Promise(resolve => setTimeout(resolve, 2000));
             }
           }
         }
@@ -208,7 +227,7 @@ export const useRoutes = () => {
         console.log(`⚠️ [OPTIMIZE] Inteligente falhou, usando fallback tradicional`);
       }
 
-      // Fallback para otimização tradicional
+      // ✅ FALLBACK PARA OTIMIZAÇÃO TRADICIONAL
       console.log(`🔄 [OPTIMIZE] Executando otimização tradicional`);
       
       const controller = new AbortController();
@@ -279,17 +298,25 @@ export const useRoutes = () => {
 
   const createRoute = async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
     try {
-      console.log('➕ [USE ROUTES] Criando rota:', {
+      console.log('➕ [USE ROUTES] ===== CRIANDO ROTA =====');
+      console.log('➕ [USE ROUTES] Dados da rota:', {
         name: routeData.name,
-        pointsCount: routeData.points?.length || 0
+        pointsCount: routeData.points?.length || 0,
+        completedPoints: routeData.points?.filter(p => p.completed).length || 0
       });
       
       const newRoute = await routesService.createRoute(routeData);
       
-      console.log('✅ [USE ROUTES] Rota criada:', newRoute);
+      console.log('✅ [USE ROUTES] Rota criada com sucesso:', {
+        id: newRoute.id.substring(0, 8) + '...',
+        name: newRoute.name,
+        pointsCount: newRoute.points?.length || 0
+      });
       
-      // ✅ RECARREGAR DADOS APÓS CRIAR
+      // ✅ AGUARDAR E RECARREGAR DADOS APÓS CRIAR
+      await new Promise(resolve => setTimeout(resolve, 300));
       await loadRoutes();
+      
       return newRoute;
     } catch (error) {
       console.error('❌ [USE ROUTES] Erro ao criar rota:', error);
@@ -299,19 +326,29 @@ export const useRoutes = () => {
 
   const updateRoute = async (id: string, routeData: Partial<Route>) => {
     try {
-      console.log('📝 [USE ROUTES] Atualizando rota:', {
-        id,
+      console.log('📝 [USE ROUTES] ===== ATUALIZANDO ROTA =====');
+      console.log('📝 [USE ROUTES] ID da rota:', id.substring(0, 8) + '...');
+      console.log('📝 [USE ROUTES] Dados de atualização:', {
         name: routeData.name,
         pointsCount: routeData.points?.length || 0,
-        completedPointsCount: routeData.points?.filter(p => p.completed).length || 0
+        completedPoints: routeData.points?.filter(p => p.completed).length || 0,
+        totalDistance: routeData.totalDistance,
+        estimatedTime: routeData.estimatedTime
       });
       
       const updatedRoute = await routesService.updateRoute(id, routeData);
       
-      console.log('✅ [USE ROUTES] Rota atualizada:', updatedRoute);
+      console.log('✅ [USE ROUTES] Rota atualizada com sucesso:', {
+        id: updatedRoute.id.substring(0, 8) + '...',
+        name: updatedRoute.name,
+        pointsCount: updatedRoute.points?.length || 0,
+        completedPoints: updatedRoute.points?.filter(p => p.completed).length || 0
+      });
       
-      // ✅ RECARREGAR DADOS APÓS ATUALIZAR
+      // ✅ AGUARDAR E RECARREGAR DADOS APÓS ATUALIZAR
+      await new Promise(resolve => setTimeout(resolve, 300));
       await loadRoutes();
+      
       return updatedRoute;
     } catch (error) {
       console.error('❌ [USE ROUTES] Erro ao atualizar rota:', error);
@@ -321,7 +358,7 @@ export const useRoutes = () => {
 
   const deleteRoute = async (id: string) => {
     try {
-      console.log('🗑️ [USE ROUTES] Excluindo rota:', id);
+      console.log('🗑️ [USE ROUTES] Excluindo rota:', id.substring(0, 8) + '...');
       await routesService.deleteRoute(id);
       
       // ✅ RECARREGAR DADOS APÓS EXCLUIR
@@ -332,6 +369,7 @@ export const useRoutes = () => {
     }
   };
 
+  // ✅ CARREGAR DADOS INICIAIS
   useEffect(() => {
     loadRoutes();
   }, []);

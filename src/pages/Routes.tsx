@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ const Routes = () => {
   const [editingRoute, setEditingRoute] = useState<any>(null);
   const [viewingRoute, setViewingRoute] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { routes, loading, loadRoutes } = useRoutes();
   const { deleteRoute, updateRoute, resetRoute, isLoading } = useRoutesCRUD();
@@ -24,18 +26,28 @@ const Routes = () => {
   useEffect(() => {
     const handleFocus = () => {
       console.log('🔄 [ROUTES PAGE] Window focado - recarregando rotas');
-      loadRoutes();
+      forceRefresh();
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [loadRoutes]);
+  }, []);
 
-  // ✅ FORÇAR REFRESH DOS DADOS
+  // ✅ FORÇAR REFRESH DOS DADOS COM LOADING STATE
   const forceRefresh = async () => {
     console.log('🔄 [ROUTES PAGE] Forçando refresh completo dos dados');
+    setIsRefreshing(true);
     setRefreshKey(prev => prev + 1);
-    await loadRoutes();
+    
+    try {
+      await loadRoutes();
+      console.log('✅ [ROUTES PAGE] Dados atualizados com sucesso');
+    } catch (error) {
+      console.error('❌ [ROUTES PAGE] Erro ao atualizar dados:', error);
+      toast.error('Erro ao atualizar dados');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleEdit = async (route: any) => {
@@ -44,24 +56,32 @@ const Routes = () => {
       return;
     }
     
-    console.log('🔧 [ROUTES PAGE] Abrindo rota para edição:', route.name);
+    console.log('🔧 [ROUTES PAGE] Preparando rota para edição:', route.name);
     
-    // ✅ BUSCAR DADOS FRESCOS ANTES DE EDITAR
-    await forceRefresh();
-    const freshRoutes = await loadRoutes();
-    const freshRoute = Array.isArray(freshRoutes) 
-      ? freshRoutes.find(r => r.id === route.id)
-      : routes.find(r => r.id === route.id);
-    
-    console.log('🔧 [ROUTES PAGE] Dados frescos para edição:', {
-      original: route.points?.length,
-      fresh: freshRoute?.points?.length
-    });
-    
-    // Clear any existing state first
+    // ✅ LIMPAR ESTADOS EXISTENTES
     setViewingRoute(null);
-    setEditingRoute(freshRoute || route);
-    setIsCreateModalOpen(true);
+    setIsCreateModalOpen(false);
+    
+    // ✅ BUSCAR DADOS MAIS RECENTES ANTES DE EDITAR
+    console.log('🔄 [ROUTES PAGE] Buscando dados atualizados antes de editar...');
+    await forceRefresh();
+    
+    // ✅ AGUARDAR UM MOMENTO PARA GARANTIR DADOS FRESCOS
+    setTimeout(() => {
+      // Buscar a rota atualizada da lista atual
+      const freshRoute = routes.find(r => r.id === route.id);
+      const routeToEdit = freshRoute || route;
+      
+      console.log('🔧 [ROUTES PAGE] Abrindo rota para edição:', {
+        id: routeToEdit.id,
+        name: routeToEdit.name,
+        pointsCount: routeToEdit.points?.length || 0,
+        completedPoints: routeToEdit.points?.filter(p => p.completed).length || 0
+      });
+      
+      setEditingRoute(routeToEdit);
+      setIsCreateModalOpen(true);
+    }, 500);
   };
 
   const handleDelete = async (id: string) => {
@@ -70,7 +90,7 @@ const Routes = () => {
         console.log('🗑️ [ROUTES PAGE] Excluindo rota:', id);
         await deleteRoute(id);
         toast.success('Rota excluída com sucesso!');
-        loadRoutes();
+        await forceRefresh();
       } catch (error: any) {
         console.error('Error deleting route:', error);
         if (error.message?.includes('foreign key') || error.message?.includes('chave estrangeira')) {
@@ -87,21 +107,20 @@ const Routes = () => {
       console.log('♻️ [ROUTES PAGE] Reativando rota:', route.name);
       await updateRoute({ id: route.id, route: { status: 'active' } });
       toast.success('Rota reativada com sucesso!');
-      loadRoutes();
+      await forceRefresh();
     } catch (error) {
       console.error('Error reactivating route:', error);
       toast.error('Erro ao reativar rota');
     }
   };
 
-  // ✅ ÚNICO PONTO AUTORIZADO DE RESET - Via botão específico
   const handleReset = async (route: any) => {
     if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"? TODOS os pontos concluídos serão marcados como não concluídos.`)) {
       try {
         console.log('🔄 [ROUTES PAGE] Resetando rota via botão reset:', route.name);
         await resetRoute(route.id);
         toast.success('Rota resetada com sucesso! Todos os pontos foram marcados como não concluídos.');
-        loadRoutes();
+        await forceRefresh();
       } catch (error: any) {
         console.error('Error resetting route:', error);
         toast.error(error.message || 'Erro ao resetar rota');
@@ -110,42 +129,48 @@ const Routes = () => {
   };
 
   const handleView = async (route: any) => {
-    console.log('👁️ [ROUTES PAGE] Visualizando rota:', route.name);
+    console.log('👁️ [ROUTES PAGE] Preparando rota para visualização:', route.name);
     
-    // ✅ BUSCAR DADOS FRESCOS ANTES DE VISUALIZAR
-    await forceRefresh();
-    const freshRoutes = await loadRoutes();
-    const freshRoute = Array.isArray(freshRoutes) 
-      ? freshRoutes.find(r => r.id === route.id)
-      : routes.find(r => r.id === route.id);
-    
-    console.log('👁️ [ROUTES PAGE] Dados frescos para visualização:', {
-      original: route.points?.length,
-      fresh: freshRoute?.points?.length
-    });
-    
-    // Clear any existing modal state first
+    // ✅ LIMPAR ESTADOS EXISTENTES
     setIsCreateModalOpen(false);
     setEditingRoute(null);
-    setViewingRoute(freshRoute || route);
+    
+    // ✅ BUSCAR DADOS MAIS RECENTES ANTES DE VISUALIZAR
+    console.log('🔄 [ROUTES PAGE] Buscando dados atualizados antes de visualizar...');
+    await forceRefresh();
+    
+    // ✅ AGUARDAR UM MOMENTO PARA GARANTIR DADOS FRESCOS
+    setTimeout(() => {
+      const freshRoute = routes.find(r => r.id === route.id);
+      const routeToView = freshRoute || route;
+      
+      console.log('👁️ [ROUTES PAGE] Abrindo rota para visualização:', {
+        id: routeToView.id,
+        name: routeToView.name,
+        pointsCount: routeToView.points?.length || 0,
+        completedPoints: routeToView.points?.filter(p => p.completed).length || 0
+      });
+      
+      setViewingRoute(routeToView);
+    }, 500);
   };
 
   const handleCloseModal = async () => {
     console.log('❌ [ROUTES PAGE] Fechando modal de edição/criação');
     setIsCreateModalOpen(false);
     
-    // Clear the editing route state after a delay to prevent visual glitches
+    // ✅ LIMPAR ESTADO DE EDIÇÃO
     setTimeout(() => {
       setEditingRoute(null);
     }, 300);
     
     // ✅ FORÇAR REFRESH APÓS FECHAR MODAL
+    console.log('🔄 [ROUTES PAGE] Forçando refresh após fechar modal');
     await forceRefresh();
   };
 
   const handleNewRoute = () => {
     console.log('➕ [ROUTES PAGE] Criando nova rota');
-    // Clear any existing state
     setViewingRoute(null);
     setEditingRoute(null);
     setIsCreateModalOpen(true);
@@ -165,12 +190,14 @@ const Routes = () => {
     return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
   };
 
-  if (loading) {
+  if (loading || isRefreshing) {
     return (
       <div className="min-h-screen bg-background p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando rotas...</p>
+          <p className="text-gray-600">
+            {isRefreshing ? 'Atualizando dados...' : 'Carregando rotas...'}
+          </p>
         </div>
       </div>
     );
@@ -197,13 +224,12 @@ const Routes = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            {/* ✅ BOTÃO DE REFRESH MANUAL */}
             <Button 
               onClick={forceRefresh}
               variant="outline"
-              disabled={loading}
+              disabled={loading || isRefreshing}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || isRefreshing) ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
             <Button 
@@ -216,9 +242,16 @@ const Routes = () => {
           </div>
         </div>
 
-        {/* ✅ DEBUG INFO */}
+        {/* ✅ DEBUG INFO MELHORADO */}
         <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
-          <strong>Debug:</strong> {routes.length} rotas carregadas | Refresh key: {refreshKey}
+          <strong>Debug:</strong> {routes.length} rotas carregadas | 
+          Refresh key: {refreshKey} | 
+          Status: {isRefreshing ? 'Atualizando...' : 'Pronto'}
+          {routes.length > 0 && (
+            <div className="mt-1">
+              Última rota: {routes[0]?.name} ({routes[0]?.points?.length || 0} pontos, {routes[0]?.points?.filter(p => p.completed).length || 0} concluídos)
+            </div>
+          )}
         </div>
 
         {/* Lista de Rotas */}
@@ -254,7 +287,14 @@ const Routes = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Pontos:</span>
-                      <span className="text-sm">{route.points?.length || 0} locais</span>
+                      <span className="text-sm">
+                        {route.points?.length || 0} locais
+                        {route.points && route.points.length > 0 && (
+                          <span className="text-green-600 ml-1">
+                            ({route.points.filter(p => p.completed).length} ✅)
+                          </span>
+                        )}
+                      </span>
                     </div>
                     
                     {route.totalDistance && (
@@ -279,6 +319,7 @@ const Routes = () => {
                             <div key={`${route.id}-point-${index}`} className="flex items-center gap-2 text-xs text-gray-600">
                               <MapPin className="h-3 w-3" />
                               <span className="truncate">{point.address}</span>
+                              {point.completed && <span className="text-green-600">✅</span>}
                             </div>
                           ))}
                           {route.points.length > 2 && (
@@ -323,7 +364,6 @@ const Routes = () => {
                         Editar
                       </Button>
                     )}
-                    {/* ✅ ÚNICO BOTÃO DE RESET AUTORIZADO */}
                     <Button
                       variant="outline"
                       size="sm"
