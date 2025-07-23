@@ -16,7 +16,6 @@ const Routes = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
   const [viewingRoute, setViewingRoute] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const { routes, loading, loadRoutes } = useRoutes();
   const { deleteRoute, updateRoute, resetRoute, isLoading } = useRoutesCRUD();
@@ -24,10 +23,9 @@ const Routes = () => {
   // Garantir que routes sempre seja um array
   const safeRoutes = Array.isArray(routes) ? routes : [];
 
-  // Função para forçar refresh
+  // Função para forçar refresh completo
   const forceRefresh = async () => {
-    console.log('🔄 [ROUTES PAGE] Iniciando refresh forçado');
-    setRefreshKey(prev => prev + 1);
+    console.log('🔄 [ROUTES PAGE] ===== INICIANDO REFRESH FORÇADO =====');
     
     try {
       await loadRoutes();
@@ -40,7 +38,7 @@ const Routes = () => {
   // Refresh quando a página for focada
   useEffect(() => {
     const handleFocus = () => {
-      console.log('🔄 [ROUTES PAGE] Página focada - atualizando dados');
+      console.log('👁️ [ROUTES PAGE] Página focada - atualizando dados');
       forceRefresh();
     };
 
@@ -59,7 +57,12 @@ const Routes = () => {
       return;
     }
     
-    console.log('🔧 [ROUTES PAGE] Preparando edição da rota:', route.name);
+    console.log('🔧 [ROUTES PAGE] ===== EDITANDO ROTA =====');
+    console.log('🔧 [ROUTES PAGE] Rota selecionada:', {
+      id: route.id.substring(0, 8) + '...',
+      name: route.name,
+      pointsCount: Array.isArray(route.points) ? route.points.length : 0
+    });
     
     // Validar e preparar dados da rota
     const safeRoute = {
@@ -69,13 +72,6 @@ const Routes = () => {
       estimatedTime: route.estimatedTime || '0min',
       optimizedOrder: Array.isArray(route.optimizedOrder) ? route.optimizedOrder : []
     };
-    
-    console.log('🔧 [ROUTES PAGE] Dados da rota para edição:', {
-      id: safeRoute.id.substring(0, 8) + '...',
-      name: safeRoute.name,
-      pointsCount: safeRoute.points.length,
-      totalDistance: safeRoute.totalDistance
-    });
     
     setViewingRoute(null);
     setEditingRoute(safeRoute);
@@ -90,11 +86,12 @@ const Routes = () => {
 
     if (window.confirm('Tem certeza que deseja excluir esta rota?')) {
       try {
+        console.log('🗑️ [ROUTES PAGE] Excluindo rota:', id);
         await deleteRoute(id);
         toast.success('Rota excluída com sucesso!');
         await forceRefresh();
       } catch (error: any) {
-        console.error('Error deleting route:', error);
+        console.error('❌ [ROUTES PAGE] Erro ao excluir rota:', error);
         toast.error('Erro ao excluir rota');
       }
     }
@@ -107,11 +104,12 @@ const Routes = () => {
     }
 
     try {
+      console.log('🔄 [ROUTES PAGE] Reativando rota:', route.id);
       await updateRoute({ id: route.id, route: { status: 'active' } });
       toast.success('Rota reativada com sucesso!');
       await forceRefresh();
     } catch (error) {
-      console.error('Error reactivating route:', error);
+      console.error('❌ [ROUTES PAGE] Erro ao reativar rota:', error);
       toast.error('Erro ao reativar rota');
     }
   };
@@ -124,11 +122,12 @@ const Routes = () => {
 
     if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"?`)) {
       try {
+        console.log('🔄 [ROUTES PAGE] Resetando rota:', route.id);
         await resetRoute(route.id);
         toast.success('Rota resetada com sucesso!');
         await forceRefresh();
       } catch (error: any) {
-        console.error('Error resetting route:', error);
+        console.error('❌ [ROUTES PAGE] Erro ao resetar rota:', error);
         toast.error('Erro ao resetar rota');
       }
     }
@@ -141,12 +140,6 @@ const Routes = () => {
     }
 
     console.log('👁️ [ROUTES PAGE] Visualizando rota:', route.name);
-    console.log('👁️ [ROUTES PAGE] Dados da rota:', {
-      id: route.id.substring(0, 8) + '...',
-      name: route.name,
-      pointsCount: Array.isArray(route.points) ? route.points.length : 0,
-      totalDistance: route.totalDistance
-    });
     
     // Validar e preparar dados da rota
     const safeRoute = {
@@ -162,7 +155,7 @@ const Routes = () => {
   };
 
   const handleCloseModal = async () => {
-    console.log('❌ [ROUTES PAGE] Fechando modal e forçando refresh');
+    console.log('❌ [ROUTES PAGE] ===== FECHANDO MODAL =====');
     setIsCreateModalOpen(false);
     setEditingRoute(null);
     
@@ -171,7 +164,7 @@ const Routes = () => {
   };
 
   const handleNewRoute = () => {
-    console.log('➕ [ROUTES PAGE] Criando nova rota');
+    console.log('➕ [ROUTES PAGE] ===== CRIANDO NOVA ROTA =====');
     setViewingRoute(null);
     setEditingRoute(null);
     setIsCreateModalOpen(true);

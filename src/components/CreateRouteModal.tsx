@@ -27,48 +27,28 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: Creat
     }
   }, [open]);
 
-  const handleSubmit = async (routeData: any) => {
+  const handleSubmit = async (savedRoute: Route) => {
     if (isSubmitting) {
-      console.log('⚠️ [CREATE ROUTE MODAL] Já está enviando, ignorando...');
-      return;
-    }
-
-    if (!routeData) {
-      console.error('❌ [CREATE ROUTE MODAL] Dados da rota inválidos');
-      toast.error('Erro: dados da rota inválidos');
+      console.log('⚠️ [CREATE ROUTE MODAL] Já está processando, ignorando...');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      console.log('📤 [CREATE ROUTE MODAL] Iniciando salvamento:', {
-        isEditing: !!editingRoute,
-        routeName: routeData.name || 'Nome não definido',
-        pointsCount: Array.isArray(routeData.points) ? routeData.points.length : 0
-      });
-
-      // Simular processo de salvamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('✅ [CREATE ROUTE MODAL] Rota salva com sucesso pelo RouteForm:', savedRoute.id);
       
-      console.log('✅ [CREATE ROUTE MODAL] Rota salva com sucesso');
-      
-      // Fechar modal primeiro
+      // Fechar modal imediatamente
       onOpenChange(false);
       
-      // Mostrar toast de sucesso
-      toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
-      
-      // Executar callback de sucesso após um breve delay
+      // Executar callback de sucesso
       if (onSuccess) {
-        setTimeout(() => {
-          console.log('🔄 [CREATE ROUTE MODAL] Executando callback de sucesso');
-          onSuccess();
-        }, 100);
+        console.log('🔄 [CREATE ROUTE MODAL] Executando callback de sucesso');
+        onSuccess();
       }
       
     } catch (error: any) {
-      console.error('❌ [CREATE ROUTE MODAL] Erro ao salvar:', error);
-      toast.error(error.message || 'Erro ao salvar rota');
+      console.error('❌ [CREATE ROUTE MODAL] Erro no callback:', error);
+      toast.error('Erro ao processar callback');
     } finally {
       setIsSubmitting(false);
     }
