@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,14 +12,14 @@ import { toast } from 'sonner';
 import { useRoutes, RoutePoint, Route } from '@/hooks/useRoutes';
 import RouteOptimizationDialog from './RouteOptimizationDialog';
 import { API_CONFIG } from '@/services/config';
-import { v4 as uuidv4 } from 'uuid';
 
-// ✅ SCHEMA CORRIGIDO - SEM CEP PERSISTENTE
+// Define o schema de validação com Zod
 const routeSchema = z.object({
   name: z.string().min(1, 'O nome da rota é obrigatório'),
   description: z.string().optional(),
   points: z.array(z.object({
     address: z.string().min(1, 'O endereço é obrigatório'),
+    cep: z.string().optional(),
     lat: z.number(),
     lng: z.number(),
     order: z.number(),
@@ -35,12 +34,14 @@ const routeSchema = z.object({
 
 type RouteFormData = z.infer<typeof routeSchema>;
 
+// Define a interface para as propriedades do componente
 interface RouteFormProps {
   onSubmit: (routeData: any) => void;
   editingRoute?: Route;
   onCancel?: () => void;
 }
 
+// Componente funcional RouteForm
 const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   const { getAddressByCep, createRoute, updateRoute } = useRoutes();
   const [points, setPoints] = useState<RoutePoint[]>(editingRoute?.points || []);
@@ -49,10 +50,8 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   const [optimizedOrder, setOptimizedOrder] = useState<string[]>(editingRoute?.optimizedOrder || []);
   const [optimizing, setOptimizing] = useState(false);
   const [showOptimizationDialog, setShowOptimizationDialog] = useState(false);
-  
-  // ✅ ESTADO TEMPORÁRIO PARA CEP (NÃO PERSISTENTE)
-  const [tempCeps, setTempCeps] = useState<Record<string, string>>({});
 
+  // Inicializa o formulário com react-hook-form
   const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm<RouteFormData>({
     resolver: zodResolver(routeSchema),
     defaultValues: {
@@ -65,6 +64,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     }
   });
 
+  // Efeito para resetar o formulário quando editingRoute muda
   useEffect(() => {
     if (editingRoute) {
       reset({
@@ -79,8 +79,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       setTotalDistance(editingRoute.totalDistance);
       setEstimatedTime(editingRoute.estimatedTime);
       setOptimizedOrder(editingRoute.optimizedOrder);
-      // ✅ CEP não é carregado do banco - campos ficam limpos
-      setTempCeps({});
     } else {
       reset({
         name: '',
@@ -94,15 +92,15 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       setTotalDistance(0);
       setEstimatedTime('');
       setOptimizedOrder([]);
-      setTempCeps({});
     }
   }, [editingRoute, reset]);
 
-  // ✅ FUNÇÃO CORRIGIDA - USAR UUID VÁLIDO SEM CEP
+  // Função para adicionar um novo ponto
   const handleAddPoint = () => {
     const newPoint: RoutePoint = {
-      id: uuidv4(),
+      id: `point-${Date.now()}`,
       address: '',
+      cep: '',
       lat: 0,
       lng: 0,
       order: points.length,
@@ -113,67 +111,46 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     setPoints([...points, newPoint]);
   };
 
+  // Função para remover um ponto
   const handleRemovePoint = (index: number) => {
     const newPoints = [...points];
-    const removedPointId = newPoints[index].id;
     newPoints.splice(index, 1);
     const updatedPoints = newPoints.map((point, i) => ({ ...point, order: i }));
     setPoints(updatedPoints);
-    
-    // ✅ REMOVER CEP TEMPORÁRIO DO PONTO REMOVIDO
-    const newTempCeps = { ...tempCeps };
-    delete newTempCeps[removedPointId];
-    setTempCeps(newTempCeps);
   };
 
-  // ✅ FUNÇÃO CORRIGIDA - BUSCAR ENDEREÇO POR CEP
+  // Função para buscar o endereço pelo CEP
   const handleSearchCep = async (index: number, cep: string) => {
-    if (!cep || cep.length < 8) {
-      toast.error('Digite um CEP válido');
-      return;
-    }
-
     try {
-      console.log(`🔍 [ROUTE FORM] Buscando endereço para CEP: ${cep}`);
       const addressData = await getAddressByCep(cep);
-      
       const newPoints = [...points];
       newPoints[index] = {
         ...newPoints[index],
         address: addressData.address,
         lat: addressData.lat,
         lng: addressData.lng,
+        cep: cep,
       };
       setPoints(newPoints);
       setValue(`points.${index}.address`, addressData.address);
       setValue(`points.${index}.lat`, addressData.lat);
       setValue(`points.${index}.lng`, addressData.lng);
-      
-      console.log(`✅ [ROUTE FORM] Endereço encontrado: ${addressData.address}`);
-      toast.success('Endereço encontrado!');
-      
     } catch (error: any) {
-      console.error('❌ [ROUTE FORM] Erro ao buscar CEP:', error);
       toast.error(error.message || 'Erro ao buscar endereço');
     }
   };
 
+  // Função para atualizar o valor de um ponto
   const handlePointChange = (index: number, field: string, value: any) => {
     const newPoints = [...points];
     newPoints[index] = { ...newPoints[index], [field]: value };
     setPoints(newPoints);
   };
 
-  // ✅ FUNÇÃO PARA ATUALIZAR CEP TEMPORÁRIO
-  const handleCepChange = (pointId: string, cep: string) => {
-    setTempCeps(prev => ({
-      ...prev,
-      [pointId]: cep
-    }));
-  };
-
+  // ✅ FUNÇÃO CORRIGIDA: Garantir que o diálogo apareça
   const handleOptimizeClick = () => {
     console.log('🎯 [ROUTE FORM] ===== GERAR PREVIEW CLICADO =====');
+    console.log('🎯 [ROUTE FORM] Número de pontos:', points.length);
     
     if (points.length < 2) {
       console.log('❌ [ROUTE FORM] Pontos insuficientes');
@@ -192,6 +169,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     setShowOptimizationDialog(true);
   };
 
+  // ✅ FUNÇÃO CORRIGIDA: Lidar com escolha de otimização
   const handleOptimizationChoice = async (useIntelligent: boolean) => {
     console.log('🎯 [ROUTE FORM] ===== ESCOLHA DE OTIMIZAÇÃO =====');
     console.log(`🎯 [ROUTE FORM] Tipo escolhido: ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
@@ -204,8 +182,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       
       if (useIntelligent && editingRoute?.id) {
         console.log('🧠 [ROUTE FORM] Executando otimização INTELIGENTE');
+        console.log(`🧠 [ROUTE FORM] URL: ${API_CONFIG.BASE_URL}/routes/${editingRoute.id}/optimize-intelligent`);
         toast.info('🧠 Iniciando otimização inteligente...');
         
+        // ✅ USANDO URL CORRETA DA CONFIGURAÇÃO
         const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${editingRoute.id}/optimize-intelligent`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -216,6 +196,8 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
             })) 
           }),
         });
+
+        console.log(`🌐 [ROUTE FORM] Resposta do servidor: ${response.status} ${response.statusText}`);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -230,6 +212,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
           points: intelligentData.points.map((p: any, index: number) => ({
             id: p.id,
             address: p.address,
+            cep: p.cep || '',
             lat: p.lat,
             lng: p.lng,
             order: index,
@@ -246,8 +229,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         
       } else {
         console.log('🆓 [ROUTE FORM] Executando otimização TRADICIONAL');
+        console.log(`🆓 [ROUTE FORM] URL: ${API_CONFIG.BASE_URL}/geocoding/optimize`);
         toast.info('🆓 Iniciando otimização tradicional...');
         
+        // ✅ USANDO URL CORRETA DA CONFIGURAÇÃO  
         const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -269,6 +254,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
           points: optimizedData.points.map((p: any, index: number) => ({
             id: p.id,
             address: p.address,
+            cep: p.cep || '',
             lat: p.lat,
             lng: p.lng,
             order: index,
@@ -300,19 +286,15 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     }
   };
 
+  // Função para lidar com o envio do formulário
   const onSubmitData = async (data: RouteFormData) => {
     try {
       console.log('📤 [ROUTE FORM] Enviando dados da rota...');
       
-      // ✅ PRESERVAR PONTOS CONCLUÍDOS DURANTE SALVAMENTO
       const routeData = {
         name: data.name,
         description: data.description || '',
-        points: points.map(point => ({
-          ...point,
-          // ✅ Garantir que CEP não seja enviado
-          cep: undefined
-        })),
+        points: points,
         totalDistance: totalDistance,
         estimatedTime: estimatedTime,
         optimizedOrder: optimizedOrder,
@@ -323,14 +305,17 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       
       let result;
       if (editingRoute?.id) {
+        // ✅ ATUALIZAR ROTA EXISTENTE
         result = await updateRoute(editingRoute.id, routeData);
       } else {
+        // ✅ CRIAR NOVA ROTA
         result = await createRoute(routeData);
       }
       
       console.log('✅ [ROUTE FORM] Rota salva com sucesso:', result);
       toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
       
+      // ✅ CHAMAR onSubmit para fechar o modal
       onSubmit(result);
       
     } catch (error: any) {
@@ -381,10 +366,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
               {points.map((point, index) => (
                 <Card key={point.id} className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <Label className="text-sm font-medium">
-                      Ponto {index + 1} 
-                      {point.completed && <span className="text-green-600 ml-2">✅ Concluído</span>}
-                    </Label>
+                    <Label className="text-sm font-medium">Ponto {index + 1}</Label>
                     <Button
                       type="button"
                       variant="ghost"
@@ -396,21 +378,20 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* ✅ CEP TEMPORÁRIO - NÃO PERSISTENTE */}
                     <div className="space-y-2">
-                      <Label htmlFor={`cep-${index}`}>CEP (apenas para busca)</Label>
+                      <Label htmlFor={`cep-${index}`}>CEP</Label>
                       <div className="flex gap-2">
                         <Input
                           id={`cep-${index}`}
-                          value={tempCeps[point.id] || ''}
-                          onChange={(e) => handleCepChange(point.id, e.target.value)}
+                          value={point.cep || ''}
+                          onChange={(e) => handlePointChange(index, 'cep', e.target.value)}
                           placeholder="00000-000"
                         />
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => handleSearchCep(index, tempCeps[point.id] || '')}
+                          onClick={() => handleSearchCep(index, point.cep || '')}
                         >
                           <MapPin className="h-4 w-4" />
                         </Button>
@@ -490,12 +471,26 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         </CardContent>
       </Card>
 
+      {/* ✅ DIÁLOGO SEMPRE PRESENTE COM PROPS CORRETAS */}
       <RouteOptimizationDialog
         open={showOptimizationDialog}
-        onOpenChange={setShowOptimizationDialog}
+        onOpenChange={(open) => {
+          console.log('🎯 [ROUTE FORM] Diálogo onOpenChange:', open);
+          setShowOptimizationDialog(open);
+        }}
         onConfirm={handleOptimizationChoice}
         isOptimizing={optimizing}
       />
+      
+      {/* Debug info para desenvolvimento */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded text-xs z-50">
+          <div>Dialog: {showOptimizationDialog ? 'OPEN' : 'CLOSED'}</div>
+          <div>Optimizing: {optimizing ? 'YES' : 'NO'}</div>
+          <div>Points: {points.length}</div>
+          <div>API: {API_CONFIG.BASE_URL}</div>
+        </div>
+      )}
     </div>
   );
 };
