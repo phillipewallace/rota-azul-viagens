@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
+import { ExtendedRouteOptimizer } from '../services/extendedRouteOptimizer';
 import { PartialRouteOptimizer } from '../services/partialRouteOptimizer';
+import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = Router();
 
@@ -8,7 +10,7 @@ const router = Router();
 async function getRouteWithPoints(routeId: string) {
   const routeQuery = await pool.query('SELECT * FROM routes WHERE id = $1', [routeId]);
   if (routeQuery.rows.length === 0) {
-    return null;
+    return null; // Rota não encontrada
   }
 
   const pointsQuery = await pool.query(
@@ -42,34 +44,41 @@ async function getRouteWithPoints(routeId: string) {
   };
 }
 
-// ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE - CRÍTICO
+// ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE CORRIGIDO
 router.post('/:id/optimize-intelligent', async (req, res) => {
   const startTime = Date.now();
   try {
     const { id } = req.params;
     const { points } = req.body;
 
-    console.log(`🧠 [INTELLIGENT OPTIMIZATION] Iniciando para rota ${id}`);
+    console.log('🧠🧠🧠 [INTELLIGENT OPTIMIZATION] =====================================');
+    console.log(`🧠 [INTELLIGENT OPTIMIZATION] Iniciando otimização inteligente para rota ${id}`);
+    console.log(`🧠 [INTELLIGENT OPTIMIZATION] Timestamp: ${new Date().toISOString()}`);
     console.log(`📊 [INTELLIGENT OPTIMIZATION] Pontos recebidos: ${points?.length || 0}`);
 
     if (!points || points.length < 2) {
+      console.log('❌ [INTELLIGENT OPTIMIZATION] Erro: Pontos insuficientes');
       return res.status(400).json({ 
         error: 'É necessário pelo menos 2 pontos para otimização',
         receivedPoints: points?.length || 0 
       });
     }
 
-    // Verificar se a rota existe
+    // 1. Verificar se a rota existe
+    console.log(`🔍 [INTELLIGENT OPTIMIZATION] Verificando existência da rota ${id}...`);
     const existingRoute = await getRouteWithPoints(id);
     if (!existingRoute) {
+      console.log(`❌ [INTELLIGENT OPTIMIZATION] Rota ${id} não encontrada`);
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
+    console.log(`✅ [INTELLIGENT OPTIMIZATION] Rota ${id} encontrada: "${existingRoute.name}"`);
 
-    console.log(`✅ [INTELLIGENT OPTIMIZATION] Rota encontrada: "${existingRoute.name}"`);
-
-    // Usar PartialRouteOptimizer para preservar pontos concluídos
+    // 2. Usar PartialRouteOptimizer para preservar pontos concluídos
+    console.log(`🎯 [INTELLIGENT OPTIMIZATION] Usando PartialRouteOptimizer para preservação`);
+    
     const optimizationResult = await PartialRouteOptimizer.optimizeWithPreservation(points);
 
+    // 3. Preparar resposta
     const response = {
       optimizedOrder: optimizationResult.optimizedOrder,
       totalDistance: optimizationResult.totalDistance,
@@ -83,12 +92,25 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
       processingTime: Date.now() - startTime
     };
 
-    console.log(`✅ [INTELLIGENT OPTIMIZATION] Concluído: ${response.totalDistance}km, ${response.processingTime}ms`);
+    console.log(`📊 [INTELLIGENT OPTIMIZATION] RESULTADO FINAL:`);
+    console.log(`   - Pontos preservados: ${response.preservedPoints}`);
+    console.log(`   - Pontos otimizados: ${response.optimizedPoints}`);
+    console.log(`   - Distância total: ${response.totalDistance}km`);
+    console.log(`   - Tempo estimado: ${response.estimatedTime}`);
+    console.log(`   - Tempo de processamento: ${response.processingTime}ms`);
+    console.log(`✅ [INTELLIGENT OPTIMIZATION] Otimização inteligente concluída com sucesso!`);
+    console.log('🧠🧠🧠 [INTELLIGENT OPTIMIZATION] =====================================');
+
     res.json(response);
 
   } catch (error) {
     const processingTime = Date.now() - startTime;
-    console.error(`❌ [INTELLIGENT OPTIMIZATION] Erro:`, error.message);
+    console.error('❌❌❌ [INTELLIGENT OPTIMIZATION] ERRO CRÍTICO:');
+    console.error(`   - Rota ID: ${req.params.id}`);
+    console.error(`   - Erro: ${error.message}`);
+    console.error(`   - Stack: ${error.stack}`);
+    console.error(`   - Tempo até o erro: ${processingTime}ms`);
+    console.error('❌❌❌ [INTELLIGENT OPTIMIZATION] =====================================');
     
     res.status(500).json({ 
       error: 'Erro na otimização inteligente',
@@ -96,12 +118,6 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
       processingTime 
     });
   }
-});
-
-// ✅ VERIFICAÇÃO DE ROTAS REGISTRADAS
-router.use((req, res, next) => {
-  console.log(`📍 [ROUTES] Request interceptado: ${req.method} ${req.path}`);
-  next();
 });
 
 // Rota para obter todas as rotas
@@ -143,18 +159,11 @@ router.post('/', async (req, res) => {
     await pool.query('BEGIN');
 
     try {
-      // 1. Inserir dados da rota - CORRIGIR optimizedOrder
+      // 1. Inserir dados da rota
       const routeResult = await pool.query(
         `INSERT INTO routes (name, description, total_distance, estimated_time, optimized_order, status) 
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [
-          name, 
-          description, 
-          totalDistance, 
-          estimatedTime, 
-          Array.isArray(optimizedOrder) ? JSON.stringify(optimizedOrder) : optimizedOrder,
-          status
-        ]
+        [name, description, totalDistance, estimatedTime, optimizedOrder, status]
       );
 
       const newRoute = routeResult.rows[0];
@@ -201,7 +210,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Atualizar rota existente - CORRIGIR ERRO JSON
+// Atualizar rota existente
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -213,21 +222,13 @@ router.put('/:id', async (req, res) => {
     await pool.query('BEGIN');
 
     try {
-      // 1. Atualizar dados da rota - CORRIGIR optimizedOrder
+      // 1. Atualizar dados da rota
       const routeResult = await pool.query(
         `UPDATE routes 
          SET name = $1, description = $2, total_distance = $3, estimated_time = $4, 
              optimized_order = $5, status = $6, updated_at = NOW()
          WHERE id = $7 RETURNING *`,
-        [
-          name, 
-          description, 
-          totalDistance, 
-          estimatedTime, 
-          Array.isArray(optimizedOrder) ? JSON.stringify(optimizedOrder) : (optimizedOrder || '[]'),
-          status, 
-          id
-        ]
+        [name, description, totalDistance, estimatedTime, optimizedOrder, status, id]
       );
 
       if (routeResult.rows.length === 0) {
@@ -238,7 +239,7 @@ router.put('/:id', async (req, res) => {
       // 2. Remover pontos antigos
       await pool.query('DELETE FROM route_points WHERE route_id = $1', [id]);
 
-      // 3. Inserir novos pontos
+      // 3. Inserir novos pontos (sem trigger automático)
       if (points && points.length > 0) {
         for (let i = 0; i < points.length; i++) {
           const point = points[i];
@@ -261,7 +262,7 @@ router.put('/:id', async (req, res) => {
           );
         }
 
-        // 4. Usar função segura para reordenação
+        // 4. Usar função segura para reordenação (opcional)
         console.log('🔧 [ROUTES] Aplicando reordenação segura...');
         await pool.query('SELECT safe_reorder_route_points($1)', [id]);
       }
@@ -345,7 +346,7 @@ router.get('/:id/check-usage', async (req, res) => {
   }
 });
 
-// Rota para resetar uma rota
+// Rota para resetar uma rota (remover completedBy e completionNotes)
 router.post('/:id/reset', async (req, res) => {
   try {
     const { id } = req.params;
