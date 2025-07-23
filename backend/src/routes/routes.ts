@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { ExtendedRouteOptimizer } from '../services/extendedRouteOptimizer';
-import { PartialRouteOptimizer } from '../services/partialRouteOptimizer';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = Router();
@@ -44,78 +43,132 @@ async function getRouteWithPoints(routeId: string) {
   };
 }
 
-// ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE CORRIGIDO
+// ✅ NOVO: Endpoint de otimização inteligente
 router.post('/:id/optimize-intelligent', async (req, res) => {
-  const startTime = Date.now();
   try {
     const { id } = req.params;
     const { points } = req.body;
 
-    console.log('🧠🧠🧠 [INTELLIGENT OPTIMIZATION] =====================================');
     console.log(`🧠 [INTELLIGENT OPTIMIZATION] Iniciando otimização inteligente para rota ${id}`);
-    console.log(`🧠 [INTELLIGENT OPTIMIZATION] Timestamp: ${new Date().toISOString()}`);
     console.log(`📊 [INTELLIGENT OPTIMIZATION] Pontos recebidos: ${points?.length || 0}`);
 
     if (!points || points.length < 2) {
-      console.log('❌ [INTELLIGENT OPTIMIZATION] Erro: Pontos insuficientes');
-      return res.status(400).json({ 
-        error: 'É necessário pelo menos 2 pontos para otimização',
-        receivedPoints: points?.length || 0 
-      });
+      return res.status(400).json({ error: 'É necessário pelo menos 2 pontos para otimização' });
     }
 
     // 1. Verificar se a rota existe
-    console.log(`🔍 [INTELLIGENT OPTIMIZATION] Verificando existência da rota ${id}...`);
     const existingRoute = await getRouteWithPoints(id);
     if (!existingRoute) {
-      console.log(`❌ [INTELLIGENT OPTIMIZATION] Rota ${id} não encontrada`);
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
-    console.log(`✅ [INTELLIGENT OPTIMIZATION] Rota ${id} encontrada: "${existingRoute.name}"`);
 
-    // 2. Usar PartialRouteOptimizer para preservar pontos concluídos
-    console.log(`🎯 [INTELLIGENT OPTIMIZATION] Usando PartialRouteOptimizer para preservação`);
-    
-    const optimizationResult = await PartialRouteOptimizer.optimizeWithPreservation(points);
+    // 2. Verificar se a rota está em uso
+    const usageResult = await pool.query(
+      `SELECT EXISTS (
+        SELECT 1 FROM trucks 
+        WHERE route_id = $1 AND status = 'active'
+      )`,
+      [id]
+    );
 
-    // 3. Preparar resposta
+    const isRouteInUse = usageResult.rows[0].exists;
+    console.log(`${isRouteInUse ? '🚛' : '🆓'} [INTELLIGENT OPTIMIZATION] Rota ${isRouteInUse ? 'EM USO' : 'LIVRE'}`);
+
+    // 3. Separar pontos concluídos dos pendentes
+    const completedPoints = points.filter(p => p.completed === true);
+    const pendingPoints = points.filter(p => p.completed !== true);
+
+    console.log(`✅ [INTELLIGENT OPTIMIZATION] Pontos concluídos: ${completedPoints.length}`);
+    console.log(`⏳ [INTELLIGENT OPTIMIZATION] Pontos pendentes: ${pendingPoints.length}`);
+
+    // 4. Se todos os pontos estão concluídos, não precisa otimizar
+    if (pendingPoints.length === 0) {
+      console.log(`🎉 [INTELLIGENT OPTIMIZATION] Todos os pontos já concluídos!`);
+      return res.json({
+        optimizedOrder: completedPoints.map(p => p.id),
+        totalDistance: existingRoute.totalDistance,
+        estimatedTime: existingRoute.estimatedTime,
+        points: completedPoints,
+        preservedPoints: completedPoints.length,
+        optimizedPoints: 0,
+        isExtended: false,
+        batchCount: 0,
+        polyline: ''
+      });
+    }
+
+    // 5. Se há apenas 1 ponto pendente, apenas concatenar
+    if (pendingPoints.length === 1) {
+      console.log(`📍 [INTELLIGENT OPTIMIZATION] Apenas 1 ponto pendente - concatenando`);
+      const finalPoints = [
+        ...completedPoints,
+        { ...pendingPoints[0], order: completedPoints.length }
+      ];
+
+      return res.json({
+        optimizedOrder: finalPoints.map(p => p.id),
+        totalDistance: existingRoute.totalDistance,
+        estimatedTime: existingRoute.estimatedTime,
+        points: finalPoints,
+        preservedPoints: completedPoints.length,
+        optimizedPoints: 1,
+        isExtended: false,
+        batchCount: 1,
+        polyline: ''
+      });
+    }
+
+    // 6. Decidir qual otimizador usar baseado no número de pontos
+    let optimizationResult;
+
+    if (points.length > 25) {
+      console.log(`🔢 [INTELLIGENT OPTIMIZATION] Rota extensa - usando ExtendedRouteOptimizer`);
+      optimizationResult = await ExtendedRouteOptimizer.optimizeExtendedRoute(id, points);
+    } else {
+      console.log(`📝 [INTELLIGENT OPTIMIZATION] Rota normal - usando otimização parcial`);
+      
+      // Usar otimização parcial para preservar pontos concluídos
+      if (completedPoints.length > 0) {
+        optimizationResult = await googleMapsOptimizer.optimizePartialRoute(
+          completedPoints,
+          pendingPoints
+        );
+      } else {
+        // Se não há pontos concluídos, usar otimização normal
+        const normalResult = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(pendingPoints);
+        optimizationResult = {
+          optimizedPoints: normalResult.optimizedPoints,
+          totalDistance: normalResult.totalDistance,
+          totalDuration: normalResult.totalDuration,
+          polyline: normalResult.polyline,
+          optimizedOrder: normalResult.optimizedOrder
+        };
+      }
+    }
+
+    // 7. Preparar resposta
     const response = {
       optimizedOrder: optimizationResult.optimizedOrder,
       totalDistance: optimizationResult.totalDistance,
-      estimatedTime: `${Math.round(optimizationResult.totalDuration / 60)}min`,
-      points: optimizationResult.optimizedPoints,
-      preservedPoints: optimizationResult.preservedPoints,
-      optimizedPoints: optimizationResult.optimizedPointsCount,
-      isExtended: false,
-      batchCount: 1,
-      polyline: optimizationResult.polyline,
-      processingTime: Date.now() - startTime
+      estimatedTime: optimizationResult.estimatedTime || `${Math.round((optimizationResult.totalDuration || 0) / 60)}min`,
+      points: optimizationResult.optimizedPoints || optimizationResult.points,
+      preservedPoints: completedPoints.length,
+      optimizedPoints: pendingPoints.length,
+      isExtended: optimizationResult.batchCount > 1,
+      batchCount: optimizationResult.batchCount || 1,
+      polyline: optimizationResult.polyline || ''
     };
 
-    console.log(`📊 [INTELLIGENT OPTIMIZATION] RESULTADO FINAL:`);
-    console.log(`   - Pontos preservados: ${response.preservedPoints}`);
-    console.log(`   - Pontos otimizados: ${response.optimizedPoints}`);
-    console.log(`   - Distância total: ${response.totalDistance}km`);
-    console.log(`   - Tempo estimado: ${response.estimatedTime}`);
-    console.log(`   - Tempo de processamento: ${response.processingTime}ms`);
-    console.log(`✅ [INTELLIGENT OPTIMIZATION] Otimização inteligente concluída com sucesso!`);
-    console.log('🧠🧠🧠 [INTELLIGENT OPTIMIZATION] =====================================');
+    console.log(`✅ [INTELLIGENT OPTIMIZATION] Concluída com sucesso`);
+    console.log(`📊 [INTELLIGENT OPTIMIZATION] Preservados: ${response.preservedPoints}, Otimizados: ${response.optimizedPoints}`);
 
     res.json(response);
 
   } catch (error) {
-    const processingTime = Date.now() - startTime;
-    console.error('❌❌❌ [INTELLIGENT OPTIMIZATION] ERRO CRÍTICO:');
-    console.error(`   - Rota ID: ${req.params.id}`);
-    console.error(`   - Erro: ${error.message}`);
-    console.error(`   - Stack: ${error.stack}`);
-    console.error(`   - Tempo até o erro: ${processingTime}ms`);
-    console.error('❌❌❌ [INTELLIGENT OPTIMIZATION] =====================================');
-    
+    console.error('❌ [INTELLIGENT OPTIMIZATION] Erro:', error);
     res.status(500).json({ 
       error: 'Erro na otimização inteligente',
-      details: error.message,
-      processingTime 
+      details: error.message 
     });
   }
 });

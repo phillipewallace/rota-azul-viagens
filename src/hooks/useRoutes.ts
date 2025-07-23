@@ -56,191 +56,180 @@ export const useRoutes = () => {
     }
   };
 
-  const optimizeRoute = async (
-    allPoints: RoutePoint[],
-    routeId?: string,
-    useIntelligent: boolean = true
-  ) => {
-    const startTime = Date.now();
-    const TIMEOUT_MS = 30000; // 30 segundos
+  const checkRouteInUse = async (routeId?: string) => {
+    if (!routeId) return false;
     
     try {
-      console.log('🎯🎯🎯 [USE ROUTES] ========================================');
-      console.log(`🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
-      console.log(`🎯 [USE ROUTES] Route ID: ${routeId || 'NOVA ROTA'}`);
-      console.log(`🎯 [USE ROUTES] Pontos para otimizar: ${allPoints.length}`);
-      console.log(`🎯 [USE ROUTES] Timestamp: ${new Date().toISOString()}`);
-
-      if (!allPoints || allPoints.length < 2) {
-        throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/check-usage`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.inUse || false;
       }
-
-      // ✅ VALIDAÇÃO MELHORADA DE UUID
-      const isValidUUID = (id: string) =>
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-
-      // ✅ OTIMIZAÇÃO INTELIGENTE COM TIMEOUT
-      if (useIntelligent && routeId && typeof routeId === 'string' && isValidUUID(routeId)) {
-        console.log('🧠 [USE ROUTES] EXECUTANDO: Otimização Inteligente');
-        console.log(`🧠 [USE ROUTES] Endpoint: ${API_CONFIG.BASE_URL}/api/routes/${routeId}/optimize-intelligent`);
-
-        try {
-          // ✅ IMPLEMENTAR TIMEOUT
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-          
-          const response = await fetch(`${API_CONFIG.BASE_URL}/api/routes/${routeId}/optimize-intelligent`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              points: allPoints.map((point, index) => ({
-                id: point.id,
-                address: point.address,
-                cep: point.cep,
-                lat: point.lat,
-                lng: point.lng,
-                order: index,
-                type: point.type,
-                completed: point.completed ?? false,
-                completedAt: point.completedAt ?? null,
-              })),
-            }),
-            signal: controller.signal
-          });
-
-          clearTimeout(timeoutId);
-          console.log(`🌐 [USE ROUTES] Resposta do servidor: ${response.status} ${response.statusText}`);
-
-          if (response.ok) {
-            const intelligentData = await response.json();
-            const processingTime = Date.now() - startTime;
-
-            console.log(`✅✅✅ [USE ROUTES] SUCESSO INTELLIGENT:`);
-            console.log(`   - Pontos na resposta: ${intelligentData.optimizedOrder?.length || 0}`);
-            console.log(`   - Pontos preservados: ${intelligentData.preservedPoints || 0}`);
-            console.log(`   - Pontos otimizados: ${intelligentData.optimizedPoints || 0}`);
-            console.log(`   - Tempo total: ${processingTime}ms`);
-            console.log('🎯🎯🎯 [USE ROUTES] ========================================');
-
-            return {
-              optimizedOrder: intelligentData.optimizedOrder,
-              totalDistance: intelligentData.totalDistance,
-              estimatedTime: intelligentData.estimatedTime,
-              polyline: intelligentData.polyline,
-              detailedRoute: null,
-              points: intelligentData.points.map((p: any, index: number) => ({
-                id: p.id,
-                address: p.address,
-                cep: p.cep || '',
-                lat: p.lat,
-                lng: p.lng,
-                order: index,
-                type: p.type,
-                completed: p.completed ?? false,
-                completedAt: p.completedAt ?? null,
-              })),
-              isExtended: intelligentData.isExtended,
-              batchCount: intelligentData.batchCount,
-            };
-          } else {
-            const errorText = await response.text();
-            console.log(`❌ [USE ROUTES] Intelligent falhou com status: ${response.status}`);
-            console.log(`❌ [USE ROUTES] Erro da API: ${errorText}`);
-            throw new Error(`Erro ${response.status}: ${errorText}`);
-          }
-        } catch (intelligentError) {
-          if (intelligentError.name === 'AbortError') {
-            console.error('❌❌❌ [USE ROUTES] Timeout na otimização inteligente');
-            throw new Error('Timeout na otimização inteligente. Tente novamente.');
-          }
-          
-          console.error('❌❌❌ [USE ROUTES] Erro na chamada Intelligent:');
-          console.error(`   - Erro: ${intelligentError.message}`);
-          console.error(`   - Tipo: ${intelligentError.name}`);
-          throw intelligentError;
-        }
-      } else {
-        if (useIntelligent) {
-          console.log('⚠️ [USE ROUTES] routeId inválido ou não fornecido, usando otimização tradicional');
-        }
-      }
-
-      // ✅ FALLBACK TRADICIONAL COM TIMEOUT
-      console.log('🔄 [USE ROUTES] FALLBACK: Usando otimização tradicional');
-      console.log(`🔄 [USE ROUTES] Endpoint: ${API_CONFIG.BASE_URL}/api/geocoding/optimize`);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/geocoding/optimize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          points: allPoints.map((point, index) => ({
-            id: point.id,
-            address: point.address,
-            cep: point.cep,
-            lat: point.lat,
-            lng: point.lng,
-            order: index,
-            type: point.type,
-            completed: point.completed ?? false,
-            completedAt: point.completedAt ?? null,
-          })),
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error('Erro na otimização tradicional da rota');
-      }
-
-      const optimizedData = await response.json();
-      const processingTime = Date.now() - startTime;
-
-      console.log(`✅ [USE ROUTES] GEOCODING FALLBACK CONCLUÍDO em ${processingTime}ms`);
-      console.log('🎯🎯🎯 [USE ROUTES] ========================================');
-
-      return {
-        optimizedOrder: optimizedData.optimizedOrder,
-        totalDistance: optimizedData.totalDistance,
-        estimatedTime: optimizedData.estimatedTime,
-        polyline: optimizedData.polyline,
-        detailedRoute: null,
-        points: optimizedData.points.map((p: any, index: number) => ({
-          id: p.id,
-          address: p.address,
-          cep: p.cep || '',
-          lat: p.lat,
-          lng: p.lng,
-          order: index,
-          type: p.type,
-          completed: p.completed ?? false,
-          completedAt: p.completedAt ?? null,
-        })),
-        isExtended: false,
-        batchCount: 1,
-      };
+      return false;
     } catch (error) {
-      const processingTime = Date.now() - startTime;
-      
-      if (error.name === 'AbortError') {
-        console.error('❌❌❌ [USE ROUTES] TIMEOUT NA OTIMIZAÇÃO:');
-        console.error(`   - Tempo até o timeout: ${processingTime}ms`);
-        console.log('🎯🎯🎯 [USE ROUTES] ========================================');
-        throw new Error('Tempo limite excedido. A otimização está demorando muito.');
-      }
-      
-      console.error('❌❌❌ [USE ROUTES] ERRO CRÍTICO NA OTIMIZAÇÃO:');
-      console.error(`   - Erro: ${error.message}`);
-      console.error(`   - Tempo até o erro: ${processingTime}ms`);
-      console.error(`   - Stack: ${error.stack}`);
-      console.log('🎯🎯🎯 [USE ROUTES] ========================================');
-      throw error;
+      console.error('Error checking route usage:', error);
+      return false;
     }
   };
+
+ const optimizeRoute = async (
+  allPoints: RoutePoint[],
+  routeId?: string,
+  useIntelligent: boolean = true
+) => {
+  try {
+    console.log('🎯 [USE ROUTES] ========================================');
+    console.log(
+      `🎯 [USE ROUTES] INICIANDO OTIMIZAÇÃO ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`
+    );
+    console.log(`🎯 [USE ROUTES] Route ID: ${routeId || 'NOVA ROTA'}`);
+    console.log(`🎯 [USE ROUTES] Pontos para otimizar: ${allPoints.length}`);
+
+    if (!allPoints || allPoints.length < 2) {
+      throw new Error('É necessário pelo menos 2 pontos para criar uma rota');
+    }
+
+    if (allPoints.length > 25) {
+      console.log(`🔢 [USE ROUTES] ROTA EXTENSA DETECTADA (${allPoints.length} pontos)`);
+      console.log(`📦 [USE ROUTES] Será processada em lotes de até 23 pontos`);
+    }
+
+    const isValidUUID = (id: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+    if (useIntelligent && routeId && typeof routeId === 'string' && isValidUUID(routeId)) {
+      console.log('🔍 [USE ROUTES] PASSO 1: Verificando uso da rota existente...');
+
+      const isRouteInUse = await checkRouteInUse(routeId);
+      console.log(
+        `${isRouteInUse ? '🚛' : '🆓'} [USE ROUTES] Rota ${routeId} ${
+          isRouteInUse ? 'EM USO' : 'LIVRE'
+        }`
+      );
+
+      try {
+        console.log('🧠 [USE ROUTES] TENTATIVA: Otimização Inteligente');
+        const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            points: allPoints.map((point, index) => ({
+              id: point.id,
+              address: point.address,
+              cep: point.cep,
+              lat: point.lat,
+              lng: point.lng,
+              order: index,
+              type: point.type,
+              completed: point.completed ?? false,
+              completedAt: point.completedAt ?? null,
+            })),
+          }),
+        });
+
+        if (response.ok) {
+          const intelligentData = await response.json();
+
+          console.log(`✅ [USE ROUTES] SUCESSO INTELLIGENT: ${intelligentData.optimizedOrder?.length || 0} pontos`);
+          console.log(`🛡️ [USE ROUTES] Pontos preservados: ${intelligentData.preservedPoints || 0}`);
+          console.log(`🎯 [USE ROUTES] Pontos otimizados: ${intelligentData.optimizedPoints || 0}`);
+          if (intelligentData.isExtended) {
+            console.log(`📦 [USE ROUTES] Processamento em lotes: ${intelligentData.batchCount} lotes`);
+          }
+
+          console.log('🎯 [USE ROUTES] ========================================');
+
+          return {
+            optimizedOrder: intelligentData.optimizedOrder,
+            totalDistance: intelligentData.totalDistance,
+            estimatedTime: intelligentData.estimatedTime,
+            polyline: intelligentData.polyline,
+            detailedRoute: null,
+            points: intelligentData.points.map((p: any, index: number) => ({
+              id: p.id,
+              address: p.address,
+              cep: p.cep || '',
+              lat: p.lat,
+              lng: p.lng,
+              order: index,
+              type: p.type,
+              completed: p.completed ?? false,
+              completedAt: p.completedAt ?? null,
+            })),
+            isExtended: intelligentData.isExtended,
+            batchCount: intelligentData.batchCount,
+          };
+        } else {
+          console.log('⚠️ [USE ROUTES] Intelligent falhou com status:', response.status);
+          const errorText = await response.text();
+          console.log('⚠️ [USE ROUTES] Erro da API:', errorText);
+        }
+      } catch (intelligentError) {
+        console.error('❌ [USE ROUTES] Erro na chamada Intelligent:', intelligentError);
+      }
+    } else {
+      if (useIntelligent) {
+        console.log('⚠️ [USE ROUTES] routeId inválido ou não fornecido, pulando otimização inteligente');
+      }
+    }
+
+    // Fallback tradicional
+    console.log('🔄 [USE ROUTES] FALLBACK: Usando otimização tradicional');
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        points: allPoints.map((point, index) => ({
+          id: point.id,
+          address: point.address,
+          cep: point.cep,
+          lat: point.lat,
+          lng: point.lng,
+          order: index,
+          type: point.type,
+          completed: point.completed ?? false,
+          completedAt: point.completedAt ?? null,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro na otimização tradicional da rota');
+    }
+
+    const optimizedData = await response.json();
+
+    console.log(`✅ [USE ROUTES] GEOCODING FALLBACK CONCLUÍDO`);
+    console.log('🎯 [USE ROUTES] ========================================');
+
+    return {
+      optimizedOrder: optimizedData.optimizedOrder,
+      totalDistance: optimizedData.totalDistance,
+      estimatedTime: optimizedData.estimatedTime,
+      polyline: optimizedData.polyline,
+      detailedRoute: null,
+      points: optimizedData.points.map((p: any, index: number) => ({
+        id: p.id,
+        address: p.address,
+        cep: p.cep || '',
+        lat: p.lat,
+        lng: p.lng,
+        order: index,
+        type: p.type,
+        completed: p.completed ?? false,
+        completedAt: p.completedAt ?? null,
+      })),
+      isExtended: false,
+      batchCount: 1,
+    };
+  } catch (error) {
+    console.error('❌ [USE ROUTES] ERRO CRÍTICO NA OTIMIZAÇÃO:', error);
+    console.log('🎯 [USE ROUTES] ========================================');
+    throw error;
+  }
+};
+
 
   const createRoute = async (routeData: Omit<Route, 'id' | 'createdAt'>) => {
     try {
