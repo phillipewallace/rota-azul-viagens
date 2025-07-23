@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,172 +16,87 @@ const Routes = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
   const [viewingRoute, setViewingRoute] = useState<any>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const { routes, loading, loadRoutes } = useRoutes();
   const { deleteRoute, updateRoute, resetRoute, isLoading } = useRoutesCRUD();
 
-  // Garantir que routes sempre seja um array
-  const safeRoutes = Array.isArray(routes) ? routes : [];
-
-  // Função para forçar refresh completo
-  const forceRefresh = async () => {
-    console.log('🔄 [ROUTES PAGE] ===== INICIANDO REFRESH FORÇADO =====');
-    
-    try {
-      setRefreshing(true);
-      await loadRoutes();
-      console.log('✅ [ROUTES PAGE] Refresh concluído com sucesso');
-    } catch (error) {
-      console.error('❌ [ROUTES PAGE] Erro durante refresh:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // Refresh quando a página for focada
-  useEffect(() => {
-    const handleFocus = () => {
-      console.log('👁️ [ROUTES PAGE] Página focada - atualizando dados');
-      forceRefresh();
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
-
-  // Refresh automático a cada 30 segundos
-  useEffect(() => {
-    const interval = setInterval(() => {
-      console.log('⏰ [ROUTES PAGE] Refresh automático');
-      forceRefresh();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const handleEdit = (route: any) => {
-    if (!route?.id) {
-      toast.error('Erro: dados da rota inválidos');
-      return;
-    }
-
     if (route.status === 'completed') {
       toast.error('Não é possível editar uma rota concluída');
       return;
     }
-    
-    console.log('🔧 [ROUTES PAGE] ===== EDITANDO ROTA =====');
-    console.log('🔧 [ROUTES PAGE] Rota selecionada:', {
-      id: route.id.substring(0, 8) + '...',
-      name: route.name,
-      pointsCount: Array.isArray(route.points) ? route.points.length : 0
-    });
-    
-    // Validar e preparar dados da rota
-    const safeRoute = {
-      ...route,
-      points: Array.isArray(route.points) ? route.points : [],
-      totalDistance: route.totalDistance || 0,
-      estimatedTime: route.estimatedTime || '0min',
-      optimizedOrder: Array.isArray(route.optimizedOrder) ? route.optimizedOrder : []
-    };
-    
+    console.log('🔧 [ROUTES PAGE] Abrindo rota para edição:', route.name);
+    // Clear any existing state first
     setViewingRoute(null);
-    setEditingRoute(safeRoute);
+    setEditingRoute(route);
     setIsCreateModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!id) {
-      toast.error('Erro: ID da rota inválido');
-      return;
-    }
-
-    if (window.confirm('Tem certeza que deseja excluir esta rota?')) {
+    if (window.confirm('Tem certeza que deseja excluir esta rota? Isso também removerá todos os agendamentos relacionados.')) {
       try {
         console.log('🗑️ [ROUTES PAGE] Excluindo rota:', id);
         await deleteRoute(id);
         toast.success('Rota excluída com sucesso!');
-        await forceRefresh();
+        loadRoutes();
       } catch (error: any) {
-        console.error('❌ [ROUTES PAGE] Erro ao excluir rota:', error);
-        toast.error('Erro ao excluir rota');
+        console.error('Error deleting route:', error);
+        if (error.message?.includes('foreign key') || error.message?.includes('chave estrangeira')) {
+          toast.error('Não é possível excluir esta rota pois ela possui agendamentos vinculados. Remova os agendamentos primeiro.');
+        } else {
+          toast.error('Erro ao excluir rota');
+        }
       }
     }
   };
 
   const handleReactivate = async (route: any) => {
-    if (!route?.id) {
-      toast.error('Erro: dados da rota inválidos');
-      return;
-    }
-
     try {
-      console.log('🔄 [ROUTES PAGE] Reativando rota:', route.id);
+      console.log('♻️ [ROUTES PAGE] Reativando rota:', route.name);
       await updateRoute({ id: route.id, route: { status: 'active' } });
       toast.success('Rota reativada com sucesso!');
-      await forceRefresh();
+      loadRoutes();
     } catch (error) {
-      console.error('❌ [ROUTES PAGE] Erro ao reativar rota:', error);
+      console.error('Error reactivating route:', error);
       toast.error('Erro ao reativar rota');
     }
   };
 
+  // ✅ ÚNICO PONTO AUTORIZADO DE RESET - Via botão específico
   const handleReset = async (route: any) => {
-    if (!route?.id) {
-      toast.error('Erro: dados da rota inválidos');
-      return;
-    }
-
-    if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"?`)) {
+    if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"? TODOS os pontos concluídos serão marcados como não concluídos.`)) {
       try {
-        console.log('🔄 [ROUTES PAGE] Resetando rota:', route.id);
+        console.log('🔄 [ROUTES PAGE] Resetando rota via botão reset:', route.name);
         await resetRoute(route.id);
-        toast.success('Rota resetada com sucesso!');
-        await forceRefresh();
+        toast.success('Rota resetada com sucesso! Todos os pontos foram marcados como não concluídos.');
+        loadRoutes();
       } catch (error: any) {
-        console.error('❌ [ROUTES PAGE] Erro ao resetar rota:', error);
-        toast.error('Erro ao resetar rota');
+        console.error('Error resetting route:', error);
+        toast.error(error.message || 'Erro ao resetar rota');
       }
     }
   };
 
   const handleView = (route: any) => {
-    if (!route?.id) {
-      toast.error('Erro: dados da rota inválidos');
-      return;
-    }
-
-    console.log('👁️ [ROUTES PAGE] Visualizando rota:', route.name);
-    
-    // Validar e preparar dados da rota
-    const safeRoute = {
-      ...route,
-      points: Array.isArray(route.points) ? route.points : [],
-      totalDistance: route.totalDistance || 0,
-      estimatedTime: route.estimatedTime || '0min'
-    };
-    
+    // Clear any existing modal state first
     setIsCreateModalOpen(false);
     setEditingRoute(null);
-    setViewingRoute(safeRoute);
+    setViewingRoute(route);
   };
 
-  const handleCloseModal = async () => {
-    console.log('❌ [ROUTES PAGE] ===== FECHANDO MODAL =====');
+  const handleCloseModal = () => {
+    console.log('❌ [ROUTES PAGE] Fechando modal de edição/criação');
     setIsCreateModalOpen(false);
-    setEditingRoute(null);
-    
-    // Aguardar um pouco para garantir que o modal feche
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Forçar refresh completo
-    await forceRefresh();
+    // Clear the editing route state after a delay to prevent visual glitches
+    setTimeout(() => {
+      setEditingRoute(null);
+    }, 300);
+    loadRoutes();
   };
 
   const handleNewRoute = () => {
-    console.log('➕ [ROUTES PAGE] ===== CRIANDO NOVA ROTA =====');
+    console.log('➕ [ROUTES PAGE] Criando nova rota');
+    // Clear any existing state
     setViewingRoute(null);
     setEditingRoute(null);
     setIsCreateModalOpen(true);
@@ -234,14 +149,6 @@ const Routes = () => {
           </div>
           <div className="flex gap-3">
             <Button 
-              onClick={forceRefresh}
-              variant="outline"
-              disabled={loading || refreshing}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || refreshing) ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Atualizando...' : 'Atualizar'}
-            </Button>
-            <Button 
               onClick={handleNewRoute}
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -252,7 +159,7 @@ const Routes = () => {
         </div>
 
         {/* Lista de Rotas */}
-        {safeRoutes.length === 0 ? (
+        {routes.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <Navigation className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -266,138 +173,121 @@ const Routes = () => {
           </Card>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {safeRoutes.map((route) => {
-              if (!route?.id) return null;
-
-              const safePoints = Array.isArray(route.points) ? route.points : [];
-              const completedPoints = safePoints.filter(p => p?.completed) || [];
-
-              return (
-                <Card key={route.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="flex items-center gap-2">
-                        <Navigation className="h-5 w-5 text-blue-600" />
-                        {route.name || 'Rota sem nome'}
-                      </CardTitle>
-                      {getStatusBadge(route.status || 'active')}
+            {routes.map((route) => (
+              <Card key={route.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="flex items-center gap-2">
+                      <Navigation className="h-5 w-5 text-blue-600" />
+                      {route.name}
+                    </CardTitle>
+                    {getStatusBadge(route.status)}
+                  </div>
+                  {route.description && (
+                    <p className="text-sm text-gray-600">{route.description}</p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Pontos:</span>
+                      <span className="text-sm">{route.points?.length || 0} locais</span>
                     </div>
-                    {route.description && (
-                      <p className="text-sm text-gray-600">{route.description}</p>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
+                    
+                    {route.totalDistance && (
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Pontos:</span>
-                        <span className="text-sm">
-                          {safePoints.length} locais
-                          {safePoints.length > 0 && (
-                            <span className="text-green-600 ml-1">
-                              ({completedPoints.length} ✅)
-                            </span>
-                          )}
-                        </span>
+                        <span className="text-sm font-medium">Distância:</span>
+                        <span className="text-sm">{route.totalDistance.toFixed(2)} km</span>
                       </div>
-                      
-                      {route.totalDistance && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Distância:</span>
-                          <span className="text-sm">{Number(route.totalDistance).toFixed(2)} km</span>
-                        </div>
-                      )}
-                      
-                      {route.estimatedTime && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Tempo est.:</span>
-                          <span className="text-sm">{route.estimatedTime}</span>
-                        </div>
-                      )}
+                    )}
+                    
+                    {route.estimatedTime && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Tempo est.:</span>
+                        <span className="text-sm">{route.estimatedTime}</span>
+                      </div>
+                    )}
 
-                      {safePoints.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-sm font-medium mb-2">Pontos principais:</p>
-                          <div className="space-y-1">
-                            {safePoints.slice(0, 2).map((point, index) => {
-                              if (!point) return null;
-                              return (
-                                <div key={`${route.id}-point-${index}`} className="flex items-center gap-2 text-xs text-gray-600">
-                                  <MapPin className="h-3 w-3" />
-                                  <span className="truncate">{point.address || 'Endereço não definido'}</span>
-                                  {point.completed && <span className="text-green-600">✅</span>}
-                                </div>
-                              );
-                            })}
-                            {safePoints.length > 2 && (
-                              <p className="text-xs text-gray-500">
-                                +{safePoints.length - 2} pontos adicionais
-                              </p>
-                            )}
-                          </div>
+                    {route.points && route.points.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2">Pontos principais:</p>
+                        <div className="space-y-1">
+                          {route.points.slice(0, 2).map((point, index) => (
+                            <div key={`${route.id}-point-${index}`} className="flex items-center gap-2 text-xs text-gray-600">
+                              <MapPin className="h-3 w-3" />
+                              <span className="truncate">{point.address}</span>
+                            </div>
+                          ))}
+                          {route.points.length > 2 && (
+                            <p className="text-xs text-gray-500">
+                              +{route.points.length - 2} pontos adicionais
+                            </p>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
+                  </div>
 
-                    <div className="flex gap-2 mt-6">
+                  <div className="flex gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleView(route)}
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Ver
+                    </Button>
+                    {route.status === 'completed' ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleView(route)}
+                        onClick={() => handleReactivate(route)}
+                        className="flex-1 text-green-600 hover:text-green-700"
+                        disabled={isLoading}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Reativar
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(route)}
                         className="flex-1"
                       >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Ver
+                        <Edit className="h-4 w-4 mr-1" />
+                        Editar
                       </Button>
-                      {route.status === 'completed' ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleReactivate(route)}
-                          className="flex-1 text-green-600 hover:text-green-700"
-                          disabled={isLoading}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                          Reativar
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(route)}
-                          className="flex-1"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Editar
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleReset(route)}
-                        className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
-                        disabled={isLoading}
-                        title="Resetar rota"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(route.id)}
-                        className="text-red-600 hover:text-red-700 hover:border-red-300"
-                        disabled={isLoading}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    )}
+                    {/* ✅ ÚNICO BOTÃO DE RESET AUTORIZADO */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleReset(route)}
+                      className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
+                      disabled={isLoading}
+                      title="Resetar rota - marca TODOS os pontos como não concluídos"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(route.id)}
+                      className="text-red-600 hover:text-red-700 hover:border-red-300"
+                      disabled={isLoading}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
 
-        {/* Modal de Criação/Edição */}
+        {/* Modais */}
         <CreateRouteModal 
           open={isCreateModalOpen} 
           onOpenChange={setIsCreateModalOpen}
@@ -405,7 +295,6 @@ const Routes = () => {
           onSuccess={handleCloseModal}
         />
 
-        {/* Modal de Visualização */}
         {viewingRoute && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -419,7 +308,7 @@ const Routes = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <h3 className="font-semibold text-lg">{viewingRoute.name || 'Rota sem nome'}</h3>
+                    <h3 className="font-semibold text-lg">{viewingRoute.name}</h3>
                     {viewingRoute.description && (
                       <p className="text-gray-600">{viewingRoute.description}</p>
                     )}
@@ -428,16 +317,16 @@ const Routes = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="font-medium">Status:</p>
-                      {getStatusBadge(viewingRoute.status || 'active')}
+                      {getStatusBadge(viewingRoute.status)}
                     </div>
                     <div>
                       <p className="font-medium">Total de Pontos:</p>
-                      <p>{(viewingRoute.points || []).length}</p>
+                      <p>{viewingRoute.points?.length || 0}</p>
                     </div>
                     {viewingRoute.totalDistance && (
                       <div>
                         <p className="font-medium">Distância Total:</p>
-                        <p>{Number(viewingRoute.totalDistance).toFixed(2)} km</p>
+                        <p>{viewingRoute.totalDistance.toFixed(2)} km</p>
                       </div>
                     )}
                     {viewingRoute.estimatedTime && (
@@ -448,31 +337,30 @@ const Routes = () => {
                     )}
                   </div>
 
-                  {Array.isArray(viewingRoute.points) && viewingRoute.points.length > 0 && (
+                  {viewingRoute.points && viewingRoute.points.length > 0 && (
                     <div>
                       <h4 className="font-medium mb-3">Pontos da Rota:</h4>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {viewingRoute.points.map((point: any, index: number) => {
-                          if (!point) return null;
-                          return (
-                            <div key={`${viewingRoute.id}-detail-point-${point.id || index}`} className="flex items-center gap-3 p-3 border rounded-lg">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-                                point.type === 'origin' ? 'bg-green-500' :
-                                point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'
-                              }`}>
-                                {index + 1}
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-medium">{point.address || 'Endereço não definido'}</p>
-                                <p className="text-sm text-gray-600 capitalize">{point.type || 'waypoint'}</p>
-                                {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
-                                {point.completed && (
-                                  <p className="text-xs text-green-600 font-medium">✅ Concluído</p>
-                                )}
-                              </div>
+                        {viewingRoute.points
+                          .sort((a: any, b: any) => a.order - b.order)
+                          .map((point: any, index: number) => (
+                          <div key={`${viewingRoute.id}-detail-point-${point.id || index}`} className="flex items-center gap-3 p-3 border rounded-lg">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                              point.type === 'origin' ? 'bg-green-500' :
+                              point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'
+                            }`}>
+                              {index + 1}
                             </div>
-                          );
-                        })}
+                            <div className="flex-1">
+                              <p className="font-medium">{point.address}</p>
+                              <p className="text-sm text-gray-600 capitalize">{point.type}</p>
+                              {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
+                              {point.completed && (
+                                <p className="text-xs text-green-600 font-medium">✅ Concluído</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -487,6 +375,8 @@ const Routes = () => {
           </div>
         )}
       </div>
+      
+      <div className="h-20 md:hidden" />
     </div>
   );
 };

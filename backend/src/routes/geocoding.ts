@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
@@ -18,212 +17,291 @@ interface ViaCepResponse {
   erro?: boolean;
 }
 
-// Cache simples para CEPs (em produção usar Redis)
-const cepCache = new Map<string, any>();
-const CACHE_TTL = 1000 * 60 * 60; // 1 hora
-
-// Função robusta para fetch com retry
-async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries: number = 3): Promise<Response> {
-  let lastError: any;
+// ✅ FUNÇÃO AUXILIAR PARA TIMEOUT
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-      
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (response.ok) {
-        return response;
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      lastError = error;
-      console.log(`⚠️ [GEOCODING] Tentativa ${attempt}/${maxRetries} falhou para ${url}: ${error.message}`);
-      
-      if (attempt < maxRetries) {
-        // Backoff exponencial: 1s, 2s, 4s
-        const delay = Math.pow(2, attempt - 1) * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
   }
-  
-  throw lastError;
 }
 
-// Get address by CEP com sistema robusto
+// Get address by CEP
 router.get('/cep/:cep', async (req, res) => {
   try {
+    console.log('🔍 [GEOCODING CEP] Buscando CEP:', req.params.cep);
     const { cep } = req.params;
-    const cleanCep = cep.replace(/\D/g, '');
     
-    console.log(`🔍 [GEOCODING CEP] Buscando CEP: ${cleanCep}`);
+    // ✅ MÚLTIPLAS TENTATIVAS COM DIFERENTES APIS
+    let viaCepData: ViaCepResponse | null = null;
+    let lastError: any = null;
     
-    // Verificar cache primeiro
-    const cacheKey = `cep_${cleanCep}`;
-    const cached = cepCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-      console.log(`⚡ [GEOCODING CEP] Cache hit para ${cleanCep}`);
-      return res.json(cached.data);
-    }
-    
-    let addressData: ViaCepResponse | null = null;
-    
-    // Tentar APIs em ordem de prioridade
-    const apis = [
-      {
-        name: 'ViaCEP',
-        url: `https://viacep.com.br/ws/${cleanCep}/json/`,
-        transform: (data: any) => data
-      },
-      {
-        name: 'BrasilAPI',
-        url: `https://brasilapi.com.br/api/cep/v1/${cleanCep}`,
-        transform: (data: any) => ({
-          cep: data.cep,
-          logradouro: data.street || '',
-          complemento: '',
-          bairro: data.neighborhood || '',
-          localidade: data.city || '',
-          uf: data.state || '',
-          ibge: '',
-          gia: '',
-          ddd: '',
-          siafi: ''
-        })
-      },
-      {
-        name: 'PostmonAPI',
-        url: `https://api.postmon.com.br/v1/cep/${cleanCep}`,
-        transform: (data: any) => ({
-          cep: data.cep,
-          logradouro: data.logradouro || '',
-          complemento: '',
-          bairro: data.bairro || '',
-          localidade: data.cidade || '',
-          uf: data.estado || '',
-          ibge: '',
-          gia: '',
-          ddd: '',
-          siafi: ''
-        })
+    // Tentativa 1: ViaCEP
+    try {
+      console.log('🔍 [GEOCODING CEP] Tentativa 1: ViaCEP');
+      const viaCepResponse = await fetchWithTimeout(`https://viacep.com.br/ws/${cep}/json/`, {}, 5000);
+      viaCepData = await viaCepResponse.json() as ViaCepResponse;
+      
+      if (viaCepData.erro) {
+        throw new Error('CEP não encontrado no ViaCEP');
       }
-    ];
-    
-    for (const api of apis) {
+      console.log('✅ [GEOCODING CEP] ViaCEP respondeu com sucesso');
+    } catch (error) {
+      console.log('⚠️ [GEOCODING CEP] ViaCEP falhou:', error.message);
+      lastError = error;
+      
+      // Tentativa 2: API Alternativa (BrasilAPI)
       try {
-        console.log(`🔄 [GEOCODING CEP] Tentando ${api.name}...`);
-        const response = await fetchWithRetry(api.url);
-        const data = await response.json();
+        console.log('🔍 [GEOCODING CEP] Tentativa 2: BrasilAPI');
+        const brasilApiResponse = await fetchWithTimeout(`https://brasilapi.com.br/api/cep/v1/${cep}`, {}, 5000);
+        const brasilApiData = await brasilApiResponse.json();
         
-        if (!data.erro && !data.error) {
-          addressData = api.transform(data);
-          console.log(`✅ [GEOCODING CEP] ${api.name} respondeu com sucesso`);
-          break;
-        }
-      } catch (error) {
-        console.log(`⚠️ [GEOCODING CEP] ${api.name} falhou: ${error.message}`);
-        continue;
+        // Converter formato BrasilAPI para ViaCEP
+        viaCepData = {
+          cep: brasilApiData.cep,
+          logradouro: brasilApiData.street || '',
+          complemento: '',
+          bairro: brasilApiData.neighborhood || '',
+          localidade: brasilApiData.city || '',
+          uf: brasilApiData.state || '',
+          ibge: '',
+          gia: '',
+          ddd: '',
+          siafi: ''
+        };
+        console.log('✅ [GEOCODING CEP] BrasilAPI respondeu com sucesso');
+      } catch (brasilError) {
+        console.log('⚠️ [GEOCODING CEP] BrasilAPI também falhou:', brasilError.message);
+        lastError = brasilError;
       }
     }
     
-    if (!addressData) {
-      console.log(`❌ [GEOCODING CEP] Todas as APIs falharam para ${cleanCep}`);
+    if (!viaCepData) {
+      console.log('❌ [GEOCODING CEP] Todas as APIs falharam');
       return res.status(404).json({ 
-        error: 'CEP não encontrado',
-        cep: cleanCep,
-        message: 'Todas as APIs de CEP estão indisponíveis no momento'
+        error: 'CEP não encontrado em nenhuma API',
+        details: lastError?.message 
       });
     }
+
+    const address = `${viaCepData.logradouro}, ${viaCepData.bairro}, ${viaCepData.localidade}, ${viaCepData.uf}, Brasil`;
     
-    const address = `${addressData.logradouro}, ${addressData.bairro}, ${addressData.localidade}, ${addressData.uf}, Brasil`;
+    // Use Google Maps Geocoding API para obter coordenadas
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
     
-    // Buscar coordenadas com Google Maps
     let lat = -23.5505; // Coordenadas padrão (São Paulo)
     let lng = -46.6333;
     
     try {
-      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
-      const geocodeResponse = await fetchWithRetry(geocodeUrl);
+      const geocodeResponse = await fetchWithTimeout(geocodeUrl, {}, 8000);
       const geocodeData = await geocodeResponse.json();
       
       if (geocodeData.status === 'OK' && geocodeData.results.length > 0) {
         const location = geocodeData.results[0].geometry.location;
         lat = location.lat;
         lng = location.lng;
-        console.log(`✅ [GEOCODING CEP] Coordenadas obtidas: ${lat}, ${lng}`);
+        console.log('✅ [GEOCODING CEP] Google Geocoding respondeu com coordenadas');
+      } else {
+        console.log('⚠️ [GEOCODING CEP] Google Geocoding não encontrou coordenadas, usando padrão');
       }
     } catch (geocodeError) {
-      console.log(`⚠️ [GEOCODING CEP] Google Geocoding falhou, usando coordenadas padrão`);
+      console.log('⚠️ [GEOCODING CEP] Google Geocoding falhou, usando coordenadas padrão:', geocodeError.message);
     }
-    
+
     const result = {
       address: address,
-      cep: cleanCep,
+      cep: cep,
       lat: lat,
-      lng: lng,
-      source: 'geocoding_api'
+      lng: lng
     };
-    
-    // Salvar no cache
-    cepCache.set(cacheKey, {
-      data: result,
-      timestamp: Date.now()
-    });
-    
-    console.log(`✅ [GEOCODING CEP] Resultado final para ${cleanCep}`);
+
+    console.log('✅ [GEOCODING CEP] Resultado final preparado');
     res.json(result);
     
   } catch (error) {
-    console.error(`❌ [GEOCODING CEP] Erro fatal:`, error);
+    console.error('❌ [GEOCODING CEP] Error fatal:', error);
     res.status(500).json({ 
       error: 'Erro interno ao buscar endereço',
-      message: error.message,
-      timestamp: new Date().toISOString()
+      details: error.message 
     });
   }
 });
 
-// Endpoint de otimização (fallback quando inteligente falha)
+// ⚠️ ENDPOINT DE FALLBACK - USADO APENAS QUANDO INTELLIGENT FALHA
 router.post('/optimize', async (req, res) => {
   try {
-    console.log(`🔄 [GEOCODING OPTIMIZE] Iniciando otimização tradicional`);
+    console.log('🔄 [GEOCODING FALLBACK] ========================================');
+    console.log('🔄 [GEOCODING FALLBACK] ATENÇÃO: Este endpoint deveria ser usado apenas como FALLBACK');
+    console.log('🔄 [GEOCODING FALLBACK] Se você está vendo isso, significa que a otimização inteligente falhou');
+    console.log('🔄 [GEOCODING FALLBACK] ========================================');
+    
     const { points } = req.body;
     
     if (!points || points.length < 2) {
+      console.log('❌ [GEOCODING FALLBACK] Pontos insuficientes:', points?.length || 0);
       return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
     }
-    
-    // Usar Google Maps Optimizer
-    const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(points);
-    
+
+    console.log(`🔄 [GEOCODING FALLBACK] Processando ${points.length} pontos com Routes API tradicional`);
+
+    // Formatar pontos para o otimizador
+    const formattedPoints = points.map((point: any, index: number) => ({
+      id: point.id || `point-${index}`,
+      address: point.address || '',
+      lat: Number(point.lat || 0),
+      lng: Number(point.lng || 0),
+      order: Number(point.order || index),
+      type: point.type || (index === 0 ? 'origin' : 
+             index === points.length - 1 ? 'destination' : 'waypoint'),
+      completed: point.completed || false,
+      completedAt: point.completedAt || null
+    }));
+
+    console.log('🎯 [GEOCODING FALLBACK] Pontos formatados:', formattedPoints.length);
+
+    // Usar Google Maps Optimizer com Routes API v2
+    const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
+
+    // Calcular tempo estimado em formato legível
     const hours = Math.floor(optimized.totalDuration / 3600);
     const minutes = Math.floor((optimized.totalDuration % 3600) / 60);
     const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
-    
+
+    console.log(`✅ [GEOCODING FALLBACK] Fallback concluído: ${optimized.totalDistance.toFixed(1)}km, ${estimatedTime}`);
+
     const response = {
       points: optimized.optimizedPoints,
       optimizedOrder: optimized.optimizedOrder,
       totalDistance: optimized.totalDistance,
       estimatedTime: estimatedTime,
       polyline: optimized.polyline,
-      optimization: 'TRADITIONAL'
+      optimization: 'GEOCODING_FALLBACK'
     };
+
+    console.log('📤 [GEOCODING FALLBACK] Enviando resposta de fallback com', response.points.length, 'pontos');
+    console.log('🔄 [GEOCODING FALLBACK] ========================================');
     
-    console.log(`✅ [GEOCODING OPTIMIZE] Concluído: ${response.totalDistance}km`);
     res.json(response);
-    
+
   } catch (error) {
-    console.error(`❌ [GEOCODING OPTIMIZE] Erro:`, error);
-    res.status(500).json({ error: 'Erro ao otimizar rota' });
+    console.error('❌ [GEOCODING FALLBACK] Erro no fallback:', error);
+    
+    // Último recurso: otimização básica
+    try {
+      console.log(`⚡ [BASIC FALLBACK] Usando algoritmo básico de emergência`);
+      const basicOptimized = basicOptimization(req.body.points);
+      res.json(basicOptimized);
+    } catch (fallbackError) {
+      console.error('❌ [BASIC FALLBACK] Todos os fallbacks falharam:', fallbackError);
+      res.status(500).json({ error: 'Erro ao otimizar rota com todas as APIs' });
+    }
   }
 });
+
+// Função de fallback para otimização básica
+function basicOptimization(points: any[]) {
+  console.log(`⚡ [BASIC OPTIMIZE] Usando algoritmo básico de fallback`);
+  
+  const origin = points.find((p: any) => p.type === 'origin') || points[0];
+  const destination = points.find((p: any) => p.type === 'destination') || points[points.length - 1];
+  const waypoints = points.filter((p: any) => p.type === 'waypoint' || 
+    (p.id !== origin.id && p.id !== destination.id));
+
+  let optimizedPoints;
+  let totalDistance = 0;
+
+  if (waypoints.length > 0) {
+    optimizedPoints = nearestNeighborTSP([origin, ...waypoints, destination]);
+    totalDistance = calculateTotalDistance(optimizedPoints);
+  } else {
+    optimizedPoints = [origin, destination];
+    totalDistance = calculateDistance(origin, destination);
+  }
+
+  const finalOptimizedPoints = optimizedPoints.map((point, index) => ({
+    ...point,
+    order: index,
+    type: index === 0 ? 'origin' : 
+          index === optimizedPoints.length - 1 ? 'destination' : 'waypoint'
+  }));
+
+  const estimatedDuration = totalDistance * 60; // 1 km/min estimate
+  const hours = Math.floor(estimatedDuration / 3600);
+  const minutes = Math.floor((estimatedDuration % 3600) / 60);
+  const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+
+  return {
+    points: finalOptimizedPoints,
+    optimizedOrder: finalOptimizedPoints.map(p => p.id),
+    totalDistance: totalDistance,
+    estimatedTime: estimatedTime,
+    polyline: null,
+    optimization: 'BASIC_FALLBACK'
+  };
+}
+
+function nearestNeighborTSP(points: any[]): any[] {
+  if (points.length <= 2) return points;
+  
+  const result = [points[0]];
+  const remaining = points.slice(1, -1);
+  const destination = points[points.length - 1];
+  
+  let currentPoint = points[0];
+  
+  while (remaining.length > 0) {
+    let nearestIndex = 0;
+    let minDistance = calculateDistance(currentPoint, remaining[0]);
+    
+    for (let i = 1; i < remaining.length; i++) {
+      const distance = calculateDistance(currentPoint, remaining[i]);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestIndex = i;
+      }
+    }
+    
+    currentPoint = remaining[nearestIndex];
+    result.push(currentPoint);
+    remaining.splice(nearestIndex, 1);
+  }
+  
+  result.push(destination);
+  return result;
+}
+
+function calculateDistance(point1: any, point2: any): number {
+  const R = 6371;
+  const dLat = toRadians(point2.lat - point1.lat);
+  const dLng = toRadians(point2.lng - point1.lng);
+  
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+           Math.cos(toRadians(point1.lat)) * Math.cos(toRadians(point2.lat)) *
+           Math.sin(dLng/2) * Math.sin(dLng/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function calculateTotalDistance(points: any[]): number {
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    total += calculateDistance(points[i], points[i + 1]);
+  }
+  return total;
+}
+
+function toRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
+}
 
 export default router;
