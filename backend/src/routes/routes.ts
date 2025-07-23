@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { PartialRouteOptimizer } from '../services/partialRouteOptimizer';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ const router = Router();
 async function getRouteWithPoints(routeId: string) {
   const routeQuery = await pool.query('SELECT * FROM routes WHERE id = $1', [routeId]);
   if (routeQuery.rows.length === 0) {
-    return null; // Rota não encontrada
+    return null;
   }
 
   const pointsQuery = await pool.query(
@@ -20,7 +21,6 @@ async function getRouteWithPoints(routeId: string) {
   const points = pointsQuery.rows.map(point => ({
     id: point.id,
     address: point.address,
-    cep: point.cep,
     lat: parseFloat(point.lat),
     lng: parseFloat(point.lng),
     order: point.point_order,
@@ -36,7 +36,7 @@ async function getRouteWithPoints(routeId: string) {
     points: points,
     totalDistance: route.total_distance,
     estimatedTime: route.estimated_time,
-    optimizedOrder: route.optimized_order,
+    optimizedOrder: route.optimized_order ? (typeof route.optimized_order === 'string' ? JSON.parse(route.optimized_order) : route.optimized_order) : [],
     status: route.status,
     createdAt: route.created_at,
   };
@@ -44,7 +44,6 @@ async function getRouteWithPoints(routeId: string) {
 
 // ✅ ENDPOINT DE OTIMIZAÇÃO INTELIGENTE - CRÍTICO
 router.post('/:id/optimize-intelligent', async (req, res) => {
-  console.log('🚀 ENTROU NA ROTA /:id/optimize-intelligent');
   const startTime = Date.now();
   try {
     const { id } = req.params;
@@ -133,12 +132,12 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Rota para criar uma nova rota
+// Rota para criar uma nova rota - CORRIGIDA
 router.post('/', async (req, res) => {
   try {
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder, status } = req.body;
 
-    console.log('Criando rota:', { name, pointsCount: points?.length });
+    console.log('📝 [ROUTES] Criando rota:', { name, pointsCount: points?.length });
 
     // Iniciar transação
     await pool.query('BEGIN');
@@ -148,7 +147,14 @@ router.post('/', async (req, res) => {
       const routeResult = await pool.query(
         `INSERT INTO routes (name, description, total_distance, estimated_time, optimized_order, status) 
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [name, description, totalDistance, estimatedTime, optimizedOrder, status]
+        [
+          name, 
+          description, 
+          totalDistance || 0, 
+          estimatedTime || '0min', 
+          JSON.stringify(optimizedOrder || []),
+          status || 'active'
+        ]
       );
 
       const newRoute = routeResult.rows[0];
@@ -157,15 +163,18 @@ router.post('/', async (req, res) => {
       if (points && points.length > 0) {
         for (let i = 0; i < points.length; i++) {
           const point = points[i];
+          
+          // Garantir que o ID seja um UUID válido
+          const pointId = point.id && point.id.includes('-') ? point.id : uuidv4();
+          
           await pool.query(
             `INSERT INTO route_points 
-             (id, route_id, address, cep, lat, lng, point_order, type, completed, completed_at, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
+             (id, route_id, address, lat, lng, point_order, type, completed, completed_at, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
             [
-              point.id || `point-${Date.now()}-${i}`,
+              pointId,
               newRoute.id,
               point.address,
-              point.cep || '',
               point.lat,
               point.lng,
               i,
@@ -182,6 +191,7 @@ router.post('/', async (req, res) => {
 
       // 3. Buscar rota criada com pontos
       const createdRoute = await getRouteWithPoints(newRoute.id);
+      console.log('✅ [ROUTES] Rota criada com sucesso:', createdRoute.id);
       res.status(201).json(createdRoute);
 
     } catch (error) {
@@ -190,12 +200,12 @@ router.post('/', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Erro ao criar rota:', error);
+    console.error('❌ [ROUTES] Erro ao criar rota:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
-// Atualizar rota existente
+// ✅ ATUALIZAR ROTA - PRESERVAR PONTOS CONCLUÍDOS
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -207,13 +217,43 @@ router.put('/:id', async (req, res) => {
     await pool.query('BEGIN');
 
     try {
-      // 1. Atualizar dados da rota
+      // 1. Buscar pontos existentes para preservar status de conclusão
+      const existingPointsQuery = await pool.query(
+        'SELECT id, completed, completed_at FROM route_points WHERE route_id = $1',
+        [id]
+      );
+      
+      const existingPointsMap = new Map();
+      existingPointsQuery.rows.forEach(point => {
+        existingPointsMap.set(point.id, {
+          completed: point.completed,
+          completedAt: point.completed_at
+        });
+      });
+
+      console.log(`📝 [ROUTES] Pontos existentes encontrados: ${existingPointsMap.size}`);
+
+      // 2. Atualizar dados da rota
+      const optimizedOrderString = Array.isArray(optimizedOrder) 
+        ? JSON.stringify(optimizedOrder) 
+        : JSON.stringify([]);
+
+      console.log(`📝 [ROUTES] Salvando optimizedOrder como:`, optimizedOrderString);
+
       const routeResult = await pool.query(
         `UPDATE routes 
          SET name = $1, description = $2, total_distance = $3, estimated_time = $4, 
              optimized_order = $5, status = $6, updated_at = NOW()
          WHERE id = $7 RETURNING *`,
-        [name, description, totalDistance, estimatedTime, optimizedOrder, status, id]
+        [
+          name, 
+          description, 
+          totalDistance || 0, 
+          estimatedTime || '0min', 
+          optimizedOrderString,
+          status || 'active', 
+          id
+        ]
       );
 
       if (routeResult.rows.length === 0) {
@@ -221,35 +261,41 @@ router.put('/:id', async (req, res) => {
         return res.status(404).json({ error: 'Rota não encontrada' });
       }
 
-      // 2. Remover pontos antigos
+      // 3. Remover pontos antigos
       await pool.query('DELETE FROM route_points WHERE route_id = $1', [id]);
 
-      // 3. Inserir novos pontos (sem trigger automático)
+      // 4. Inserir novos pontos PRESERVANDO status de conclusão
       if (points && points.length > 0) {
         for (let i = 0; i < points.length; i++) {
           const point = points[i];
+          
+          // Garantir que o ID seja um UUID válido
+          const pointId = point.id && point.id.includes('-') ? point.id : uuidv4();
+          
+          // ✅ PRESERVAR STATUS DE CONCLUSÃO DO PONTO EXISTENTE
+          const existingStatus = existingPointsMap.get(pointId);
+          const isCompleted = existingStatus?.completed || point.completed || false;
+          const completedAt = existingStatus?.completedAt || point.completedAt || null;
+          
+          console.log(`📍 [ROUTES] Inserindo ponto ${i + 1}: ${pointId} - ${point.address} (completed: ${isCompleted})`);
+          
           await pool.query(
             `INSERT INTO route_points 
-             (id, route_id, address, cep, lat, lng, point_order, type, completed, completed_at, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
+             (id, route_id, address, lat, lng, point_order, type, completed, completed_at, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
             [
-              point.id || `point-${Date.now()}-${i}`,
+              pointId,
               id,
               point.address,
-              point.cep || '',
               point.lat,
               point.lng,
               i,
               point.type || 'waypoint',
-              point.completed || false,
-              point.completedAt || null
+              isCompleted,
+              completedAt
             ]
           );
         }
-
-        // 4. Usar função segura para reordenação (opcional)
-        console.log('🔧 [ROUTES] Aplicando reordenação segura...');
-        await pool.query('SELECT safe_reorder_route_points($1)', [id]);
       }
 
       // Commit da transação
@@ -331,7 +377,7 @@ router.get('/:id/check-usage', async (req, res) => {
   }
 });
 
-// Rota para resetar uma rota (remover completedBy e completionNotes)
+// Rota para resetar uma rota
 router.post('/:id/reset', async (req, res) => {
   try {
     const { id } = req.params;

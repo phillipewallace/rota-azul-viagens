@@ -1,5 +1,6 @@
 
 import { googleMapsOptimizer } from './googleMapsOptimizer';
+import { v4 as uuidv4 } from 'uuid';
 
 interface OptimizationPoint {
   id: string;
@@ -10,7 +11,6 @@ interface OptimizationPoint {
   type: 'origin' | 'destination' | 'waypoint';
   completed?: boolean;
   completedAt?: string;
-  cep?: string;
 }
 
 interface PartialOptimizationResult {
@@ -30,15 +30,22 @@ export class PartialRouteOptimizer {
     const startTime = Date.now();
     console.log(`🧠 [PARTIAL OPTIMIZER] ===== INICIANDO OTIMIZAÇÃO INTELIGENTE =====`);
     console.log(`🧠 [PARTIAL OPTIMIZER] Total de pontos recebidos: ${allPoints.length}`);
-    console.log(`🧠 [PARTIAL OPTIMIZER] Timestamp: ${new Date().toISOString()}`);
     
     try {
+      // ✅ GARANTIR QUE TODOS OS PONTOS TENHAM IDs VÁLIDOS
+      const pointsWithValidIds = allPoints.map(point => ({
+        ...point,
+        id: point.id && point.id.includes('-') ? point.id : uuidv4(),
+        lat: typeof point.lat === 'string' ? parseFloat(point.lat) : point.lat,
+        lng: typeof point.lng === 'string' ? parseFloat(point.lng) : point.lng,
+      }));
+
       // ✅ SEPARAR PONTOS CONCLUÍDOS DOS PENDENTES
-      const completedPoints = allPoints
+      const completedPoints = pointsWithValidIds
         .filter(p => p.completed === true)
         .sort((a, b) => a.order - b.order);
       
-      const pendingPoints = allPoints
+      const pendingPoints = pointsWithValidIds
         .filter(p => p.completed !== true)
         .sort((a, b) => a.order - b.order);
       
@@ -88,19 +95,16 @@ export class PartialRouteOptimizer {
         const lastCompleted = completedPoints[completedPoints.length - 1];
         console.log(`🎯 [PARTIAL OPTIMIZER] Usando último ponto concluído como origem: ${lastCompleted.address}`);
         
-        // Adicionar o último ponto concluído como origem para continuidade
         pointsToOptimize = [
           { ...lastCompleted, type: 'origin' as const },
           ...pendingPoints.map(p => ({ ...p, type: 'waypoint' as const }))
         ];
         
-        // Marcar o último ponto como destino se necessário
         if (pointsToOptimize.length > 2) {
           pointsToOptimize[pointsToOptimize.length - 1].type = 'destination';
         }
       } else {
         console.log(`🔄 [PARTIAL OPTIMIZER] Nenhum ponto concluído - otimizando todos os pendentes`);
-        // Configurar tipos apropriados para otimização
         if (pointsToOptimize.length >= 2) {
           pointsToOptimize[0].type = 'origin';
           pointsToOptimize[pointsToOptimize.length - 1].type = 'destination';
@@ -120,11 +124,11 @@ export class PartialRouteOptimizer {
         const optimizedWithoutReference = optimizationResult.optimizedPoints.slice(1);
         
         finalPoints = [
-          ...completedPoints, // Preservar todos os pontos concluídos na ordem original
+          ...completedPoints,
           ...optimizedWithoutReference.map((p, index) => ({
             ...p,
             order: completedPoints.length + index,
-            completed: false, // Marcar como não concluído
+            completed: false,
             completedAt: null
           }))
         ];
@@ -141,12 +145,13 @@ export class PartialRouteOptimizer {
         console.log(`🔗 [PARTIAL OPTIMIZER] Todos os ${finalPoints.length} pontos foram otimizados (nenhum preservado)`);
       }
       
+      const totalDistance = this.calculateDistance(finalPoints);
       const processingTime = Date.now() - startTime;
       
       const result = {
         optimizedPoints: finalPoints,
-        totalDistance: optimizationResult.totalDistance,
-        totalDuration: optimizationResult.totalDuration,
+        totalDistance: totalDistance,
+        totalDuration: optimizationResult.totalDuration || (finalPoints.length * 600),
         polyline: optimizationResult.polyline || '',
         optimizedOrder: finalPoints.map(p => p.id),
         preservedPoints: completedPoints.length,
@@ -168,14 +173,18 @@ export class PartialRouteOptimizer {
       const processingTime = Date.now() - startTime;
       console.error('❌❌❌ [PARTIAL OPTIMIZER] ERRO NA OTIMIZAÇÃO:');
       console.error(`   💥 Erro: ${error.message}`);
-      console.error(`   💥 Stack: ${error.stack}`);
       console.error(`   💥 Tempo até o erro: ${processingTime}ms`);
       
       // ✅ FALLBACK ROBUSTO: MANTER ORDEM ATUAL
       console.log(`🔄 [PARTIAL OPTIMIZER] Aplicando fallback - mantendo ordem atual`);
       
-      const completedPoints = allPoints.filter(p => p.completed === true).sort((a, b) => a.order - b.order);
-      const pendingPoints = allPoints.filter(p => p.completed !== true).sort((a, b) => a.order - b.order);
+      const pointsWithValidIds = allPoints.map(point => ({
+        ...point,
+        id: point.id && point.id.includes('-') ? point.id : uuidv4(),
+      }));
+      
+      const completedPoints = pointsWithValidIds.filter(p => p.completed === true).sort((a, b) => a.order - b.order);
+      const pendingPoints = pointsWithValidIds.filter(p => p.completed !== true).sort((a, b) => a.order - b.order);
       
       const fallbackPoints = [
         ...completedPoints,
@@ -199,13 +208,22 @@ export class PartialRouteOptimizer {
     }
   }
   
-  // ✅ CÁLCULO DE DISTÂNCIA MELHORADO
+  // ✅ CÁLCULO DE DISTÂNCIA CORRIGIDO
   private static calculateDistance(points: OptimizationPoint[]): number {
     if (points.length < 2) return 0;
     
     let totalDistance = 0;
     for (let i = 0; i < points.length - 1; i++) {
-      const distance = this.haversineDistance(points[i], points[i + 1]);
+      const point1 = points[i];
+      const point2 = points[i + 1];
+      
+      // Verificar se as coordenadas são válidas
+      if (!point1.lat || !point1.lng || !point2.lat || !point2.lng) {
+        console.warn(`⚠️ [PARTIAL OPTIMIZER] Coordenadas inválidas: ${point1.address} ou ${point2.address}`);
+        continue;
+      }
+      
+      const distance = this.haversineDistance(point1, point2);
       totalDistance += distance;
     }
     
