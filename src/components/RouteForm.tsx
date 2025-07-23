@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,13 +37,10 @@ interface RouteFormProps {
   onSubmit: (route: Route) => void;
   editingRoute?: Route;
   onCancel?: () => void;
+  isSubmitting?: boolean;
 }
 
-const generateValidId = (): string => {
-  return uuidv4();
-};
-
-const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
+const RouteForm = ({ onSubmit, editingRoute, onCancel, isSubmitting = false }: RouteFormProps) => {
   const { getAddressByCep, createRoute, updateRoute } = useRoutes();
   const [points, setPoints] = useState<RoutePoint[]>([]);
   const [totalDistance, setTotalDistance] = useState<number>(0);
@@ -53,6 +49,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   const [optimizing, setOptimizing] = useState(false);
   const [showOptimizationDialog, setShowOptimizationDialog] = useState(false);
   const [tempCeps, setTempCeps] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm<RouteFormData>({
     resolver: zodResolver(routeSchema),
@@ -124,7 +121,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
 
   const handleAddPoint = () => {
     const newPoint: RoutePoint = {
-      id: generateValidId(),
+      id: uuidv4(),
       address: '',
       lat: 0,
       lng: 0,
@@ -308,9 +305,16 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   };
 
   const onSubmitData = async (data: RouteFormData) => {
+    if (saving || isSubmitting) {
+      console.log('⚠️ [ROUTE FORM] Salvamento já em andamento, ignorando...');
+      return;
+    }
+
     try {
+      setSaving(true);
       console.log('📤 [ROUTE FORM] ===== INICIANDO SALVAMENTO REAL =====');
       console.log('📤 [ROUTE FORM] Dados do formulário:', data);
+      console.log('📤 [ROUTE FORM] Pontos atuais:', points.length);
       
       // Validar dados essenciais
       if (!data.name || data.name.trim() === '') {
@@ -360,12 +364,20 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       
       console.log('✅ [ROUTE FORM] Rota salva com sucesso no backend:', savedRoute.id);
       
+      // Mostrar toast de sucesso
+      toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
+      
+      // Aguardar um pouco para garantir que o backend processou
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Chamar callback com a rota salva
       onSubmit(savedRoute);
       
     } catch (error: any) {
       console.error('❌ [ROUTE FORM] Erro ao salvar rota:', error);
       toast.error(error.message || 'Erro ao salvar rota');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -383,6 +395,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                 id="name"
                 {...register("name")}
                 placeholder="Digite o nome da rota"
+                disabled={saving || isSubmitting}
               />
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name.message}</p>
@@ -396,13 +409,20 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                 {...register("description")}
                 placeholder="Digite uma descrição para a rota"
                 rows={3}
+                disabled={saving || isSubmitting}
               />
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label>Pontos da Rota</Label>
-                <Button type="button" variant="outline" size="sm" onClick={handleAddPoint}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAddPoint}
+                  disabled={saving || isSubmitting}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Adicionar Ponto
                 </Button>
@@ -424,6 +444,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRemovePoint(index)}
+                      disabled={saving || isSubmitting}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -438,12 +459,14 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                           value={tempCeps[point.id] || ''}
                           onChange={(e) => handleCepChange(point.id, e.target.value)}
                           placeholder="00000-000"
+                          disabled={saving || isSubmitting}
                         />
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => handleSearchCep(index, tempCeps[point.id] || '')}
+                          disabled={saving || isSubmitting}
                         >
                           <MapPin className="h-4 w-4" />
                         </Button>
@@ -457,6 +480,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                         value={point.address}
                         onChange={(e) => handlePointChange(index, 'address', e.target.value)}
                         placeholder="Digite o endereço"
+                        disabled={saving || isSubmitting}
                       />
                       {errors.points?.[index]?.address && (
                         <p className="text-sm text-destructive">
@@ -474,6 +498,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                         value={point.lat}
                         onChange={(e) => handlePointChange(index, 'lat', parseFloat(e.target.value))}
                         placeholder="0.000000"
+                        disabled={saving || isSubmitting}
                       />
                     </div>
 
@@ -486,6 +511,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                         value={point.lng}
                         onChange={(e) => handlePointChange(index, 'lng', parseFloat(e.target.value))}
                         placeholder="0.000000"
+                        disabled={saving || isSubmitting}
                       />
                     </div>
                   </div>
@@ -502,7 +528,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                 type="button"
                 variant="outline"
                 onClick={handleOptimizeClick}
-                disabled={optimizing || points.length < 2}
+                disabled={optimizing || points.length < 2 || saving || isSubmitting}
                 className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
               >
                 {optimizing ? 'Otimizando...' : '🎯 Gerar Preview'}
@@ -510,12 +536,20 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
 
               <div className="flex gap-2">
                 {onCancel && (
-                  <Button type="button" variant="outline" onClick={onCancel}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={onCancel}
+                    disabled={saving || isSubmitting}
+                  >
                     Cancelar
                   </Button>
                 )}
-                <Button type="submit" disabled={points.length < 2}>
-                  {editingRoute ? 'Salvar Alterações' : 'Criar Rota'}
+                <Button 
+                  type="submit" 
+                  disabled={points.length < 2 || saving || isSubmitting}
+                >
+                  {saving || isSubmitting ? 'Salvando...' : (editingRoute ? 'Salvar Alterações' : 'Criar Rota')}
                 </Button>
               </div>
             </div>

@@ -20,7 +20,6 @@ interface CreateRouteModalProps {
 const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: CreateRouteModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Limpar estado ao fechar modal
   useEffect(() => {
     if (!open) {
       setIsSubmitting(false);
@@ -28,22 +27,20 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: Creat
   }, [open]);
 
   const handleSubmit = async (savedRoute: Route) => {
-    if (isSubmitting) {
-      console.log('⚠️ [CREATE ROUTE MODAL] Já está processando, ignorando...');
-      return;
-    }
-
     try {
       setIsSubmitting(true);
-      console.log('✅ [CREATE ROUTE MODAL] Rota salva com sucesso pelo RouteForm:', savedRoute.id);
+      console.log('✅ [CREATE ROUTE MODAL] Rota salva com sucesso:', savedRoute.id);
       
-      // Fechar modal imediatamente
+      // Fechar modal
       onOpenChange(false);
+      
+      // Aguardar um pouco para garantir que o modal feche
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Executar callback de sucesso
       if (onSuccess) {
         console.log('🔄 [CREATE ROUTE MODAL] Executando callback de sucesso');
-        onSuccess();
+        await onSuccess();
       }
       
     } catch (error: any) {
@@ -73,6 +70,7 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: Creat
           onSubmit={handleSubmit} 
           editingRoute={editingRoute}
           onCancel={handleCancel}
+          isSubmitting={isSubmitting}
         />
       </DialogContent>
     </Dialog>

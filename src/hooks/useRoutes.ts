@@ -176,7 +176,8 @@ export const useRoutes = () => {
       const newRoute = await routesService.createRoute(routeData);
       console.log('✅ [USE ROUTES] Rota criada no backend:', newRoute.id);
       
-      // Recarregar dados para garantir sincronização
+      // Aguardar e recarregar dados
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await loadRoutes();
       
       return newRoute;
@@ -208,7 +209,8 @@ export const useRoutes = () => {
       const updatedRoute = await routesService.updateRoute(id, routeData);
       console.log('✅ [USE ROUTES] Rota atualizada no backend:', updatedRoute.id);
       
-      // Recarregar dados para garantir sincronização
+      // Aguardar e recarregar dados
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await loadRoutes();
       
       return updatedRoute;
@@ -230,7 +232,8 @@ export const useRoutes = () => {
       await routesService.deleteRoute(id);
       console.log('✅ [USE ROUTES] Rota excluída do backend');
       
-      // Recarregar dados para garantir sincronização
+      // Aguardar e recarregar dados
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await loadRoutes();
     } catch (error) {
       console.error('❌ [USE ROUTES] Erro ao excluir rota:', error);

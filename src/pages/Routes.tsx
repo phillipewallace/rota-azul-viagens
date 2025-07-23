@@ -16,6 +16,7 @@ const Routes = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<any>(null);
   const [viewingRoute, setViewingRoute] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { routes, loading, loadRoutes } = useRoutes();
   const { deleteRoute, updateRoute, resetRoute, isLoading } = useRoutesCRUD();
@@ -28,10 +29,13 @@ const Routes = () => {
     console.log('🔄 [ROUTES PAGE] ===== INICIANDO REFRESH FORÇADO =====');
     
     try {
+      setRefreshing(true);
       await loadRoutes();
       console.log('✅ [ROUTES PAGE] Refresh concluído com sucesso');
     } catch (error) {
       console.error('❌ [ROUTES PAGE] Erro durante refresh:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -44,6 +48,16 @@ const Routes = () => {
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  // Refresh automático a cada 30 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('⏰ [ROUTES PAGE] Refresh automático');
+      forceRefresh();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleEdit = (route: any) => {
@@ -159,7 +173,10 @@ const Routes = () => {
     setIsCreateModalOpen(false);
     setEditingRoute(null);
     
-    // Forçar refresh após fechar modal
+    // Aguardar um pouco para garantir que o modal feche
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Forçar refresh completo
     await forceRefresh();
   };
 
@@ -219,10 +236,10 @@ const Routes = () => {
             <Button 
               onClick={forceRefresh}
               variant="outline"
-              disabled={loading}
+              disabled={loading || refreshing}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Atualizar
+              <RefreshCw className={`h-4 w-4 mr-2 ${(loading || refreshing) ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Atualizando...' : 'Atualizar'}
             </Button>
             <Button 
               onClick={handleNewRoute}
