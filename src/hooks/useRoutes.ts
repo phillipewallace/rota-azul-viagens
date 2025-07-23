@@ -34,60 +34,78 @@ export const useRoutes = () => {
 
   const loadRoutes = async () => {
     try {
-      console.log('🔄 [USE ROUTES] Carregando rotas do backend');
+      console.log('🔄 [USE ROUTES] Iniciando carregamento de rotas');
       setLoading(true);
       
       const data = await routesService.getRoutes();
       
-      console.log('✅ [USE ROUTES] Rotas carregadas:', {
-        count: Array.isArray(data) ? data.length : 0,
-        routes: Array.isArray(data) ? data.map(r => ({ 
-          id: r?.id?.substring(0, 8) + '...' || 'ID inválido', 
-          name: r?.name || 'Nome não definido', 
-          pointsCount: Array.isArray(r?.points) ? r.points.length : 0,
-          completedPoints: Array.isArray(r?.points) ? r.points.filter(p => p?.completed).length : 0
-        })) : []
+      console.log('✅ [USE ROUTES] Resposta bruta do backend:', {
+        type: typeof data,
+        isArray: Array.isArray(data),
+        length: Array.isArray(data) ? data.length : 'N/A'
       });
       
-      // Validar e sanitizar dados
-      const validatedRoutes = (Array.isArray(data) ? data : []).map(route => {
+      if (!Array.isArray(data)) {
+        console.warn('⚠️ [USE ROUTES] Resposta não é um array:', data);
+        setRoutes([]);
+        return [];
+      }
+      
+      // Validar e processar cada rota
+      const validatedRoutes = data.map((route, index) => {
         if (!route?.id) {
-          console.warn('⚠️ [USE ROUTES] Rota inválida ignorada:', route);
+          console.warn(`⚠️ [USE ROUTES] Rota ${index} inválida:`, route);
           return null;
         }
 
-        return {
-          ...route,
+        // Processar pontos da rota
+        const processedPoints = Array.isArray(route.points) ? route.points.map((point: any, pointIndex: number) => {
+          const processedPoint = {
+            id: point?.id || `point-${pointIndex}`,
+            address: point?.address || 'Endereço não definido',
+            cep: point?.cep || '',
+            lat: typeof point?.lat === 'number' ? point.lat : 0,
+            lng: typeof point?.lng === 'number' ? point.lng : 0,
+            order: typeof point?.order === 'number' ? point.order : pointIndex,
+            type: point?.type || 'waypoint',
+            completed: Boolean(point?.completed),
+            completedAt: point?.completedAt || null,
+          };
+          
+          console.log(`📍 [USE ROUTES] Ponto ${pointIndex + 1} da rota ${route.name}:`, {
+            id: processedPoint.id.substring(0, 8) + '...',
+            address: processedPoint.address,
+            completed: processedPoint.completed
+          });
+          
+          return processedPoint;
+        }) : [];
+
+        const processedRoute = {
+          id: route.id,
           name: route.name || 'Rota sem nome',
           description: route.description || '',
-          points: (Array.isArray(route.points) ? route.points : []).map((point, index) => ({
-            ...point,
-            id: point?.id || `point-${index}`,
-            address: point?.address || 'Endereço não definido',
-            lat: point?.lat || 0,
-            lng: point?.lng || 0,
-            order: point?.order ?? index,
-            type: point?.type || 'waypoint',
-            completed: point?.completed ?? false,
-            completedAt: point?.completedAt ?? null,
-          })),
-          totalDistance: route.totalDistance || 0,
+          points: processedPoints,
+          totalDistance: typeof route.totalDistance === 'number' ? route.totalDistance : 0,
           estimatedTime: route.estimatedTime || '0min',
           optimizedOrder: Array.isArray(route.optimizedOrder) ? route.optimizedOrder : [],
           status: route.status || 'active',
-          createdAt: route.createdAt || new Date().toISOString()
+          createdAt: route.createdAt || new Date().toISOString(),
+          polyline: route.polyline || ''
         };
+
+        console.log(`✅ [USE ROUTES] Rota processada: ${processedRoute.name}`, {
+          id: processedRoute.id.substring(0, 8) + '...',
+          pointsCount: processedRoute.points.length,
+          completedPoints: processedRoute.points.filter(p => p.completed).length,
+          totalDistance: processedRoute.totalDistance,
+          estimatedTime: processedRoute.estimatedTime
+        });
+
+        return processedRoute;
       }).filter(route => route !== null);
       
-      console.log('✅ [USE ROUTES] Dados validados:', {
-        count: validatedRoutes.length,
-        detailedRoutes: validatedRoutes.map(r => ({
-          id: r.id.substring(0, 8) + '...',
-          name: r.name,
-          pointsCount: r.points.length,
-          completedPoints: r.points.filter(p => p.completed).length
-        }))
-      });
+      console.log('✅ [USE ROUTES] Total de rotas válidas:', validatedRoutes.length);
       
       setRoutes(validatedRoutes);
       return validatedRoutes;
@@ -335,7 +353,7 @@ export const useRoutes = () => {
       const newRoute = await routesService.createRoute(routeData);
       console.log('✅ [USE ROUTES] Rota criada:', newRoute.id);
       
-      // Recarregar dados
+      // Forçar recarregamento completo dos dados
       await loadRoutes();
       
       return newRoute;
@@ -360,7 +378,7 @@ export const useRoutes = () => {
       const updatedRoute = await routesService.updateRoute(id, routeData);
       console.log('✅ [USE ROUTES] Rota atualizada:', updatedRoute.id);
       
-      // Recarregar dados
+      // Forçar recarregamento completo dos dados
       await loadRoutes();
       
       return updatedRoute;
@@ -379,7 +397,7 @@ export const useRoutes = () => {
       console.log('🗑️ [USE ROUTES] Excluindo rota:', id);
       await routesService.deleteRoute(id);
       
-      // Recarregar dados
+      // Forçar recarregamento completo dos dados
       await loadRoutes();
     } catch (error) {
       console.error('❌ [USE ROUTES] Erro ao excluir rota:', error);

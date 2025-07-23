@@ -26,9 +26,15 @@ const Routes = () => {
 
   // Função para forçar refresh
   const forceRefresh = async () => {
-    console.log('🔄 [ROUTES PAGE] Forçando refresh dos dados');
+    console.log('🔄 [ROUTES PAGE] Iniciando refresh forçado');
     setRefreshKey(prev => prev + 1);
-    await loadRoutes();
+    
+    try {
+      await loadRoutes();
+      console.log('✅ [ROUTES PAGE] Refresh concluído com sucesso');
+    } catch (error) {
+      console.error('❌ [ROUTES PAGE] Erro durante refresh:', error);
+    }
   };
 
   // Refresh quando a página for focada
@@ -53,7 +59,7 @@ const Routes = () => {
       return;
     }
     
-    console.log('🔧 [ROUTES PAGE] Editando rota:', route.name);
+    console.log('🔧 [ROUTES PAGE] Preparando edição da rota:', route.name);
     
     // Validar e preparar dados da rota
     const safeRoute = {
@@ -63,6 +69,13 @@ const Routes = () => {
       estimatedTime: route.estimatedTime || '0min',
       optimizedOrder: Array.isArray(route.optimizedOrder) ? route.optimizedOrder : []
     };
+    
+    console.log('🔧 [ROUTES PAGE] Dados da rota para edição:', {
+      id: safeRoute.id.substring(0, 8) + '...',
+      name: safeRoute.name,
+      pointsCount: safeRoute.points.length,
+      totalDistance: safeRoute.totalDistance
+    });
     
     setViewingRoute(null);
     setEditingRoute(safeRoute);
@@ -128,6 +141,12 @@ const Routes = () => {
     }
 
     console.log('👁️ [ROUTES PAGE] Visualizando rota:', route.name);
+    console.log('👁️ [ROUTES PAGE] Dados da rota:', {
+      id: route.id.substring(0, 8) + '...',
+      name: route.name,
+      pointsCount: Array.isArray(route.points) ? route.points.length : 0,
+      totalDistance: route.totalDistance
+    });
     
     // Validar e preparar dados da rota
     const safeRoute = {
@@ -143,7 +162,7 @@ const Routes = () => {
   };
 
   const handleCloseModal = async () => {
-    console.log('❌ [ROUTES PAGE] Fechando modal');
+    console.log('❌ [ROUTES PAGE] Fechando modal e forçando refresh');
     setIsCreateModalOpen(false);
     setEditingRoute(null);
     
@@ -152,6 +171,7 @@ const Routes = () => {
   };
 
   const handleNewRoute = () => {
+    console.log('➕ [ROUTES PAGE] Criando nova rota');
     setViewingRoute(null);
     setEditingRoute(null);
     setIsCreateModalOpen(true);

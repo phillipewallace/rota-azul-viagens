@@ -47,23 +47,24 @@ const CreateRouteModal = ({ open, onOpenChange, editingRoute, onSuccess }: Creat
         pointsCount: Array.isArray(routeData.points) ? routeData.points.length : 0
       });
 
-      // Aguardar salvamento
+      // Simular processo de salvamento
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      console.log('✅ [CREATE ROUTE MODAL] Rota salva, fechando modal');
+      console.log('✅ [CREATE ROUTE MODAL] Rota salva com sucesso');
       
-      // Fechar modal
+      // Fechar modal primeiro
       onOpenChange(false);
       
-      // Executar callback de sucesso após fechar
+      // Mostrar toast de sucesso
+      toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
+      
+      // Executar callback de sucesso após um breve delay
       if (onSuccess) {
         setTimeout(() => {
           console.log('🔄 [CREATE ROUTE MODAL] Executando callback de sucesso');
           onSuccess();
-        }, 500);
+        }, 100);
       }
-
-      toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
       
     } catch (error: any) {
       console.error('❌ [CREATE ROUTE MODAL] Erro ao salvar:', error);
