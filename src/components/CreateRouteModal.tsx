@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import RouteOptimizationDialog from './RouteOptimizationDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +24,6 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   editingRoute,
   onSuccess
 }) => {
-  const [isOptimizationDialogOpen, setIsOptimizationDialogOpen] = useState(false);
-  const [useIntelligentOptimization, setUseIntelligentOptimization] = useState<boolean | null>(null);
   const [step, setStep] = useState(1);
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
@@ -76,6 +73,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const nextStep = () => {
     if (step === 1 && routeName.trim()) {
       setStep(2);
+      // Inicializar com 2 pontos mínimos se não existirem
       if (allPoints.length === 0) {
         addPoint();
         addPoint();
@@ -201,49 +199,47 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     }
   };
 
-  // Função que substitui o antigo generatePreview, com base na escolha do diálogo
-  const handleOptimizationConfirm = async (useIntelligent: boolean) => {
-    setIsOptimizationDialogOpen(false);
-    setUseIntelligentOptimization(useIntelligent);
+  const generatePreview = async () => {
+  try {
     setLoading(true);
 
-    try {
-      const validPoints = allPoints.filter(p => p.lat && p.lng && p.address);
-      if (validPoints.length < 2) {
-        toast.error('É necessário pelo menos 2 pontos válidos (origem e destino)');
-        setLoading(false);
-        return;
-      }
-
-      const optimizedData = await optimizeRoute(validPoints, isEditing ? editingRoute.id : undefined, useIntelligent);
-
-
-      const preview = {
-        name: routeName,
-        description: routeDescription,
-        points: optimizedData.points.map((optimizedPoint: RoutePoint) => {
-          const original = allPoints.find(p => p.id === optimizedPoint.id);
-          return {
-            ...optimizedPoint,
-            completed: original?.completed ?? false,
-            completedAt: original?.completedAt ?? null,
-          };
-        }),
-        totalDistance: optimizedData.totalDistance,
-        estimatedTime: optimizedData.estimatedTime,
-        optimizedOrder: optimizedData.optimizedOrder,
-        status: 'active'
-      };
-
-      setPreviewData(preview);
-      setShowPreview(true);
-    } catch (error) {
-      console.error('Error generating preview:', error);
-      toast.error('Erro ao gerar preview da rota');
-    } finally {
-      setLoading(false);
+    const validPoints = allPoints.filter(p => p.lat && p.lng && p.address);
+    if (validPoints.length < 2) {
+      toast.error('É necessário pelo menos 2 pontos válidos (origem e destino)');
+      return;
     }
-  };
+
+    console.log('Gerando preview com pontos:', validPoints.length);
+
+    // Otimizar rota
+    const optimizedData = await optimizeRoute(validPoints);
+
+    const preview = {
+      name: routeName,
+      description: routeDescription,
+      points: optimizedData.points.map((optimizedPoint: RoutePoint) => {
+        const original = allPoints.find(p => p.id === optimizedPoint.id);
+        return {
+          ...optimizedPoint,
+          completed: original?.completed ?? false,
+          completedAt: original?.completedAt ?? null,
+        };
+      }),
+      totalDistance: optimizedData.totalDistance,
+      estimatedTime: optimizedData.estimatedTime,
+      optimizedOrder: optimizedData.optimizedOrder,
+      status: 'active'
+    };
+
+    setPreviewData(preview);
+    setShowPreview(true);
+  } catch (error) {
+    console.error('Error generating preview:', error);
+    toast.error('Erro ao gerar preview da rota');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSave = async () => {
     if (!previewData) return;
@@ -422,7 +418,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                     Cancelar
                   </Button>
                   <Button 
-                    onClick={() => setIsOptimizationDialogOpen(true)}
+                    onClick={generatePreview}
                     disabled={loading || allPoints.filter(p => p.lat && p.lng).length < 2}
                   >
                     {loading ? 'Gerando...' : 'Gerar Preview'}
@@ -431,16 +427,8 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
               </div>
             </div>
           )}
-          
         </DialogContent>
       </Dialog>
-
-      <RouteOptimizationDialog
-        open={isOptimizationDialogOpen}
-        onOpenChange={setIsOptimizationDialogOpen}
-        onConfirm={handleOptimizationConfirm}
-        isOptimizing={loading}
-      />
 
       <RoutePreviewModal
         open={showPreview}

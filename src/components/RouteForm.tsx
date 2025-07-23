@@ -10,7 +10,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Trash2, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRoutes, RoutePoint, Route } from '@/hooks/useRoutes';
-import RouteOptimizationDialog from './RouteOptimizationDialog';
 
 // Define o schema de validação com Zod
 const routeSchema = z.object({
@@ -35,20 +34,19 @@ type RouteFormData = z.infer<typeof routeSchema>;
 
 // Define a interface para as propriedades do componente
 interface RouteFormProps {
-  onSubmit: (routeData: any) => void;
+  onSubmit: () => void;
   editingRoute?: Route;
   onCancel?: () => void;
 }
 
 // Componente funcional RouteForm
 const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
-  const { getAddressByCep, createRoute, updateRoute } = useRoutes();
+  const { optimizeRoute, getAddressByCep } = useRoutes();
   const [points, setPoints] = useState<RoutePoint[]>(editingRoute?.points || []);
   const [totalDistance, setTotalDistance] = useState<number>(editingRoute?.totalDistance || 0);
   const [estimatedTime, setEstimatedTime] = useState<string>(editingRoute?.estimatedTime || '');
   const [optimizedOrder, setOptimizedOrder] = useState<string[]>(editingRoute?.optimizedOrder || []);
   const [optimizing, setOptimizing] = useState(false);
-  const [showOptimizationDialog, setShowOptimizationDialog] = useState(false);
 
   // Inicializa o formulário com react-hook-form
   const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm<RouteFormData>({
@@ -114,6 +112,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   const handleRemovePoint = (index: number) => {
     const newPoints = [...points];
     newPoints.splice(index, 1);
+    // Recalcula a ordem dos pontos restantes
     const updatedPoints = newPoints.map((point, i) => ({ ...point, order: i }));
     setPoints(updatedPoints);
   };
@@ -146,170 +145,65 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     setPoints(newPoints);
   };
 
-  // ✅ FUNÇÃO CORRIGIDA: Garantir que o diálogo apareça
-  const handleOptimizeClick = () => {
-    console.log('🎯 [ROUTE FORM] ===== GERAR PREVIEW CLICADO =====');
-    console.log('🎯 [ROUTE FORM] Número de pontos:', points.length);
-    
-    // Validar número mínimo de pontos
-    if (points.length < 2) {
-      console.log('❌ [ROUTE FORM] Pontos insuficientes');
-      toast.error('É necessário pelo menos 2 pontos para otimizar a rota');
-      return;
-    }
-    
-    // Validar se pontos têm coordenadas válidas
-    const invalidPoints = points.filter(p => !p.lat || !p.lng || p.lat === 0 || p.lng === 0);
-    if (invalidPoints.length > 0) {
-      console.log('❌ [ROUTE FORM] Pontos sem coordenadas:', invalidPoints.length);
-      toast.error('Alguns pontos não possuem coordenadas válidas. Verifique os endereços.');
-      return;
-    }
-    
-    // ✅ FORÇAR EXIBIÇÃO DO DIÁLOGO
-    console.log('🎯 [ROUTE FORM] FORÇANDO EXIBIÇÃO DO DIÁLOGO');
-    setShowOptimizationDialog(true);
-    
-    // Adicionar um timeout para debug
-    setTimeout(() => {
-      console.log('🎯 [ROUTE FORM] Estado do diálogo após 100ms:', showOptimizationDialog);
-    }, 100);
-  };
-
-  // ✅ FUNÇÃO CORRIGIDA: Lidar com escolha de otimização
-  const handleOptimizationChoice = async (useIntelligent: boolean) => {
-    console.log('🎯 [ROUTE FORM] ===== ESCOLHA DE OTIMIZAÇÃO =====');
-    console.log(`🎯 [ROUTE FORM] Tipo escolhido: ${useIntelligent ? 'INTELIGENTE' : 'TRADICIONAL'}`);
-    
+  const handleOptimize = async () => {
     try {
       setOptimizing(true);
-      setShowOptimizationDialog(false);
       
-      let result;
-      
-      if (useIntelligent && editingRoute?.id) {
-        console.log('🧠 [ROUTE FORM] Executando otimização INTELIGENTE');
-        toast.info('🧠 Iniciando otimização inteligente...');
-        
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/routes/${editingRoute.id}/optimize-intelligent`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ points: points.map((point, index) => ({ ...point, order: index })) }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Erro na otimização inteligente');
-        }
-
-        const intelligentData = await response.json();
-        
-        result = {
-          points: intelligentData.points.map((p: any, index: number) => ({
-            id: p.id,
-            address: p.address,
-            cep: p.cep || '',
-            lat: p.lat,
-            lng: p.lng,
-            order: index,
-            type: p.type,
-            completed: p.completed ?? false,
-            completedAt: p.completedAt ?? null,
-          })),
-          totalDistance: intelligentData.totalDistance,
-          estimatedTime: intelligentData.estimatedTime,
-          optimizedOrder: intelligentData.optimizedOrder,
-        };
-        
-        toast.success(`🧠 Otimização Inteligente concluída! ${intelligentData.preservedPoints || 0} pontos preservados.`);
-        
-      } else {
-        console.log('🆓 [ROUTE FORM] Executando otimização TRADICIONAL');
-        toast.info('🆓 Iniciando otimização tradicional...');
-        
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/geocoding/optimize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ points: points.map((point, index) => ({ ...point, order: index })) }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Erro na otimização tradicional');
-        }
-
-        const optimizedData = await response.json();
-        
-        result = {
-          points: optimizedData.points.map((p: any, index: number) => ({
-            id: p.id,
-            address: p.address,
-            cep: p.cep || '',
-            lat: p.lat,
-            lng: p.lng,
-            order: index,
-            type: p.type,
-            completed: false,
-            completedAt: null,
-          })),
-          totalDistance: optimizedData.totalDistance,
-          estimatedTime: optimizedData.estimatedTime,
-          optimizedOrder: optimizedData.optimizedOrder,
-        };
-        
-        toast.success(`🆓 Otimização Tradicional concluída! ${result.points.length} pontos otimizados.`);
+      if (points.length < 2) {
+        toast.error('É necessário pelo menos 2 pontos para otimizar a rota');
+        return;
       }
+
+      console.log('🎯 [ROUTE FORM] ========================================');
+      console.log('🎯 [ROUTE FORM] INICIANDO OTIMIZAÇÃO PRIORITÁRIA');
+      console.log(`🎯 [ROUTE FORM] Route ID: ${editingRoute?.id || 'NOVA ROTA'}`);
+      console.log(`🎯 [ROUTE FORM] Pontos: ${points.length}`);
       
-      // ✅ APLICAR RESULTADOS
+      // 🚫 BLOQUEIO: NUNCA CHAMAR GEOCODING DIRETAMENTE
+      // ✅ SEMPRE USAR A FUNÇÃO optimizeRoute QUE JÁ TEM A LÓGICA CORRETA
+      const result = await optimizeRoute(points, editingRoute?.id);
+      
+      console.log('✅ [ROUTE FORM] RESULTADO RECEBIDO:', result);
+      
+      // ✅ APLICAR RESULTADOS NO FORMULÁRIO
       setPoints(result.points);
       setTotalDistance(result.totalDistance);
       setEstimatedTime(result.estimatedTime);
       setOptimizedOrder(result.optimizedOrder);
       
-      console.log('✅ [ROUTE FORM] Otimização aplicada com sucesso');
+      // ✅ FEEDBACK INTELIGENTE BASEADO NO RESULTADO
+      const completedCount = result.points.filter((p: RoutePoint) => p.completed).length;
+      const totalCount = result.points.length;
+      
+      if (completedCount > 0) {
+        toast.success(`🧠 Otimização Inteligente: ${completedCount} pontos preservados, ${totalCount - completedCount} otimizados`);
+        console.log(`🛡️ [ROUTE FORM] INTELLIGENT APLICADA: ${completedCount} preservados + ${totalCount - completedCount} otimizados`);
+      } else {
+        toast.success(`🆓 Otimização Tradicional: ${totalCount} pontos otimizados`);
+        console.log(`🆓 [ROUTE FORM] GEOCODING FALLBACK: ${totalCount} pontos`);
+      }
+      
+      console.log('🎯 [ROUTE FORM] ========================================');
       
     } catch (error) {
-      console.error('❌ [ROUTE FORM] Erro na otimização:', error);
-      toast.error('Erro ao otimizar rota. Tente novamente.');
+      console.error('❌ [ROUTE FORM] ERRO NA OTIMIZAÇÃO:', error);
+      toast.error('Erro ao otimizar rota');
     } finally {
       setOptimizing(false);
     }
   };
 
   // Função para lidar com o envio do formulário
-  const onSubmitData = async (data: RouteFormData) => {
-    try {
-      console.log('📤 [ROUTE FORM] Enviando dados da rota...');
-      
-      const routeData = {
-        name: data.name,
-        description: data.description || '',
-        points: points,
-        totalDistance: totalDistance,
-        estimatedTime: estimatedTime,
-        optimizedOrder: optimizedOrder,
-        status: (editingRoute?.status || 'active') as 'active' | 'inactive' | 'completed',
-      };
-      
-      console.log('📤 [ROUTE FORM] Dados da rota:', routeData);
-      
-      let result;
-      if (editingRoute?.id) {
-        // ✅ ATUALIZAR ROTA EXISTENTE
-        result = await updateRoute(editingRoute.id, routeData);
-      } else {
-        // ✅ CRIAR NOVA ROTA
-        result = await createRoute(routeData);
-      }
-      
-      console.log('✅ [ROUTE FORM] Rota salva com sucesso:', result);
-      toast.success(editingRoute ? 'Rota atualizada com sucesso!' : 'Rota criada com sucesso!');
-      
-      // ✅ CHAMAR onSubmit para fechar o modal
-      onSubmit(result);
-      
-    } catch (error: any) {
-      console.error('❌ [ROUTE FORM] Erro ao salvar rota:', error);
-      toast.error(error.message || 'Erro ao salvar rota');
-    }
+  const onSubmitData = (data: RouteFormData) => {
+    const routeData = {
+      ...data,
+      points: points,
+      totalDistance: totalDistance,
+      estimatedTime: estimatedTime,
+      optimizedOrder: optimizedOrder,
+    };
+    console.log('Dados da rota a serem enviados:', routeData);
+    onSubmit();
   };
 
   return (
@@ -437,11 +331,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleOptimizeClick}
+                onClick={handleOptimize}
                 disabled={optimizing}
-                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
               >
-                {optimizing ? 'Otimizando...' : '🎯 Gerar Preview'}
+                {optimizing ? 'Otimizando...' : '🧠 Otimizar Rota (Prioridade Inteligente)'}
               </Button>
 
               <div className="flex gap-2">
@@ -458,24 +351,6 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
           </form>
         </CardContent>
       </Card>
-
-      {/* ✅ DIÁLOGO SEMPRE PRESENTE */}
-      <RouteOptimizationDialog
-        open={showOptimizationDialog}
-        onOpenChange={(open) => {
-          console.log('🎯 [ROUTE FORM] Diálogo onOpenChange:', open);
-          setShowOptimizationDialog(open);
-        }}
-        onConfirm={handleOptimizationChoice}
-        isOptimizing={optimizing}
-      />
-      
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded text-xs">
-          Dialog: {showOptimizationDialog ? 'OPEN' : 'CLOSED'} | Optimizing: {optimizing ? 'YES' : 'NO'}
-        </div>
-      )}
     </div>
   );
 };
