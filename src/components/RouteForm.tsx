@@ -155,12 +155,12 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       }
 
       console.log('🎯 [ROUTE FORM] ========================================');
-      console.log('🎯 [ROUTE FORM] INICIANDO OTIMIZAÇÃO PRIORITÁRIA');
+      console.log('🎯 [ROUTE FORM] INICIANDO OTIMIZAÇÃO');
       console.log(`🎯 [ROUTE FORM] Route ID: ${editingRoute?.id || 'NOVA ROTA'}`);
+      console.log(`🎯 [ROUTE FORM] É rota existente: ${!!editingRoute?.id}`);
       console.log(`🎯 [ROUTE FORM] Pontos: ${points.length}`);
       
-      // 🚫 BLOQUEIO: NUNCA CHAMAR GEOCODING DIRETAMENTE
-      // ✅ SEMPRE USAR A FUNÇÃO optimizeRoute QUE JÁ TEM A LÓGICA CORRETA
+      // ✅ PASSAR O ID CORRETO - editingRoute?.id será undefined para novas rotas
       const result = await optimizeRoute(points, editingRoute?.id);
       
       console.log('✅ [ROUTE FORM] RESULTADO RECEBIDO:', result);
@@ -179,8 +179,8 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         toast.success(`🧠 Otimização Inteligente: ${completedCount} pontos preservados, ${totalCount - completedCount} otimizados`);
         console.log(`🛡️ [ROUTE FORM] INTELLIGENT APLICADA: ${completedCount} preservados + ${totalCount - completedCount} otimizados`);
       } else {
-        toast.success(`🆓 Otimização Tradicional: ${totalCount} pontos otimizados`);
-        console.log(`🆓 [ROUTE FORM] GEOCODING FALLBACK: ${totalCount} pontos`);
+        toast.success(`🆓 Otimização ${editingRoute?.id ? 'Tradicional' : 'Nova Rota'}: ${totalCount} pontos otimizados`);
+        console.log(`🆓 [ROUTE FORM] ${editingRoute?.id ? 'FALLBACK TRADICIONAL' : 'NOVA ROTA'}: ${totalCount} pontos`);
       }
       
       console.log('🎯 [ROUTE FORM] ========================================');
@@ -334,7 +334,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                 onClick={handleOptimize}
                 disabled={optimizing}
               >
-                {optimizing ? 'Otimizando...' : '🧠 Otimizar Rota (Prioridade Inteligente)'}
+                {optimizing ? 'Otimizando...' : editingRoute ? '🧠 Otimizar (Preservar Concluídos)' : '🚀 Otimizar Nova Rota'}
               </Button>
 
               <div className="flex gap-2">

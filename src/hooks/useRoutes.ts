@@ -57,9 +57,10 @@ export const useRoutes = () => {
     }
   };
 
-  // ✅ CORRIGIDO: Otimização inteligente melhorada
+  // ✅ CORRIGIDO: Otimização inteligente com ID correto
   const optimizeRoute = async (allPoints: RoutePoint[], routeId?: string) => {
     try {
+      console.log('🎯 [USE ROUTES] ========================================');
       console.log('🎯 [USE ROUTES] Iniciando otimização de rota');
       console.log(`🎯 [USE ROUTES] Route ID: ${routeId || 'NOVA ROTA'}`);
       console.log(`🎯 [USE ROUTES] Pontos para otimizar: ${allPoints.length}`);
@@ -70,9 +71,10 @@ export const useRoutes = () => {
 
       let optimizationResult = null;
 
-      // ✅ TENTATIVA 1: Otimização inteligente (se existe routeId)
-      if (routeId) {
+      // ✅ TENTATIVA 1: Otimização inteligente (SOMENTE se existe routeId válido)
+      if (routeId && routeId !== 'NOVA ROTA') {
         console.log('🧠 [USE ROUTES] Tentando otimização inteligente...');
+        console.log(`🧠 [USE ROUTES] URL: ${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`);
         
         try {
           const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
@@ -95,9 +97,12 @@ export const useRoutes = () => {
             }),
           });
 
+          console.log(`📡 [USE ROUTES] Resposta da otimização inteligente: ${response.status}`);
+
           if (response.ok) {
             const intelligentData = await response.json();
             console.log('✅ [USE ROUTES] Otimização inteligente bem-sucedida');
+            console.log('📊 [USE ROUTES] Dados recebidos:', intelligentData);
             
             optimizationResult = {
               optimizedOrder: intelligentData.optimizedOrder,
@@ -117,16 +122,25 @@ export const useRoutes = () => {
               })),
             };
           } else {
-            console.log('⚠️ [USE ROUTES] Otimização inteligente falhou, usando fallback');
+            const errorData = await response.json();
+            console.log('⚠️ [USE ROUTES] Otimização inteligente falhou:', errorData);
+            
+            // ✅ SE RETORNOU useTraditional, continuar para fallback
+            if (errorData.useTraditional) {
+              console.log('🔄 [USE ROUTES] Backend solicitou usar otimização tradicional');
+            }
           }
         } catch (error) {
-          console.log('⚠️ [USE ROUTES] Erro na otimização inteligente, usando fallback');
+          console.log('⚠️ [USE ROUTES] Erro na otimização inteligente:', error);
         }
+      } else {
+        console.log('🆕 [USE ROUTES] Nova rota - pulando otimização inteligente');
       }
 
       // ✅ FALLBACK: Otimização tradicional
       if (!optimizationResult) {
         console.log('🔄 [USE ROUTES] Usando otimização tradicional');
+        console.log(`🔄 [USE ROUTES] URL: ${API_CONFIG.BASE_URL}/geocoding/optimize`);
         
         const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
           method: 'POST',
@@ -149,10 +163,14 @@ export const useRoutes = () => {
         });
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ [USE ROUTES] Erro na otimização tradicional:', errorText);
           throw new Error('Erro na otimização da rota');
         }
 
         const optimizedData = await response.json();
+        console.log('✅ [USE ROUTES] Otimização tradicional bem-sucedida');
+        console.log('📊 [USE ROUTES] Dados recebidos:', optimizedData);
         
         optimizationResult = {
           optimizedOrder: optimizedData.optimizedOrder,
@@ -174,6 +192,7 @@ export const useRoutes = () => {
       }
 
       console.log('✅ [USE ROUTES] Otimização concluída com sucesso');
+      console.log('🎯 [USE ROUTES] ========================================');
       return optimizationResult;
 
     } catch (error) {
