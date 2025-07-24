@@ -20,36 +20,101 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
   
   const { getTruckByPlate } = useMobile();
 
+  // ✅ MELHORADO: Verificação inteligente de mudanças
+  const hasSignificantRouteChanges = useCallback((oldRoute: any, newRoute: any) => {
+    if (!oldRoute || !newRoute) return true;
+    
+    // Verificar se é apenas atualização de timestamp vs mudança estrutural
+    const oldPointIds = new Set(oldRoute.points?.map((p: any) => p.id) || []);
+    const newPointIds = new Set(newRoute.points?.map((p: any) => p.id) || []);
+    
+    // Mudança no número de pontos
+    if (oldRoute.points?.length !== newRoute.points?.length) {
+      console.log(`🔍 [ROUTE SYNC] Mudança estrutural: pontos ${oldRoute.points?.length} → ${newRoute.points?.length}`);
+      return true;
+    }
+    
+    // Pontos adicionados ou removidos
+    const hasNewPoints = newRoute.points?.some((p: any) => !oldPointIds.has(p.id));
+    const hasRemovedPoints = oldRoute.points?.some((p: any) => !newPointIds.has(p.id));
+    
+    if (hasNewPoints || hasRemovedPoints) {
+      console.log(`🔍 [ROUTE SYNC] Mudança estrutural: pontos alterados`);
+      return true;
+    }
+    
+    // Mudança na ordem dos pontos
+    const oldOrder = oldRoute.points?.map((p: any) => p.id).join(',') || '';
+    const newOrder = newRoute.points?.map((p: any) => p.id).join(',') || '';
+    
+    if (oldOrder !== newOrder) {
+      console.log(`🔍 [ROUTE SYNC] Mudança estrutural: reordenação dos pontos`);
+      return true;
+    }
+    
+    // ✅ NOVO: Verificar mudanças nos endereços
+    const addressChanges = newRoute.points?.some((newPoint: any) => {
+      const oldPoint = oldRoute.points?.find((p: any) => p.id === newPoint.id);
+      return oldPoint && oldPoint.address !== newPoint.address;
+    });
+    
+    if (addressChanges) {
+      console.log(`🔍 [ROUTE SYNC] Mudança estrutural: endereços alterados`);
+      return true;
+    }
+    
+    // ✅ IGNORAR: Apenas mudanças de completed/completedAt (progresso local)
+    console.log(`🔍 [ROUTE SYNC] Apenas mudanças de progresso - mantendo estado local`);
+    return false;
+  }, []);
+
   const checkForRouteUpdates = useCallback(async () => {
     if (!truckData?.plate || !truckData.currentRoute) {
+      console.log('🔄 [ROUTE SYNC] Sem dados para verificar atualizações');
       return;
     }
 
     try {
       setSyncState(prev => ({ ...prev, isChecking: true }));
       
-      console.log(`🔄 [ROUTE SYNC] Verificando atualizações para caminhão ${truckData.plate}`);
+      console.log(`🔄 [ROUTE SYNC] Verificando atualizações para ${truckData.plate}`);
       
-      // Buscar dados atualizados do caminhão
+      // ✅ MELHORADO: Cache local para evitar verificações desnecessárias
+      const cacheKey = `route-sync-${truckData.plate}`;
+      const lastCheck = localStorage.getItem(cacheKey);
+      const now = Date.now();
+      
+      // Verificar apenas a cada 30 segundos
+      if (lastCheck && (now - parseInt(lastCheck)) < 30000) {
+        console.log('🔄 [ROUTE SYNC] Cache válido, pulando verificação');
+        return;
+      }
+      
       const updatedTruckData = await getTruckByPlate(truckData.plate);
+      
+      // Atualizar cache
+      localStorage.setItem(cacheKey, now.toString());
       
       if (updatedTruckData.currentRoute?.lastUpdated) {
         const currentLastUpdate = truckData.currentRoute.lastUpdated;
         const newLastUpdate = updatedTruckData.currentRoute.lastUpdated;
         
         console.log(`📅 [ROUTE SYNC] Comparando timestamps:`);
-        console.log(`📅 [ROUTE SYNC] Atual: ${currentLastUpdate}`);
-        console.log(`📅 [ROUTE SYNC] Novo: ${newLastUpdate}`);
+        console.log(`📅 [ROUTE SYNC] Local: ${currentLastUpdate}`);
+        console.log(`📅 [ROUTE SYNC] Servidor: ${newLastUpdate}`);
         
-        // Verificar se a rota foi atualizada
+        // Verificar se houve atualização no servidor
         if (currentLastUpdate && newLastUpdate && newLastUpdate > currentLastUpdate) {
-          console.log('🔄 [ROUTE SYNC] ✅ Rota atualizada detectada!');
+          console.log('🔄 [ROUTE SYNC] Atualização detectada no servidor');
           
-          // ✅ VERIFICAR SE REALMENTE HÁ MUDANÇAS NOS PONTOS
-          const hasRealChanges = hasSignificantRouteChanges(truckData.currentRoute, updatedTruckData.currentRoute);
+          // ✅ VERIFICAR SE SÃO MUDANÇAS SIGNIFICATIVAS
+          const hasRealChanges = hasSignificantRouteChanges(
+            truckData.currentRoute, 
+            updatedTruckData.currentRoute
+          );
           
           if (hasRealChanges) {
-            console.log('🔄 [ROUTE SYNC] ✅ Mudanças significativas detectadas');
+            console.log('🔄 [ROUTE SYNC] ✅ Mudanças estruturais detectadas - notificando usuário');
             
             setSyncState(prev => ({
               ...prev,
@@ -58,10 +123,40 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
               newRouteData: updatedTruckData
             }));
           } else {
-            console.log('🔄 [ROUTE SYNC] ℹ️ Apenas timestamp atualizado, sem mudanças nos pontos');
+            console.log('🔄 [ROUTE SYNC] ℹ️ Apenas mudanças de progresso - mantendo estado local');
+            
+            // ✅ MESCLAR: Manter progresso local, atualizar estrutura se necessário
+            const mergedRoute = {
+              ...updatedTruckData.currentRoute,
+              lastUpdated: newLastUpdate,
+              points: updatedTruckData.currentRoute.points.map((serverPoint: any) => {
+                const localPoint = truckData.currentRoute!.points.find(p => p.id === serverPoint.id);
+                
+                // Manter progresso local se existir
+                if (localPoint) {
+                  return {
+                    ...serverPoint,
+                    completed: localPoint.completed,
+                    completedAt: localPoint.completedAt
+                  };
+                }
+                
+                return serverPoint;
+              })
+            };
+            
+            // Atualizar silenciosamente sem notificação
+            setSyncState(prev => ({
+              ...prev,
+              lastRouteUpdate: newLastUpdate,
+              newRouteData: {
+                ...updatedTruckData,
+                currentRoute: mergedRoute
+              }
+            }));
           }
         } else {
-          console.log('🔄 [ROUTE SYNC] ℹ️ Nenhuma atualização detectada');
+          console.log('🔄 [ROUTE SYNC] ℹ️ Nenhuma atualização no servidor');
         }
       }
       
@@ -70,49 +165,33 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
     } finally {
       setSyncState(prev => ({ ...prev, isChecking: false }));
     }
-  }, [truckData?.plate, truckData?.currentRoute?.lastUpdated, getTruckByPlate]);
+  }, [truckData?.plate, truckData?.currentRoute, getTruckByPlate, hasSignificantRouteChanges]);
 
-  // ✅ FUNÇÃO PARA DETECTAR MUDANÇAS SIGNIFICATIVAS
-  const hasSignificantRouteChanges = (oldRoute: any, newRoute: any) => {
-    if (!oldRoute || !newRoute) return true;
-    
-    // Verificar se número de pontos mudou
-    if (oldRoute.points?.length !== newRoute.points?.length) {
-      console.log(`🔍 [ROUTE SYNC] Mudança no número de pontos: ${oldRoute.points?.length} → ${newRoute.points?.length}`);
-      return true;
-    }
-    
-    // Verificar se algum ponto novo foi adicionado ou removido
-    const oldPointIds = new Set(oldRoute.points?.map((p: any) => p.id) || []);
-    const newPointIds = new Set(newRoute.points?.map((p: any) => p.id) || []);
-    
-    const hasNewPoints = newRoute.points?.some((p: any) => !oldPointIds.has(p.id));
-    const hasRemovedPoints = oldRoute.points?.some((p: any) => !newPointIds.has(p.id));
-    
-    if (hasNewPoints || hasRemovedPoints) {
-      console.log(`🔍 [ROUTE SYNC] Mudança nos pontos: novos=${hasNewPoints}, removidos=${hasRemovedPoints}`);
-      return true;
-    }
-    
-    // Verificar se ordem dos pontos mudou
-    const oldOrder = oldRoute.points?.map((p: any) => p.id).join(',') || '';
-    const newOrder = newRoute.points?.map((p: any) => p.id).join(',') || '';
-    
-    if (oldOrder !== newOrder) {
-      console.log(`🔍 [ROUTE SYNC] Mudança na ordem dos pontos`);
-      return true;
-    }
-    
-    return false;
-  };
-
-  // Otimizado: Verificação apenas manual
+  // ✅ OTIMIZADO: Verificação automática menos frequente
   useEffect(() => {
-    // Não fazer polling automático para reduzir requisições
-    return () => {
-      // Cleanup se necessário
+    if (!truckData?.currentRoute) return;
+    
+    // Verificar a cada 2 minutos quando app está ativo
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        checkForRouteUpdates();
+      }
+    }, 120000); // 2 minutos
+    
+    // Verificar quando app volta a ficar visível
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(checkForRouteUpdates, 1000); // Delay de 1s
+      }
     };
-  }, []);
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [checkForRouteUpdates]);
 
   const acceptRouteUpdate = useCallback((newData: TruckMobileData) => {
     console.log(`✅ [ROUTE SYNC] Aceitando atualização da rota`);
@@ -122,6 +201,7 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
       hasRouteChanged: false,
       newRouteData: null
     }));
+    
     return newData;
   }, []);
 

@@ -37,7 +37,6 @@ export class GoogleMapsService {
       script.defer = true;
       
       script.onload = () => {
-        // Wait for Google Maps to be fully initialized
         const checkGoogleMaps = () => {
           if (window.google?.maps?.DirectionsService && window.google?.maps?.Geocoder) {
             this.initializeServices();
@@ -62,9 +61,9 @@ export class GoogleMapsService {
       this.directionsService = new window.google.maps.DirectionsService();
       this.geocoder = new window.google.maps.Geocoder();
       this.isLoaded = true;
-      console.log('✅ [GOOGLE MAPS] Google Maps services initialized successfully');
+      console.log('✅ [GOOGLE MAPS] Services initialized successfully');
     } catch (error) {
-      console.error('❌ [GOOGLE MAPS] Error initializing Google Maps services:', error);
+      console.error('❌ [GOOGLE MAPS] Error initializing services:', error);
       throw error;
     }
   }
@@ -90,7 +89,6 @@ export class GoogleMapsService {
             lng: location.lng()
           });
         } else {
-          // Fallback para coordenadas padrão
           resolve({
             address,
             cep,
@@ -102,7 +100,7 @@ export class GoogleMapsService {
     });
   }
 
-  // ✅ ATUALIZADO: Usar Routes API v2 com máximo de 25 waypoints
+  // ✅ MELHORADO: Otimização mais robusta
   async optimizeRoute(points: any[]): Promise<{
     optimizedOrder: string[];
     totalDistance: number;
@@ -114,14 +112,13 @@ export class GoogleMapsService {
       await this.initialize();
     }
 
-    console.log(`🚀 [GOOGLE MAPS] Otimizando rota com ${points.length} pontos (preferindo Routes API v2)`);
+    console.log(`🚀 [GOOGLE MAPS] Otimizando rota com ${points.length} pontos`);
 
     const origin = points.find(p => p.type === 'origin') || points[0];
     const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
     const waypoints = points.filter(p => p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id));
 
-    // ✅ ATUALIZADO: Limite da Routes API v2 é 25 waypoints
-    const MAX_WAYPOINTS = 25;
+    const MAX_WAYPOINTS = 23; // ✅ CORRIGIDO: Limite conservador para evitar erros
     
     if (waypoints.length > MAX_WAYPOINTS) {
       console.log(`⚠️ [GOOGLE MAPS] Muitos waypoints (${waypoints.length}), usando apenas os primeiros ${MAX_WAYPOINTS}`);
@@ -134,7 +131,7 @@ export class GoogleMapsService {
     }));
 
     return new Promise((resolve, reject) => {
-      this.directionsService.route({
+      const request = {
         origin: new window.google.maps.LatLng(origin.lat, origin.lng),
         destination: new window.google.maps.LatLng(destination.lat, destination.lng),
         waypoints: waypointsFormatted,
@@ -143,7 +140,11 @@ export class GoogleMapsService {
         unitSystem: window.google.maps.UnitSystem.METRIC,
         avoidHighways: false,
         avoidTolls: false
-      }, (result: any, status: string) => {
+      };
+
+      console.log(`📡 [GOOGLE MAPS] Enviando requisição com ${waypointsFormatted.length} waypoints`);
+
+      this.directionsService.route(request, (result: any, status: string) => {
         if (status === 'OK' && result) {
           const route = result.routes[0];
           let totalDistance = 0;
@@ -168,14 +169,28 @@ export class GoogleMapsService {
 
           resolve({
             optimizedOrder,
-            totalDistance: totalDistance / 1000, // Convert to km
+            totalDistance: totalDistance / 1000,
             estimatedTime,
             polyline: route.overview_polyline,
             detailedRoute: result
           });
         } else {
           console.error(`❌ [GOOGLE MAPS] Directions request failed: ${status}`);
-          reject(new Error(`Directions request failed: ${status}`));
+          
+          // ✅ FALLBACK: Retornar rota simples sem otimização
+          if (status === 'OVER_QUERY_LIMIT' || status === 'REQUEST_DENIED') {
+            console.log('🔄 [GOOGLE MAPS] Usando fallback simples');
+            
+            resolve({
+              optimizedOrder: points.map(p => p.id),
+              totalDistance: 0,
+              estimatedTime: 'N/A',
+              polyline: '',
+              detailedRoute: null
+            });
+          } else {
+            reject(new Error(`Directions request failed: ${status}`));
+          }
         }
       });
     });
