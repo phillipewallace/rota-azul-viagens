@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Plus, Search, Edit, Trash2, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTrucks } from '@/hooks/useTrucks';
-import TruckModal from '@/components/TruckModal';
+import { useTrucksCRUD } from '@/hooks/useTrucksCRUD';
+import { TruckModal } from '@/components/TruckModal';
 import LinkRouteModal from '@/components/LinkRouteModal';
 
 const Trucks = () => {
-  const { trucks, loading, createTruck, updateTruck, deleteTruck } = useTrucks();
+  const { trucks, loading } = useTrucks();
+  const { createTruck, updateTruck, deleteTruck } = useTrucksCRUD();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -65,6 +67,11 @@ const Trucks = () => {
     setIsLinkModalOpen(true);
   };
 
+  const handleLinkSuccess = () => {
+    // Refresh trucks data after successful link
+    window.location.reload();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -111,8 +118,8 @@ const Trucks = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Badge variant={truck.status === 'active' ? 'default' : 'secondary'}>
-                    {truck.status === 'active' ? 'Ativo' : 'Inativo'}
+                  <Badge variant={truck.status === 'available' ? 'default' : 'secondary'}>
+                    {truck.status === 'available' ? 'Disponível' : truck.status === 'in-route' ? 'Em Rota' : 'Manutenção'}
                   </Badge>
                   <Button
                     variant="outline"
@@ -144,19 +151,20 @@ const Trucks = () => {
       </Card>
 
       <TruckModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingTruck(null);
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          setIsModalOpen(open);
+          if (!open) setEditingTruck(null);
         }}
-        onSubmit={editingTruck ? handleUpdateTruck : handleCreateTruck}
         truck={editingTruck}
+        onSubmit={editingTruck ? handleUpdateTruck : handleCreateTruck}
       />
 
       <LinkRouteModal
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}
         truck={selectedTruck}
+        onSuccess={handleLinkSuccess}
       />
     </div>
   );

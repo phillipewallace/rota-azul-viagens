@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,20 +6,22 @@ import { Badge } from '@/components/ui/badge';
 import { Truck, Route, Calendar, Users, Settings, Plus, MapPin, Navigation, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrucks } from '@/hooks/useTrucks';
+import { useTrucksCRUD } from '@/hooks/useTrucksCRUD';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useDrivers } from '@/hooks/useDrivers';
 import { useSchedule } from '@/hooks/useSchedule';
 import { useReports } from '@/hooks/useReports';
-import TruckModal from '@/components/TruckModal';
+import { TruckModal } from '@/components/TruckModal';
 import LinkRouteModal from '@/components/LinkRouteModal';
 
 const Index = () => {
   const { user } = useAuth();
   const { trucks, loading: trucksLoading } = useTrucks();
+  const { refetch: refetchTrucks } = useTrucksCRUD();
   const { routes, loading: routesLoading } = useRoutes();
   const { drivers, loading: driversLoading } = useDrivers();
   const { schedules, loading: schedulesLoading } = useSchedule();
-  const { generateDashboardReport } = useReports();
+  const { reload: reloadReports } = useReports();
   
   const [selectedTruck, setSelectedTruck] = useState<any>(null);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -54,6 +57,14 @@ const Index = () => {
     setIsLinkModalOpen(true);
   };
 
+  const handleLinkSuccess = () => {
+    refetchTrucks();
+  };
+
+  const handleGenerateReport = () => {
+    reloadReports();
+  };
+
   const isLoading = trucksLoading || routesLoading || driversLoading || schedulesLoading;
 
   if (isLoading) {
@@ -71,7 +82,7 @@ const Index = () => {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600">Bem-vindo, {user?.name || 'Usuário'}</p>
         </div>
-        <Button onClick={() => generateDashboardReport()} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={handleGenerateReport} className="bg-blue-600 hover:bg-blue-700">
           Gerar Relatório
         </Button>
       </div>
@@ -145,8 +156,8 @@ const Index = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Badge variant={truck.status === 'active' ? 'default' : 'secondary'}>
-                    {truck.status === 'active' ? 'Ativo' : 'Inativo'}
+                  <Badge variant={truck.status === 'available' ? 'default' : 'secondary'}>
+                    {truck.status === 'available' ? 'Disponível' : truck.status === 'in-route' ? 'Em Rota' : 'Manutenção'}
                   </Badge>
                   <Button
                     variant="outline"
@@ -203,6 +214,7 @@ const Index = () => {
         isOpen={isLinkModalOpen}
         onClose={() => setIsLinkModalOpen(false)}
         truck={selectedTruck}
+        onSuccess={handleLinkSuccess}
       />
     </div>
   );
