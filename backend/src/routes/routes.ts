@@ -155,7 +155,7 @@ router.get('/:id/check-usage', async (req, res) => {
   }
 });
 
-// ✅ CORRIGIDO - OTIMIZAÇÃO INTELIGENTE HÍBRIDA
+// ✅ MELHORADO - OTIMIZAÇÃO INTELIGENTE HÍBRIDA COM SUPORTE PARA ROTAS GRANDES
 router.post('/:id/optimize-intelligent', async (req, res) => {
   const client = await pool.connect();
   
@@ -199,7 +199,7 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     
     console.log(`🔒 [INTELLIGENT HYBRID] ${trulyCompletedPoints.length} pontos REALMENTE concluídos no banco`);
 
-    // ✅ ESTRATÉGIA HÍBRIDA: Aplicar preservação inteligente + otimização para rotas grandes
+    // ✅ ESTRATÉGIA HÍBRIDA INTEGRADA: Preservação inteligente + otimização híbrida para rotas grandes
     const finalPoints = trulyCompletedPoints.length > 0 
       ? await preserveCompletedPointsIntelligently(client, id, points)
       : await optimizeAllPointsWithHybridStrategy(points);
@@ -260,7 +260,7 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
   }
 });
 
-// ✅ NOVA FUNÇÃO: Otimização híbrida para todos os pontos
+// ✅ NOVA FUNÇÃO: Otimização híbrida para todos os pontos - INTEGRADA COM OTIMIZAÇÃO PARA ROTAS GRANDES
 async function optimizeAllPointsWithHybridStrategy(points: any[]): Promise<any[]> {
   try {
     console.log(`🌟 [HYBRID STRATEGY] Aplicando otimização híbrida para ${points.length} pontos`);
@@ -275,7 +275,7 @@ async function optimizeAllPointsWithHybridStrategy(points: any[]): Promise<any[]
       completed: p.completed || false
     }));
 
-    // ✅ USAR NOVO OPTIMIZER HÍBRIDO
+    // ✅ USAR OPTIMIZER HÍBRIDO QUE AUTOMATICAMENTE DECIDE A ESTRATÉGIA
     const optimizationResult = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
 
     console.log(`✅ [HYBRID STRATEGY] Otimização concluída: ${optimizationResult.optimizedPoints.length} pontos`);
@@ -349,6 +349,7 @@ function sanitizePointsForJSON(points: any[]): any[] {
   }));
 }
 
+// ✅ FUNÇÃO MELHORADA: Preservação inteligente com otimização híbrida
 async function preserveCompletedPointsIntelligently(client: any, routeId: string, newPoints: any[]) {
   try {
     console.log(`🛡️ [INTELLIGENT PRESERVATION] Iniciando preservação ROBUSTA para rota ${routeId}`);
@@ -371,24 +372,16 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
     
     console.log(`🔒 [INTELLIGENT PRESERVATION] ${trulyCompletedPoints.length} pontos REALMENTE concluídos no banco`);
     
-    // Log detalhado dos pontos concluídos
-    trulyCompletedPoints.forEach((point, index) => {
-      console.log(`🔒 [PRESERVATION] Ponto concluído ${index + 1}: {
-  id: '${point.id}',
-  order: ${point.point_order},
-  address: '${point.address.substring(0, 40)}...',
-  completed: ${point.completed},
-  completed_at: ${point.completed_at}
-}`);
-    });
-
-    // 2️⃣ SE NÃO HÁ PONTOS CONCLUÍDOS, FAZER ATUALIZAÇÃO NORMAL
+    // 2️⃣ SE NÃO HÁ PONTOS CONCLUÍDOS, FAZER OTIMIZAÇÃO HÍBRIDA NORMAL
     if (trulyCompletedPoints.length === 0) {
-      console.log(`🆕 [INTELLIGENT PRESERVATION] Nenhum ponto concluído - atualização normal`);
+      console.log(`🆕 [INTELLIGENT PRESERVATION] Nenhum ponto concluído - otimização híbrida normal`);
       
       await client.query('DELETE FROM route_points WHERE route_id = $1', [routeId]);
       
-      for (const point of newPoints) {
+      // ✅ USAR OTIMIZAÇÃO HÍBRIDA PARA INSERIR PONTOS OTIMIZADOS
+      const optimizedPoints = await optimizeAllPointsWithHybridStrategy(newPoints);
+      
+      for (const point of optimizedPoints) {
         await client.query(
           `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
            VALUES ($1, $2, $3, $4, $5, $6, false)`,
@@ -396,7 +389,7 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
         );
       }
       
-      return newPoints;
+      return optimizedPoints;
     }
 
     // 3️⃣ ENCONTRAR O ÚLTIMO PONTO CONCLUÍDO
@@ -429,13 +422,14 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
     
     console.log(`🎯 [INTELLIGENT PRESERVATION] ${pendingNewPoints.length} novos pontos para inserir após concluídos`);
 
-    // 6️⃣ OTIMIZAR APENAS OS PONTOS PENDENTES SE NECESSÁRIO
+    // 6️⃣ OTIMIZAR APENAS OS PONTOS PENDENTES COM OTIMIZAÇÃO HÍBRIDA
     let optimizedPendingPoints = pendingNewPoints;
     
     if (pendingNewPoints.length > 1) {
       try {
-        console.log(`🚀 [INTELLIGENT PRESERVATION] Otimizando ${pendingNewPoints.length} pontos pendentes`);
+        console.log(`🚀 [INTELLIGENT PRESERVATION] Otimizando ${pendingNewPoints.length} pontos pendentes com otimização híbrida`);
         
+        // ✅ USAR OTIMIZAÇÃO HÍBRIDA INTEGRADA
         const optimizationResult = await googleMapsOptimizer.optimizePartialRoute(
           [preservedPoints[preservedPoints.length - 1]], // Último concluído como origem
           pendingNewPoints
@@ -450,10 +444,10 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
             completedAt: null
           }));
         
-        console.log(`✅ [INTELLIGENT PRESERVATION] ${optimizedPendingPoints.length} pontos otimizados`);
+        console.log(`✅ [INTELLIGENT PRESERVATION] ${optimizedPendingPoints.length} pontos otimizados com estratégia híbrida`);
         
       } catch (optimizationError) {
-        console.error(`⚠️ [INTELLIGENT PRESERVATION] Erro na otimização:`, optimizationError);
+        console.error(`⚠️ [INTELLIGENT PRESERVATION] Erro na otimização híbrida:`, optimizationError);
         // Manter ordem original em caso de erro
       }
     }

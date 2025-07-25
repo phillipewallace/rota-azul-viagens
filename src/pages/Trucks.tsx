@@ -1,258 +1,162 @@
+
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, MapPin, Truck as TruckIcon, Calendar, FileText, Settings, Wrench } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useTrucks } from '@/hooks/useTrucks';
-import { useTrucksCRUD } from '@/hooks/useTrucksCRUD';
-import TruckForm from '@/components/TruckForm';
-import LinkRouteModal from '@/components/LinkRouteModal';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Plus, Search, Edit, Trash2, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
-import PageHeader from '@/components/PageHeader';
+import { useTrucks } from '@/hooks/useTrucks';
+import TruckModal from '@/components/TruckModal';
+import LinkRouteModal from '@/components/LinkRouteModal';
 
 const Trucks = () => {
-  const { trucks, loading, error, refetch } = useTrucks();
-  const { createTruck, updateTruck, deleteTruck } = useTrucksCRUD();
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTruck, setEditingTruck] = useState(null);
+  const { trucks, loading, createTruck, updateTruck, deleteTruck } = useTrucks();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
-  const [selectedTruck, setSelectedTruck] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [editingTruck, setEditingTruck] = useState<any>(null);
+  const [selectedTruck, setSelectedTruck] = useState<any>(null);
 
-  const handleCreateTruck = async (truckData) => {
+  const filteredTrucks = trucks.filter(truck =>
+    truck.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    truck.plate.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleCreateTruck = async (truckData: any) => {
     try {
       await createTruck(truckData);
       setIsModalOpen(false);
       toast.success('Caminhão criado com sucesso!');
-      refetch();
     } catch (error) {
-      toast.error('Erro ao criar caminhão: ' + error.message);
+      toast.error('Erro ao criar caminhão');
     }
   };
 
-  const handleUpdateTruck = async (truckData) => {
+  const handleUpdateTruck = async (truckData: any) => {
     try {
       await updateTruck(editingTruck.id, truckData);
       setIsModalOpen(false);
       setEditingTruck(null);
       toast.success('Caminhão atualizado com sucesso!');
-      refetch();
     } catch (error) {
-      toast.error('Erro ao atualizar caminhão: ' + error.message);
+      toast.error('Erro ao atualizar caminhão');
     }
   };
 
-  const handleDeleteTruck = async (id) => {
-    try {
-      await deleteTruck(id);
-      toast.success('Caminhão excluído com sucesso!');
-      refetch();
-    } catch (error) {
-      toast.error('Erro ao excluir caminhão: ' + error.message);
+  const handleDeleteTruck = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este caminhão?')) {
+      try {
+        await deleteTruck(id);
+        toast.success('Caminhão excluído com sucesso!');
+      } catch (error) {
+        toast.error('Erro ao excluir caminhão');
+      }
     }
   };
 
-  const handleLinkRoute = (truck) => {
+  const handleEditTruck = (truck: any) => {
+    setEditingTruck(truck);
+    setIsModalOpen(true);
+  };
+
+  const handleLinkRoute = (truck: any) => {
     setSelectedTruck(truck);
-    setIsLinkRouteOpen(true);
+    setIsLinkModalOpen(true);
   };
 
-  const filteredTrucks = trucks.filter(truck => {
-    const matchesSearch = truck.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         truck.plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         truck.driver_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || truck.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'inactive': return 'bg-red-100 text-red-800';
-      case 'maintenance': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'active': return 'Ativo';
-      case 'inactive': return 'Inativo';
-      case 'maintenance': return 'Manutenção';
-      default: return 'Desconhecido';
-    }
-  };
-
-  if (loading) return <div className="flex justify-center items-center h-64">Carregando...</div>;
-  if (error) return <div className="text-red-500 text-center">Erro: {error}</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <PageHeader 
-        title="Gestão de Caminhões" 
-        subtitle="Gerencie a frota de caminhões, motoristas e rotas"
-      />
-
-      {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-4 flex-1">
-          <Input
-            placeholder="Pesquisar por nome, placa ou motorista..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
-          />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="active">Ativo</SelectItem>
-              <SelectItem value="inactive">Inativo</SelectItem>
-              <SelectItem value="maintenance">Manutenção</SelectItem>
-            </SelectContent>
-          </Select>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Caminhões</h1>
+          <p className="text-gray-600">Gerencie a frota de caminhões</p>
         </div>
-        
         <Button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="h-4 w-4 mr-2" />
           Novo Caminhão
         </Button>
       </div>
 
-      {/* Trucks Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTrucks.map((truck) => (
-          <Card key={truck.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <TruckIcon className="h-5 w-5 text-blue-600" />
-                  <CardTitle className="text-lg">{truck.name}</CardTitle>
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Caminhões</CardTitle>
+          <div className="flex items-center space-x-2">
+            <Search className="h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Buscar caminhões..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {filteredTrucks.map((truck) => (
+              <div key={truck.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center space-x-4">
+                  <div>
+                    <h3 className="font-semibold">{truck.name}</h3>
+                    <p className="text-sm text-gray-600">{truck.plate}</p>
+                    <p className="text-xs text-gray-500">{truck.model} - {truck.year}</p>
+                  </div>
                 </div>
-                <Badge className={`${getStatusColor(truck.status)} border-0`}>
-                  {getStatusText(truck.status)}
-                </Badge>
+                <div className="flex items-center space-x-2">
+                  <Badge variant={truck.status === 'active' ? 'default' : 'secondary'}>
+                    {truck.status === 'active' ? 'Ativo' : 'Inativo'}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleLinkRoute(truck)}
+                  >
+                    <Navigation className="h-4 w-4 mr-2" />
+                    Vincular Rota
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditTruck(truck)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteTruck(truck.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <CardDescription className="text-sm text-gray-600">
-                Placa: {truck.plate}
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent className="pt-0">
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium">Motorista:</span>
-                  <span>{truck.driver_name || 'Não atribuído'}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium">Capacidade:</span>
-                  <span>{truck.capacity || 'N/A'}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium">Rota atual:</span>
-                  <span>{truck.current_route_name || 'Nenhuma'}</span>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleLinkRoute(truck)}
-                  className="text-green-600 hover:text-green-700"
-                >
-                  <MapPin className="mr-1 h-3 w-3" />
-                  Vincular Rota
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingTruck(truck);
-                    setIsModalOpen(true);
-                  }}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  <Edit className="mr-1 h-3 w-3" />
-                  Editar
-                </Button>
-                
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                      <Trash2 className="mr-1 h-3 w-3" />
-                      Excluir
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tem certeza que deseja excluir o caminhão "{truck.name}"? Esta ação não pode ser desfeita.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeleteTruck(truck.id)}>
-                        Excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {filteredTrucks.length === 0 && (
-        <div className="text-center py-12">
-          <TruckIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">Nenhum caminhão encontrado</p>
-        </div>
-      )}
-
-      {/* Create/Edit Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>
-              {editingTruck ? 'Editar Caminhão' : 'Criar Novo Caminhão'}
-            </DialogTitle>
-          </DialogHeader>
-          <TruckForm
-            truck={editingTruck}
-            onSubmit={editingTruck ? handleUpdateTruck : handleCreateTruck}
-            onCancel={() => {
-              setIsModalOpen(false);
-              setEditingTruck(null);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Link Route Modal */}
-      <LinkRouteModal
-        isOpen={isLinkRouteOpen}
+      <TruckModal
+        isOpen={isModalOpen}
         onClose={() => {
-          setIsLinkRouteOpen(false);
-          setSelectedTruck(null);
+          setIsModalOpen(false);
+          setEditingTruck(null);
         }}
+        onSubmit={editingTruck ? handleUpdateTruck : handleCreateTruck}
+        truck={editingTruck}
+      />
+
+      <LinkRouteModal
+        isOpen={isLinkModalOpen}
+        onClose={() => setIsLinkModalOpen(false)}
         truck={selectedTruck}
-        onSuccess={() => {
-          refetch();
-          setIsLinkRouteOpen(false);
-          setSelectedTruck(null);
-        }}
       />
     </div>
   );
