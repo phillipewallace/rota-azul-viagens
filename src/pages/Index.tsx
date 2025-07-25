@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Truck, Route, Calendar, Users, Settings, Plus, MapPin, Navigation, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrucks } from '@/hooks/useTrucks';
-import { useTrucksCRUD } from '@/hooks/useTrucksCRUD';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useDrivers } from '@/hooks/useDrivers';
 import { useSchedule } from '@/hooks/useSchedule';
@@ -16,8 +14,7 @@ import LinkRouteModal from '@/components/LinkRouteModal';
 
 const Index = () => {
   const { user } = useAuth();
-  const { trucks, loading: trucksLoading } = useTrucks();
-  const { refetch: refetchTrucks } = useTrucksCRUD();
+  const { trucks, loading: trucksLoading, refetch: refetchTrucks } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
   const { drivers, loading: driversLoading } = useDrivers();
   const { schedules, loading: schedulesLoading } = useSchedule();
