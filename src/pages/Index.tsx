@@ -1,218 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Truck, Route, Calendar, Users, Settings, Plus, MapPin, Navigation, AlertCircle } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useTrucks } from '@/hooks/useTrucks';
-import { useRoutes } from '@/hooks/useRoutes';
-import { useDrivers } from '@/hooks/useDrivers';
-import { useSchedule } from '@/hooks/useSchedule';
-import { useReports } from '@/hooks/useReports';
-import { TruckModal } from '@/components/TruckModal';
+
+import React, { useState } from 'react';
+import { Menu, MapPin, Route, Truck, Calendar, BarChart3, Settings, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import Map from '@/components/Map';
+import TrackingPanel from '@/components/TrackingPanel';
 import LinkRouteModal from '@/components/LinkRouteModal';
 
 const Index = () => {
-  const { user } = useAuth();
-  const { trucks, loading: trucksLoading, refetch: refetchTrucks } = useTrucks();
-  const { routes, loading: routesLoading } = useRoutes();
-  const { drivers, loading: driversLoading } = useDrivers();
-  const { schedules, loading: schedulesLoading } = useSchedule();
-  const { reload: reloadReports } = useReports();
-  
-  const [selectedTruck, setSelectedTruck] = useState<any>(null);
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
-  const [stats, setStats] = useState({
-    totalDistance: 0,
-    totalRoutes: 0,
-    averageDistance: 0,
-    totalSchedules: 0
-  });
+  const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
 
-  useEffect(() => {
-    const calculateStats = () => {
-      let totalDistance = 0;
-      routes.forEach(route => {
-        totalDistance += route.totalDistance;
-      });
+  const menuItems = [
+    { icon: Truck, label: 'Vincular Rota ao Caminhão', action: () => setIsLinkRouteOpen(true) },
+  ];
 
-      const averageDistance = routes.length > 0 ? totalDistance / routes.length : 0;
-
-      setStats({
-        totalDistance: parseFloat(totalDistance.toFixed(1)),
-        totalRoutes: routes.length,
-        averageDistance: parseFloat(averageDistance.toFixed(1)),
-        totalSchedules: schedules.length
-      });
-    };
-
-    calculateStats();
-  }, [routes, schedules]);
-
-  const handleLinkRoute = (truck: any) => {
-    setSelectedTruck(truck);
-    setIsLinkModalOpen(true);
-  };
-
-  const handleLinkSuccess = () => {
-    refetchTrucks();
-  };
-
-  const handleGenerateReport = () => {
-    reloadReports();
-  };
-
-  const isLoading = trucksLoading || routesLoading || driversLoading || schedulesLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  const navigationItems = [
+    { icon: MapPin, label: 'Mapa Principal', to: '/' },
+    { icon: Route, label: 'Rotas', to: '/routes' },
+    { icon: Truck, label: 'Caminhões', to: '/trucks' },
+    { icon: Settings, label: 'Gerenciamento', to: '/management' },
+    { icon: BarChart3, label: 'Relatórios', to: '/reports' },
+    { icon: Calendar, label: 'Agenda', to: '/schedule' },
+    { icon: Users, label: 'Motoristas', to: '/drivers' },
+    { icon: Settings, label: 'Configurações', to: '/settings' },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Bem-vindo, {user?.name || 'Usuário'}</p>
-        </div>
-        <Button onClick={handleGenerateReport} className="bg-blue-600 hover:bg-blue-700">
-          Gerar Relatório
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Caminhões</CardTitle>
-            <Truck className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{trucks.length}</div>
-            <p className="text-xs text-gray-600">caminhões registrados</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rotas Ativas</CardTitle>
-            <Route className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{routes.length}</div>
-            <p className="text-xs text-gray-600">rotas disponíveis</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Motoristas</CardTitle>
-            <Users className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{drivers.length}</div>
-            <p className="text-xs text-gray-600">motoristas cadastrados</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Agendamentos</CardTitle>
-            <Calendar className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{schedules.length}</div>
-            <p className="text-xs text-gray-600">agendamentos ativos</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Trucks Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-blue-600" />
-            Caminhões
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {trucks.map((truck) => (
-              <div key={truck.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    <Truck className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">{truck.name}</h3>
-                    <p className="text-sm text-gray-600">{truck.plate}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={truck.status === 'available' ? 'default' : 'secondary'}>
-                    {truck.status === 'available' ? 'Disponível' : truck.status === 'in-route' ? 'Em Rota' : 'Manutenção'}
-                  </Badge>
+    <div className="min-h-screen bg-background flex">
+      {/* Sidebar */}
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button 
+            size="icon" 
+            className="fixed top-4 left-4 z-20 bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-80 max-w-[85vw] p-0">
+          <div className="flex flex-col h-full bg-gray-900 text-white">
+            <div className="p-4 sm:p-6 border-b border-gray-700">
+              <h2 className="text-lg sm:text-xl font-bold text-blue-400">AlchemyRotas</h2>
+              <p className="text-xs sm:text-sm text-gray-400">Sistema de Roteirização</p>
+            </div>
+            
+            <div className="flex-1 p-3 sm:p-4">
+              <div className="space-y-2">
+                {menuItems.map((item, index) => (
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleLinkRoute(truck)}
+                    key={index}
+                    variant="ghost"
+                    className="w-full justify-start text-left text-white hover:bg-gray-800 hover:text-blue-400 text-sm"
+                    onClick={item.action}
                   >
-                    <Navigation className="h-4 w-4 mr-2" />
-                    Vincular Rota
+                    <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
                   </Button>
+                ))}
+              </div>
+              
+              <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-700">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-400 mb-3">NAVEGAÇÃO</h3>
+                <div className="space-y-2">
+                  {navigationItems.map((item, index) => (
+                    <Button key={index} variant="ghost" className="w-full justify-start text-white hover:bg-gray-800 text-sm" asChild>
+                      <Link to={item.to}>
+                        <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    </Button>
+                  ))}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </SheetContent>
+      </Sheet>
 
-      {/* Routes Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Route className="h-5 w-5 text-green-600" />
-            Rotas Recentes
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {routes.slice(0, 5).map((route) => (
-              <div key={route.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    <MapPin className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">{route.name}</h3>
-                    <p className="text-sm text-gray-600">{route.points.length} pontos</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline">
-                    {route.totalDistance.toFixed(1)} km
-                  </Badge>
-                  <Badge variant="outline">
-                    {route.estimatedTime}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Main Content */}
+      <div className="flex-1 relative w-full">
+        <Map />
+        <TrackingPanel />
+      </div>
 
       {/* Modals */}
-      <LinkRouteModal
-        isOpen={isLinkModalOpen}
-        onClose={() => setIsLinkModalOpen(false)}
-        truck={selectedTruck}
-        onSuccess={handleLinkSuccess}
-      />
+      <LinkRouteModal open={isLinkRouteOpen} onOpenChange={setIsLinkRouteOpen} />
     </div>
   );
 };

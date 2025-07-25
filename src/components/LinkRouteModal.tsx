@@ -1,118 +1,194 @@
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useTrucks } from '@/hooks/useTrucks';
 import { useRoutes } from '@/hooks/useRoutes';
-import { toast } from 'sonner';
-import { API_BASE_URL } from '@/services/config';
+import { Truck } from '@/hooks/useTrucks';
+import { BaseApiService } from '@/services/base';
 
 interface LinkRouteModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  truck: {
-    id: string;
-    name: string;
-    plate: string;
-  } | null;
-  onSuccess: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  truck?: Truck | null;
+  onSuccess?: () => void;
 }
 
-const LinkRouteModal: React.FC<LinkRouteModalProps> = ({ isOpen, onClose, truck, onSuccess }) => {
-  const { routes } = useRoutes();
-  const [selectedRouteId, setSelectedRouteId] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+class LinkRouteService extends BaseApiService {
+  async linkRoute(truckId: string, routeId: string): Promise<any> {
+    return this.request('/trucks/link-route', {
+      method: 'POST',
+      body: JSON.stringify({
+        truckId,
+        routeId,
+      }),
+    });
+  }
+}
 
-  const handleSubmit = async () => {
-    if (!selectedRouteId || !truck) return;
+const linkRouteService = new LinkRouteService();
 
-    setLoading(true);
+export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
+  open,
+  onOpenChange,
+  truck,
+  onSuccess
+}) => {
+  const { toast } = useToast();
+  const [selectedTruck, setSelectedTruck] = useState('');
+  const [selectedRoute, setSelectedRoute] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { trucks, loading: trucksLoading, refetch: refetchTrucks } = useTrucks();
+  const { routes, loading: routesLoading } = useRoutes();
+
+  // Reset form when modal opens/closes or truck changes
+  useEffect(() => {
+    if (open) {
+      setSelectedTruck(truck?.id || '');
+      setSelectedRoute('');
+    } else {
+      setSelectedTruck('');
+      setSelectedRoute('');
+    }
+  }, [open, truck]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTruck || !selectedRoute) {
+      toast({
+        title: "Seleção incompleta",
+        description: "Selecione um caminhão e uma rota.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/trucks/${truck.id}/link-route`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ routeId: selectedRouteId }),
+      await linkRouteService.linkRoute(selectedTruck, selectedRoute);
+
+      const truckData = trucks?.find(t => t.id === selectedTruck);
+      const routeData = routes?.find(r => r.id === selectedRoute);
+
+      toast({
+        title: "Rota vinculada com sucesso!",
+        description: `${truckData?.name} foi vinculado à ${routeData?.name}. O veículo está pronto para iniciar a jornada.`,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        // ✅ NOVA TRATATIVA: Erro específico para rota já vinculada
-        if (errorData.code === 'ROUTE_ALREADY_LINKED') {
-          toast.error(
-            `${errorData.error}\n\nRota já está sendo usada por: ${errorData.linkedTruck.name} (${errorData.linkedTruck.plate})`,
-            {
-              duration: 5000,
-              action: {
-                label: 'Entendi',
-                onClick: () => {},
-              },
-            }
-          );
-          return;
-        }
-        
-        throw new Error(errorData.error || 'Erro ao vincular rota');
+      // Refresh trucks data
+      if (refetchTrucks) {
+        await refetchTrucks();
       }
 
-      const data = await response.json();
-      toast.success(`Rota "${data.routeName}" vinculada ao caminhão "${data.truckName}" com sucesso!`);
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error('Erro ao vincular rota:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao vincular rota');
+      onOpenChange(false);
+      if (onSuccess) onSuccess();
+    } catch (error: any) {
+      console.error('Error linking route:', error);
+      toast({
+        title: "Erro ao vincular rota",
+        description: error.message || "Tente novamente ou verifique se os dados estão corretos.",
+        variant: "destructive"
+      });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const availableRoutes = routes.filter(route => route.status === 'active');
+  const availableTrucks = trucks?.filter(truck => truck.status === 'available') || [];
+  const activeRoutes = routes?.filter(route => route.status === 'active') || [];
+
+  const formatDistance = (distance: any): string => {
+    if (distance === null || distance === undefined) return '0';
+    const numDistance = typeof distance === 'string' ? parseFloat(distance) : distance;
+    return isNaN(numDistance) ? '0' : numDistance.toFixed(1);
+  };
+
+  const formatPointCount = (points: any): number => {
+    if (!points) return 0;
+    if (Array.isArray(points)) return points.length;
+    if (typeof points === 'string') {
+      try {
+        const parsed = JSON.parse(points);
+        return Array.isArray(parsed) ? parsed.length : 0;
+      } catch {
+        return 0;
+      }
+    }
+    return 0;
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Vincular Rota ao Caminhão</DialogTitle>
+          <DialogDescription>
+            Selecione um caminhão disponível e uma rota ativa para criar a vinculação.
+          </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <p className="text-sm text-gray-600 mb-2">
-              Caminhão: <span className="font-semibold">{truck?.name} ({truck?.plate})</span>
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Selecionar Rota:</label>
-            <Select value={selectedRouteId} onValueChange={setSelectedRouteId}>
+            <Label htmlFor="truck">Selecionar Caminhão</Label>
+            <Select value={selectedTruck} onValueChange={setSelectedTruck} disabled={trucksLoading || isLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Escolha uma rota" />
+                <SelectValue placeholder={trucksLoading ? "Carregando..." : "Escolha um caminhão"} />
               </SelectTrigger>
               <SelectContent>
-                {availableRoutes.map(route => (
-                  <SelectItem key={route.id} value={route.id}>
-                    {route.name} ({route.points.length} pontos)
+                {availableTrucks.map((truck) => (
+                  <SelectItem key={truck.id} value={truck.id}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{truck.name} - {truck.plate}</span>
+                      <span className="ml-2 px-2 py-1 rounded text-xs bg-green-100 text-green-800">
+                        Disponível
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {availableTrucks.length === 0 && !trucksLoading && (
+              <p className="text-sm text-gray-500 mt-1">Nenhum caminhão disponível</p>
+            )}
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={onClose} disabled={loading}>
+          <div>
+            <Label htmlFor="route">Selecionar Rota</Label>
+            <Select value={selectedRoute} onValueChange={setSelectedRoute} disabled={routesLoading || isLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder={routesLoading ? "Carregando..." : "Escolha uma rota"} />
+              </SelectTrigger>
+              <SelectContent>
+                {activeRoutes.map((route) => (
+                  <SelectItem key={route.id} value={route.id}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{route.name}</span>
+                      <span className="text-sm text-gray-500">
+                        {formatPointCount(route.points)} pontos • {formatDistance(route.totalDistance)}km
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {activeRoutes.length === 0 && !routesLoading && (
+              <p className="text-sm text-gray-500 mt-1">Nenhuma rota ativa disponível</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={!selectedRouteId || loading}
-            >
-              {loading ? 'Vinculando...' : 'Vincular Rota'}
+            <Button type="submit" disabled={!selectedTruck || !selectedRoute || isLoading}>
+              {isLoading ? 'Vinculando...' : 'Vincular Rota'}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
