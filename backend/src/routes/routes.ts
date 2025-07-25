@@ -1,5 +1,6 @@
+
 import express from 'express';
-import { db } from '../database';
+import { pool } from '../config/database';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = express.Router();
@@ -35,7 +36,7 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     }
 
     // Buscar rota existente
-    const existingRoute = await db.query(
+    const existingRoute = await pool.query(
       'SELECT * FROM routes WHERE id = $1',
       [id]
     );
@@ -49,7 +50,7 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     }
 
     // Buscar pontos existentes da rota
-    const existingPointsResult = await db.query(
+    const existingPointsResult = await pool.query(
       'SELECT * FROM route_points WHERE route_id = $1 ORDER BY "order"',
       [id]
     );
@@ -99,10 +100,10 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     );
 
     // Salvar pontos otimizados no banco
-    await db.query('DELETE FROM route_points WHERE route_id = $1', [id]);
+    await pool.query('DELETE FROM route_points WHERE route_id = $1', [id]);
     
     for (const point of optimizationResult.optimizedPoints) {
-      await db.query(
+      await pool.query(
         `INSERT INTO route_points (
           id, route_id, address, cep, lat, lng, "order", type, completed, completed_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
@@ -122,7 +123,7 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     }
 
     // Atualizar rota com novos dados
-    await db.query(
+    await pool.query(
       `UPDATE routes SET 
         total_distance = $1,
         estimated_time = $2,
@@ -160,7 +161,7 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM routes');
+    const result = await pool.query('SELECT * FROM routes');
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -172,7 +173,7 @@ router.post('/', async (req, res) => {
   try {
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder, status, polyline } = req.body;
 
-    const result = await db.query(
+    const result = await pool.query(
       `INSERT INTO routes (name, description, points, total_distance, estimated_time, optimized_order, status, polyline) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [name, description, points, totalDistance, estimatedTime, optimizedOrder, status, polyline]
@@ -187,7 +188,7 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await db.query('SELECT * FROM routes WHERE id = $1', [id]);
+    const result = await pool.query('SELECT * FROM routes WHERE id = $1', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Rota não encontrada' });
     }
@@ -202,7 +203,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, points, totalDistance, estimatedTime, optimizedOrder, status, polyline } = req.body;
-    const result = await db.query(
+    const result = await pool.query(
       `UPDATE routes SET name = $1, description = $2, points = $3, total_distance = $4, 
        estimated_time = $5, optimized_order = $6, status = $7, polyline = $8 WHERE id = $9 RETURNING *`,
       [name, description, points, totalDistance, estimatedTime, optimizedOrder, status, polyline, id]
@@ -220,7 +221,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await db.query('DELETE FROM routes WHERE id = $1 RETURNING *', [id]);
+    const result = await pool.query('DELETE FROM routes WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Rota não encontrada' });
     }
