@@ -85,7 +85,12 @@ const Index = () => {
       </div>
 
       {/* Modals */}
-      <LinkRouteModal open={isLinkRouteOpen} onOpenChange={setIsLinkRouteOpen} />
+      <LinkRouteModal 
+        isOpen={isLinkRouteOpen} 
+        onClose={() => setIsLinkRouteOpen(false)}
+        truck={null}
+        onSuccess={() => {}}
+      />
     </div>
   );
 };
