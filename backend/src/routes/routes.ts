@@ -155,7 +155,7 @@ router.get('/:id/check-usage', async (req, res) => {
   }
 });
 
-// ✅ CORRIGIDO - OTIMIZAÇÃO INTELIGENTE PRIORITÁRIA
+// ✅ CORRIGIDO - OTIMIZAÇÃO INTELIGENTE HÍBRIDA
 router.post('/:id/optimize-intelligent', async (req, res) => {
   const client = await pool.connect();
   
@@ -165,9 +165,9 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     const { id } = req.params;
     const { points } = req.body;
     
-    console.log(`🧠 [INTELLIGENT OPTIMIZE] ========================================`);
-    console.log(`🧠 [INTELLIGENT OPTIMIZE] Iniciando otimização inteligente para rota ${id}`);
-    console.log(`🧠 [INTELLIGENT OPTIMIZE] Pontos recebidos: ${points?.length || 0}`);
+    console.log(`🧠 [INTELLIGENT HYBRID] ========================================`);
+    console.log(`🧠 [INTELLIGENT HYBRID] Iniciando otimização inteligente híbrida para rota ${id}`);
+    console.log(`🧠 [INTELLIGENT HYBRID] Pontos recebidos: ${points?.length || 0}`);
     
     if (!points || points.length < 2) {
       await client.query('ROLLBACK');
@@ -197,20 +197,12 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     const completedResult = await client.query(completedPointsQuery, [id]);
     const trulyCompletedPoints = completedResult.rows;
     
-    console.log(`🔒 [INTELLIGENT OPTIMIZE] ${trulyCompletedPoints.length} pontos REALMENTE concluídos no banco`);
+    console.log(`🔒 [INTELLIGENT HYBRID] ${trulyCompletedPoints.length} pontos REALMENTE concluídos no banco`);
 
-    // ✅ SE NÃO HÁ PONTOS CONCLUÍDOS, RETORNAR ERRO PARA USAR FALLBACK
-    if (trulyCompletedPoints.length === 0) {
-      await client.query('ROLLBACK');
-      console.log(`🆓 [INTELLIGENT OPTIMIZE] Nenhum ponto concluído - usar otimização tradicional`);
-      return res.status(400).json({ 
-        error: 'Nenhum ponto concluído encontrado - usar otimização tradicional',
-        useTraditional: true 
-      });
-    }
-
-    // ✅ APLICAR PRESERVAÇÃO INTELIGENTE
-    const finalPoints = await preserveCompletedPointsIntelligently(client, id, points);
+    // ✅ ESTRATÉGIA HÍBRIDA: Aplicar preservação inteligente + otimização para rotas grandes
+    const finalPoints = trulyCompletedPoints.length > 0 
+      ? await preserveCompletedPointsIntelligently(client, id, points)
+      : await optimizeAllPointsWithHybridStrategy(points);
 
     // ✅ CALCULAR MÉTRICAS CORRIGIDAS
     const totalDistance = calculateTotalDistanceFromPoints(finalPoints);
@@ -242,29 +234,65 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
 
     await client.query('COMMIT');
 
-    console.log(`✅ [INTELLIGENT OPTIMIZE] Otimização inteligente concluída com preservação`);
-    console.log(`📊 [INTELLIGENT OPTIMIZE] ${finalPoints.filter(p => p.completed).length} pontos preservados`);
-    console.log(`📊 [INTELLIGENT OPTIMIZE] ${finalPoints.filter(p => !p.completed).length} pontos otimizados`);
-    console.log(`🧠 [INTELLIGENT OPTIMIZE] ========================================`);
+    console.log(`✅ [INTELLIGENT HYBRID] Otimização híbrida concluída`);
+    console.log(`📊 [INTELLIGENT HYBRID] ${finalPoints.filter(p => p.completed).length} pontos preservados`);
+    console.log(`📊 [INTELLIGENT HYBRID] ${finalPoints.filter(p => !p.completed).length} pontos otimizados`);
+    console.log(`📊 [INTELLIGENT HYBRID] Total: ${finalPoints.length} pontos, ${totalDistance.toFixed(1)}km`);
+    console.log(`🧠 [INTELLIGENT HYBRID] ========================================`);
 
     res.json({
-      message: 'Otimização inteligente concluída',
+      message: 'Otimização inteligente híbrida concluída',
       points: sanitizedPoints,
       optimizedOrder: sanitizedPoints.map(p => p.id),
       totalDistance: totalDistance,
       estimatedTime: estimatedTime,
       preservedPoints: finalPoints.filter(p => p.completed).length,
-      optimizedPoints: finalPoints.filter(p => !p.completed).length
+      optimizedPoints: finalPoints.filter(p => !p.completed).length,
+      strategy: trulyCompletedPoints.length > 0 ? 'intelligent-preserve' : 'hybrid-optimize'
     });
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('❌ [INTELLIGENT OPTIMIZE] Erro na otimização inteligente:', error);
-    res.status(500).json({ error: 'Erro na otimização inteligente' });
+    console.error('❌ [INTELLIGENT HYBRID] Erro na otimização:', error);
+    res.status(500).json({ error: 'Erro na otimização inteligente híbrida' });
   } finally {
     client.release();
   }
 });
+
+// ✅ NOVA FUNÇÃO: Otimização híbrida para todos os pontos
+async function optimizeAllPointsWithHybridStrategy(points: any[]): Promise<any[]> {
+  try {
+    console.log(`🌟 [HYBRID STRATEGY] Aplicando otimização híbrida para ${points.length} pontos`);
+    
+    const formattedPoints = points.map(p => ({
+      id: p.id,
+      address: p.address,
+      lat: p.lat,
+      lng: p.lng,
+      order: p.order,
+      type: p.type,
+      completed: p.completed || false
+    }));
+
+    // ✅ USAR NOVO OPTIMIZER HÍBRIDO
+    const optimizationResult = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
+
+    console.log(`✅ [HYBRID STRATEGY] Otimização concluída: ${optimizationResult.optimizedPoints.length} pontos`);
+    
+    return optimizationResult.optimizedPoints;
+    
+  } catch (error) {
+    console.error('❌ [HYBRID STRATEGY] Erro na otimização híbrida:', error);
+    
+    // ✅ FALLBACK: Retornar pontos na ordem original
+    return points.map((p, index) => ({
+      ...p,
+      order: index,
+      completed: p.completed || false
+    }));
+  }
+}
 
 // ✅ FUNÇÃO AUXILIAR CORRIGIDA - CALCULAR DISTÂNCIA TOTAL
 function calculateTotalDistanceFromPoints(points: any[]): number {

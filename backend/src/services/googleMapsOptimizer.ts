@@ -20,10 +20,11 @@ interface OptimizationResult {
 class GoogleMapsOptimizer {
   private apiKey = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
   private readonly ROUTES_API_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
-  private readonly MAX_WAYPOINTS = 25; // ✅ ATUALIZADO: Routes API v2 suporta 25 waypoints intermediários
+  private readonly MAX_WAYPOINTS = 23; // ✅ REDUZIDO para permitir melhor clustering
+  private readonly MAX_CLUSTER_SIZE = 20; // ✅ NOVO: Tamanho máximo do cluster
 
   async optimizeRouteWithGoogleAPIs(points: OptimizationPoint[]): Promise<OptimizationResult> {
-    console.log(`🎯 [OPTIMIZER V2] Otimizando ${points.length} pontos com Routes API v2 (MAX 25 waypoints)`);
+    console.log(`🎯 [OPTIMIZER V2] Otimizando ${points.length} pontos com estratégia híbrida`);
     
     if (points.length < 2) {
       throw new Error('Necessário pelo menos 2 pontos para otimizar');
@@ -34,14 +35,260 @@ class GoogleMapsOptimizer {
       return await this.optimizeTwoPointRoute(points);
     }
 
-    // ✅ ATUALIZADO: Aplicar limite de 25 waypoints antes da otimização
+    // ✅ NOVA ESTRATÉGIA: Rotas grandes usam clustering geográfico
     if (points.length > this.MAX_WAYPOINTS + 2) {
-      console.log(`⚠️ [OPTIMIZER V2] Rota muito grande (${points.length} pontos), limitando a ${this.MAX_WAYPOINTS + 2} pontos`);
-      return await this.handleLargeRoute(points);
+      console.log(`🌍 [OPTIMIZER V2] Rota grande (${points.length} pontos) - usando clustering geográfico`);
+      return await this.optimizeWithGeographicClustering(points);
     }
 
     // Para rotas normais, usar Routes API v2 diretamente
     return await this.optimizeWithRoutesAPIv2(points);
+  }
+
+  // ✅ NOVA IMPLEMENTAÇÃO: Clustering geográfico para rotas grandes
+  private async optimizeWithGeographicClustering(points: OptimizationPoint[]): Promise<OptimizationResult> {
+    try {
+      console.log(`🧮 [CLUSTERING] Iniciando clustering geográfico para ${points.length} pontos`);
+      
+      const origin = points.find(p => p.type === 'origin') || points[0];
+      const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
+      const waypoints = points.filter(p => 
+        p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id)
+      );
+
+      console.log(`📍 [CLUSTERING] Origem: ${origin.address}`);
+      console.log(`🎯 [CLUSTERING] Destino: ${destination.address}`);
+      console.log(`⚡ [CLUSTERING] Waypoints para agrupar: ${waypoints.length}`);
+
+      // ✅ IMPLEMENTAÇÃO: Algoritmo de clustering por proximidade geográfica
+      const clusters = await this.createGeographicClusters(waypoints, this.MAX_CLUSTER_SIZE);
+      
+      console.log(`📊 [CLUSTERING] Criados ${clusters.length} clusters`);
+      clusters.forEach((cluster, index) => {
+        console.log(`   Cluster ${index + 1}: ${cluster.length} pontos`);
+      });
+
+      // ✅ OTIMIZAÇÃO: Otimizar cada cluster individualmente
+      const optimizedClusters = await this.optimizeClusters(clusters, origin, destination);
+
+      // ✅ CONEXÃO: Conectar clusters de forma inteligente
+      const finalOptimizedPoints = await this.connectOptimizedClusters(optimizedClusters, origin, destination);
+
+      // ✅ MÉTRICAS: Calcular métricas finais
+      const totalDistance = this.calculateTotalDistance(finalOptimizedPoints);
+      const totalDuration = totalDistance * 60; // Estimativa: 1 min por km
+      
+      console.log(`✅ [CLUSTERING] Otimização concluída: ${finalOptimizedPoints.length} pontos, ${totalDistance.toFixed(1)}km`);
+
+      return {
+        optimizedPoints: finalOptimizedPoints,
+        totalDistance,
+        totalDuration,
+        polyline: '', // Polyline será gerada se necessário
+        optimizedOrder: finalOptimizedPoints.map(p => p.id)
+      };
+
+    } catch (error) {
+      console.error('❌ [CLUSTERING] Erro na otimização com clustering:', error);
+      
+      // ✅ FALLBACK: Estratégia linear simples
+      return await this.handleLargeRouteLinear(points);
+    }
+  }
+
+  // ✅ NOVA FUNÇÃO: Criar clusters geográficos
+  private async createGeographicClusters(waypoints: OptimizationPoint[], maxClusterSize: number): Promise<OptimizationPoint[][]> {
+    if (waypoints.length <= maxClusterSize) {
+      return [waypoints];
+    }
+
+    const clusters: OptimizationPoint[][] = [];
+    const unprocessedPoints = [...waypoints];
+
+    while (unprocessedPoints.length > 0) {
+      const cluster: OptimizationPoint[] = [];
+      const seedPoint = unprocessedPoints.shift()!;
+      cluster.push(seedPoint);
+
+      // ✅ ALGORITMO: Adicionar pontos mais próximos ao cluster
+      while (cluster.length < maxClusterSize && unprocessedPoints.length > 0) {
+        const lastPoint = cluster[cluster.length - 1];
+        let closestIndex = 0;
+        let minDistance = this.calculateDistance(lastPoint, unprocessedPoints[0]);
+
+        for (let i = 1; i < unprocessedPoints.length; i++) {
+          const distance = this.calculateDistance(lastPoint, unprocessedPoints[i]);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestIndex = i;
+          }
+        }
+
+        const closestPoint = unprocessedPoints.splice(closestIndex, 1)[0];
+        cluster.push(closestPoint);
+      }
+
+      clusters.push(cluster);
+    }
+
+    return clusters;
+  }
+
+  // ✅ NOVA FUNÇÃO: Otimizar clusters individualmente
+  private async optimizeClusters(clusters: OptimizationPoint[][], origin: OptimizationPoint, destination: OptimizationPoint): Promise<OptimizationPoint[][]> {
+    const optimizedClusters: OptimizationPoint[][] = [];
+
+    for (let i = 0; i < clusters.length; i++) {
+      const cluster = clusters[i];
+      
+      console.log(`🎯 [CLUSTER ${i + 1}] Otimizando cluster com ${cluster.length} pontos`);
+
+      try {
+        // ✅ CONFIGURAÇÃO: Definir origem e destino do cluster
+        const clusterOrigin = i === 0 ? origin : cluster[0];
+        const clusterDestination = i === clusters.length - 1 ? destination : cluster[cluster.length - 1];
+
+        // ✅ CRIAR pontos para otimização do cluster
+        const clusterPoints = [
+          { ...clusterOrigin, type: 'origin' as const },
+          ...cluster.slice(1, -1).map(p => ({ ...p, type: 'waypoint' as const })),
+          { ...clusterDestination, type: 'destination' as const }
+        ];
+
+        if (clusterPoints.length > 2) {
+          // ✅ OTIMIZAR cluster usando Routes API v2
+          const clusterResult = await this.optimizeWithRoutesAPIv2(clusterPoints);
+          optimizedClusters.push(clusterResult.optimizedPoints);
+        } else {
+          // ✅ CLUSTER muito pequeno - manter ordem original
+          optimizedClusters.push(clusterPoints);
+        }
+
+        console.log(`✅ [CLUSTER ${i + 1}] Otimizado com sucesso`);
+
+      } catch (error) {
+        console.error(`❌ [CLUSTER ${i + 1}] Erro na otimização:`, error);
+        
+        // ✅ FALLBACK: Manter ordem original do cluster
+        optimizedClusters.push(cluster);
+      }
+    }
+
+    return optimizedClusters;
+  }
+
+  // ✅ NOVA FUNÇÃO: Conectar clusters otimizados
+  private async connectOptimizedClusters(clusters: OptimizationPoint[][], origin: OptimizationPoint, destination: OptimizationPoint): Promise<OptimizationPoint[]> {
+    const connectedPoints: OptimizationPoint[] = [];
+
+    for (let i = 0; i < clusters.length; i++) {
+      const cluster = clusters[i];
+      
+      if (i === 0) {
+        // ✅ PRIMEIRO cluster: incluir origem + pontos do cluster
+        connectedPoints.push(
+          { ...origin, order: 0, type: 'origin' as const },
+          ...cluster.slice(1).map((p, index) => ({ ...p, order: index + 1, type: 'waypoint' as const }))
+        );
+      } else if (i === clusters.length - 1) {
+        // ✅ ÚLTIMO cluster: incluir pontos do cluster + destino
+        connectedPoints.push(
+          ...cluster.slice(0, -1).map((p, index) => ({ ...p, order: connectedPoints.length + index, type: 'waypoint' as const })),
+          { ...destination, order: connectedPoints.length + cluster.length - 1, type: 'destination' as const }
+        );
+      } else {
+        // ✅ CLUSTERS intermediários: incluir apenas pontos do cluster
+        connectedPoints.push(
+          ...cluster.map((p, index) => ({ ...p, order: connectedPoints.length + index, type: 'waypoint' as const }))
+        );
+      }
+    }
+
+    return connectedPoints;
+  }
+
+  // ✅ NOVA FUNÇÃO: Fallback linear para rotas grandes
+  private async handleLargeRouteLinear(points: OptimizationPoint[]): Promise<OptimizationResult> {
+    console.log(`📏 [LINEAR FALLBACK] Aplicando estratégia linear para ${points.length} pontos`);
+    
+    const origin = points.find(p => p.type === 'origin') || points[0];
+    const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
+    const waypoints = points.filter(p => 
+      p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id)
+    );
+
+    // ✅ ORDENAÇÃO: Ordenar pontos por proximidade linear
+    const orderedPoints = [origin];
+    let currentPoint = origin;
+    const remainingPoints = [...waypoints];
+
+    while (remainingPoints.length > 0) {
+      let closestIndex = 0;
+      let minDistance = this.calculateDistance(currentPoint, remainingPoints[0]);
+
+      for (let i = 1; i < remainingPoints.length; i++) {
+        const distance = this.calculateDistance(currentPoint, remainingPoints[i]);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIndex = i;
+        }
+      }
+
+      const closestPoint = remainingPoints.splice(closestIndex, 1)[0];
+      orderedPoints.push(closestPoint);
+      currentPoint = closestPoint;
+    }
+
+    orderedPoints.push(destination);
+
+    // ✅ REORDENAR com índices corretos
+    const finalPoints = orderedPoints.map((point, index) => ({
+      ...point,
+      order: index,
+      type: index === 0 ? 'origin' as const : 
+            index === orderedPoints.length - 1 ? 'destination' as const : 
+            'waypoint' as const
+    }));
+
+    const totalDistance = this.calculateTotalDistance(finalPoints);
+    const totalDuration = totalDistance * 60;
+
+    console.log(`✅ [LINEAR FALLBACK] Concluído: ${finalPoints.length} pontos, ${totalDistance.toFixed(1)}km`);
+
+    return {
+      optimizedPoints: finalPoints,
+      totalDistance,
+      totalDuration,
+      polyline: '',
+      optimizedOrder: finalPoints.map(p => p.id)
+    };
+  }
+
+  // ✅ FUNÇÃO AUXILIAR: Calcular distância total
+  private calculateTotalDistance(points: OptimizationPoint[]): number {
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      total += this.calculateDistance(points[i], points[i + 1]);
+    }
+    return total;
+  }
+
+  // ✅ FUNÇÃO AUXILIAR: Calcular distância entre dois pontos
+  private calculateDistance(point1: OptimizationPoint, point2: OptimizationPoint): number {
+    const R = 6371; // Raio da Terra em km
+    const dLat = this.toRadians(point2.lat - point1.lat);
+    const dLng = this.toRadians(point2.lng - point1.lng);
+    
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+             Math.cos(this.toRadians(point1.lat)) * Math.cos(this.toRadians(point2.lat)) *
+             Math.sin(dLng/2) * Math.sin(dLng/2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  private toRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
   }
 
   private async optimizeTwoPointRoute(points: OptimizationPoint[]): Promise<OptimizationResult> {
