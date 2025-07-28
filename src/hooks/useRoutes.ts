@@ -56,7 +56,7 @@ export const useRoutes = () => {
     }
   };
 
-  // ✅ ATUALIZADO: Otimização inteligente por blocos
+  // ✅ ATUALIZADO: Otimização com suporte melhorado para blocos
   const optimizeRoute = async (allPoints: RoutePoint[], routeId?: string) => {
     try {
       console.log('🎯 [USE ROUTES] ========================================');
@@ -98,6 +98,9 @@ export const useRoutes = () => {
               completed: p.completed ?? false,
               completedAt: p.completedAt ?? null,
             })),
+            blocksProcessed: intelligentResult.blocksProcessed,
+            preservedPoints: intelligentResult.preservedPoints,
+            optimizedPoints: intelligentResult.optimizedPoints
           };
 
         } catch (error) {
@@ -112,9 +115,9 @@ export const useRoutes = () => {
         console.log('🆕 [USE ROUTES] Nova rota - pulando otimização inteligente');
       }
 
-      // ✅ FALLBACK: Otimização tradicional
+      // ✅ FALLBACK: Agora também usa otimização por blocos
       if (!optimizationResult) {
-        console.log('🔄 [USE ROUTES] Usando otimização tradicional');
+        console.log('🔄 [USE ROUTES] Usando fallback (agora com suporte a blocos)');
         console.log(`🔄 [USE ROUTES] URL: ${API_CONFIG.BASE_URL}/geocoding/optimize`);
         
         const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
@@ -139,13 +142,20 @@ export const useRoutes = () => {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('❌ [USE ROUTES] Erro na otimização tradicional:', errorText);
+          console.error('❌ [USE ROUTES] Erro no fallback:', errorText);
           throw new Error('Erro na otimização da rota');
         }
 
         const optimizedData = await response.json();
-        console.log('✅ [USE ROUTES] Otimização tradicional bem-sucedida');
+        console.log('✅ [USE ROUTES] Fallback concluído');
         console.log('📊 [USE ROUTES] Dados recebidos:', optimizedData);
+        
+        // ✅ NOVO: Detectar se o fallback usou blocos
+        if (optimizedData.blocksProcessed > 1) {
+          console.log(`🧩 [USE ROUTES] Fallback usou ${optimizedData.blocksProcessed} blocos`);
+          console.log(`📊 [USE ROUTES] ${optimizedData.preservedPoints} pontos preservados`);
+          console.log(`📊 [USE ROUTES] ${optimizedData.optimizedPoints} pontos otimizados`);
+        }
         
         optimizationResult = {
           optimizedOrder: optimizedData.optimizedOrder,
@@ -163,6 +173,9 @@ export const useRoutes = () => {
             completed: p.completed ?? false,
             completedAt: p.completedAt ?? null,
           })),
+          blocksProcessed: optimizedData.blocksProcessed || 1,
+          preservedPoints: optimizedData.preservedPoints || 0,
+          optimizedPoints: optimizedData.optimizedPoints || optimizedData.points.length
         };
       }
 
@@ -170,6 +183,14 @@ export const useRoutes = () => {
       console.log(`📊 [USE ROUTES] ${optimizationResult.points.length} pontos otimizados`);
       console.log(`📊 [USE ROUTES] Distância total: ${optimizationResult.totalDistance.toFixed(1)}km`);
       console.log(`📊 [USE ROUTES] Tempo estimado: ${optimizationResult.estimatedTime}`);
+      
+      // ✅ NOVO: Log sobre blocos processados
+      if (optimizationResult.blocksProcessed > 1) {
+        console.log(`🧩 [USE ROUTES] ${optimizationResult.blocksProcessed} blocos processados`);
+        console.log(`📊 [USE ROUTES] ${optimizationResult.preservedPoints} pontos preservados`);
+        console.log(`📊 [USE ROUTES] ${optimizationResult.optimizedPoints} pontos otimizados`);
+      }
+      
       console.log('🎯 [USE ROUTES] ========================================');
       
       return optimizationResult;
