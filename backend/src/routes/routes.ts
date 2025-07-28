@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
+import { blockOptimizerService } from '../services/blockOptimizer';
 
 const router = Router();
 
@@ -155,7 +156,7 @@ router.get('/:id/check-usage', async (req, res) => {
   }
 });
 
-// ✅ CORRIGIDO - OTIMIZAÇÃO INTELIGENTE PRIORITÁRIA
+// ✅ NOVO ENDPOINT - Otimização inteligente por blocos
 router.post('/:id/optimize-intelligent', async (req, res) => {
   const client = await pool.connect();
   
@@ -166,7 +167,7 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     const { points } = req.body;
     
     console.log(`🧠 [INTELLIGENT OPTIMIZE] ========================================`);
-    console.log(`🧠 [INTELLIGENT OPTIMIZE] Iniciando otimização inteligente para rota ${id}`);
+    console.log(`🧠 [INTELLIGENT OPTIMIZE] Iniciando otimização inteligente por blocos para rota ${id}`);
     console.log(`🧠 [INTELLIGENT OPTIMIZE] Pontos recebidos: ${points?.length || 0}`);
     
     if (!points || points.length < 2) {
@@ -199,30 +200,49 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     
     console.log(`🔒 [INTELLIGENT OPTIMIZE] ${trulyCompletedPoints.length} pontos REALMENTE concluídos no banco`);
 
-    // ✅ SE NÃO HÁ PONTOS CONCLUÍDOS, RETORNAR ERRO PARA USAR FALLBACK
-    if (trulyCompletedPoints.length === 0) {
-      await client.query('ROLLBACK');
-      console.log(`🆓 [INTELLIGENT OPTIMIZE] Nenhum ponto concluído - usar otimização tradicional`);
-      return res.status(400).json({ 
-        error: 'Nenhum ponto concluído encontrado - usar otimização tradicional',
-        useTraditional: true 
-      });
-    }
+    // ✅ PREPARAR PONTOS PARA OTIMIZAÇÃO POR BLOCOS
+    const pointsForOptimization = points.map((point: any, index: number) => {
+      const isCompleted = trulyCompletedPoints.some(cp => 
+        cp.address === point.address && 
+        Math.abs(cp.lat - point.lat) < 0.001 && 
+        Math.abs(cp.lng - point.lng) < 0.001
+      );
 
-    // ✅ APLICAR PRESERVAÇÃO INTELIGENTE
-    const finalPoints = await preserveCompletedPointsIntelligently(client, id, points);
+      return {
+        id: point.id || `point-${Date.now()}-${index}`,
+        address: point.address || '',
+        cep: point.cep || '',
+        lat: isValidCoordinate(point.lat) ? point.lat : 0,
+        lng: isValidCoordinate(point.lng) ? point.lng : 0,
+        order: index,
+        type: point.type || 'waypoint',
+        completed: isCompleted,
+        completedAt: isCompleted ? new Date().toISOString() : null
+      };
+    });
 
-    // ✅ CALCULAR MÉTRICAS CORRIGIDAS
-    const totalDistance = calculateTotalDistanceFromPoints(finalPoints);
-    const estimatedDuration = totalDistance > 0 ? totalDistance * 60 : 0;
-    const hours = Math.floor(estimatedDuration / 3600);
-    const minutes = Math.floor((estimatedDuration % 3600) / 60);
+    console.log(`📊 [INTELLIGENT OPTIMIZE] ${pointsForOptimization.filter(p => p.completed).length} pontos preservados`);
+    console.log(`📊 [INTELLIGENT OPTIMIZE] ${pointsForOptimization.filter(p => !p.completed).length} pontos para otimizar`);
+
+    // ✅ APLICAR OTIMIZAÇÃO POR BLOCOS
+    const optimizationResult = await blockOptimizerService.optimizeRouteInBlocks(
+      pointsForOptimization,
+      id
+    );
+
+    // ✅ CALCULAR MÉTRICAS TOTAIS
+    const totalDistance = optimizationResult.totalDistance;
+    const totalDuration = optimizationResult.totalDuration;
+    const hours = Math.floor(totalDuration / 3600);
+    const minutes = Math.floor((totalDuration % 3600) / 60);
     const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
 
-    // ✅ SANITIZAR PONTOS ANTES DO JSON.stringify
-    const sanitizedPoints = sanitizePointsForJSON(finalPoints);
+    // ✅ EXTRAIR PONTOS FINAIS DE TODOS OS BLOCOS
+    const finalPoints = optimizationResult.optimizedBlocks.reduce((acc, block) => {
+      return acc.concat(block.points);
+    }, [] as any[]);
 
-    // ✅ ATUALIZAR ROTA COM DADOS PRESERVADOS
+    // ✅ ATUALIZAR ROTA COM DADOS OTIMIZADOS
     await client.query(
       `UPDATE routes SET 
        points = $1, 
@@ -232,98 +252,62 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
        updated_at = CURRENT_TIMESTAMP 
        WHERE id = $5`,
       [
-        JSON.stringify(sanitizedPoints),
+        JSON.stringify(finalPoints),
         totalDistance,
         estimatedTime,
-        Math.round(estimatedDuration),
+        Math.round(totalDuration),
         id
       ]
     );
 
+    // ✅ ATUALIZAR PONTOS NA TABELA route_points
+    await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
+    
+    for (const point of finalPoints) {
+      await client.query(
+        `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, completed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [id, point.address, point.lat, point.lng, point.order, point.type || 'waypoint', point.completed || false, point.completedAt]
+      );
+    }
+
     await client.query('COMMIT');
 
-    console.log(`✅ [INTELLIGENT OPTIMIZE] Otimização inteligente concluída com preservação`);
-    console.log(`📊 [INTELLIGENT OPTIMIZE] ${finalPoints.filter(p => p.completed).length} pontos preservados`);
-    console.log(`📊 [INTELLIGENT OPTIMIZE] ${finalPoints.filter(p => !p.completed).length} pontos otimizados`);
+    console.log(`✅ [INTELLIGENT OPTIMIZE] Otimização inteligente por blocos concluída`);
+    console.log(`📊 [INTELLIGENT OPTIMIZE] ${optimizationResult.optimizedBlocks.length} blocos processados`);
+    console.log(`📊 [INTELLIGENT OPTIMIZE] ${optimizationResult.preservedPoints} pontos preservados`);
+    console.log(`📊 [INTELLIGENT OPTIMIZE] ${optimizationResult.optimizedPoints} pontos otimizados`);
     console.log(`🧠 [INTELLIGENT OPTIMIZE] ========================================`);
 
     res.json({
-      message: 'Otimização inteligente concluída',
-      points: sanitizedPoints,
-      optimizedOrder: sanitizedPoints.map(p => p.id),
+      message: 'Otimização inteligente por blocos concluída',
+      points: finalPoints,
+      optimizedOrder: finalPoints.map(p => p.id),
       totalDistance: totalDistance,
       estimatedTime: estimatedTime,
-      preservedPoints: finalPoints.filter(p => p.completed).length,
-      optimizedPoints: finalPoints.filter(p => !p.completed).length
+      blocksProcessed: optimizationResult.optimizedBlocks.length,
+      preservedPoints: optimizationResult.preservedPoints,
+      optimizedPoints: optimizationResult.optimizedPoints
     });
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('❌ [INTELLIGENT OPTIMIZE] Erro na otimização inteligente:', error);
-    res.status(500).json({ error: 'Erro na otimização inteligente' });
+    console.error('❌ [INTELLIGENT OPTIMIZE] Erro na otimização inteligente por blocos:', error);
+    res.status(500).json({ error: 'Erro na otimização inteligente por blocos' });
   } finally {
     client.release();
   }
 });
-
-// ✅ FUNÇÃO AUXILIAR CORRIGIDA - CALCULAR DISTÂNCIA TOTAL
-function calculateTotalDistanceFromPoints(points: any[]): number {
-  if (!points || points.length < 2) return 0;
-  
-  let total = 0;
-  for (let i = 0; i < points.length - 1; i++) {
-    const point1 = points[i];
-    const point2 = points[i + 1];
-    
-    // ✅ VERIFICAR SE AS COORDENADAS SÃO VÁLIDAS
-    if (isValidCoordinate(point1.lat) && isValidCoordinate(point1.lng) && 
-        isValidCoordinate(point2.lat) && isValidCoordinate(point2.lng)) {
-      total += calculateDistance(point1, point2);
-    }
-  }
-  return total;
-}
 
 // ✅ NOVA FUNÇÃO - VALIDAR COORDENADAS
 function isValidCoordinate(coord: any): boolean {
   return typeof coord === 'number' && !isNaN(coord) && isFinite(coord);
 }
 
-function calculateDistance(point1: any, point2: any): number {
-  const R = 6371;
-  const dLat = toRadians(point2.lat - point1.lat);
-  const dLng = toRadians(point2.lng - point1.lng);
-  
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-           Math.cos(toRadians(point1.lat)) * Math.cos(toRadians(point2.lat)) *
-           Math.sin(dLng/2) * Math.sin(dLng/2);
-  
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-function toRadians(degrees: number): number {
-  return degrees * (Math.PI / 180);
-}
-
-// ✅ NOVA FUNÇÃO - SANITIZAR PONTOS PARA JSON
-function sanitizePointsForJSON(points: any[]): any[] {
-  return points.map(point => ({
-    id: point.id || `point-${Date.now()}-${Math.random()}`,
-    address: point.address || '',
-    cep: point.cep || '',
-    lat: isValidCoordinate(point.lat) ? point.lat : 0,
-    lng: isValidCoordinate(point.lng) ? point.lng : 0,
-    order: typeof point.order === 'number' ? point.order : 0,
-    type: point.type || 'waypoint',
-    completed: Boolean(point.completed),
-    completedAt: point.completedAt || null
-  }));
-}
-
+// ✅ MELHORAR preserveCompletedPointsIntelligently para usar blocos
 async function preserveCompletedPointsIntelligently(client: any, routeId: string, newPoints: any[]) {
   try {
-    console.log(`🛡️ [INTELLIGENT PRESERVATION] Iniciando preservação ROBUSTA para rota ${routeId}`);
+    console.log(`🛡️ [INTELLIGENT PRESERVATION] Iniciando preservação com otimização por blocos para rota ${routeId}`);
     
     // 1️⃣ BUSCAR PONTOS REALMENTE CONCLUÍDOS DO BANCO
     const completedPointsQuery = `
@@ -342,97 +326,58 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
     const trulyCompletedPoints = completedResult.rows;
     
     console.log(`🔒 [INTELLIGENT PRESERVATION] ${trulyCompletedPoints.length} pontos REALMENTE concluídos no banco`);
-    
-    // Log detalhado dos pontos concluídos
-    trulyCompletedPoints.forEach((point, index) => {
-      console.log(`🔒 [PRESERVATION] Ponto concluído ${index + 1}: {
-  id: '${point.id}',
-  order: ${point.point_order},
-  address: '${point.address.substring(0, 40)}...',
-  completed: ${point.completed},
-  completed_at: ${point.completed_at}
-}`);
+
+    // 2️⃣ PREPARAR PONTOS PARA OTIMIZAÇÃO POR BLOCOS
+    const pointsForOptimization = newPoints.map((point: any, index: number) => {
+      const isCompleted = trulyCompletedPoints.some(cp => 
+        cp.address === point.address && 
+        Math.abs(cp.lat - point.lat) < 0.001 && 
+        Math.abs(cp.lng - point.lng) < 0.001
+      );
+
+      return {
+        id: point.id || `point-${Date.now()}-${index}`,
+        address: point.address || '',
+        cep: point.cep || '',
+        lat: isValidCoordinate(point.lat) ? point.lat : 0,
+        lng: isValidCoordinate(point.lng) ? point.lng : 0,
+        order: index,
+        type: point.type || 'waypoint',
+        completed: isCompleted,
+        completedAt: isCompleted ? new Date().toISOString() : null
+      };
     });
 
-    // 2️⃣ SE NÃO HÁ PONTOS CONCLUÍDOS, FAZER ATUALIZAÇÃO NORMAL
+    // 3️⃣ SE NÃO HÁ PONTOS CONCLUÍDOS, APLICAR OTIMIZAÇÃO NORMAL
     if (trulyCompletedPoints.length === 0) {
-      console.log(`🆕 [INTELLIGENT PRESERVATION] Nenhum ponto concluído - atualização normal`);
+      console.log(`🆕 [INTELLIGENT PRESERVATION] Nenhum ponto concluído - usando otimização por blocos`);
       
-      await client.query('DELETE FROM route_points WHERE route_id = $1', [routeId]);
-      
-      for (const point of newPoints) {
-        await client.query(
-          `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
-           VALUES ($1, $2, $3, $4, $5, $6, false)`,
-          [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
-        );
-      }
-      
-      return newPoints;
+      const optimizationResult = await blockOptimizerService.optimizeRouteInBlocks(
+        pointsForOptimization,
+        routeId
+      );
+
+      return optimizationResult.optimizedBlocks.reduce((acc, block) => {
+        return acc.concat(block.points);
+      }, [] as any[]);
     }
 
-    // 3️⃣ ENCONTRAR O ÚLTIMO PONTO CONCLUÍDO
-    const lastCompletedPoint = trulyCompletedPoints[trulyCompletedPoints.length - 1];
-    const lastCompletedOrder = lastCompletedPoint.point_order;
+    // 4️⃣ APLICAR OTIMIZAÇÃO POR BLOCOS COM PRESERVAÇÃO
+    console.log(`🧩 [INTELLIGENT PRESERVATION] Aplicando otimização por blocos com preservação`);
     
-    console.log(`📍 [INTELLIGENT PRESERVATION] Último ponto concluído na ordem: ${lastCompletedOrder}`);
+    const optimizationResult = await blockOptimizerService.optimizeRouteInBlocks(
+      pointsForOptimization,
+      routeId
+    );
 
-    // 4️⃣ CRIAR LISTA DE PONTOS PRESERVADOS (CONCLUÍDOS)
-    const preservedPoints = trulyCompletedPoints.map(p => ({
-      id: p.id,
-      address: p.address,
-      lat: parseFloat(p.lat),
-      lng: parseFloat(p.lng),
-      order: p.point_order,
-      type: p.type,
-      completed: true,
-      completedAt: p.completed_at
-    }));
-
-    // 5️⃣ IDENTIFICAR NOVOS PONTOS QUE VÊM APÓS OS CONCLUÍDOS
-    const pendingNewPoints = newPoints
-      .filter(p => p.order > lastCompletedOrder)
-      .map((p, index) => ({
-        ...p,
-        order: lastCompletedOrder + index + 1,
-        completed: false,
-        completedAt: null
-      }));
-    
-    console.log(`🎯 [INTELLIGENT PRESERVATION] ${pendingNewPoints.length} novos pontos para inserir após concluídos`);
-
-    // 6️⃣ OTIMIZAR APENAS OS PONTOS PENDENTES SE NECESSÁRIO
-    let optimizedPendingPoints = pendingNewPoints;
-    
-    if (pendingNewPoints.length > 1) {
-      try {
-        console.log(`🚀 [INTELLIGENT PRESERVATION] Otimizando ${pendingNewPoints.length} pontos pendentes`);
-        
-        const optimizationResult = await googleMapsOptimizer.optimizePartialRoute(
-          [preservedPoints[preservedPoints.length - 1]], // Último concluído como origem
-          pendingNewPoints
-        );
-        
-        optimizedPendingPoints = optimizationResult.optimizedPoints
-          .filter(p => !p.completed)
-          .map((p, index) => ({
-            ...p,
-            order: lastCompletedOrder + index + 1,
-            completed: false,
-            completedAt: null
-          }));
-        
-        console.log(`✅ [INTELLIGENT PRESERVATION] ${optimizedPendingPoints.length} pontos otimizados`);
-        
-      } catch (optimizationError) {
-        console.error(`⚠️ [INTELLIGENT PRESERVATION] Erro na otimização:`, optimizationError);
-        // Manter ordem original em caso de erro
-      }
-    }
-
-    // 7️⃣ APLICAR MUDANÇAS NO BANCO - PRESERVANDO PONTOS CONCLUÍDOS
+    // 5️⃣ APLICAR MUDANÇAS NO BANCO
     console.log(`💾 [INTELLIGENT PRESERVATION] Aplicando mudanças no banco`);
     
+    // Extrair pontos finais de todos os blocos
+    const finalPoints = optimizationResult.optimizedBlocks.reduce((acc, block) => {
+      return acc.concat(block.points);
+    }, [] as any[]);
+
     // ✅ REMOVER APENAS PONTOS NÃO CONCLUÍDOS
     await client.query(
       `DELETE FROM route_points 
@@ -441,28 +386,21 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
       [routeId]
     );
     
-    console.log(`🗑️ [INTELLIGENT PRESERVATION] Pontos não concluídos removidos`);
-    
-    // ✅ INSERIR APENAS NOVOS PONTOS OTIMIZADOS
-    for (const point of optimizedPendingPoints) {
+    // ✅ INSERIR NOVOS PONTOS OTIMIZADOS
+    for (const point of finalPoints.filter(p => !p.completed)) {
       await client.query(
         `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, completed_at)
          VALUES ($1, $2, $3, $4, $5, $6, false, NULL)`,
         [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
       );
     }
-    
-    console.log(`✅ [INTELLIGENT PRESERVATION] ${optimizedPendingPoints.length} novos pontos inseridos`);
 
-    // 8️⃣ RESULTADO FINAL - PONTOS PRESERVADOS + NOVOS OTIMIZADOS
-    const finalPoints = [...preservedPoints, ...optimizedPendingPoints];
-    
-    console.log(`🎯 [INTELLIGENT PRESERVATION] Resultado final: ${preservedPoints.length} preservados + ${optimizedPendingPoints.length} novos = ${finalPoints.length} total`);
+    console.log(`✅ [INTELLIGENT PRESERVATION] Preservação com blocos concluída: ${finalPoints.length} pontos finais`);
     
     return finalPoints;
     
   } catch (error) {
-    console.error('❌ [INTELLIGENT PRESERVATION] Erro crítico:', error);
+    console.error('❌ [INTELLIGENT PRESERVATION] Erro na preservação com blocos:', error);
     throw error;
   }
 }
@@ -761,6 +699,56 @@ router.post('/:id/optimize', async (req, res) => {
   } catch (error) {
     console.error('❌ [ROUTES OPTIMIZE] Erro na otimização:', error);
     res.status(500).json({ error: 'Erro ao otimizar rota' });
+  }
+});
+
+// ✅ ENDPOINT DE RESET - ÚNICO LOCAL AUTORIZADO A RESETAR PONTOS
+router.post('/:id/reset', async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    const { id } = req.params;
+    
+    console.log(`🔄 [ROUTES RESET] Resetando rota ${id}`);
+    
+    // Verificar se a rota existe
+    const routeCheck = await client.query('SELECT id, name FROM routes WHERE id = $1', [id]);
+    
+    if (routeCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Rota não encontrada' });
+    }
+    
+    // ✅ RESET COMPLETO - Resetar TODOS os pontos da rota (completed = false)
+    const resetResult = await client.query(
+      'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
+      [id]
+    );
+    
+    // Atualizar timestamp da rota
+    await client.query(
+      'UPDATE routes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [id]
+    );
+    
+    await client.query('COMMIT');
+    
+    console.log(`✅ [ROUTES RESET] Rota "${routeCheck.rows[0].name}" resetada - ${resetResult.rows.length} pontos`);
+    
+    res.json({ 
+      message: 'Rota resetada com sucesso',
+      routeName: routeCheck.rows[0].name,
+      pointsReset: resetResult.rows.length
+    });
+    
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ [ROUTES RESET] Erro ao resetar rota:', error);
+    res.status(500).json({ error: 'Erro ao resetar rota' });
+  } finally {
+    client.release();
   }
 });
 

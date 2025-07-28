@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { routesService } from '@/services/routes';
 import { API_CONFIG } from '@/services/config';
@@ -57,11 +56,11 @@ export const useRoutes = () => {
     }
   };
 
-  // ✅ CORRIGIDO: Otimização inteligente com ID correto
+  // ✅ ATUALIZADO: Otimização inteligente por blocos
   const optimizeRoute = async (allPoints: RoutePoint[], routeId?: string) => {
     try {
       console.log('🎯 [USE ROUTES] ========================================');
-      console.log('🎯 [USE ROUTES] Iniciando otimização de rota');
+      console.log('🎯 [USE ROUTES] Iniciando otimização inteligente por blocos');
       console.log(`🎯 [USE ROUTES] Route ID: ${routeId || 'NOVA ROTA'}`);
       console.log(`🎯 [USE ROUTES] Pontos para otimizar: ${allPoints.length}`);
 
@@ -71,67 +70,43 @@ export const useRoutes = () => {
 
       let optimizationResult = null;
 
-      // ✅ TENTATIVA 1: Otimização inteligente (SOMENTE se existe routeId válido)
+      // ✅ TENTATIVA 1: Otimização inteligente por blocos (SOMENTE se existe routeId válido)
       if (routeId && routeId !== 'NOVA ROTA') {
-        console.log('🧠 [USE ROUTES] Tentando otimização inteligente...');
-        console.log(`🧠 [USE ROUTES] URL: ${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`);
+        console.log('🧠 [USE ROUTES] Tentando otimização inteligente por blocos...');
         
         try {
-          const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              points: allPoints.map((point, index) => ({
-                id: point.id,
-                address: point.address,
-                cep: point.cep,
-                lat: point.lat,
-                lng: point.lng,
-                order: index,
-                type: point.type,
-                completed: point.completed ?? false,
-                completedAt: point.completedAt ?? null,
-              })),
-            }),
-          });
+          const intelligentResult = await routesService.optimizeRouteIntelligent(routeId, allPoints);
+          
+          console.log('✅ [USE ROUTES] Otimização inteligente por blocos bem-sucedida');
+          console.log(`📊 [USE ROUTES] ${intelligentResult.blocksProcessed} blocos processados`);
+          console.log(`📊 [USE ROUTES] ${intelligentResult.preservedPoints} pontos preservados`);
+          console.log(`📊 [USE ROUTES] ${intelligentResult.optimizedPoints} pontos otimizados`);
+          
+          optimizationResult = {
+            optimizedOrder: intelligentResult.optimizedOrder,
+            totalDistance: intelligentResult.totalDistance,
+            estimatedTime: intelligentResult.estimatedTime,
+            polyline: '', // Polyline será calculada pelo backend
+            points: intelligentResult.points.map((p: any, index: number) => ({
+              id: p.id,
+              address: p.address,
+              cep: p.cep || '',
+              lat: p.lat,
+              lng: p.lng,
+              order: index,
+              type: p.type,
+              completed: p.completed ?? false,
+              completedAt: p.completedAt ?? null,
+            })),
+          };
 
-          console.log(`📡 [USE ROUTES] Resposta da otimização inteligente: ${response.status}`);
-
-          if (response.ok) {
-            const intelligentData = await response.json();
-            console.log('✅ [USE ROUTES] Otimização inteligente bem-sucedida');
-            console.log('📊 [USE ROUTES] Dados recebidos:', intelligentData);
-            
-            optimizationResult = {
-              optimizedOrder: intelligentData.optimizedOrder,
-              totalDistance: intelligentData.totalDistance,
-              estimatedTime: intelligentData.estimatedTime,
-              polyline: intelligentData.polyline,
-              points: intelligentData.points.map((p: any, index: number) => ({
-                id: p.id,
-                address: p.address,
-                cep: p.cep || '',
-                lat: p.lat,
-                lng: p.lng,
-                order: index,
-                type: p.type,
-                completed: p.completed ?? false,
-                completedAt: p.completedAt ?? null,
-              })),
-            };
-          } else {
-            const errorData = await response.json();
-            console.log('⚠️ [USE ROUTES] Otimização inteligente falhou:', errorData);
-            
-            // ✅ SE RETORNOU useTraditional, continuar para fallback
-            if (errorData.useTraditional) {
-              console.log('🔄 [USE ROUTES] Backend solicitou usar otimização tradicional');
-            }
-          }
         } catch (error) {
-          console.log('⚠️ [USE ROUTES] Erro na otimização inteligente:', error);
+          console.log('⚠️ [USE ROUTES] Erro na otimização inteligente por blocos:', error);
+          
+          // Verificar se deve usar fallback tradicional
+          if (error instanceof Error && error.message.includes('useTraditional')) {
+            console.log('🔄 [USE ROUTES] Backend solicitou usar otimização tradicional');
+          }
         }
       } else {
         console.log('🆕 [USE ROUTES] Nova rota - pulando otimização inteligente');
@@ -192,7 +167,11 @@ export const useRoutes = () => {
       }
 
       console.log('✅ [USE ROUTES] Otimização concluída com sucesso');
+      console.log(`📊 [USE ROUTES] ${optimizationResult.points.length} pontos otimizados`);
+      console.log(`📊 [USE ROUTES] Distância total: ${optimizationResult.totalDistance.toFixed(1)}km`);
+      console.log(`📊 [USE ROUTES] Tempo estimado: ${optimizationResult.estimatedTime}`);
       console.log('🎯 [USE ROUTES] ========================================');
+      
       return optimizationResult;
 
     } catch (error) {
