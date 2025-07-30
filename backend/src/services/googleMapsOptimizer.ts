@@ -17,6 +17,13 @@ interface OptimizationResult {
   optimizedOrder: string[];
 }
 
+// ✅ NOVA INTERFACE - Para clustering geográfico
+interface GeographicalCluster {
+  centroid: { lat: number; lng: number };
+  points: OptimizationPoint[];
+  clusterId: number;
+}
+
 class GoogleMapsOptimizer {
   private apiKey = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
   private readonly ROUTES_API_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
@@ -252,7 +259,6 @@ class GoogleMapsOptimizer {
     }
   }
 
-  // ✅ MELHORADO: Implementação para rotas grandes - dividir inteligentemente
   private async handleLargeRoute(points: OptimizationPoint[]): Promise<OptimizationResult> {
     console.log(`📊 [OPTIMIZER V2] Rota grande com ${points.length} pontos - aplicando estratégia de segmentação`);
     
@@ -370,7 +376,6 @@ class GoogleMapsOptimizer {
     }
   }
 
-  // ✅ IMPLEMENTAÇÃO CORRIGIDA: Otimização parcial para preservar pontos concluídos
   async optimizePartialRoute(
     completedPoints: OptimizationPoint[], 
     remainingPoints: OptimizationPoint[]
@@ -405,28 +410,30 @@ class GoogleMapsOptimizer {
     }
 
     try {
-      // Usar último ponto concluído como origem para otimização dos pendentes
       const lastCompletedPoint = completedPoints[completedPoints.length - 1];
-      
       console.log(`🚀 [OPTIMIZER PARTIAL] Otimizando a partir do último ponto concluído: ${lastCompletedPoint.address}`);
       
-      // Criar lista para otimização: último concluído + pontos pendentes
+      // ✅ NOVO: Aplicar clustering geográfico se há muitos pontos pendentes
+      if (remainingPoints.length > this.MAX_WAYPOINTS) {
+        console.log(`🗺️ [OPTIMIZER PARTIAL] Muitos pontos pendentes (${remainingPoints.length}) - aplicando clustering geográfico`);
+        return await this.optimizePartialRouteWithClustering(completedPoints, remainingPoints);
+      }
+
+      // Para rotas menores, usar lógica original
       const pointsToOptimize = [
         { ...lastCompletedPoint, type: 'origin' as const },
         ...remainingPoints.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
         { ...remainingPoints[remainingPoints.length - 1], type: 'destination' as const }
       ];
 
-      // Otimizar apenas os pontos pendentes
       const optimizationResult = await this.optimizeRouteWithGoogleAPIs(pointsToOptimize);
       
-      // Combinar: pontos concluídos (exceto o último, que foi usado como origem) + pontos otimizados
       const finalPoints = [
-        ...completedPoints.slice(0, -1), // Todos os concluídos exceto o último
+        ...completedPoints.slice(0, -1),
         ...optimizationResult.optimizedPoints.map((p, index) => ({
           ...p,
-          order: completedPoints.length - 1 + index, // Reordenar a partir do último concluído
-          completed: index === 0 ? true : false // Primeiro ponto é o último concluído, resto são pendentes
+          order: completedPoints.length - 1 + index,
+          completed: index === 0 ? true : false
         }))
       ];
 
@@ -463,6 +470,332 @@ class GoogleMapsOptimizer {
         optimizedOrder: fallbackPoints.map(p => p.id)
       };
     }
+  }
+
+  // ✅ NOVA FUNÇÃO - Otimização parcial com clustering geográfico
+  private async optimizePartialRouteWithClustering(
+    completedPoints: OptimizationPoint[], 
+    remainingPoints: OptimizationPoint[]
+  ): Promise<OptimizationResult> {
+    console.log(`🗺️ [OPTIMIZER CLUSTERING] Iniciando otimização com clustering - ${remainingPoints.length} pontos pendentes`);
+    
+    try {
+      const lastCompletedPoint = completedPoints[completedPoints.length - 1];
+      
+      // ✅ Aplicar clustering geográfico nos pontos pendentes
+      const clusters = this.applyGeographicalClustering(remainingPoints, this.MAX_WAYPOINTS);
+      console.log(`🎯 [OPTIMIZER CLUSTERING] ${remainingPoints.length} pontos agrupados em ${clusters.length} clusters`);
+      
+      // ✅ Ordenar clusters para conectividade otimizada
+      const orderedClusters = this.orderClustersOptimally(clusters, lastCompletedPoint);
+      
+      let allOptimizedPoints = [...completedPoints.slice(0, -1)]; // Todos exceto o último
+      let totalDistance = 0;
+      let totalDuration = 0;
+      let finalPolyline = '';
+      
+      // Processar cada cluster como um segmento
+      for (let i = 0; i < orderedClusters.length; i++) {
+        const cluster = orderedClusters[i];
+        const isLastCluster = i === orderedClusters.length - 1;
+        
+        // Determinar origem e destino do cluster
+        const clusterOrigin = i === 0 ? lastCompletedPoint : allOptimizedPoints[allOptimizedPoints.length - 1];
+        const clusterDestination = isLastCluster ? 
+          cluster.points[cluster.points.length - 1] : 
+          cluster.points[cluster.points.length - 1];
+        
+        // Criar pontos para otimização do cluster
+        const clusterPointsToOptimize = [
+          { ...clusterOrigin, type: 'origin' as const },
+          ...cluster.points.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
+          { ...clusterDestination, type: 'destination' as const }
+        ];
+
+        console.log(`🔧 [OPTIMIZER CLUSTERING] Otimizando cluster ${i + 1}/${orderedClusters.length} com ${clusterPointsToOptimize.length} pontos`);
+
+        try {
+          const clusterResult = await this.optimizeWithRoutesAPIv2(clusterPointsToOptimize);
+          
+          // Adicionar pontos do cluster (exceto o primeiro se não for o primeiro cluster)
+          const pointsToAdd = i === 0 ? 
+            clusterResult.optimizedPoints : 
+            clusterResult.optimizedPoints.slice(1);
+          
+          pointsToAdd.forEach((point) => {
+            allOptimizedPoints.push({
+              ...point,
+              order: allOptimizedPoints.length,
+              completed: point.id === lastCompletedPoint.id ? true : false
+            });
+          });
+
+          totalDistance += clusterResult.totalDistance;
+          totalDuration += clusterResult.totalDuration;
+          
+          if (clusterResult.polyline) {
+            finalPolyline += clusterResult.polyline;
+          }
+
+        } catch (clusterError) {
+          console.error(`❌ [OPTIMIZER CLUSTERING] Erro no cluster ${i + 1}:`, clusterError);
+          
+          // Fallback: adicionar pontos do cluster sem otimização
+          const fallbackPoints = cluster.points.map((point) => ({
+            ...point,
+            order: allOptimizedPoints.length,
+            completed: false
+          }));
+          
+          allOptimizedPoints.push(...fallbackPoints);
+        }
+      }
+
+      console.log(`✅ [OPTIMIZER CLUSTERING] Clustering concluído - ${allOptimizedPoints.length} pontos, ${clusters.length} clusters processados`);
+
+      return {
+        optimizedPoints: allOptimizedPoints,
+        totalDistance,
+        totalDuration,
+        polyline: finalPolyline,
+        optimizedOrder: allOptimizedPoints.map(p => p.id)
+      };
+      
+    } catch (error) {
+      console.error('❌ [OPTIMIZER CLUSTERING] Erro no clustering:', error);
+      
+      // Fallback: usar segmentação tradicional
+      return await this.optimizePartialRouteWithSegmentation(completedPoints, remainingPoints);
+    }
+  }
+
+  // ✅ NOVA FUNÇÃO - Clustering geográfico K-means simples
+  private applyGeographicalClustering(points: OptimizationPoint[], maxPointsPerCluster: number): GeographicalCluster[] {
+    console.log(`🗺️ [CLUSTERING] Aplicando K-means em ${points.length} pontos com máximo ${maxPointsPerCluster} por cluster`);
+    
+    // Calcular número de clusters necessários
+    const numClusters = Math.ceil(points.length / maxPointsPerCluster);
+    console.log(`🎯 [CLUSTERING] Criando ${numClusters} clusters`);
+    
+    // Inicializar centroids aleatoriamente
+    const centroids: { lat: number; lng: number }[] = [];
+    for (let i = 0; i < numClusters; i++) {
+      const randomPoint = points[Math.floor(Math.random() * points.length)];
+      centroids.push({ lat: randomPoint.lat, lng: randomPoint.lng });
+    }
+    
+    // K-means simples (3 iterações)
+    for (let iter = 0; iter < 3; iter++) {
+      const clusters: GeographicalCluster[] = centroids.map((centroid, i) => ({
+        centroid,
+        points: [],
+        clusterId: i
+      }));
+      
+      // Atribuir pontos aos clusters mais próximos
+      for (const point of points) {
+        let bestCluster = 0;
+        let minDistance = this.calculateGeographicalDistance(point, centroids[0]);
+        
+        for (let i = 1; i < centroids.length; i++) {
+          const distance = this.calculateGeographicalDistance(point, centroids[i]);
+          if (distance < minDistance) {
+            minDistance = distance;
+            bestCluster = i;
+          }
+        }
+        
+        clusters[bestCluster].points.push(point);
+      }
+      
+      // Atualizar centroids (média das posições)
+      for (let i = 0; i < clusters.length; i++) {
+        if (clusters[i].points.length > 0) {
+          const avgLat = clusters[i].points.reduce((sum, p) => sum + p.lat, 0) / clusters[i].points.length;
+          const avgLng = clusters[i].points.reduce((sum, p) => sum + p.lng, 0) / clusters[i].points.length;
+          centroids[i] = { lat: avgLat, lng: avgLng };
+        }
+      }
+    }
+    
+    // Criar clusters finais
+    const finalClusters: GeographicalCluster[] = centroids.map((centroid, i) => ({
+      centroid,
+      points: [],
+      clusterId: i
+    }));
+    
+    // Atribuição final dos pontos
+    for (const point of points) {
+      let bestCluster = 0;
+      let minDistance = this.calculateGeographicalDistance(point, centroids[0]);
+      
+      for (let i = 1; i < centroids.length; i++) {
+        const distance = this.calculateGeographicalDistance(point, centroids[i]);
+        if (distance < minDistance) {
+          minDistance = distance;
+          bestCluster = i;
+        }
+      }
+      
+      finalClusters[bestCluster].points.push(point);
+    }
+    
+    // Filtrar clusters vazios
+    const nonEmptyClusters = finalClusters.filter(cluster => cluster.points.length > 0);
+    
+    console.log(`✅ [CLUSTERING] ${nonEmptyClusters.length} clusters criados:`);
+    nonEmptyClusters.forEach((cluster, i) => {
+      console.log(`   - Cluster ${i + 1}: ${cluster.points.length} pontos`);
+    });
+    
+    return nonEmptyClusters;
+  }
+
+  // ✅ NOVA FUNÇÃO - Ordenar clusters para conectividade
+  private orderClustersOptimally(clusters: GeographicalCluster[], startPoint: OptimizationPoint): GeographicalCluster[] {
+    console.log(`🔗 [CLUSTER ORDERING] Ordenando ${clusters.length} clusters para conectividade`);
+    
+    if (clusters.length <= 1) return clusters;
+    
+    const orderedClusters: GeographicalCluster[] = [];
+    const remainingClusters = [...clusters];
+    
+    // Encontrar primeiro cluster (mais próximo do ponto inicial)
+    let currentPoint = startPoint;
+    
+    while (remainingClusters.length > 0) {
+      let bestClusterIndex = 0;
+      let minDistance = this.calculateGeographicalDistance(currentPoint, remainingClusters[0].centroid);
+      
+      for (let i = 1; i < remainingClusters.length; i++) {
+        const distance = this.calculateGeographicalDistance(currentPoint, remainingClusters[i].centroid);
+        if (distance < minDistance) {
+          minDistance = distance;
+          bestClusterIndex = i;
+        }
+      }
+      
+      const selectedCluster = remainingClusters.splice(bestClusterIndex, 1)[0];
+      orderedClusters.push(selectedCluster);
+      
+      // Próximo ponto de referência é o último ponto do cluster selecionado
+      if (selectedCluster.points.length > 0) {
+        currentPoint = selectedCluster.points[selectedCluster.points.length - 1];
+      }
+    }
+    
+    console.log(`✅ [CLUSTER ORDERING] Clusters ordenados para conectividade otimizada`);
+    return orderedClusters;
+  }
+
+  // ✅ NOVA FUNÇÃO - Calcular distância geográfica simples
+  private calculateGeographicalDistance(point1: { lat: number; lng: number }, point2: { lat: number; lng: number }): number {
+    const R = 6371; // Raio da Terra em km
+    const dLat = this.toRadians(point2.lat - point1.lat);
+    const dLng = this.toRadians(point2.lng - point1.lng);
+    
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+             Math.cos(this.toRadians(point1.lat)) * Math.cos(this.toRadians(point2.lat)) *
+             Math.sin(dLng/2) * Math.sin(dLng/2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  // ✅ NOVA FUNÇÃO - Fallback com segmentação tradicional
+  private async optimizePartialRouteWithSegmentation(
+    completedPoints: OptimizationPoint[], 
+    remainingPoints: OptimizationPoint[]
+  ): Promise<OptimizationResult> {
+    console.log(`📦 [OPTIMIZER SEGMENTATION] Fallback - usando segmentação tradicional para ${remainingPoints.length} pontos`);
+    
+    try {
+      const lastCompletedPoint = completedPoints[completedPoints.length - 1];
+      
+      // Usar lógica similar à handleLargeRoute
+      const segments = [];
+      const segmentSize = this.MAX_WAYPOINTS;
+      
+      for (let i = 0; i < remainingPoints.length; i += segmentSize) {
+        const segmentPoints = remainingPoints.slice(i, i + segmentSize);
+        segments.push(segmentPoints);
+      }
+      
+      console.log(`🔧 [OPTIMIZER SEGMENTATION] Dividindo em ${segments.length} segmentos`);
+      
+      let allOptimizedPoints = [...completedPoints.slice(0, -1)];
+      let totalDistance = 0;
+      let totalDuration = 0;
+      let finalPolyline = '';
+      
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        const isLastSegment = i === segments.length - 1;
+        
+        const segmentOrigin = i === 0 ? lastCompletedPoint : allOptimizedPoints[allOptimizedPoints.length - 1];
+        const segmentDestination = isLastSegment ? 
+          segment[segment.length - 1] : 
+          segment[segment.length - 1];
+        
+        const segmentPoints = [
+          { ...segmentOrigin, type: 'origin' as const },
+          ...segment.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
+          { ...segmentDestination, type: 'destination' as const }
+        ];
+
+        try {
+          const segmentResult = await this.optimizeWithRoutesAPIv2(segmentPoints);
+          
+          const pointsToAdd = i === 0 ? segmentResult.optimizedPoints : segmentResult.optimizedPoints.slice(1);
+          
+          pointsToAdd.forEach((point) => {
+            allOptimizedPoints.push({
+              ...point,
+              order: allOptimizedPoints.length,
+              completed: point.id === lastCompletedPoint.id ? true : false
+            });
+          });
+
+          totalDistance += segmentResult.totalDistance;
+          totalDuration += segmentResult.totalDuration;
+          
+          if (segmentResult.polyline) {
+            finalPolyline += segmentResult.polyline;
+          }
+
+        } catch (segmentError) {
+          console.error(`❌ [OPTIMIZER SEGMENTATION] Erro no segmento ${i + 1}:`, segmentError);
+          
+          const fallbackPoints = segment.map((point) => ({
+            ...point,
+            order: allOptimizedPoints.length,
+            completed: false
+          }));
+          
+          allOptimizedPoints.push(...fallbackPoints);
+        }
+      }
+
+      console.log(`✅ [OPTIMIZER SEGMENTATION] Segmentação concluída - ${allOptimizedPoints.length} pontos`);
+
+      return {
+        optimizedPoints: allOptimizedPoints,
+        totalDistance,
+        totalDuration,
+        polyline: finalPolyline,
+        optimizedOrder: allOptimizedPoints.map(p => p.id)
+      };
+      
+    } catch (error) {
+      console.error('❌ [OPTIMIZER SEGMENTATION] Erro na segmentação:', error);
+      throw error;
+    }
+  }
+
+  // ✅ FUNÇÃO AUXILIAR - Converter graus para radianos
+  private toRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
   }
 }
 
