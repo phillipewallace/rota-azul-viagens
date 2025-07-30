@@ -413,7 +413,7 @@ class GoogleMapsOptimizer {
       const lastCompletedPoint = completedPoints[completedPoints.length - 1];
       console.log(`🚀 [OPTIMIZER PARTIAL] Otimizando a partir do último ponto concluído: ${lastCompletedPoint.address}`);
       
-      // ✅ NOVO: Aplicar clustering geográfico se há muitos pontos pendentes
+      // ✅ CORRIGIDO: Aplicar clustering se há muitos pontos pendentes (independente de concluídos)
       if (remainingPoints.length > this.MAX_WAYPOINTS) {
         console.log(`🗺️ [OPTIMIZER PARTIAL] Muitos pontos pendentes (${remainingPoints.length}) - aplicando clustering geográfico`);
         return await this.optimizePartialRouteWithClustering(completedPoints, remainingPoints);
@@ -426,7 +426,7 @@ class GoogleMapsOptimizer {
         { ...remainingPoints[remainingPoints.length - 1], type: 'destination' as const }
       ];
 
-      const optimizationResult = await this.optimizeRouteWithGoogleAPIs(pointsToOptimize);
+      const optimizationResult = await this.optimizeWithRoutesAPIv2(pointsToOptimize);
       
       const finalPoints = [
         ...completedPoints.slice(0, -1),
@@ -472,7 +472,7 @@ class GoogleMapsOptimizer {
     }
   }
 
-  // ✅ NOVA FUNÇÃO - Otimização parcial com clustering geográfico
+  // ✅ CORRIGIDO: Otimização parcial com clustering geográfico - SEM dupla limitação
   private async optimizePartialRouteWithClustering(
     completedPoints: OptimizationPoint[], 
     remainingPoints: OptimizationPoint[]
@@ -494,7 +494,7 @@ class GoogleMapsOptimizer {
       let totalDuration = 0;
       let finalPolyline = '';
       
-      // Processar cada cluster como um segmento
+      // ✅ CORRIGIDO: Processar cada cluster DIRETAMENTE com optimizeWithRoutesAPIv2
       for (let i = 0; i < orderedClusters.length; i++) {
         const cluster = orderedClusters[i];
         const isLastCluster = i === orderedClusters.length - 1;
@@ -505,16 +505,17 @@ class GoogleMapsOptimizer {
           cluster.points[cluster.points.length - 1] : 
           cluster.points[cluster.points.length - 1];
         
-        // Criar pontos para otimização do cluster
+        // ✅ SIMPLIFICADO: Criar pontos para otimização DIRETA do cluster
         const clusterPointsToOptimize = [
           { ...clusterOrigin, type: 'origin' as const },
-          ...cluster.points.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
+          ...cluster.points.map(p => ({ ...p, type: 'waypoint' as const })),
           { ...clusterDestination, type: 'destination' as const }
-        ];
+        ].slice(0, this.MAX_WAYPOINTS + 2); // Garantir limite rigoroso
 
-        console.log(`🔧 [OPTIMIZER CLUSTERING] Otimizando cluster ${i + 1}/${orderedClusters.length} com ${clusterPointsToOptimize.length} pontos`);
+        console.log(`🔧 [OPTIMIZER CLUSTERING] Otimizando cluster ${i + 1}/${orderedClusters.length} com ${clusterPointsToOptimize.length} pontos DIRETAMENTE`);
 
         try {
+          // ✅ CORRIGIDO: Chamar DIRETAMENTE optimizeWithRoutesAPIv2 (sem dupla limitação)
           const clusterResult = await this.optimizeWithRoutesAPIv2(clusterPointsToOptimize);
           
           // Adicionar pontos do cluster (exceto o primeiro se não for o primeiro cluster)
@@ -552,6 +553,7 @@ class GoogleMapsOptimizer {
       }
 
       console.log(`✅ [OPTIMIZER CLUSTERING] Clustering concluído - ${allOptimizedPoints.length} pontos, ${clusters.length} clusters processados`);
+      console.log(`📊 [OPTIMIZER CLUSTERING] Distância total: ${totalDistance.toFixed(1)}km, Duração: ${Math.round(totalDuration/60)}min`);
 
       return {
         optimizedPoints: allOptimizedPoints,
@@ -703,7 +705,7 @@ class GoogleMapsOptimizer {
     return R * c;
   }
 
-  // ✅ NOVA FUNÇÃO - Fallback com segmentação tradicional
+  // ✅ MELHORADO: Fallback com segmentação tradicional - SEM dupla limitação
   private async optimizePartialRouteWithSegmentation(
     completedPoints: OptimizationPoint[], 
     remainingPoints: OptimizationPoint[]
@@ -713,7 +715,7 @@ class GoogleMapsOptimizer {
     try {
       const lastCompletedPoint = completedPoints[completedPoints.length - 1];
       
-      // Usar lógica similar à handleLargeRoute
+      // Usar lógica similar ao handleLargeRoute
       const segments = [];
       const segmentSize = this.MAX_WAYPOINTS;
       
@@ -740,11 +742,12 @@ class GoogleMapsOptimizer {
         
         const segmentPoints = [
           { ...segmentOrigin, type: 'origin' as const },
-          ...segment.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
+          ...segment.map(p => ({ ...p, type: 'waypoint' as const })),
           { ...segmentDestination, type: 'destination' as const }
         ];
 
         try {
+          // ✅ CORRIGIDO: Chamar DIRETAMENTE optimizeWithRoutesAPIv2 (sem dupla limitação)
           const segmentResult = await this.optimizeWithRoutesAPIv2(segmentPoints);
           
           const pointsToAdd = i === 0 ? segmentResult.optimizedPoints : segmentResult.optimizedPoints.slice(1);
