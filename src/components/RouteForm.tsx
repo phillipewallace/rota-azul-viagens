@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -61,21 +62,29 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     }
   });
 
-  // Efeito para resetar o formulário quando editingRoute muda
+  // ✅ CORRIGIDO: Efeito para resetar o formulário e regenerar IDs únicos
   useEffect(() => {
     if (editingRoute) {
+      // ✅ REGENERAR IDs únicos para pontos de rotas existentes
+      const pointsWithUniqueIds = editingRoute.points.map((point, index) => ({
+        ...point,
+        id: `edit-point-${index}-${Date.now()}-${Math.random()}`
+      }));
+      
       reset({
         name: editingRoute.name,
         description: editingRoute.description || '',
-        points: editingRoute.points,
+        points: pointsWithUniqueIds,
         totalDistance: editingRoute.totalDistance,
         estimatedTime: editingRoute.estimatedTime,
         optimizedOrder: editingRoute.optimizedOrder,
       });
-      setPoints(editingRoute.points);
+      setPoints(pointsWithUniqueIds);
       setTotalDistance(editingRoute.totalDistance);
       setEstimatedTime(editingRoute.estimatedTime);
       setOptimizedOrder(editingRoute.optimizedOrder);
+      
+      console.log(`🔄 [ROUTE FORM] IDs regenerados para ${pointsWithUniqueIds.length} pontos da rota existente`);
     } else {
       reset({
         name: '',
@@ -126,9 +135,15 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     console.log(`✅ [ROUTE FORM] Ponto removido com sucesso, ${updatedPoints.length} pontos restantes`);
   };
 
-  // ✅ CORRIGIDO: Função para buscar o endereço pelo CEP - removidas chamadas setValue redundantes
+  // ✅ CORRIGIDO: Função para buscar o endereço pelo CEP com validação de índice
   const handleSearchCep = async (index: number, cep: string) => {
     try {
+      // ✅ VALIDAR índice
+      if (index < 0 || index >= points.length) {
+        console.error(`❌ [ROUTE FORM] Índice inválido: ${index}, pontos disponíveis: ${points.length}`);
+        return;
+      }
+
       console.log(`🔍 [ROUTE FORM] Buscando CEP ${cep} para ponto ${index}`);
       
       const addressData = await getAddressByCep(cep);
@@ -145,7 +160,8 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       console.log(`✅ [ROUTE FORM] CEP encontrado para ponto ${index}:`, {
         address: addressData.address,
         lat: addressData.lat,
-        lng: addressData.lng
+        lng: addressData.lng,
+        pointId: newPoints[index].id
       });
       
     } catch (error: any) {
@@ -262,7 +278,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
               </div>
 
               {points.map((point, index) => (
-                <Card key={point.id} className="p-4">
+                <Card key={index} className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <Label className="text-sm font-medium">Ponto {index + 1}</Label>
                     <Button
