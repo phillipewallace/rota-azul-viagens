@@ -108,18 +108,29 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     setPoints([...points, newPoint]);
   };
 
-  // Função para remover um ponto
+  // ✅ CORRIGIDO: Função para remover um ponto com verificações de segurança
   const handleRemovePoint = (index: number) => {
+    if (points.length <= 2) {
+      toast.error('É necessário manter pelo menos 2 pontos na rota');
+      return;
+    }
+
+    console.log(`🗑️ [ROUTE FORM] Removendo ponto ${index}, restam ${points.length - 1} pontos`);
+    
     const newPoints = [...points];
     newPoints.splice(index, 1);
     // Recalcula a ordem dos pontos restantes
     const updatedPoints = newPoints.map((point, i) => ({ ...point, order: i }));
     setPoints(updatedPoints);
+
+    console.log(`✅ [ROUTE FORM] Ponto removido com sucesso, ${updatedPoints.length} pontos restantes`);
   };
 
-  // Função para buscar o endereço pelo CEP
+  // ✅ CORRIGIDO: Função para buscar o endereço pelo CEP - removidas chamadas setValue redundantes
   const handleSearchCep = async (index: number, cep: string) => {
     try {
+      console.log(`🔍 [ROUTE FORM] Buscando CEP ${cep} para ponto ${index}`);
+      
       const addressData = await getAddressByCep(cep);
       const newPoints = [...points];
       newPoints[index] = {
@@ -130,10 +141,15 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         cep: cep,
       };
       setPoints(newPoints);
-      setValue(`points.${index}.address`, addressData.address);
-      setValue(`points.${index}.lat`, addressData.lat);
-      setValue(`points.${index}.lng`, addressData.lng);
+      
+      console.log(`✅ [ROUTE FORM] CEP encontrado para ponto ${index}:`, {
+        address: addressData.address,
+        lat: addressData.lat,
+        lng: addressData.lng
+      });
+      
     } catch (error: any) {
+      console.error(`❌ [ROUTE FORM] Erro ao buscar CEP ${cep} para ponto ${index}:`, error);
       toast.error(error.message || 'Erro ao buscar endereço');
     }
   };
