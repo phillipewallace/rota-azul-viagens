@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,52 +39,84 @@ interface RouteFormProps {
   onCancel?: () => void;
 }
 
+// ✅ NOVA FUNÇÃO: Deep clone para garantir objetos independentes
+const deepClonePoints = (points: RoutePoint[]): RoutePoint[] => {
+  return points.map((point, index) => ({
+    id: `unique-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`,
+    address: point.address || '',
+    cep: point.cep || '',
+    lat: point.lat || 0,
+    lng: point.lng || 0,
+    order: index,
+    type: point.type || 'waypoint',
+    completed: point.completed ?? false,
+    completedAt: point.completedAt ?? null,
+  }));
+};
+
 // Componente funcional RouteForm
 const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   const { optimizeRoute, getAddressByCep } = useRoutes();
-  const [points, setPoints] = useState<RoutePoint[]>(editingRoute?.points || []);
-  const [totalDistance, setTotalDistance] = useState<number>(editingRoute?.totalDistance || 0);
-  const [estimatedTime, setEstimatedTime] = useState<string>(editingRoute?.estimatedTime || '');
-  const [optimizedOrder, setOptimizedOrder] = useState<string[]>(editingRoute?.optimizedOrder || []);
+  const [points, setPoints] = useState<RoutePoint[]>([]);
+  const [totalDistance, setTotalDistance] = useState<number>(0);
+  const [estimatedTime, setEstimatedTime] = useState<string>('');
+  const [optimizedOrder, setOptimizedOrder] = useState<string[]>([]);
   const [optimizing, setOptimizing] = useState(false);
 
   // Inicializa o formulário com react-hook-form
   const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm<RouteFormData>({
     resolver: zodResolver(routeSchema),
     defaultValues: {
-      name: editingRoute?.name || '',
-      description: editingRoute?.description || '',
-      points: editingRoute?.points || [],
-      totalDistance: editingRoute?.totalDistance || 0,
-      estimatedTime: editingRoute?.estimatedTime || '',
-      optimizedOrder: editingRoute?.optimizedOrder || [],
+      name: '',
+      description: '',
+      points: [],
+      totalDistance: 0,
+      estimatedTime: '',
+      optimizedOrder: [],
     }
   });
 
-  // ✅ CORRIGIDO: Efeito para resetar o formulário e regenerar IDs únicos
+  // ✅ CORRIGIDO: Deep cloning e IDs únicos para eliminar espelhamento
   useEffect(() => {
     if (editingRoute) {
-      // ✅ REGENERAR IDs únicos para pontos de rotas existentes
-      const pointsWithUniqueIds = editingRoute.points.map((point, index) => ({
-        ...point,
-        id: `edit-point-${index}-${Date.now()}-${Math.random()}`
-      }));
+      console.log('🔄 [ROUTE FORM] ========================================');
+      console.log('🔄 [ROUTE FORM] INICIANDO EDIÇÃO DE ROTA');
+      console.log(`🔄 [ROUTE FORM] Pontos originais: ${editingRoute.points.length}`);
       
+      // ✅ DEEP CLONE com IDs únicos robustos
+      const clonedPoints = deepClonePoints(editingRoute.points);
+      
+      console.log('📊 [ROUTE FORM] IDs únicos gerados:', clonedPoints.map(p => ({ 
+        id: p.id, 
+        address: p.address?.substring(0, 30) + '...' 
+      })));
+      
+      // ✅ VERIFICAR unicidade dos IDs
+      const uniqueIds = new Set(clonedPoints.map(p => p.id));
+      console.log(`✅ [ROUTE FORM] IDs únicos confirmados: ${uniqueIds.size} de ${clonedPoints.length}`);
+      
+      if (uniqueIds.size !== clonedPoints.length) {
+        console.error('❌ [ROUTE FORM] ERRO: IDs duplicados detectados!');
+      }
+      
+      // ✅ RESETAR formulário com dados clonados
       reset({
         name: editingRoute.name,
         description: editingRoute.description || '',
-        points: pointsWithUniqueIds,
-        totalDistance: editingRoute.totalDistance,
-        estimatedTime: editingRoute.estimatedTime,
-        optimizedOrder: editingRoute.optimizedOrder,
+        points: clonedPoints,
+        totalDistance: editingRoute.totalDistance || 0,
+        estimatedTime: editingRoute.estimatedTime || '',
+        optimizedOrder: editingRoute.optimizedOrder || [],
       });
-      setPoints(pointsWithUniqueIds);
-      setTotalDistance(editingRoute.totalDistance);
-      setEstimatedTime(editingRoute.estimatedTime);
-      setOptimizedOrder(editingRoute.optimizedOrder);
       
-      console.log(`🔄 [ROUTE FORM] IDs regenerados para ${pointsWithUniqueIds.length} pontos da rota existente`);
+      setPoints(clonedPoints);
+      setTotalDistance(editingRoute.totalDistance || 0);
+      setEstimatedTime(editingRoute.estimatedTime || '');
+      setOptimizedOrder(editingRoute.optimizedOrder || []);
+      
+      console.log('🔄 [ROUTE FORM] ========================================');
     } else {
+      console.log('🆕 [ROUTE FORM] Iniciando nova rota');
       reset({
         name: '',
         description: '',
@@ -104,7 +135,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
   // Função para adicionar um novo ponto
   const handleAddPoint = () => {
     const newPoint: RoutePoint = {
-      id: `point-${Date.now()}`,
+      id: `new-point-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       address: '',
       cep: '',
       lat: 0,
@@ -114,6 +145,8 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
       completed: false,
       completedAt: null,
     };
+    
+    console.log(`➕ [ROUTE FORM] Novo ponto adicionado: ${newPoint.id}`);
     setPoints([...points, newPoint]);
   };
 
@@ -144,24 +177,31 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
         return;
       }
 
-      console.log(`🔍 [ROUTE FORM] Buscando CEP ${cep} para ponto ${index}`);
+      console.log(`🔍 [ROUTE FORM] Buscando CEP ${cep} para ponto ${index} (ID: ${points[index]?.id})`);
       
       const addressData = await getAddressByCep(cep);
-      const newPoints = [...points];
-      newPoints[index] = {
-        ...newPoints[index],
-        address: addressData.address,
-        lat: addressData.lat,
-        lng: addressData.lng,
-        cep: cep,
-      };
+      
+      // ✅ CRIAR novo array com objeto completamente novo
+      const newPoints = points.map((point, i) => {
+        if (i === index) {
+          return {
+            ...point,
+            address: addressData.address,
+            lat: addressData.lat,
+            lng: addressData.lng,
+            cep: cep,
+          };
+        }
+        return point;
+      });
+      
       setPoints(newPoints);
       
       console.log(`✅ [ROUTE FORM] CEP encontrado para ponto ${index}:`, {
         address: addressData.address,
         lat: addressData.lat,
         lng: addressData.lng,
-        pointId: newPoints[index].id
+        pointId: points[index]?.id
       });
       
     } catch (error: any) {
@@ -170,11 +210,25 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
     }
   };
 
-  // Função para atualizar o valor de um ponto
+  // ✅ MELHORADO: Função para atualizar o valor de um ponto com isolamento total
   const handlePointChange = (index: number, field: string, value: any) => {
-    const newPoints = [...points];
-    newPoints[index] = { ...newPoints[index], [field]: value };
+    console.log(`📝 [ROUTE FORM] Alterando ponto ${index}, campo ${field}, valor:`, value);
+    console.log(`📝 [ROUTE FORM] ID do ponto: ${points[index]?.id}`);
+    
+    // ✅ CRIAR novo array com objetos completamente novos
+    const newPoints = points.map((point, i) => {
+      if (i === index) {
+        return {
+          ...point,
+          [field]: value
+        };
+      }
+      return point;
+    });
+    
     setPoints(newPoints);
+    
+    console.log(`✅ [ROUTE FORM] Ponto ${index} atualizado, outros pontos preservados`);
   };
 
   const handleOptimize = async () => {
@@ -278,7 +332,7 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
               </div>
 
               {points.map((point, index) => (
-                <Card key={index} className="p-4">
+                <Card key={`point-${index}-${point.id}`} className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <Label className="text-sm font-medium">Ponto {index + 1}</Label>
                     <Button
@@ -293,10 +347,11 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor={`cep-${index}`}>CEP</Label>
+                      <Label htmlFor={`cep-${point.id}`}>CEP</Label>
                       <div className="flex gap-2">
                         <Input
-                          id={`cep-${index}`}
+                          id={`cep-${point.id}`}
+                          name={`cep-${point.id}`}
                           value={point.cep || ''}
                           onChange={(e) => handlePointChange(index, 'cep', e.target.value)}
                           placeholder="00000-000"
@@ -313,9 +368,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor={`address-${index}`}>Endereço</Label>
+                      <Label htmlFor={`address-${point.id}`}>Endereço</Label>
                       <Input
-                        id={`address-${index}`}
+                        id={`address-${point.id}`}
+                        name={`address-${point.id}`}
                         value={point.address}
                         onChange={(e) => handlePointChange(index, 'address', e.target.value)}
                         placeholder="Digite o endereço"
@@ -328,9 +384,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor={`lat-${index}`}>Latitude</Label>
+                      <Label htmlFor={`lat-${point.id}`}>Latitude</Label>
                       <Input
-                        id={`lat-${index}`}
+                        id={`lat-${point.id}`}
+                        name={`lat-${point.id}`}
                         type="number"
                         step="any"
                         value={point.lat}
@@ -340,9 +397,10 @@ const RouteForm = ({ onSubmit, editingRoute, onCancel }: RouteFormProps) => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor={`lng-${index}`}>Longitude</Label>
+                      <Label htmlFor={`lng-${point.id}`}>Longitude</Label>
                       <Input
-                        id={`lng-${index}`}
+                        id={`lng-${point.id}`}
+                        name={`lng-${point.id}`}
                         type="number"
                         step="any"
                         value={point.lng}
