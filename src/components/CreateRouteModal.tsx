@@ -38,16 +38,49 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
 
   const isEditing = !!editingRoute?.id;
 
+  // ✅ FUNÇÃO PARA GERAR IDs ÚNICOS ROBUSTOS
+  const generateUniqueId = (prefix: string = 'point') => {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
+
   useEffect(() => {
     if (editingRoute && open) {
+      console.log('🔄 [CREATE MODAL] ========================================');
+      console.log('🔄 [CREATE MODAL] CARREGANDO ROTA PARA EDIÇÃO');
+      console.log('🔄 [CREATE MODAL] Rota ID:', editingRoute.id);
+      console.log('🔄 [CREATE MODAL] Pontos originais:', editingRoute.points?.length || 0);
+      
       setRouteName(editingRoute.name || '');
       setRouteDescription(editingRoute.description || '');
       
       const points = editingRoute.points || [];
-      const sortedPoints = points.sort((a: any, b: any) => a.order - b.order);
+      
+      // ✅ GARANTIR QUE CADA PONTO TENHA UM ID ÚNICO
+      const pointsWithUniqueIds = points.map((point: any, index: number) => {
+        const uniqueId = point.id || generateUniqueId(`existing-${index}`);
+        console.log(`🔄 [CREATE MODAL] Ponto ${index}: ID original '${point.id}' -> ID único '${uniqueId}'`);
+        
+        return {
+          ...point,
+          id: uniqueId,
+          order: index
+        };
+      });
+      
+      // ✅ CRIAR NOVA CÓPIA DO ARRAY E ORDENAR
+      const sortedPoints = [...pointsWithUniqueIds].sort((a: any, b: any) => a.order - b.order);
+      
+      console.log('✅ [CREATE MODAL] IDs únicos confirmados:', sortedPoints.map(p => ({ 
+        id: p.id, 
+        address: p.address?.substring(0, 30) + '...' 
+      })));
+      
       setAllPoints(sortedPoints);
       setStep(2);
+      
+      console.log('🔄 [CREATE MODAL] ========================================');
     } else if (open && !editingRoute) {
+      console.log('🆕 [CREATE MODAL] Iniciando nova rota');
       resetForm();
     }
   }, [editingRoute, open]);
@@ -83,7 +116,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
 
   const addPoint = () => {
     const newPoint: RoutePoint = {
-      id: Date.now().toString(),
+      id: generateUniqueId('new'),
       address: '',
       cep: '',
       lat: 0,
@@ -91,6 +124,8 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       order: allPoints.length,
       type: 'waypoint'
     };
+    
+    console.log(`➕ [CREATE MODAL] Novo ponto adicionado: ${newPoint.id}`);
     setAllPoints([...allPoints, newPoint]);
   };
 
@@ -99,6 +134,8 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       toast.error('É necessário pelo menos 2 pontos (origem e destino)');
       return;
     }
+    
+    console.log(`🗑️ [CREATE MODAL] Removendo ponto: ${id}`);
     
     const filteredPoints = allPoints.filter(p => p.id !== id);
     const reorderedPoints = filteredPoints.map((point, index) => ({
@@ -109,12 +146,18 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   };
 
   const searchAddressByCep = async (pointId: string, cep: string) => {
-    if (!cep || cep.length < 8) return;
+    // ✅ GUARD CLAUSE: Verificar se pointId é válido
+    if (!pointId || !cep || cep.length < 8) {
+      console.warn('⚠️ [CREATE MODAL] searchAddressByCep: pointId ou CEP inválido', { pointId, cep });
+      return;
+    }
 
     try {
+      console.log(`🔍 [CREATE MODAL] Buscando CEP ${cep} para ponto ${pointId}`);
       setSearchingAddress(-1);
       const addressData = await getAddressByCep(cep);
       
+      // ✅ CRIAR NOVO ARRAY COM OBJETOS INDEPENDENTES
       setAllPoints(prev => prev.map(point => 
         point.id === pointId 
           ? { 
@@ -127,9 +170,10 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
           : point
       ));
       
+      console.log(`✅ [CREATE MODAL] CEP encontrado para ponto ${pointId}:`, addressData.address);
       toast.success('Endereço encontrado!');
     } catch (error) {
-      console.error('Error searching address by CEP:', error);
+      console.error('❌ [CREATE MODAL] Error searching address by CEP:', error);
       toast.error('CEP não encontrado');
     } finally {
       setSearchingAddress(null);
@@ -137,9 +181,14 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   };
 
   const searchAddressByText = async (pointId: string, address: string) => {
-    if (!address || address.length < 5) return;
+    // ✅ GUARD CLAUSE: Verificar se pointId é válido
+    if (!pointId || !address || address.length < 5) {
+      console.warn('⚠️ [CREATE MODAL] searchAddressByText: pointId ou endereço inválido', { pointId, address });
+      return;
+    }
 
     try {
+      console.log(`🔍 [CREATE MODAL] Buscando endereço '${address}' para ponto ${pointId}`);
       setSearchingAddress(-1);
       
       if (!window.google || !window.google.maps) {
@@ -161,6 +210,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       const location = results.geometry.location;
       const formattedAddress = results.formatted_address;
 
+      // ✅ CRIAR NOVO ARRAY COM OBJETOS INDEPENDENTES
       setAllPoints(prev => prev.map(point => 
         point.id === pointId 
           ? { 
@@ -172,9 +222,10 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
           : point
       ));
       
+      console.log(`✅ [CREATE MODAL] Endereço encontrado para ponto ${pointId}:`, formattedAddress);
       toast.success('Endereço encontrado!');
     } catch (error) {
-      console.error('Error searching address:', error);
+      console.error('❌ [CREATE MODAL] Error searching address:', error);
       toast.error('Endereço não encontrado');
     } finally {
       setSearchingAddress(null);
@@ -182,14 +233,32 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   };
 
   const updatePointAddress = (pointId: string, address: string) => {
+    // ✅ GUARD CLAUSE: Verificar se pointId é válido
+    if (!pointId) {
+      console.warn('⚠️ [CREATE MODAL] updatePointAddress: pointId inválido', { pointId, address });
+      return;
+    }
+
+    console.log(`📝 [CREATE MODAL] Atualizando endereço do ponto ${pointId}:`, address);
+    
+    // ✅ CRIAR NOVO ARRAY COM OBJETOS INDEPENDENTES
     setAllPoints(prev => prev.map(point => 
       point.id === pointId ? { ...point, address } : point
     ));
   };
 
   const updatePointCep = async (pointId: string, cep: string) => {
+    // ✅ GUARD CLAUSE: Verificar se pointId é válido
+    if (!pointId) {
+      console.warn('⚠️ [CREATE MODAL] updatePointCep: pointId inválido', { pointId, cep });
+      return;
+    }
+
     const cleanCep = cep.replace(/\D/g, '');
     
+    console.log(`📝 [CREATE MODAL] Atualizando CEP do ponto ${pointId}:`, cleanCep);
+    
+    // ✅ CRIAR NOVO ARRAY COM OBJETOS INDEPENDENTES
     setAllPoints(prev => prev.map(point => 
       point.id === pointId ? { ...point, cep: cleanCep } : point
     ));
@@ -200,46 +269,46 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   };
 
   const generatePreview = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const validPoints = allPoints.filter(p => p.lat && p.lng && p.address);
-    if (validPoints.length < 2) {
-      toast.error('É necessário pelo menos 2 pontos válidos (origem e destino)');
-      return;
+      const validPoints = allPoints.filter(p => p.lat && p.lng && p.address);
+      if (validPoints.length < 2) {
+        toast.error('É necessário pelo menos 2 pontos válidos (origem e destino)');
+        return;
+      }
+
+      console.log('Gerando preview com pontos:', validPoints.length);
+
+      // Otimizar rota
+      const optimizedData = await optimizeRoute(validPoints);
+
+      const preview = {
+        name: routeName,
+        description: routeDescription,
+        points: optimizedData.points.map((optimizedPoint: RoutePoint) => {
+          const original = allPoints.find(p => p.id === optimizedPoint.id);
+          return {
+            ...optimizedPoint,
+            completed: original?.completed ?? false,
+            completedAt: original?.completedAt ?? null,
+          };
+        }),
+        totalDistance: optimizedData.totalDistance,
+        estimatedTime: optimizedData.estimatedTime,
+        optimizedOrder: optimizedData.optimizedOrder,
+        status: 'active'
+      };
+
+      setPreviewData(preview);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      toast.error('Erro ao gerar preview da rota');
+    } finally {
+      setLoading(false);
     }
-
-    console.log('Gerando preview com pontos:', validPoints.length);
-
-    // Otimizar rota
-    const optimizedData = await optimizeRoute(validPoints);
-
-    const preview = {
-      name: routeName,
-      description: routeDescription,
-      points: optimizedData.points.map((optimizedPoint: RoutePoint) => {
-        const original = allPoints.find(p => p.id === optimizedPoint.id);
-        return {
-          ...optimizedPoint,
-          completed: original?.completed ?? false,
-          completedAt: original?.completedAt ?? null,
-        };
-      }),
-      totalDistance: optimizedData.totalDistance,
-      estimatedTime: optimizedData.estimatedTime,
-      optimizedOrder: optimizedData.optimizedOrder,
-      status: 'active'
-    };
-
-    setPreviewData(preview);
-    setShowPreview(true);
-  } catch (error) {
-    console.error('Error generating preview:', error);
-    toast.error('Erro ao gerar preview da rota');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleSave = async () => {
     if (!previewData) return;
@@ -340,7 +409,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                   {allPoints.map((point, index) => {
                     const pointInfo = getPointLabel(index);
                     return (
-                      <Card key={point.id} className="border-gray-200">
+                      <Card key={`${point.id}-${index}`} className="border-gray-200">
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">
                             <div className={`w-8 h-8 rounded-full ${pointInfo.color} flex items-center justify-center text-white text-sm font-medium`}>
@@ -354,6 +423,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                                 <div>
                                   <Label>CEP (opcional)</Label>
                                   <Input
+                                    key={`cep-${point.id}`}
                                     value={point.cep}
                                     onChange={(e) => updatePointCep(point.id, e.target.value)}
                                     placeholder="00000-000"
@@ -366,6 +436,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                                 <Label>Endereço *</Label>
                                 <div className="flex gap-2">
                                   <Input
+                                    key={`address-${point.id}`}
                                     value={point.address}
                                     onChange={(e) => updatePointAddress(point.id, e.target.value)}
                                     placeholder="Digite o endereço completo..."
