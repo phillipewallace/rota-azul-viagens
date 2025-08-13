@@ -4,9 +4,9 @@ console.log('🔍 [CONFIG] Mode atual:', import.meta.env.MODE);
 console.log('🔍 [CONFIG] Prod check:', import.meta.env.PROD);
 console.log('🔍 [CONFIG] Dev check:', import.meta.env.DEV);
 
-// URL da API baseada no ambiente - usando HTTP para evitar problemas SSL
+// URL da API baseada no ambiente - alinhada com a VPS admmicban.com.br
 export const API_BASE_URL = import.meta.env.MODE === 'production' 
-  ? 'http://admmicban.com.br/api' 
+  ? 'https://admmicban.com.br/api' 
   : (import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
 
 console.log('🔍 [CONFIG] API_BASE_URL definida como:', API_BASE_URL);

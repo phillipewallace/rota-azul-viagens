@@ -1,5 +1,4 @@
-
-package app.lovable.e145d80f177c4eb9987fd67c392fc5de;
+package Rotas.Alchemy.com;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">AlchemyRotas</string>
     <string name="title_activity_main">AlchemyRotas</string>
-    <string name="package_name">app.lovable.e145d80f177c4eb9987fd67c392fc5de</string>
-    <string name="custom_url_scheme">app.lovable.e145d80f177c4eb9987fd67c392fc5de</string>
+    <string name="package_name">Rotas.Alchemy.com</string>
+    <string name="custom_url_scheme">Rotas.Alchemy.com</string>
 </resources>
