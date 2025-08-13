@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Geolocation } from '@capacitor/geolocation';
 import { trafficService } from '@/services/traffic';
@@ -161,27 +162,29 @@ export const useBackgroundTracking = (truckId: string | null, routePoints: any[]
       // Mostrar notificação persistente
       await BackgroundNotificationManager.showTrackingNotification(`Caminhão ${truckId}`);
 
-      // Iniciar rastreamento com Capacitor Geolocation
+      // Iniciar rastreamento com Capacitor Geolocation (sintaxe correta)
       const id = await Geolocation.watchPosition(
         {
           enableHighAccuracy: true,
           timeout: 15000,
           maximumAge: 5000
         },
-        (position) => {
-          console.log('📍 [BACKGROUND] GPS position received:', position?.coords);
+        (position, error) => {
+          if (error) {
+            console.error('❌ [BACKGROUND] GPS error:', error);
+            setError(`Erro ao obter localização GPS: ${error.message}`);
+            setLoading(false);
+            setIsTracking(false);
+            BackgroundNotificationManager.hideTrackingNotification();
+            return;
+          }
+
           if (position) {
+            console.log('📍 [BACKGROUND] GPS position received:', position?.coords);
             updateLocation(position);
             setLoading(false);
             setIsTracking(true);
           }
-        },
-        (error) => {
-          console.error('❌ [BACKGROUND] GPS error:', error);
-          setError(`Erro ao obter localização GPS: ${error.message}`);
-          setLoading(false);
-          setIsTracking(false);
-          BackgroundNotificationManager.hideTrackingNotification();
         }
       );
 
