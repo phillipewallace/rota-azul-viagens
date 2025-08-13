@@ -35,20 +35,16 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true
     },
-    BackgroundMode: {
-      enabled: true,
-      title: 'AlchemyRotas Tracking',
-      text: 'Rastreamento de localização ativo',
-      silent: false
-    },
     LocalNotifications: {
       smallIcon: "ic_stat_icon_config_sample",
       iconColor: "#1e40af",
       sound: "beep.wav"
     },
-    BackgroundTask: {
-      label: 'com.alchemyrotas.background.location',
-      src: 'js/background-task.js'
+    App: {
+      enabled: true
+    },
+    Device: {
+      enabled: true
     }
   }
 };
