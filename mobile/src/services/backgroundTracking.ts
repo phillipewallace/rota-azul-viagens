@@ -1,8 +1,8 @@
 
-import { BackgroundMode } from '@capacitor/background-mode';
 import { Geolocation } from '@capacitor/geolocation';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Device } from '@capacitor/device';
+import { App } from '@capacitor/app';
 
 // Sistema de logs configurável
 const LOG_LEVEL = 'INFO'; // ERROR, WARN, INFO, DEBUG
@@ -28,22 +28,21 @@ class BackgroundTracker {
 
   async enforceTracking(truckId: string, routeId?: string): Promise<void> {
     try {
-      log('INFO', `Iniciando rastreamento obrigatório para caminhão: ${truckId}`);
+      log('INFO', `Iniciando rastreamento para caminhão: ${truckId}`);
       
       this.currentTruckId = truckId;
       this.currentRouteId = routeId || null;
       
       await this.requestPermissions();
-      await this.setupBackgroundMode();
       await this.setupPersistentNotification();
       await this.startLocationTracking();
       
       this.isTracking = true;
-      log('INFO', 'Rastreamento obrigatório ativado com sucesso');
+      log('INFO', 'Rastreamento ativado com sucesso');
       
     } catch (error) {
-      log('ERROR', 'Erro ao ativar rastreamento obrigatório:', error);
-      throw new Error('Não foi possível ativar o rastreamento obrigatório. Verifique as permissões do aplicativo.');
+      log('ERROR', 'Erro ao ativar rastreamento:', error);
+      throw new Error('Não foi possível ativar o rastreamento. Verifique as permissões do aplicativo.');
     }
   }
 
@@ -63,16 +62,6 @@ class BackgroundTracker {
     } catch (error) {
       log('ERROR', 'Erro ao solicitar permissões:', error);
       throw error;
-    }
-  }
-
-  private async setupBackgroundMode(): Promise<void> {
-    try {
-      await BackgroundMode.enable();
-      await BackgroundMode.disableWebViewOptimizations();
-      log('INFO', 'Modo background configurado');
-    } catch (error) {
-      log('WARN', 'Erro ao configurar modo background:', error);
     }
   }
 
@@ -122,7 +111,7 @@ class BackgroundTracker {
         } catch (error) {
           log('ERROR', 'Erro no tracking interval:', error);
         }
-      }, 60000); // Aumentado de 30s para 60s
+      }, 60000);
       
       log('INFO', 'Rastreamento de localização iniciado');
     } catch (error) {
@@ -152,7 +141,7 @@ class BackgroundTracker {
       
       this.trackingData.push(this.lastPosition);
       
-      if (this.trackingData.length > 50) { // Reduzido de 100 para 50
+      if (this.trackingData.length > 50) {
         this.trackingData = this.trackingData.slice(-50);
       }
       
@@ -219,7 +208,7 @@ class BackgroundTracker {
       failedAt: Date.now()
     });
     
-    if (this.sendQueue.length > 20) { // Limitar queue
+    if (this.sendQueue.length > 20) {
       this.sendQueue = this.sendQueue.slice(-20);
     }
     
@@ -234,22 +223,20 @@ class BackgroundTracker {
     this.isProcessingQueue = true;
     
     try {
-      const batch = this.sendQueue.splice(0, 5); // Processar em lotes de 5
+      const batch = this.sendQueue.splice(0, 5);
       
       for (const item of batch) {
         try {
           await this.sendLocationToServer(item);
         } catch (error) {
-          // Re-adicionar ao queue se falhar novamente
           this.sendQueue.push(item);
         }
       }
     } finally {
       this.isProcessingQueue = false;
       
-      // Continuar processando se ainda houver items
       if (this.sendQueue.length > 0) {
-        setTimeout(() => this.processQueue(), 30000); // Tentar novamente em 30s
+        setTimeout(() => this.processQueue(), 30000);
       }
     }
   }
@@ -281,7 +268,6 @@ class BackgroundTracker {
       }
       
       await LocalNotifications.cancel({ notifications: [{ id: 'tracking' }] });
-      await BackgroundMode.disable();
       
       this.currentTruckId = null;
       this.currentRouteId = null;

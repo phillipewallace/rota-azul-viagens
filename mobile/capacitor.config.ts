@@ -50,12 +50,6 @@ const config: CapacitorConfig = {
     },
     Device: {
       enabled: true
-    },
-    BackgroundMode: {
-      enabled: true,
-      title: "AlchemyRotas",
-      text: "Sistema de rastreamento ativo",
-      silent: false
     }
   }
 };
