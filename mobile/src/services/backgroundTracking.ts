@@ -1,265 +1,342 @@
 
-import { Geolocation, Position } from '@capacitor/geolocation';
-import { LocalNotifications, LocalNotificationSchema } from '@capacitor/local-notifications';
-import { App } from '@capacitor/app';
+import { CapacitorConfig } from '@capacitor/cli';
+import { BackgroundMode } from '@capacitor/background-mode';
+import { Geolocation } from '@capacitor/geolocation';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { Device } from '@capacitor/device';
 
-class BackgroundTrackingService {
-  private watchId: string | null = null;
+class BackgroundTracker {
   private isTracking = false;
-  private trackingInterval: NodeJS.Timeout | null = null;
-  private lastPosition: Position | null = null;
-  private apiUrl = 'https://admmicban.com.br/api';
+  private trackingInterval: number | null = null;
+  private currentTruckId: string | null = null;
+  private currentRouteId: string | null = null;
+  private lastPosition: { lat: number; lng: number; timestamp: number } | null = null;
+  private trackingData: Array<{ lat: number; lng: number; timestamp: number }> = [];
 
-  async startTracking(driverId: string, routeId?: string) {
-    console.log('🚛 Iniciando rastreamento obrigatório para motorista:', driverId);
-    
-    if (this.isTracking) {
-      console.log('⚠️ Rastreamento já ativo');
-      return;
-    }
-
+  async enforceTracking(truckId: string, routeId?: string): Promise<void> {
     try {
-      // Verificar permissões
-      const permissions = await Geolocation.checkPermissions();
-      if (permissions.location !== 'granted') {
-        const requestResult = await Geolocation.requestPermissions();
-        if (requestResult.location !== 'granted') {
-          throw new Error('Permissões de localização são obrigatórias para o trabalho');
-        }
-      }
-
+      console.log('🎯 [TRACKER] Iniciando rastreamento obrigatório para caminhão:', truckId);
+      
+      this.currentTruckId = truckId;
+      this.currentRouteId = routeId || null;
+      
+      // Solicitar permissões necessárias
+      await this.requestPermissions();
+      
+      // Configurar modo background
+      await this.setupBackgroundMode();
+      
       // Configurar notificação persistente
       await this.setupPersistentNotification();
-
-      // Iniciar rastreamento contínuo
+      
+      // Iniciar rastreamento
+      await this.startLocationTracking();
+      
       this.isTracking = true;
-      await this.startContinuousTracking(driverId, routeId);
-
-      // Monitorar estado do app
-      this.setupAppStateHandlers(driverId, routeId);
-
-      console.log('✅ Rastreamento obrigatório iniciado com sucesso');
+      console.log('✅ [TRACKER] Rastreamento obrigatório ativado com sucesso');
+      
     } catch (error) {
-      console.error('❌ Erro ao iniciar rastreamento:', error);
+      console.error('❌ [TRACKER] Erro ao ativar rastreamento obrigatório:', error);
+      throw new Error('Não foi possível ativar o rastreamento obrigatório. Verifique as permissões do aplicativo.');
+    }
+  }
+
+  private async requestPermissions(): Promise<void> {
+    try {
+      // Permissão de localização
+      const locationPermission = await Geolocation.requestPermissions();
+      if (locationPermission.location !== 'granted') {
+        throw new Error('Permissão de localização é obrigatória para o funcionamento do aplicativo');
+      }
+
+      // Permissão de notificação
+      const notificationPermission = await LocalNotifications.requestPermissions();
+      if (notificationPermission.display !== 'granted') {
+        console.warn('⚠️ Permissão de notificação não concedida');
+      }
+
+      console.log('✅ [TRACKER] Permissões concedidas');
+    } catch (error) {
+      console.error('❌ [TRACKER] Erro ao solicitar permissões:', error);
       throw error;
     }
   }
 
-  private async startContinuousTracking(driverId: string, routeId?: string) {
-    // Rastreamento de alta precisão a cada 15 segundos
-    this.trackingInterval = setInterval(async () => {
-      try {
-        const position = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 5000
-        });
-
-        this.lastPosition = position;
-        await this.sendLocationUpdate(driverId, position, routeId);
-        
-        console.log('📍 Localização enviada:', {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy
-        });
-
-      } catch (error) {
-        console.error('❌ Erro ao obter localização:', error);
-        // Tentar novamente em caso de erro
-        this.retryLocationUpdate(driverId, routeId);
-      }
-    }, 15000); // A cada 15 segundos
+  private async setupBackgroundMode(): Promise<void> {
+    try {
+      // Ativar modo background
+      await BackgroundMode.enable();
+      
+      // Configurar para não ser otimizado pelo sistema
+      await BackgroundMode.disableWebViewOptimizations();
+      
+      console.log('✅ [TRACKER] Modo background configurado');
+    } catch (error) {
+      console.error('❌ [TRACKER] Erro ao configurar modo background:', error);
+      // Não interromper o fluxo se o background mode falhar
+    }
   }
 
-  private async sendLocationUpdate(driverId: string, position: Position, routeId?: string) {
+  private async setupPersistentNotification(): Promise<void> {
     try {
-      const deviceInfo = await Device.getInfo();
+      // Cancelar notificações existentes
+      await LocalNotifications.cancel({ notifications: [{ id: 'tracking' }] });
       
-      const locationData = {
-        driverId,
-        routeId,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-        speed: position.coords.speed,
-        heading: position.coords.heading,
-        altitude: position.coords.altitude,
-        timestamp: new Date(position.timestamp).toISOString(),
-        deviceInfo: {
-          platform: deviceInfo.platform,
-          model: deviceInfo.model,
-          operatingSystem: deviceInfo.operatingSystem,
-          osVersion: deviceInfo.osVersion
-        }
+      // Criar notificação persistente
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: 'tracking',
+            title: 'AlchemyRotas - Conectado',
+            body: 'Sistema conectado',
+            ongoing: true,
+            autoCancel: false,
+            sound: undefined,
+            smallIcon: 'icon',
+            iconColor: '#017C85',
+            extra: {
+              persistent: true,
+              priority: 'high'
+            }
+          }
+        ]
+      });
+      
+      console.log('✅ [TRACKER] Notificação persistente configurada');
+    } catch (error) {
+      console.error('❌ [TRACKER] Erro ao configurar notificação:', error);
+      // Não interromper o fluxo se a notificação falhar
+    }
+  }
+
+  private async startLocationTracking(): Promise<void> {
+    try {
+      // Configurar tracking de alta precisão
+      const trackingOptions = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000
       };
 
-      const response = await fetch(`${this.apiUrl}/mobile/location`, {
+      // Primeiro tracking imediato
+      await this.performLocationUpdate(trackingOptions);
+      
+      // Configurar interval para tracking contínuo (a cada 30 segundos)
+      this.trackingInterval = window.setInterval(async () => {
+        try {
+          await this.performLocationUpdate(trackingOptions);
+        } catch (error) {
+          console.error('❌ [TRACKER] Erro no tracking interval:', error);
+        }
+      }, 30000);
+      
+      console.log('✅ [TRACKER] Rastreamento de localização iniciado');
+    } catch (error) {
+      console.error('❌ [TRACKER] Erro ao iniciar rastreamento:', error);
+      throw error;
+    }
+  }
+
+  private async performLocationUpdate(options: any): Promise<void> {
+    try {
+      const position = await Geolocation.getCurrentPosition(options);
+      
+      const locationData = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        timestamp: Date.now(),
+        accuracy: position.coords.accuracy,
+        speed: position.coords.speed,
+        heading: position.coords.heading
+      };
+
+      this.lastPosition = {
+        lat: locationData.lat,
+        lng: locationData.lng,
+        timestamp: locationData.timestamp
+      };
+      
+      // Adicionar ao buffer local
+      this.trackingData.push(this.lastPosition);
+      
+      // Manter apenas os últimos 100 pontos para evitar uso excessivo de memória
+      if (this.trackingData.length > 100) {
+        this.trackingData = this.trackingData.slice(-100);
+      }
+      
+      // Enviar para o servidor
+      await this.sendLocationToServer(locationData);
+      
+      console.log('📍 [TRACKER] Localização atualizada:', {
+        lat: locationData.lat.toFixed(6),
+        lng: locationData.lng.toFixed(6),
+        accuracy: locationData.accuracy
+      });
+      
+    } catch (error) {
+      console.error('❌ [TRACKER] Erro ao obter localização:', error);
+      // Em caso de erro, tentar novamente em 10 segundos
+      setTimeout(() => this.performLocationUpdate(options), 10000);
+    }
+  }
+
+  private async sendLocationToServer(locationData: any): Promise<void> {
+    try {
+      if (!this.currentTruckId) {
+        console.warn('⚠️ [TRACKER] Truck ID não definido, pulando envio');
+        return;
+      }
+
+      const payload = {
+        truckId: this.currentTruckId,
+        routeId: this.currentRouteId,
+        location: {
+          lat: locationData.lat,
+          lng: locationData.lng
+        },
+        timestamp: new Date().toISOString(),
+        accuracy: locationData.accuracy,
+        speed: locationData.speed,
+        heading: locationData.heading,
+        deviceInfo: await this.getDeviceInfo()
+      };
+
+      const response = await fetch('https://admmicban.com.br/api/mobile/location', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(locationData)
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`Erro HTTP: ${response.status}`);
       }
 
-      console.log('✅ Localização sincronizada com servidor');
+      console.log('📡 [TRACKER] Localização enviada para servidor com sucesso');
+      
     } catch (error) {
-      console.error('❌ Erro ao enviar localização:', error);
-      // Armazenar offline para sincronização posterior
-      this.storeOfflineLocation(driverId, position, routeId);
+      console.error('❌ [TRACKER] Erro ao enviar localização:', error);
+      // Armazenar localmente para reenvio posterior
+      this.storeFailedLocation(locationData);
     }
   }
 
-  private async retryLocationUpdate(driverId: string, routeId?: string) {
-    // Tentar obter localização novamente após 5 segundos
-    setTimeout(async () => {
-      if (this.isTracking) {
-        try {
-          const position = await Geolocation.getCurrentPosition({
-            enableHighAccuracy: false, // Usar precisão menor na tentativa
-            timeout: 15000,
-            maximumAge: 10000
-          });
-          
-          await this.sendLocationUpdate(driverId, position, routeId);
-        } catch (error) {
-          console.error('❌ Falha na nova tentativa:', error);
-        }
-      }
-    }, 5000);
-  }
-
-  private storeOfflineLocation(driverId: string, position: Position, routeId?: string) {
-    const offlineData = {
-      driverId,
-      routeId,
-      position,
-      timestamp: Date.now()
-    };
-    
-    // Armazenar no localStorage para sincronização posterior
-    const stored = localStorage.getItem('offline_locations') || '[]';
-    const locations = JSON.parse(stored);
-    locations.push(offlineData);
-    localStorage.setItem('offline_locations', JSON.stringify(locations));
-    
-    console.log('💾 Localização armazenada offline');
-  }
-
-  private async setupPersistentNotification() {
+  private async getDeviceInfo(): Promise<any> {
     try {
-      await LocalNotifications.requestPermissions();
-      
-      const notification: LocalNotificationSchema = {
-        id: 1,
-        title: 'AlchemyRotas - Rastreamento Ativo',
-        body: 'Localização sendo monitorada continuamente',
-        ongoing: true,
-        autoCancel: false,
-        smallIcon: 'ic_stat_icon_config_sample',
-        iconColor: '#1e40af'
+      const deviceInfo = await Device.getInfo();
+      return {
+        platform: deviceInfo.platform,
+        model: deviceInfo.model,
+        osVersion: deviceInfo.osVersion,
+        appVersion: '1.0.0'
       };
-
-      await LocalNotifications.schedule({
-        notifications: [notification]
-      });
-
-      console.log('🔔 Notificação persistente configurada');
     } catch (error) {
-      console.error('❌ Erro ao configurar notificação:', error);
+      console.error('❌ [TRACKER] Erro ao obter info do device:', error);
+      return {};
     }
   }
 
-  private setupAppStateHandlers(driverId: string, routeId?: string) {
-    // Monitorar quando app vai para background
-    App.addListener('appStateChange', ({ isActive }) => {
-      console.log('📱 Estado do app mudou:', isActive ? 'ativo' : 'background');
-      
-      if (!isActive && this.isTracking) {
-        console.log('⏰ App em background - mantendo rastreamento');
-        // Continuar rastreamento em background
-        this.maintainBackgroundTracking(driverId, routeId);
-      }
-    });
-
-    // Monitorar quando app é resumido
-    App.addListener('resume', () => {
-      console.log('🔄 App resumido - verificando rastreamento');
-      if (this.isTracking) {
-        this.syncOfflineLocations();
-      }
-    });
-  }
-
-  private async maintainBackgroundTracking(driverId: string, routeId?: string) {
-    // Manter um intervalo de tracking mesmo em background
-    // No Android, isso funciona por alguns minutos
-    console.log('🔄 Mantendo rastreamento em background');
-  }
-
-  private async syncOfflineLocations() {
+  private storeFailedLocation(locationData: any): void {
     try {
-      const stored = localStorage.getItem('offline_locations');
-      if (!stored) return;
-
-      const locations = JSON.parse(stored);
-      if (locations.length === 0) return;
-
-      console.log(`🔄 Sincronizando ${locations.length} localizações offline`);
-
-      for (const location of locations) {
-        await this.sendLocationUpdate(location.driverId, location.position, location.routeId);
+      const failedLocations = JSON.parse(localStorage.getItem('failed-locations') || '[]');
+      failedLocations.push({
+        ...locationData,
+        truckId: this.currentTruckId,
+        routeId: this.currentRouteId,
+        failedAt: Date.now()
+      });
+      
+      // Manter apenas os últimos 50 pontos falhos
+      if (failedLocations.length > 50) {
+        failedLocations.splice(0, failedLocations.length - 50);
       }
-
-      // Limpar localizações sincronizadas
-      localStorage.removeItem('offline_locations');
-      console.log('✅ Sincronização offline concluída');
-
+      
+      localStorage.setItem('failed-locations', JSON.stringify(failedLocations));
+      console.log('💾 [TRACKER] Localização armazenada localmente para reenvio');
     } catch (error) {
-      console.error('❌ Erro na sincronização offline:', error);
+      console.error('❌ [TRACKER] Erro ao armazenar localização localmente:', error);
     }
   }
 
-  async stopTracking() {
-    console.log('🛑 Interrompendo rastreamento');
-    
-    this.isTracking = false;
-    
-    if (this.trackingInterval) {
-      clearInterval(this.trackingInterval);
-      this.trackingInterval = null;
+  async stopTracking(): Promise<void> {
+    try {
+      console.log('🛑 [TRACKER] Parando rastreamento');
+      
+      this.isTracking = false;
+      
+      // Parar interval de tracking
+      if (this.trackingInterval) {
+        clearInterval(this.trackingInterval);
+        this.trackingInterval = null;
+      }
+      
+      // Cancelar notificação persistente
+      await LocalNotifications.cancel({ notifications: [{ id: 'tracking' }] });
+      
+      // Desativar modo background
+      await BackgroundMode.disable();
+      
+      // Limpar dados
+      this.currentTruckId = null;
+      this.currentRouteId = null;
+      this.lastPosition = null;
+      this.trackingData = [];
+      
+      console.log('✅ [TRACKER] Rastreamento parado com sucesso');
+      
+    } catch (error) {
+      console.error('❌ [TRACKER] Erro ao parar rastreamento:', error);
     }
-
-    if (this.watchId) {
-      await Geolocation.clearWatch({ id: this.watchId });
-      this.watchId = null;
-    }
-
-    // Remover notificação
-    await LocalNotifications.cancel({ notifications: [{ id: 1 }] });
-    
-    console.log('✅ Rastreamento interrompido');
   }
 
-  getTrackingStatus() {
+  getTrackingStatus(): any {
     return {
       isTracking: this.isTracking,
       lastPosition: this.lastPosition,
-      lastUpdate: this.lastPosition ? new Date(this.lastPosition.timestamp).toLocaleString() : null
+      lastUpdate: this.lastPosition 
+        ? new Date(this.lastPosition.timestamp).toLocaleString('pt-BR')
+        : null,
+      dataPoints: this.trackingData.length,
+      currentTruckId: this.currentTruckId,
+      currentRouteId: this.currentRouteId
     };
   }
 
-  // Método para forçar rastreamento (sem possibilidade de desativação pelo usuário)
-  async enforceTracking(driverId: string, routeId?: string) {
-    if (!this.isTracking) {
-      await this.startTracking(driverId, routeId);
+  async retryFailedLocations(): Promise<void> {
+    try {
+      const failedLocations = JSON.parse(localStorage.getItem('failed-locations') || '[]');
+      
+      if (failedLocations.length === 0) {
+        console.log('📡 [TRACKER] Nenhuma localização pendente para reenvio');
+        return;
+      }
+      
+      console.log(`📡 [TRACKER] Tentando reenviar ${failedLocations.length} localizações`);
+      
+      const successful = [];
+      
+      for (const location of failedLocations) {
+        try {
+          await this.sendLocationToServer(location);
+          successful.push(location);
+        } catch (error) {
+          console.error('❌ [TRACKER] Falha ao reenviar localização:', error);
+        }
+      }
+      
+      // Remover localizações enviadas com sucesso
+      if (successful.length > 0) {
+        const remaining = failedLocations.filter(loc => !successful.includes(loc));
+        localStorage.setItem('failed-locations', JSON.stringify(remaining));
+        console.log(`✅ [TRACKER] ${successful.length} localizações reenviadas com sucesso`);
+      }
+      
+    } catch (error) {
+      console.error('❌ [TRACKER] Erro ao reenviar localizações:', error);
     }
   }
 }
 
-export const backgroundTracker = new BackgroundTrackingService();
+export const backgroundTracker = new BackgroundTracker();

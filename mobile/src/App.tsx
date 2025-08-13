@@ -14,18 +14,25 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <Toaster />
-    <BrowserRouter>
-      <div className="min-h-screen bg-background">
-        <Routes>
-          <Route path="/" element={<MobileDriver />} />
-          <Route path="/driver" element={<MobileDriver />} />
-        </Routes>
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-background text-foreground">
+        <Toaster 
+          position="top-center"
+          toastOptions={{
+            className: 'bg-card text-card-foreground border-border',
+          }}
+        />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<MobileDriver />} />
+            <Route path="/driver" element={<MobileDriver />} />
+          </Routes>
+        </BrowserRouter>
       </div>
-    </BrowserRouter>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+};
 
 export default App;
