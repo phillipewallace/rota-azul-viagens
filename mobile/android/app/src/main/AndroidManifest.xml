@@ -67,16 +67,6 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Configurações para ignorar otimização de bateria -->
-        <meta-data 
-            android:name="android.webkit.WebView.EnableSafeBrowsing"
-            android:value="false" />
-            
-        <!-- Configuração para Doze Mode exemption -->
-        <meta-data
-            android:name="android.app.default_searchable"
-            android:value="false" />
-
     </application>
 
 </manifest>
