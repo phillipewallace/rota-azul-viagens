@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { locationSyncService, TruckLocation } from '@/services/locationSync';
 import { useTrucks } from './useTrucks';
 
 export interface RealTimePosition {
@@ -17,33 +18,61 @@ export const useRealTimeSync = () => {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const { loadTrucks } = useTrucks();
 
-  // Simular WebSocket/SSE para atualizações em tempo real
-  const startRealTimeUpdates = useCallback(() => {
-    console.log('🔄 [REAL-TIME] Iniciando atualizações em tempo real');
+  // Handler para processar localizações recebidas
+  const handleLocationsUpdate = useCallback((locations: TruckLocation[]) => {
+    console.log('📍 [REAL-TIME SYNC] Processando localizações:', locations.length);
     
-    const updateInterval = setInterval(async () => {
-      try {
-        // Recarregar dados dos caminhões a cada 15 segundos
-        await loadTrucks();
-        setLastUpdate(new Date());
-        setIsConnected(true);
-      } catch (error) {
-        console.error('❌ [REAL-TIME] Erro na atualização:', error);
-        setIsConnected(false);
-      }
-    }, 15000); // 15 segundos
+    const newPositions = new Map<string, RealTimePosition>();
+    
+    locations.forEach(location => {
+      const position: RealTimePosition = {
+        truckId: location.truckId,
+        lat: location.lat,
+        lng: location.lng,
+        timestamp: new Date(location.lastGpsTimestamp || location.lastUpdate).getTime()
+      };
+      
+      newPositions.set(location.truckId, position);
+    });
 
-    return () => {
-      clearInterval(updateInterval);
-      setIsConnected(false);
-    };
+    setPositions(newPositions);
+    setLastUpdate(new Date());
+    setIsConnected(true);
+
+    // Também recarregar dados dos caminhões para manter sincronizado
+    loadTrucks();
+    
+    console.log(`✅ [REAL-TIME SYNC] Atualizadas ${newPositions.size} posições`);
   }, [loadTrucks]);
 
-  // Iniciar atualizações quando o hook é montado
+  // Iniciar sincronização quando o hook é montado
   useEffect(() => {
-    const cleanup = startRealTimeUpdates();
-    return cleanup;
-  }, [startRealTimeUpdates]);
+    console.log('🔄 [REAL-TIME SYNC] Iniciando sincronização em tempo real');
+    
+    // Subscrever para atualizações
+    const unsubscribe = locationSyncService.subscribe(handleLocationsUpdate);
+    
+    // Iniciar polling se ainda não estiver ativo
+    const status = locationSyncService.getPollingStatus();
+    if (!status.isPolling) {
+      locationSyncService.startPolling(15000); // A cada 15 segundos
+    }
+
+    setIsConnected(true);
+
+    return () => {
+      console.log('🛑 [REAL-TIME SYNC] Limpando subscrição');
+      unsubscribe();
+      
+      // Se não há mais callbacks, parar o polling
+      const finalStatus = locationSyncService.getPollingStatus();
+      if (finalStatus.callbackCount === 0) {
+        locationSyncService.stopPolling();
+      }
+      
+      setIsConnected(false);
+    };
+  }, [handleLocationsUpdate]);
 
   const updateTruckPosition = useCallback((truckId: string, position: RealTimePosition) => {
     setPositions(prev => {
@@ -52,7 +81,7 @@ export const useRealTimeSync = () => {
       return newPositions;
     });
     
-    console.log(`📍 [REAL-TIME] Posição atualizada para caminhão ${truckId}:`, position);
+    console.log(`📍 [REAL-TIME SYNC] Posição manual atualizada para ${truckId}:`, position);
   }, []);
 
   const getTruckPosition = useCallback((truckId: string): RealTimePosition | null => {
@@ -69,11 +98,22 @@ export const useRealTimeSync = () => {
     trackedTrucks: positions.size
   }), [isConnected, lastUpdate, positions.size]);
 
+  const forceRefresh = useCallback(async () => {
+    try {
+      console.log('🔄 [REAL-TIME SYNC] Forçando atualização...');
+      const locations = await locationSyncService.getCurrentLocations();
+      handleLocationsUpdate(locations);
+    } catch (error) {
+      console.error('❌ [REAL-TIME SYNC] Erro na atualização forçada:', error);
+      setIsConnected(false);
+    }
+  }, [handleLocationsUpdate]);
+
   return {
     positions: getAllPositions(),
     getTruckPosition,
     updateTruckPosition,
     connectionStatus: getConnectionStatus(),
-    startRealTimeUpdates
+    forceRefresh
   };
 };

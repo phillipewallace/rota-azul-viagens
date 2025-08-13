@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { pool } from '../config/database';
 
@@ -22,6 +21,8 @@ router.get('/truck/:plate', async (req, res) => {
         COALESCE(t.status, 'available') as status,
         t.current_route_id,
         d.name as driver_name,
+        t.location_lat,
+        t.location_lng,
         t.updated_at as truck_updated_at
       FROM trucks t
       LEFT JOIN drivers d ON t.current_driver_id = d.id
@@ -135,6 +136,10 @@ router.get('/truck/:plate', async (req, res) => {
       year: truck.year,
       status: truck.status,
       driver: truck.driver_name || null,
+      location: truck.location_lat && truck.location_lng ? {
+        lat: Number(truck.location_lat),
+        lng: Number(truck.location_lng)
+      } : null,
       currentRoute,
       lastUpdated: truck.truck_updated_at
     };
@@ -147,6 +152,7 @@ router.get('/truck/:plate', async (req, res) => {
   year: ${response.year},
   status: '${response.status}',
   driver: ${response.driver},
+  location: ${response.location ? `{ lat: ${response.location.lat}, lng: ${response.location.lng} }` : 'null'},
   currentRoute: ${response.currentRoute ? `{
     id: '${response.currentRoute.id}',
     name: '${response.currentRoute.name}',
@@ -162,6 +168,154 @@ router.get('/truck/:plate', async (req, res) => {
   } catch (error) {
     console.error('❌ [MOBILE API] Erro ao buscar caminhão:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// ✅ NOVO: Endpoint para receber localizações GPS do mobile
+router.post('/location', async (req, res) => {
+  try {
+    const { driverId, routeId, latitude, longitude, accuracy, speed, heading, altitude, timestamp, deviceInfo } = req.body;
+
+    console.log(`📍 [MOBILE API] Recebendo localização GPS:`);
+    console.log(`   - Driver ID: ${driverId}`);
+    console.log(`   - Route ID: ${routeId || 'N/A'}`);
+    console.log(`   - Lat/Lng: ${latitude}, ${longitude}`);
+    console.log(`   - Accuracy: ${accuracy}m`);
+    console.log(`   - Speed: ${speed || 'N/A'} m/s`);
+    console.log(`   - Timestamp: ${timestamp}`);
+
+    if (!driverId || !latitude || !longitude) {
+      return res.status(400).json({ error: 'driverId, latitude e longitude são obrigatórios' });
+    }
+
+    // Buscar caminhão do motorista
+    const truckQuery = `
+      SELECT t.id 
+      FROM trucks t 
+      LEFT JOIN drivers d ON t.current_driver_id = d.id 
+      WHERE d.id = $1 OR t.id = $1
+    `;
+    
+    const truckResult = await pool.query(truckQuery, [driverId]);
+
+    if (truckResult.rows.length === 0) {
+      console.log(`❌ [MOBILE API] Caminhão não encontrado para motorista: ${driverId}`);
+      return res.status(404).json({ error: 'Caminhão não encontrado para este motorista' });
+    }
+
+    const truckId = truckResult.rows[0].id;
+
+    // Inserir registro de localização
+    const locationQuery = `
+      INSERT INTO truck_locations (
+        truck_id, 
+        driver_id, 
+        route_id, 
+        latitude, 
+        longitude, 
+        accuracy, 
+        speed, 
+        heading, 
+        altitude, 
+        timestamp, 
+        device_info,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+      RETURNING id
+    `;
+
+    await pool.query(locationQuery, [
+      truckId,
+      driverId,
+      routeId,
+      latitude,
+      longitude,
+      accuracy,
+      speed,
+      heading,
+      altitude,
+      timestamp,
+      JSON.stringify(deviceInfo)
+    ]);
+
+    // Atualizar localização atual do caminhão
+    await pool.query(
+      'UPDATE trucks SET location_lat = $1, location_lng = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+      [latitude, longitude, truckId]
+    );
+
+    console.log(`✅ [MOBILE API] Localização GPS salva para caminhão ${truckId}`);
+
+    res.json({ 
+      success: true,
+      message: 'Localização GPS recebida e salva com sucesso',
+      truckId: truckId,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ [MOBILE API] Erro ao processar localização GPS:', error);
+    res.status(500).json({ error: 'Erro ao processar localização GPS' });
+  }
+});
+
+// ✅ NOVO: Endpoint para obter localizações atuais de todos os caminhões
+router.get('/locations', async (req, res) => {
+  try {
+    console.log('📍 [MOBILE API] Buscando localizações atuais dos caminhões');
+
+    const query = `
+      SELECT 
+        t.id,
+        t.name,
+        t.plate,
+        t.status,
+        t.location_lat as lat,
+        t.location_lng as lng,
+        d.name as driver_name,
+        r.name as route_name,
+        t.updated_at as last_update,
+        (
+          SELECT timestamp 
+          FROM truck_locations tl 
+          WHERE tl.truck_id = t.id 
+          ORDER BY tl.created_at DESC 
+          LIMIT 1
+        ) as last_gps_timestamp
+      FROM trucks t
+      LEFT JOIN drivers d ON t.current_driver_id = d.id
+      LEFT JOIN routes r ON t.current_route_id = r.id
+      WHERE t.location_lat IS NOT NULL AND t.location_lng IS NOT NULL
+      ORDER BY t.updated_at DESC
+    `;
+
+    const result = await pool.query(query);
+
+    const locations = result.rows.map(row => ({
+      truckId: row.id,
+      name: row.name,
+      plate: row.plate,
+      status: row.status,
+      lat: Number(row.lat),
+      lng: Number(row.lng),
+      driver: row.driver_name,
+      route: row.route_name,
+      lastUpdate: row.last_update,
+      lastGpsTimestamp: row.last_gps_timestamp
+    }));
+
+    console.log(`✅ [MOBILE API] Encontradas ${locations.length} localizações ativas`);
+
+    res.json({
+      success: true,
+      count: locations.length,
+      locations: locations,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ [MOBILE API] Erro ao buscar localizações:', error);
+    res.status(500).json({ error: 'Erro ao buscar localizações' });
   }
 });
 

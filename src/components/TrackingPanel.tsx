@@ -5,22 +5,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useTrucks } from '@/hooks/useTrucks';
 import { useRealTimeSync } from '@/hooks/useRealTimeSync';
-import { RefreshCw, Wifi, WifiOff, MapPin } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, MapPin, Clock } from 'lucide-react';
 
 const TrackingPanel = () => {
-  const { trucks, loading, error, loadTrucks } = useTrucks();
-  const { connectionStatus } = useRealTimeSync();
+  const { trucks, loading, error } = useTrucks();
+  const { connectionStatus, forceRefresh } = useRealTimeSync();
 
-  // Auto-refresh a cada 10 segundos
+  // Forçar refresh a cada 30 segundos
   useEffect(() => {
     const autoRefresh = setInterval(() => {
-      if (!loading) {
-        loadTrucks();
+      if (!loading && connectionStatus.isConnected) {
+        forceRefresh();
       }
-    }, 10000);
+    }, 30000);
 
     return () => clearInterval(autoRefresh);
-  }, [loadTrucks, loading]);
+  }, [forceRefresh, loading, connectionStatus.isConnected]);
+
+  const handleRefresh = () => {
+    console.log('🔄 [TRACKING PANEL] Refresh manual');
+    forceRefresh();
+  };
 
   if (loading) {
     return (
@@ -44,13 +49,18 @@ const TrackingPanel = () => {
     return (
       <div className="fixed top-4 right-4 w-80 max-w-[90vw] bg-white rounded-lg shadow-xl p-4 z-50">
         <div className="text-red-500 text-sm mb-2">{error}</div>
-        <Button size="sm" onClick={loadTrucks} variant="outline" className="w-full">
+        <Button size="sm" onClick={handleRefresh} variant="outline" className="w-full">
           <RefreshCw className="h-4 w-4 mr-2" />
           Tentar novamente
         </Button>
       </div>
     );
   }
+
+  // Filtrar apenas caminhões com localização ou em rota
+  const activeTrucks = trucks.filter(truck => 
+    truck.location || truck.status === 'in-route' || truck.currentRoute
+  );
 
   return (
     <div className="fixed top-4 right-4 w-80 max-w-[90vw] bg-white rounded-lg shadow-xl p-4 z-50 max-h-[80vh] overflow-hidden">
@@ -69,7 +79,7 @@ const TrackingPanel = () => {
           ) : (
             <WifiOff className="h-4 w-4 text-red-500" />
           )}
-          <Button size="sm" onClick={loadTrucks} variant="ghost" className="p-2">
+          <Button size="sm" onClick={handleRefresh} variant="ghost" className="p-2">
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
@@ -89,9 +99,12 @@ const TrackingPanel = () => {
         {connectionStatus.lastUpdate && (
           <div className="flex justify-between items-center mt-1">
             <span>Última atualização:</span>
-            <span className="font-mono">
-              {connectionStatus.lastUpdate.toLocaleTimeString('pt-BR')}
-            </span>
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-gray-500" />
+              <span className="font-mono">
+                {connectionStatus.lastUpdate.toLocaleTimeString('pt-BR')}
+              </span>
+            </div>
           </div>
         )}
         <div className="flex justify-between items-center mt-1">
@@ -100,94 +113,111 @@ const TrackingPanel = () => {
         </div>
       </div>
       
-      {trucks.length === 0 ? (
+      {activeTrucks.length === 0 ? (
         <div className="text-center text-gray-500 py-8">
-          <p className="text-sm">Nenhum caminhão encontrado</p>
-          <p className="text-xs mt-1">Verifique a conexão com o servidor</p>
+          <MapPin className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+          <p className="text-sm">Nenhum caminhão ativo</p>
+          <p className="text-xs mt-1">Aguardando dados de rastreamento</p>
         </div>
       ) : (
         <div className="space-y-3 max-h-96 overflow-y-auto">
-          {trucks.map((truck) => (
-            <Card key={truck.id} className="p-3 border-l-4 border-l-blue-500">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-sm">{truck.name}</h3>
-                <div className="flex items-center gap-1">
-                  {truck.location && (
-                    <MapPin className="h-3 w-3 text-green-500" />
-                  )}
-                  <Badge 
-                    variant={truck.status === 'in-route' ? 'default' : truck.status === 'maintenance' ? 'destructive' : 'secondary'}
-                    className={`text-xs ${
-                      truck.status === 'in-route' ? 'bg-green-500' : 
-                      truck.status === 'maintenance' ? 'bg-red-500' : 
-                      'bg-gray-500'
-                    }`}
-                  >
-                    <div className={`w-2 h-2 rounded-full mr-1 ${
-                      truck.status === 'in-route' ? 'bg-green-200 animate-pulse' : 
-                      truck.status === 'maintenance' ? 'bg-red-200' : 
-                      'bg-gray-200'
-                    }`}></div>
-                    {truck.status === 'in-route' ? 'Em movimento' : 
-                     truck.status === 'maintenance' ? 'Manutenção' : 'Disponível'}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="text-xs text-gray-600 space-y-1">
-                <div className="flex justify-between">
-                  <span>Placa:</span>
-                  <span className="font-medium">{truck.plate}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Modelo:</span>
-                  <span className="font-medium">{truck.model} ({truck.year})</span>
-                </div>
-                {truck.driver && (
-                  <div className="flex justify-between">
-                    <span>Motorista:</span>
-                    <span className="font-medium truncate ml-2">{truck.driver}</span>
+          {activeTrucks.map((truck) => {
+            const isActive = truck.status === 'in-route';
+            const hasLocation = truck.location;
+            const hasRoute = truck.currentRoute;
+            
+            return (
+              <Card key={truck.id} className={`p-3 border-l-4 ${
+                isActive ? 'border-l-green-500' : 
+                hasRoute ? 'border-l-blue-500' : 'border-l-gray-300'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium text-sm">{truck.name}</h3>
+                  <div className="flex items-center gap-1">
+                    {hasLocation && (
+                      <MapPin className="h-3 w-3 text-green-500" />
+                    )}
+                    <Badge 
+                      variant={isActive ? 'default' : truck.status === 'maintenance' ? 'destructive' : 'secondary'}
+                      className={`text-xs ${
+                        isActive ? 'bg-green-500' : 
+                        truck.status === 'maintenance' ? 'bg-red-500' : 
+                        'bg-gray-500'
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full mr-1 ${
+                        isActive ? 'bg-green-200 animate-pulse' : 
+                        truck.status === 'maintenance' ? 'bg-red-200' : 
+                        'bg-gray-200'
+                      }`}></div>
+                      {isActive ? 'Em movimento' : 
+                       truck.status === 'maintenance' ? 'Manutenção' : 'Disponível'}
+                    </Badge>
                   </div>
-                )}
-                {truck.currentRoute && (
-                  <div className="flex justify-between">
-                    <span>Rota:</span>
-                    <span className="font-medium truncate ml-2">{truck.currentRoute}</span>
-                  </div>
-                )}
-                {truck.location && (
-                  <div className="space-y-1">
-                    <div className="flex justify-between">
-                      <span>Localização:</span>
-                      <span className="font-medium text-xs">
-                        {truck.location.lat.toFixed(4)}, {truck.location.lng.toFixed(4)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Última posição:</span>
-                      <span className="font-medium text-xs text-green-600">
-                        Tempo real
-                      </span>
-                    </div>
-                  </div>
-                )}
+                </div>
                 
-                {/* Indicador de GPS ativo para caminhões em rota */}
-                {truck.status === 'in-route' && (
-                  <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-green-700 font-medium">
-                        GPS Tracking Ativo
-                      </span>
-                    </div>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Placa:</span>
+                    <span className="font-mono font-medium">{truck.plate}</span>
                   </div>
-                )}
-              </div>
-            </Card>
-          ))}
+                  <div className="flex justify-between">
+                    <span>Modelo:</span>
+                    <span className="font-medium">{truck.model} ({truck.year})</span>
+                  </div>
+                  {truck.driverName && (
+                    <div className="flex justify-between">
+                      <span>Motorista:</span>
+                      <span className="font-medium truncate ml-2">{truck.driverName}</span>
+                    </div>
+                  )}
+                  {truck.currentRouteName && (
+                    <div className="flex justify-between">
+                      <span>Rota:</span>
+                      <span className="font-medium truncate ml-2">{truck.currentRouteName}</span>
+                    </div>
+                  )}
+                  
+                  {hasLocation && (
+                    <div className="space-y-1 pt-1 border-t border-gray-100">
+                      <div className="flex justify-between">
+                        <span>Coordenadas:</span>
+                        <span className="font-mono text-xs">
+                          {truck.location.lat.toFixed(4)}, {truck.location.lng.toFixed(4)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>GPS Status:</span>
+                        <span className="font-medium text-green-600 flex items-center gap-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          Ativo
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!hasLocation && isActive && (
+                    <div className="pt-1 border-t border-gray-100">
+                      <div className="flex items-center justify-center gap-1 text-orange-600">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs">Aguardando GPS</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
+      
+      {/* Indicador de sincronização automática */}
+      <div className="mt-3 pt-2 border-t border-gray-100">
+        <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+          <span>Sincronização automática ativa</span>
+        </div>
+      </div>
     </div>
   );
 };
