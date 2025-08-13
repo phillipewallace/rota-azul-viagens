@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   appName: 'AlchemyRotas',
   webDir: 'dist',
   server: {
-    url: 'http://admmicban.com.br',
+    url: 'https://e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com?forceHideBadge=true',
     cleartext: true
   },
   plugins: {
