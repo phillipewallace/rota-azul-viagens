@@ -11,28 +11,13 @@
     <!-- Permissões de localização -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     
-    <!-- Permissões para background tracking -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Permissões para notificações -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
-    <!-- Permissões de storage para API level 33+ -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    
-    <!-- Permissões de storage para API level anterior -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="32" />
-
     <!-- Features de hardware -->
-    <uses-feature android:name="android.hardware.location" android:required="true" />
-    <uses-feature android:name="android.hardware.location.gps" android:required="true" />
-    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -42,13 +27,11 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true"
-        android:requestLegacyExternalStorage="true"
         android:hardwareAccelerated="true">
 
-        <!-- Activity principal -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
-            android:name=".MainActivity"
+            android:name="app.lovable.e145d80f177c4eb9987fd67c392fc5de.MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
@@ -60,7 +43,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Provider de arquivos -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="app.lovable.e145d80f177c4eb9987fd67c392fc5de.fileprovider"
