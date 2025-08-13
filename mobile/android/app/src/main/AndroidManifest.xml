@@ -24,10 +24,6 @@
     <!-- Permissões de storage -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    
-    <!-- Permissões para manter app ativo em background -->
-    <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
-    <uses-permission android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
 
     <!-- Features de hardware -->
     <uses-feature android:name="android.hardware.location" android:required="true" />
