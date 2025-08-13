@@ -31,16 +31,29 @@ interface TrackingData {
   } | null;
 }
 
+// Sistema de logs configurável
+const LOG_LEVEL = 'INFO';
+const logLevels = { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 };
+
+const log = (level: string, message: string, ...args: any[]) => {
+  if (logLevels[level] <= logLevels[LOG_LEVEL]) {
+    const timestamp = new Date().toISOString();
+    const prefix = level === 'ERROR' ? '❌' : level === 'WARN' ? '⚠️' : level === 'INFO' ? '✅' : '🔍';
+    console.log(`${timestamp}: ${prefix} [TRACKING] ${message}`, ...args);
+  }
+};
+
 export const useRealTimeTracking = (truckId: string | null, routePoints: any[] = []) => {
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [isTracking, setIsTracking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [watchId, setWatchId] = useState<number | null>(null);
+  const [updateCount, setUpdateCount] = useState(0);
 
   const updateLocation = useCallback(async (position: GeolocationPosition) => {
     if (!truckId) {
-      console.warn('No truck ID provided for location update');
+      log('DEBUG', 'No truck ID provided for location update');
       return;
     }
 
@@ -52,11 +65,21 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
       heading: position.coords.heading || undefined
     };
 
-    console.log('📍 Updating truck location:', newLocation);
+    // Log reduzido - apenas a cada 10 atualizações
+    setUpdateCount(prev => {
+      const newCount = prev + 1;
+      if (newCount % 10 === 0) {
+        log('DEBUG', `Localização atualizada (#${newCount}):`, {
+          lat: newLocation.lat.toFixed(6),
+          lng: newLocation.lng.toFixed(6)
+        });
+      }
+      return newCount;
+    });
 
     try {
-      // Atualizar localização no backend
-      const response = await fetch(`http://localhost:3001/api/trucks/${truckId}/location`, {
+      // Atualizar localização no backend com debounce
+      const response = await fetch(`https://admmicban.com.br/api/trucks/${truckId}/location`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -65,20 +88,20 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
         })
       });
 
-      if (!response.ok) {
-        console.error('Failed to update truck location:', response.status);
+      if (!response.ok && response.status !== 404) {
+        log('WARN', `Failed to update truck location: ${response.status}`);
       }
 
-      // Calcular próximo destino se houver rota
+      // Calcular próximo destino apenas quando necessário
       let nextDestination = null;
       let routeInfo = null;
 
-      if (routePoints && routePoints.length > 0) {
+      if (routePoints && routePoints.length > 0 && updateCount % 5 === 0) { // Atualizar rota a cada 5 posições
         const sortedPoints = routePoints.sort((a, b) => (a.order || 0) - (b.order || 0));
         const nextPoint = sortedPoints.find(p => !p.completed);
         
         if (nextPoint && nextPoint.lat && nextPoint.lng) {
-          console.log('🎯 Calculating traffic to next destination:', nextPoint.address);
+          log('DEBUG', 'Calculando tráfego para próximo destino:', nextPoint.address);
           
           const trafficInfo = await trafficService.getTrafficInfo(
             { lat: newLocation.lat, lng: newLocation.lng, address: 'Localização atual' },
@@ -95,17 +118,12 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
               duration: trafficInfo.duration,
               durationInTraffic: trafficInfo.durationInTraffic
             };
-            console.log('✅ Next destination calculated:', nextDestination);
-          } else {
-            console.warn('Failed to get traffic info for next destination');
           }
         }
 
-        // Calcular informações da rota completa
+        // Calcular informações da rota completa apenas ocasionalmente
         const remainingPoints = sortedPoints.filter(p => !p.completed);
-        if (remainingPoints.length > 0 && remainingPoints.every(p => p.lat && p.lng)) {
-          console.log('🗺️ Calculating full route traffic info');
-          
+        if (remainingPoints.length > 0 && remainingPoints.every(p => p.lat && p.lng) && updateCount % 20 === 0) {
           const routeTrafficInfo = await trafficService.getRouteTrafficInfo(
             [{ lat: newLocation.lat, lng: newLocation.lng, address: 'Atual' }, ...remainingPoints]
           );
@@ -118,7 +136,6 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
               completedPoints: sortedPoints.length - remainingPoints.length,
               remainingPoints: remainingPoints.length
             };
-            console.log('✅ Route info calculated:', routeInfo);
           }
         }
       }
@@ -131,18 +148,17 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
       });
 
       setError(null);
-      console.log('📍 Tracking data updated successfully');
     } catch (err) {
-      console.error('Erro ao atualizar rastreamento:', err);
+      log('ERROR', 'Erro ao atualizar rastreamento:', err);
       setError('Erro ao atualizar localização');
     }
-  }, [truckId, routePoints]);
+  }, [truckId, routePoints, updateCount]);
 
   const startTracking = useCallback(() => {
-    console.log('🚀 Starting real-time tracking for truck:', truckId);
+    log('INFO', `Iniciando rastreamento para caminhão: ${truckId}`);
     
     if (isTracking || !truckId) {
-      console.warn('Tracking already active or no truck ID');
+      log('WARN', 'Tracking já ativo ou sem truck ID');
       return;
     }
 
@@ -152,37 +168,36 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
     if (!navigator.geolocation) {
       setError('Geolocalização não suportada');
       setLoading(false);
-      console.error('Geolocation not supported');
+      log('ERROR', 'Geolocation não suportado');
       return;
     }
 
     const id = navigator.geolocation.watchPosition(
       (position) => {
-        console.log('📍 GPS position received:', position.coords);
         updateLocation(position);
         setLoading(false);
         setIsTracking(true);
       },
       (error) => {
-        console.error('Erro GPS:', error);
+        log('ERROR', 'Erro GPS:', error.message);
         setError(`Erro ao obter localização GPS: ${error.message}`);
         setLoading(false);
         setIsTracking(false);
       },
       {
         enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000
+        timeout: 20000,
+        maximumAge: 10000
       }
     );
 
     setWatchId(id);
-    console.log('📍 GPS watch started with ID:', id);
+    log('DEBUG', `GPS watch iniciado com ID: ${id}`);
     
     return () => {
       if (id) {
         navigator.geolocation.clearWatch(id);
-        console.log('📍 GPS watch cleared:', id);
+        log('DEBUG', `GPS watch limpo: ${id}`);
       }
       setIsTracking(false);
       setWatchId(null);
@@ -190,7 +205,7 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
   }, [truckId, updateLocation, isTracking]);
 
   const stopTracking = useCallback(() => {
-    console.log('⏹️ Stopping real-time tracking');
+    log('INFO', 'Parando rastreamento');
     
     if (watchId) {
       navigator.geolocation.clearWatch(watchId);
@@ -201,12 +216,13 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
     setTrackingData(null);
     setLoading(false);
     setError(null);
+    setUpdateCount(0);
   }, [watchId]);
 
   // Auto-start tracking quando truck ID é definido
   useEffect(() => {
     if (truckId && !isTracking && !loading) {
-      console.log('🔄 Auto-starting tracking for new truck ID:', truckId);
+      log('INFO', `Auto-iniciando tracking para truck: ${truckId}`);
       const cleanup = startTracking();
       return cleanup;
     }
@@ -227,6 +243,7 @@ export const useRealTimeTracking = (truckId: string | null, routePoints: any[] =
     loading,
     error,
     startTracking,
-    stopTracking
+    stopTracking,
+    updateCount
   };
 };

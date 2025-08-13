@@ -14,13 +14,16 @@ const config: CapacitorConfig = {
       'maps.googleapis.com',
       'https://maps.googleapis.com',
       'maps.google.com',
-      'https://maps.google.com'
+      'https://maps.google.com',
+      'e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com',
+      'https://e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com'
     ]
   },
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: true
+    webContentsDebuggingEnabled: true,
+    backgroundColor: '#1e40af'
   },
   plugins: {
     Geolocation: {
@@ -30,7 +33,9 @@ const config: CapacitorConfig = {
     },
     SplashScreen: {
       launchShowDuration: 2000,
-      backgroundColor: "#1e40af"
+      backgroundColor: "#1e40af",
+      showSpinner: true,
+      spinnerColor: "#ffffff"
     },
     CapacitorHttp: {
       enabled: true
@@ -45,6 +50,12 @@ const config: CapacitorConfig = {
     },
     Device: {
       enabled: true
+    },
+    BackgroundMode: {
+      enabled: true,
+      title: "AlchemyRotas",
+      text: "Sistema de rastreamento ativo",
+      silent: false
     }
   }
 };

@@ -1,9 +1,20 @@
 
-import { CapacitorConfig } from '@capacitor/cli';
 import { BackgroundMode } from '@capacitor/background-mode';
 import { Geolocation } from '@capacitor/geolocation';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Device } from '@capacitor/device';
+
+// Sistema de logs configurável
+const LOG_LEVEL = 'INFO'; // ERROR, WARN, INFO, DEBUG
+const logLevels = { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 };
+
+const log = (level: string, message: string, ...args: any[]) => {
+  if (logLevels[level] <= logLevels[LOG_LEVEL]) {
+    const timestamp = new Date().toISOString();
+    const prefix = level === 'ERROR' ? '❌' : level === 'WARN' ? '⚠️' : level === 'INFO' ? '✅' : '🔍';
+    console.log(`${timestamp}: ${prefix} [TRACKER] ${message}`, ...args);
+  }
+};
 
 class BackgroundTracker {
   private isTracking = false;
@@ -12,77 +23,63 @@ class BackgroundTracker {
   private currentRouteId: string | null = null;
   private lastPosition: { lat: number; lng: number; timestamp: number } | null = null;
   private trackingData: Array<{ lat: number; lng: number; timestamp: number }> = [];
+  private sendQueue: Array<any> = [];
+  private isProcessingQueue = false;
 
   async enforceTracking(truckId: string, routeId?: string): Promise<void> {
     try {
-      console.log('🎯 [TRACKER] Iniciando rastreamento obrigatório para caminhão:', truckId);
+      log('INFO', `Iniciando rastreamento obrigatório para caminhão: ${truckId}`);
       
       this.currentTruckId = truckId;
       this.currentRouteId = routeId || null;
       
-      // Solicitar permissões necessárias
       await this.requestPermissions();
-      
-      // Configurar modo background
       await this.setupBackgroundMode();
-      
-      // Configurar notificação persistente
       await this.setupPersistentNotification();
-      
-      // Iniciar rastreamento
       await this.startLocationTracking();
       
       this.isTracking = true;
-      console.log('✅ [TRACKER] Rastreamento obrigatório ativado com sucesso');
+      log('INFO', 'Rastreamento obrigatório ativado com sucesso');
       
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao ativar rastreamento obrigatório:', error);
+      log('ERROR', 'Erro ao ativar rastreamento obrigatório:', error);
       throw new Error('Não foi possível ativar o rastreamento obrigatório. Verifique as permissões do aplicativo.');
     }
   }
 
   private async requestPermissions(): Promise<void> {
     try {
-      // Permissão de localização
       const locationPermission = await Geolocation.requestPermissions();
       if (locationPermission.location !== 'granted') {
         throw new Error('Permissão de localização é obrigatória para o funcionamento do aplicativo');
       }
 
-      // Permissão de notificação
       const notificationPermission = await LocalNotifications.requestPermissions();
       if (notificationPermission.display !== 'granted') {
-        console.warn('⚠️ Permissão de notificação não concedida');
+        log('WARN', 'Permissão de notificação não concedida');
       }
 
-      console.log('✅ [TRACKER] Permissões concedidas');
+      log('INFO', 'Permissões concedidas');
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao solicitar permissões:', error);
+      log('ERROR', 'Erro ao solicitar permissões:', error);
       throw error;
     }
   }
 
   private async setupBackgroundMode(): Promise<void> {
     try {
-      // Ativar modo background
       await BackgroundMode.enable();
-      
-      // Configurar para não ser otimizado pelo sistema
       await BackgroundMode.disableWebViewOptimizations();
-      
-      console.log('✅ [TRACKER] Modo background configurado');
+      log('INFO', 'Modo background configurado');
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao configurar modo background:', error);
-      // Não interromper o fluxo se o background mode falhar
+      log('WARN', 'Erro ao configurar modo background:', error);
     }
   }
 
   private async setupPersistentNotification(): Promise<void> {
     try {
-      // Cancelar notificações existentes
       await LocalNotifications.cancel({ notifications: [{ id: 'tracking' }] });
       
-      // Criar notificação persistente
       await LocalNotifications.schedule({
         notifications: [
           {
@@ -102,37 +99,34 @@ class BackgroundTracker {
         ]
       });
       
-      console.log('✅ [TRACKER] Notificação persistente configurada');
+      log('INFO', 'Notificação persistente configurada');
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao configurar notificação:', error);
-      // Não interromper o fluxo se a notificação falhar
+      log('WARN', 'Erro ao configurar notificação:', error);
     }
   }
 
   private async startLocationTracking(): Promise<void> {
     try {
-      // Configurar tracking de alta precisão
       const trackingOptions = {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 5000
+        timeout: 15000,
+        maximumAge: 10000
       };
 
-      // Primeiro tracking imediato
       await this.performLocationUpdate(trackingOptions);
       
-      // Configurar interval para tracking contínuo (a cada 30 segundos)
+      // Tracking a cada 60 segundos (otimizado)
       this.trackingInterval = window.setInterval(async () => {
         try {
           await this.performLocationUpdate(trackingOptions);
         } catch (error) {
-          console.error('❌ [TRACKER] Erro no tracking interval:', error);
+          log('ERROR', 'Erro no tracking interval:', error);
         }
-      }, 30000);
+      }, 60000); // Aumentado de 30s para 60s
       
-      console.log('✅ [TRACKER] Rastreamento de localização iniciado');
+      log('INFO', 'Rastreamento de localização iniciado');
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao iniciar rastreamento:', error);
+      log('ERROR', 'Erro ao iniciar rastreamento:', error);
       throw error;
     }
   }
@@ -156,34 +150,29 @@ class BackgroundTracker {
         timestamp: locationData.timestamp
       };
       
-      // Adicionar ao buffer local
       this.trackingData.push(this.lastPosition);
       
-      // Manter apenas os últimos 100 pontos para evitar uso excessivo de memória
-      if (this.trackingData.length > 100) {
-        this.trackingData = this.trackingData.slice(-100);
+      if (this.trackingData.length > 50) { // Reduzido de 100 para 50
+        this.trackingData = this.trackingData.slice(-50);
       }
       
-      // Enviar para o servidor
       await this.sendLocationToServer(locationData);
       
-      console.log('📍 [TRACKER] Localização atualizada:', {
-        lat: locationData.lat.toFixed(6),
-        lng: locationData.lng.toFixed(6),
-        accuracy: locationData.accuracy
-      });
+      // Log reduzido - só a cada 5 atualizações
+      if (this.trackingData.length % 5 === 0) {
+        log('DEBUG', `Localização atualizada: ${locationData.lat.toFixed(6)}, ${locationData.lng.toFixed(6)}`);
+      }
       
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao obter localização:', error);
-      // Em caso de erro, tentar novamente em 10 segundos
-      setTimeout(() => this.performLocationUpdate(options), 10000);
+      log('WARN', 'Erro ao obter localização:', error);
+      setTimeout(() => this.performLocationUpdate(options), 30000);
     }
   }
 
   private async sendLocationToServer(locationData: any): Promise<void> {
     try {
       if (!this.currentTruckId) {
-        console.warn('⚠️ [TRACKER] Truck ID não definido, pulando envio');
+        log('DEBUG', 'Truck ID não definido, pulando envio');
         return;
       }
 
@@ -214,12 +203,54 @@ class BackgroundTracker {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
 
-      console.log('📡 [TRACKER] Localização enviada para servidor com sucesso');
+      log('DEBUG', 'Localização enviada para servidor com sucesso');
       
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao enviar localização:', error);
-      // Armazenar localmente para reenvio posterior
-      this.storeFailedLocation(locationData);
+      log('WARN', 'Erro ao enviar localização:', error);
+      this.addToSendQueue(locationData);
+    }
+  }
+
+  private addToSendQueue(locationData: any): void {
+    this.sendQueue.push({
+      ...locationData,
+      truckId: this.currentTruckId,
+      routeId: this.currentRouteId,
+      failedAt: Date.now()
+    });
+    
+    if (this.sendQueue.length > 20) { // Limitar queue
+      this.sendQueue = this.sendQueue.slice(-20);
+    }
+    
+    if (!this.isProcessingQueue) {
+      this.processQueue();
+    }
+  }
+
+  private async processQueue(): Promise<void> {
+    if (this.isProcessingQueue || this.sendQueue.length === 0) return;
+    
+    this.isProcessingQueue = true;
+    
+    try {
+      const batch = this.sendQueue.splice(0, 5); // Processar em lotes de 5
+      
+      for (const item of batch) {
+        try {
+          await this.sendLocationToServer(item);
+        } catch (error) {
+          // Re-adicionar ao queue se falhar novamente
+          this.sendQueue.push(item);
+        }
+      }
+    } finally {
+      this.isProcessingQueue = false;
+      
+      // Continuar processando se ainda houver items
+      if (this.sendQueue.length > 0) {
+        setTimeout(() => this.processQueue(), 30000); // Tentar novamente em 30s
+      }
     }
   }
 
@@ -233,61 +264,35 @@ class BackgroundTracker {
         appVersion: '1.0.0'
       };
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao obter info do device:', error);
+      log('ERROR', 'Erro ao obter info do device:', error);
       return {};
-    }
-  }
-
-  private storeFailedLocation(locationData: any): void {
-    try {
-      const failedLocations = JSON.parse(localStorage.getItem('failed-locations') || '[]');
-      failedLocations.push({
-        ...locationData,
-        truckId: this.currentTruckId,
-        routeId: this.currentRouteId,
-        failedAt: Date.now()
-      });
-      
-      // Manter apenas os últimos 50 pontos falhos
-      if (failedLocations.length > 50) {
-        failedLocations.splice(0, failedLocations.length - 50);
-      }
-      
-      localStorage.setItem('failed-locations', JSON.stringify(failedLocations));
-      console.log('💾 [TRACKER] Localização armazenada localmente para reenvio');
-    } catch (error) {
-      console.error('❌ [TRACKER] Erro ao armazenar localização localmente:', error);
     }
   }
 
   async stopTracking(): Promise<void> {
     try {
-      console.log('🛑 [TRACKER] Parando rastreamento');
+      log('INFO', 'Parando rastreamento');
       
       this.isTracking = false;
       
-      // Parar interval de tracking
       if (this.trackingInterval) {
         clearInterval(this.trackingInterval);
         this.trackingInterval = null;
       }
       
-      // Cancelar notificação persistente
       await LocalNotifications.cancel({ notifications: [{ id: 'tracking' }] });
-      
-      // Desativar modo background
       await BackgroundMode.disable();
       
-      // Limpar dados
       this.currentTruckId = null;
       this.currentRouteId = null;
       this.lastPosition = null;
       this.trackingData = [];
+      this.sendQueue = [];
       
-      console.log('✅ [TRACKER] Rastreamento parado com sucesso');
+      log('INFO', 'Rastreamento parado com sucesso');
       
     } catch (error) {
-      console.error('❌ [TRACKER] Erro ao parar rastreamento:', error);
+      log('ERROR', 'Erro ao parar rastreamento:', error);
     }
   }
 
@@ -299,43 +304,10 @@ class BackgroundTracker {
         ? new Date(this.lastPosition.timestamp).toLocaleString('pt-BR')
         : null,
       dataPoints: this.trackingData.length,
+      queueSize: this.sendQueue.length,
       currentTruckId: this.currentTruckId,
       currentRouteId: this.currentRouteId
     };
-  }
-
-  async retryFailedLocations(): Promise<void> {
-    try {
-      const failedLocations = JSON.parse(localStorage.getItem('failed-locations') || '[]');
-      
-      if (failedLocations.length === 0) {
-        console.log('📡 [TRACKER] Nenhuma localização pendente para reenvio');
-        return;
-      }
-      
-      console.log(`📡 [TRACKER] Tentando reenviar ${failedLocations.length} localizações`);
-      
-      const successful = [];
-      
-      for (const location of failedLocations) {
-        try {
-          await this.sendLocationToServer(location);
-          successful.push(location);
-        } catch (error) {
-          console.error('❌ [TRACKER] Falha ao reenviar localização:', error);
-        }
-      }
-      
-      // Remover localizações enviadas com sucesso
-      if (successful.length > 0) {
-        const remaining = failedLocations.filter(loc => !successful.includes(loc));
-        localStorage.setItem('failed-locations', JSON.stringify(remaining));
-        console.log(`✅ [TRACKER] ${successful.length} localizações reenviadas com sucesso`);
-      }
-      
-    } catch (error) {
-      console.error('❌ [TRACKER] Erro ao reenviar localizações:', error);
-    }
   }
 }
 

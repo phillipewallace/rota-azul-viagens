@@ -1,14 +1,15 @@
+
 apply plugin: 'com.android.application'
 
 android {
-    namespace "Rotas.Alchemy.com"
+    namespace "app.lovable.e145d80f177c4eb9987fd67c392fc5de"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "Rotas.Alchemy.com"
+        applicationId "app.lovable.e145d80f177c4eb9987fd67c392fc5de"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -20,7 +21,20 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            debuggable false
         }
+        debug {
+            debuggable true
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    buildFeatures {
+        buildConfig true
     }
 }
 
@@ -35,11 +49,23 @@ dependencies {
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    
+    // Capacitor dependencies
     implementation project(':capacitor-android')
+    implementation project(':capacitor-cordova-android-plugins')
+    
+    // Geolocation dependencies
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
+    
+    // Background processing
+    implementation 'androidx.work:work-runtime:2.8.1'
+    
+    // Notifications
+    implementation 'androidx.core:core:1.10.1'
+    
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
-    implementation project(':capacitor-cordova-android-plugins')
 }
 
 apply from: 'capacitor.build.gradle'
