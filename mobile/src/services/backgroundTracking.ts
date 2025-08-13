@@ -1,11 +1,10 @@
-
 import { Geolocation } from '@capacitor/geolocation';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Device } from '@capacitor/device';
 import { App } from '@capacitor/app';
 
-// Sistema de logs configurável
-const LOG_LEVEL = 'INFO'; // ERROR, WARN, INFO, DEBUG
+// Sistema de logs configurável baseado no ambiente
+const LOG_LEVEL = (import.meta.env.VITE_LOG_LEVEL as string) || 'INFO';
 const logLevels = { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 };
 
 const log = (level: string, message: string, ...args: any[]) => {
@@ -104,7 +103,6 @@ class BackgroundTracker {
 
       await this.performLocationUpdate(trackingOptions);
       
-      // Tracking a cada 60 segundos (otimizado)
       this.trackingInterval = window.setInterval(async () => {
         try {
           await this.performLocationUpdate(trackingOptions);
