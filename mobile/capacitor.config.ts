@@ -1,4 +1,3 @@
-
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -6,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'AlchemyRotas Mobile',
   webDir: 'dist',
   server: {
-    url: 'https://e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com?forceHideBadge=true',
+    url: 'https://e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com/mobile?forceHideBadge=true',
     androidScheme: 'https',
     cleartext: true,
     allowNavigation: [
