@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     
     <!-- Permissões de localização (OBRIGATÓRIAS) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -23,6 +24,10 @@
     <!-- Permissões de storage -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    
+    <!-- Permissões para manter app ativo em background -->
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
 
     <!-- Features de hardware -->
     <uses-feature android:name="android.hardware.location" android:required="true" />
@@ -55,13 +60,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Serviço de foreground para tracking obrigatório -->
-        <service 
-            android:name="io.ionic.background.BackgroundLocationService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="location" />
-
         <!-- Provider de arquivos -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -84,12 +82,5 @@
             android:value="false" />
 
     </application>
-
-    <!-- Configurações de rede e segurança -->
-    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
-    
-    <!-- Configuração para manter app ativo em background -->
-    <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
-    <uses-permission android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
 
 </manifest>
