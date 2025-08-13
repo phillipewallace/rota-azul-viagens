@@ -3,12 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
 import { useMobile, TruckMobileData } from '@/hooks/useMobile';
 import { useRouteSync } from '@/hooks/useRouteSync';
 import MobileRouteMap from '@/components/MobileRouteMap';
 import RouteUpdateNotification from '@/components/RouteUpdateNotification';
+import { backgroundTrackingService } from '@/services/backgroundTracking';
+import { Capacitor } from '@capacitor/core';
 
 interface TruckData {
   id: string;
@@ -24,8 +27,9 @@ const MobileDriver = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullTruckData, setFullTruckData] = useState<TruckMobileData | null>(null);
+  const [trackingStatus, setTrackingStatus] = useState({ isTracking: false, queueSize: 0 });
 
-  // ✅ NOVO: Persistência de estado
+  // ✅ Persistência de estado
   const [persistedState, setPersistedState] = useState<{
     isLoggedIn: boolean;
     plateNumber: string;
@@ -36,9 +40,34 @@ const MobileDriver = () => {
   const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute } = useMobile();
   const { hasRouteChanged, newRouteData, acceptRouteUpdate, dismissRouteUpdate, checkForRouteUpdates } = useRouteSync(fullTruckData);
 
-  // ✅ CAREGAR ESTADO PERSISTIDO NA INICIALIZAÇÃO
+  // ✅ Inicializar serviço de background na montagem do componente
   useEffect(() => {
-    const loadPersistedState = () => {
+    const initializeBackgroundService = async () => {
+      try {
+        await backgroundTrackingService.initialize();
+        console.log('📱 [MOBILE] Serviço de background inicializado');
+        
+        // Atualizar status de tracking periodicamente
+        const statusInterval = setInterval(() => {
+          const status = backgroundTrackingService.getTrackingStatus();
+          setTrackingStatus({
+            isTracking: status.isTracking,
+            queueSize: status.queueSize
+          });
+        }, 5000);
+
+        return () => clearInterval(statusInterval);
+      } catch (error) {
+        console.error('❌ [MOBILE] Erro ao inicializar background service:', error);
+      }
+    };
+
+    initializeBackgroundService();
+  }, []);
+
+  // ✅ Carregar estado persistido
+  useEffect(() => {
+    const loadPersistedState = async () => {
       try {
         const saved = localStorage.getItem('mobile-driver-state');
         if (saved) {
@@ -51,6 +80,9 @@ const MobileDriver = () => {
             setIsLoggedIn(true);
             setPlateNumber(parsedState.plateNumber);
             setTruckData(parsedState.truckData);
+            
+            // ✅ INICIAR RASTREAMENTO OBRIGATÓRIO AUTOMATICAMENTE
+            await startMandatoryTracking(parsedState.truckData);
             
             // Recarregar dados completos do caminhão
             reloadTruckData(parsedState.plateNumber);
@@ -65,7 +97,41 @@ const MobileDriver = () => {
     loadPersistedState();
   }, []);
 
-  // ✅ PERSISTIR ESTADO SEMPRE QUE MUDAR
+  // ✅ Iniciar rastreamento obrigatório
+  const startMandatoryTracking = async (truck: TruckData) => {
+    try {
+      console.log('🟢 [MOBILE] Iniciando rastreamento obrigatório para:', truck.name);
+      
+      const trackingConfig = {
+        truckId: truck.id,
+        truckName: truck.name,
+        plate: truck.plate,
+        updateInterval: 10000 // 10 segundos
+      };
+
+      const success = await backgroundTrackingService.startTracking(trackingConfig);
+      
+      if (success) {
+        toast.success('Rastreamento GPS ativado automaticamente', {
+          description: 'Localização será monitorada continuamente'
+        });
+        
+        // Mostrar status de tracking
+        const status = backgroundTrackingService.getTrackingStatus();
+        setTrackingStatus({
+          isTracking: status.isTracking,
+          queueSize: status.queueSize
+        });
+      }
+    } catch (error) {
+      console.error('❌ [MOBILE] Erro ao iniciar rastreamento obrigatório:', error);
+      toast.error('Erro ao ativar rastreamento GPS', {
+        description: 'Verifique as permissões de localização'
+      });
+    }
+  };
+
+  // ✅ Persistir estado
   const persistState = (state: any) => {
     try {
       localStorage.setItem('mobile-driver-state', JSON.stringify(state));
@@ -75,7 +141,7 @@ const MobileDriver = () => {
     }
   };
 
-  // ✅ RECARREGAR DADOS DO CAMINHÃO PRESERVANDO PROGRESSO
+  // ✅ Recarregar dados do caminhão
   const reloadTruckData = async (plate: string) => {
     try {
       console.log('🔄 [MOBILE] Recarregando dados do caminhão:', plate);
@@ -85,7 +151,7 @@ const MobileDriver = () => {
       
       setFullTruckData(updatedData);
       
-      // ✅ PRESERVAR PROGRESSO DA ROTA SALVO LOCALMENTE
+      // Preservar progresso da rota salvo localmente
       if (persistedState?.routeProgress && updatedData.currentRoute) {
         console.log('🔄 [MOBILE] Aplicando progresso salvo da rota');
         
@@ -171,7 +237,7 @@ const MobileDriver = () => {
       setFullTruckData(data);
       setIsLoggedIn(true);
       
-      // ✅ PERSISTIR ESTADO
+      // ✅ Persistir estado
       const stateToSave = {
         isLoggedIn: true,
         plateNumber,
@@ -187,7 +253,13 @@ const MobileDriver = () => {
       persistState(stateToSave);
       
       updateActiveTrackingInStorage(data.id, true);
-      toast.success(`Bem-vindo, ${data.name}!`);
+      
+      // ✅ INICIAR RASTREAMENTO OBRIGATÓRIO IMEDIATAMENTE
+      await startMandatoryTracking(data);
+      
+      toast.success(`Bem-vindo, ${data.name}!`, {
+        description: 'Rastreamento GPS ativado automaticamente'
+      });
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
@@ -198,12 +270,21 @@ const MobileDriver = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (truckData?.id) {
       updateActiveTrackingInStorage(truckData.id, false);
     }
     
-    // ✅ LIMPAR ESTADO PERSISTIDO
+    // ⚠️ NOTA: Em produção, você pode querer manter o tracking ativo mesmo após logout
+    // Para fins de demonstração, vamos parar o tracking
+    try {
+      await backgroundTrackingService.stopTracking();
+      console.log('🔴 [MOBILE] Rastreamento interrompido no logout');
+    } catch (error) {
+      console.error('❌ [MOBILE] Erro ao parar rastreamento:', error);
+    }
+    
+    // Limpar estado persistido
     localStorage.removeItem('mobile-driver-state');
     
     setIsLoggedIn(false);
@@ -212,12 +293,13 @@ const MobileDriver = () => {
     setPlateNumber('');
     setError(null);
     setPersistedState(null);
+    setTrackingStatus({ isTracking: false, queueSize: 0 });
     
     toast.success('Logout realizado com sucesso');
     console.log('👋 [MOBILE] Logout realizado');
   };
 
-  // ✅ ATUALIZAR PROGRESSO LOCAL QUANDO PONTO FOR MARCADO
+  // ✅ Atualizar progresso local quando ponto for marcado
   const handlePointUpdate = async (pointId: string, completed: boolean) => {
     try {
       if (!fullTruckData?.id) return;
@@ -229,7 +311,7 @@ const MobileDriver = () => {
         completed
       });
       
-      // ✅ ATUALIZAR ESTADO LOCAL E PERSISTIR
+      // Atualizar estado local e persistir
       const updatedData = {
         ...fullTruckData,
         currentRoute: {
@@ -268,31 +350,100 @@ const MobileDriver = () => {
     }
   };
 
+  // ✅ Função para forçar sincronização manual
+  const handleForceSync = async () => {
+    try {
+      const success = await backgroundTrackingService.forcSync();
+      if (success) {
+        toast.success('Sincronização realizada com sucesso');
+      } else {
+        toast.warning('Nenhum dado para sincronizar');
+      }
+    } catch (error) {
+      console.error('❌ [MOBILE] Erro na sincronização forçada:', error);
+      toast.error('Erro na sincronização');
+    }
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
       {isLoggedIn ? (
         <div className="w-full max-w-4xl space-y-4">
-          {/* Header do motorista */}
+          {/* Header do motorista com status de tracking */}
           <Card>
             <CardContent className="p-4">
-              <div className="flex justify-between items-center">
-                <div>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
                   <h2 className="text-xl font-semibold">Painel do Motorista</h2>
                   <p className="text-gray-600">
                     {truckData?.name} - <span className="font-medium">{truckData?.plate}</span>
                   </p>
+                  
+                  {/* ✅ Status do rastreamento obrigatório */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge 
+                      variant={trackingStatus.isTracking ? "default" : "destructive"}
+                      className={trackingStatus.isTracking ? "bg-green-500" : "bg-red-500"}
+                    >
+                      <div className={`w-2 h-2 rounded-full mr-1 ${
+                        trackingStatus.isTracking ? 'bg-green-200 animate-pulse' : 'bg-red-200'
+                      }`}></div>
+                      {trackingStatus.isTracking ? 'GPS Ativo' : 'GPS Inativo'}
+                    </Badge>
+                    
+                    {trackingStatus.queueSize > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {trackingStatus.queueSize} pendente(s)
+                      </Badge>
+                    )}
+                    
+                    {Capacitor.isNativePlatform() && (
+                      <span className="text-xs text-gray-500">
+                        Modo Nativo • Background Ativo
+                      </span>
+                    )}
+                  </div>
                 </div>
+                
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => checkForRouteUpdates()}>
+                  {trackingStatus.queueSize > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleForceSync}
+                    >
+                      Sync ({trackingStatus.queueSize})
+                    </Button>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => checkForRouteUpdates()}
+                  >
                     Verificar Atualizações
                   </Button>
-                  <Button variant="destructive" onClick={handleLogout}>
+                  <Button variant="destructive" size="sm" onClick={handleLogout}>
                     Sair
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* ✅ Aviso sobre rastreamento obrigatório */}
+          {!trackingStatus.isTracking && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                  <p className="text-sm text-amber-800">
+                    <strong>Atenção:</strong> O rastreamento GPS é obrigatório durante o expediente. 
+                    Verifique as permissões de localização se o status estiver inativo.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notificação de atualização de rota */}
           {hasRouteChanged && newRouteData && (
@@ -355,6 +506,12 @@ const MobileDriver = () => {
               <Button className="w-full" onClick={handleLogin} disabled={loading}>
                 {loading ? 'Carregando...' : 'Entrar'}
               </Button>
+              
+              {/* ✅ Aviso sobre rastreamento obrigatório */}
+              <div className="text-xs text-gray-600 text-center">
+                <p>⚠️ Ao fazer login, o rastreamento GPS será ativado automaticamente</p>
+                <p>Dispositivo da empresa • Monitoramento obrigatório</p>
+              </div>
             </div>
           </CardContent>
         </Card>
