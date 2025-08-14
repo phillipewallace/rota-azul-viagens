@@ -1,3 +1,4 @@
+
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -5,7 +6,6 @@ const config: CapacitorConfig = {
   appName: 'AlchemyRotas Mobile',
   webDir: 'dist',
   server: {
-    url: 'https://e145d80f-177c-4eb9-987f-d67c392fc5de.lovableproject.com/mobile?forceHideBadge=true',
     androidScheme: 'https',
     cleartext: true,
     allowNavigation: [
@@ -27,11 +27,6 @@ const config: CapacitorConfig = {
       permissions: {
         location: "always"
       }
-    },
-    LocalNotifications: {
-      smallIcon: "ic_stat_icon_config_sample",
-      iconColor: "#488AFF",
-      sound: "beep.wav"
     },
     SplashScreen: {
       launchShowDuration: 2000,
