@@ -23,9 +23,26 @@ const MapComponent = () => {
   const { routes, loading: routesLoading } = useRoutes();
 
   const truckColors = [
-    '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', 
-    '#8b5cf6', '#ec4899', '#10b981', '#f97316',
-    '#06b6d4', '#84cc16', '#f43f5e', '#6366f1'
+    '#ef4444', // Vermelho intenso
+    '#3b82f6', // Azul royal
+    '#22c55e', // Verde esmeralda
+    '#f59e0b', // Laranja vibrante
+    '#8b5cf6', // Roxo
+    '#ec4899', // Rosa pink
+    '#eab308', // Amarelo dourado
+    '#06b6d4', // Ciano
+    '#a16207', // Marrom bronze
+    '#6366f1', // Índigo
+    '#84cc16', // Lima
+    '#0891b2', // Turquesa escuro
+    '#c2410c', // Laranja queimado
+    '#7c3aed', // Violeta
+    '#dc2626', // Vermelho escuro
+    '#059669', // Verde escuro
+    '#1d4ed8', // Azul escuro
+    '#b45309', // Âmbar escuro
+    '#9333ea', // Púrpura
+    '#0d9488'  // Teal
   ];
 
   const mapTypes = [
@@ -34,6 +51,10 @@ const MapComponent = () => {
     { id: 'hybrid', label: 'Híbrido' },
     { id: 'terrain', label: 'Terreno' }
   ] as const;
+
+  const getTruckColor = (truckId: string, truckIndex: number): string => {
+    return truckColors[truckIndex % truckColors.length];
+  };
 
   const getCurrentLocation = (): Promise<{ lat: number; lng: number } | null> => {
     return new Promise((resolve) => {
@@ -281,17 +302,12 @@ const MapComponent = () => {
     
     if (!Array.isArray(trucks)) return;
     
-    const truckColorMap = new Map();
-    trucks.forEach((truck, index) => {
-      truckColorMap.set(truck.id, truckColors[index % truckColors.length]);
-    });
-    
     const activeTracking = Array.from(activeTrucks);
     
-    trucks.forEach((truck) => {
+    trucks.forEach((truck, index) => {
       if (!truck.location || typeof truck.location.lat !== 'number' || typeof truck.location.lng !== 'number') return;
 
-      const truckColor = truckColorMap.get(truck.id);
+      const truckColor = getTruckColor(truck.id, index);
       const isActivelyTracked = activeTracking.includes(truck.id);
       
       try {
