@@ -95,8 +95,8 @@ class GoogleMapsOptimizer {
         throw new Error(`Routes API v2 error: ${response.status}`);
       }
 
-      const data = await response.json();
-      
+      const data = await response.json() as any;
+
       if (!data.routes?.length) {
         throw new Error('Nenhuma rota encontrada');
       }
@@ -190,14 +190,14 @@ class GoogleMapsOptimizer {
         throw new Error(`Routes API v2 error: ${response.status}`);
       }
 
-      const data = await response.json();
-      
+      const data = await response.json() as any;
+
       if (!data.routes?.length) {
         throw new Error('Nenhuma rota encontrada');
       }
 
       const route = data.routes[0];
-      let optimizedPoints = [{ ...origin, order: 0, type: 'origin' as const }];
+      let optimizedPoints: any[] = [{ ...origin, order: 0, type: 'origin' as const }];
 
       // Reordenar waypoints conforme otimização do Google
       if (route.optimizedIntermediateWaypointIndex && limitedWaypoints.length > 0) {
@@ -270,7 +270,7 @@ class GoogleMapsOptimizer {
 
     try {
       // ✅ ESTRATÉGIA MELHORADA: Dividir em segmentos otimizáveis
-      const segments = [];
+      const segments: any[] = [];
       const segmentSize = this.MAX_WAYPOINTS; // 25 waypoints por segmento
       
       // Criar segmentos de waypoints
@@ -281,7 +281,7 @@ class GoogleMapsOptimizer {
 
       console.log(`🔧 [OPTIMIZER V2] Dividindo em ${segments.length} segmentos de até ${segmentSize} waypoints`);
 
-      let allOptimizedPoints = [{ ...origin, order: 0, type: 'origin' as const }];
+      let allOptimizedPoints: any[] = [{ ...origin, order: 0, type: 'origin' as const }];
       let totalDistance = 0;
       let totalDuration = 0;
       let finalPolyline = '';
@@ -716,7 +716,7 @@ class GoogleMapsOptimizer {
       const lastCompletedPoint = completedPoints[completedPoints.length - 1];
       
       // Usar lógica similar ao handleLargeRoute
-      const segments = [];
+      const segments: any[] = [];
       const segmentSize = this.MAX_WAYPOINTS;
       
       for (let i = 0; i < remainingPoints.length; i += segmentSize) {
@@ -726,7 +726,7 @@ class GoogleMapsOptimizer {
       
       console.log(`🔧 [OPTIMIZER SEGMENTATION] Dividindo em ${segments.length} segmentos`);
       
-      let allOptimizedPoints = [...completedPoints.slice(0, -1)];
+      let allOptimizedPoints: any[] = [...completedPoints.slice(0, -1)];
       let totalDistance = 0;
       let totalDuration = 0;
       let finalPolyline = '';

@@ -692,8 +692,8 @@ router.post('/:id/optimize', async (req, res) => {
       lat: parseFloat(p.lat),
       lng: parseFloat(p.lng),
       order: p.point_order,
-      type: p.point_order === 0 ? 'origin' : 
-            p.point_order === pointsResult.rows.length - 1 ? 'destination' : 'waypoint',
+      type: (p.point_order === 0 ? 'origin' : 
+            p.point_order === pointsResult.rows.length - 1 ? 'destination' : 'waypoint') as 'origin' | 'destination' | 'waypoint',
       completed: p.completed
     }));
 

@@ -39,7 +39,7 @@ router.get('/truck/:plate', async (req, res) => {
     console.log(`✅ [MOBILE API] Caminhão encontrado: ${truck.name} (${truck.plate})`);
     
     // Buscar dados da rota se existir
-    let currentRoute = null;
+    let currentRoute: any = null;
     
     if (truck.current_route_id) {
       console.log(`📋 [MOBILE API] Buscando rota: ${truck.current_route_id}`);
@@ -81,7 +81,7 @@ router.get('/truck/:plate', async (req, res) => {
         const pointsResult = await pool.query(pointsQuery, [truck.current_route_id]);
         console.log(`📍 [MOBILE API] Pontos da rota encontrados: ${pointsResult.rows.length}`);
         
-        let points = [];
+        let points: any[] = [];
         let completedCount = 0;
         
         if (pointsResult.rows.length > 0) {
