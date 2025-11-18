@@ -15,7 +15,10 @@ const MapComponent = () => {
   const directionsRenderers = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
   const userLocationMarker = useRef<any>(null);
-  const [trafficEnabled, setTrafficEnabled] = useState(true);
+  const [trafficEnabled, setTrafficEnabled] = useState(() => {
+    const saved = localStorage.getItem('map-traffic-enabled');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [realTimeTraffic, setRealTimeTraffic] = useState<any[]>([]);
   const [activeTrucks, setActiveTrucks] = useState<Set<string>>(new Set());
   
@@ -129,13 +132,16 @@ const MapComponent = () => {
   const toggleTrafficLayer = () => {
     if (!map.current) return;
 
-    if (trafficEnabled) {
-      trafficService.disableTrafficLayer();
-      setTrafficEnabled(false);
-    } else {
+    const newState = !trafficEnabled;
+    
+    if (newState) {
       trafficService.enableTrafficLayer(map.current);
-      setTrafficEnabled(true);
+    } else {
+      trafficService.disableTrafficLayer();
     }
+    
+    setTrafficEnabled(newState);
+    localStorage.setItem('map-traffic-enabled', JSON.stringify(newState));
   };
 
   const updateRealTimeTraffic = async () => {
@@ -499,18 +505,17 @@ const MapComponent = () => {
   }, [userLocation, mapLoaded]);
 
   useEffect(() => {
-    if (mapLoaded && trafficEnabled) {
-      updateRealTimeTraffic();
-      const trafficInterval = setInterval(updateRealTimeTraffic, 60000);
-      return () => clearInterval(trafficInterval);
+    if (mapLoaded && map.current) {
+      if (trafficEnabled) {
+        trafficService.enableTrafficLayer(map.current);
+        updateRealTimeTraffic();
+        const trafficInterval = setInterval(updateRealTimeTraffic, 60000);
+        return () => clearInterval(trafficInterval);
+      } else {
+        trafficService.disableTrafficLayer();
+      }
     }
   }, [mapLoaded, trafficEnabled]);
-
-  useEffect(() => {
-    if (mapLoaded && map.current && trafficEnabled) {
-      trafficService.enableTrafficLayer(map.current);
-    }
-  }, [mapLoaded]);
 
   useEffect(() => {
     return () => {
