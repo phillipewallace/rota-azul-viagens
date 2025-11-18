@@ -36,7 +36,7 @@ router.get('/cep/:cep', async (req, res) => {
     // Use Google Maps Geocoding API para obter coordenadas
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w`;
     const geocodeResponse = await fetch(geocodeUrl);
-    const geocodeData = await geocodeResponse.json();
+    const geocodeData = await geocodeResponse.json() as any;
     
     let lat = -23.5505; // Coordenadas padrão (São Paulo)
     let lng = -46.6333;
