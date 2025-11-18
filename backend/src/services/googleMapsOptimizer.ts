@@ -123,10 +123,13 @@ class GoogleMapsOptimizer {
   }
 
   private async optimizeWithRoutesAPIv2(points: OptimizationPoint[]): Promise<OptimizationResult> {
+    // Identificar origem e destino pelo tipo, não pela posição
     const origin = points.find(p => p.type === 'origin') || points[0];
     const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
+    
+    // Filtrar APENAS waypoints verdadeiros, excluindo origem e destino
     const waypoints = points.filter(p => 
-      p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id)
+      p.type === 'waypoint' && p.id !== origin.id && p.id !== destination.id
     );
 
     // ✅ CRÍTICO: Aplicar limite rigoroso de 25 waypoints
@@ -262,10 +265,13 @@ class GoogleMapsOptimizer {
   private async handleLargeRoute(points: OptimizationPoint[]): Promise<OptimizationResult> {
     console.log(`📊 [OPTIMIZER V2] Rota grande com ${points.length} pontos - aplicando estratégia de segmentação`);
     
+    // Identificar origem e destino pelo tipo, não pela posição
     const origin = points.find(p => p.type === 'origin') || points[0];
     const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
+    
+    // Filtrar APENAS waypoints verdadeiros, excluindo origem e destino
     const waypoints = points.filter(p => 
-      p.type === 'waypoint' || (p.id !== origin.id && p.id !== destination.id)
+      p.type === 'waypoint' && p.id !== origin.id && p.id !== destination.id
     );
 
     try {
