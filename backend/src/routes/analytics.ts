@@ -421,7 +421,7 @@ router.get('/route-usage', async (req, res) => {
         COALESCE(SUM(re.total_distance), 0) as total_distance
       FROM routes r
       LEFT JOIN route_executions re ON r.id = re.route_id
-        AND re.start_time >= NOW() - INTERVAL '${period} days'
+        AND re.started_at >= NOW() - INTERVAL '${period} days'
       GROUP BY r.id, r.name
       HAVING COUNT(re.id) > 0
       ORDER BY execution_count DESC
@@ -446,7 +446,7 @@ router.get('/maintenance-summary', async (req, res) => {
         COUNT(*) as count,
         COALESCE(SUM(cost), 0) as total_cost
       FROM maintenance_records
-      WHERE date >= NOW() - INTERVAL '${period} days'
+      WHERE maintenance_date >= NOW() - INTERVAL '${period} days'
       GROUP BY type
       ORDER BY count DESC
     `);
@@ -465,12 +465,12 @@ router.get('/monthly-performance', async (req, res) => {
     
     const result = await pool.query(`
       SELECT 
-        TO_CHAR(DATE_TRUNC('month', start_time), 'YYYY-MM') as month,
+        TO_CHAR(DATE_TRUNC('month', started_at), 'YYYY-MM') as month,
         COUNT(*) as total_executions,
         COALESCE(SUM(total_distance), 0) as total_distance
       FROM route_executions
-      WHERE start_time >= NOW() - INTERVAL '${period} days'
-      GROUP BY DATE_TRUNC('month', start_time)
+      WHERE started_at >= NOW() - INTERVAL '${period} days'
+      GROUP BY DATE_TRUNC('month', started_at)
       ORDER BY month ASC
     `);
     
