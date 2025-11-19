@@ -62,14 +62,23 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       // ✅ GARANTIR QUE CADA PONTO TENHA UM ID ÚNICO
       const pointsWithUniqueIds = points.map((point: any, index: number) => {
         const uniqueId = point.id || generateUniqueId(`existing-${index}`);
-        console.log(`🔄 [CREATE MODAL] Ponto ${index}: ID original '${point.id}' -> ID único '${uniqueId}'`);
         
         return {
-          ...point,
           id: uniqueId,
-          order: index
+          order: index,
+          cep: point.cep || '', // ✅ CARREGAR CEP DO BANCO
+          address: point.address || '',
+          lat: point.lat || 0,
+          lng: point.lng || 0,
+          type: point.type
         };
       });
+      
+      console.log('🔄 [LOAD] Pontos carregados do banco:', pointsWithUniqueIds.map(p => ({
+        id: p.id,
+        address: p.address?.substring(0, 30),
+        cep: p.cep || '❌ SEM CEP'
+      })));
       
       // ✅ CRIAR NOVA CÓPIA DO ARRAY E ORDENAR
       const sortedPoints = [...pointsWithUniqueIds].sort((a: any, b: any) => a.order - b.order);
@@ -122,15 +131,15 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     const newPoint: RoutePoint = {
       id: generateUniqueId('new'),
       address: '',
-      cep: '',
       lat: 0,
       lng: 0,
       order: allPoints.length,
-      type: 'waypoint'
+      type: 'waypoint',
+      cep: '' // ✅ INICIALIZAR EXPLICITAMENTE
     };
     
-    console.log(`➕ [CREATE MODAL] Novo ponto adicionado: ${newPoint.id}`);
-    setAllPoints([...allPoints, newPoint]);
+    console.log('➕ [ADD POINT] Novo ponto criado:', newPoint);
+    setAllPoints(prev => [...prev, newPoint]);
   };
 
   const removePoint = (id: string) => {
@@ -252,36 +261,39 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   };
 
   const updatePointCep = async (pointId: string, cep: string) => {
-    // ✅ GUARD CLAUSE: Verificar se pointId é válido
     if (!pointId) {
-      console.error('❌ [CREATE MODAL] updatePointCep: pointId é undefined!');
+      console.error('❌ updatePointCep: pointId é undefined!');
       return;
     }
-
+    
+    console.log(`📝 [CEP UPDATE] Atualizando CEP APENAS do ponto ${pointId}: "${cep}"`);
+    
     const cleanCep = cep.replace(/\D/g, '');
     
-    console.log(`📝 [CREATE MODAL] Atualizando CEP APENAS do ponto ${pointId}: ${cleanCep}`);
-    
-    // ✅ CRIAR NOVO ARRAY COM OBJETOS INDEPENDENTES E VALIDAR
     setAllPoints(prev => {
+      // ✅ CRIAR CÓPIA PROFUNDA DE CADA PONTO
       const updated = prev.map(point => {
         if (point.id === pointId) {
-          console.log(`✅ [CREATE MODAL] Atualizando ponto ${point.id}: ${point.cep} -> ${cleanCep}`);
-          return { ...point, cep: cleanCep };
+          console.log(`✅ [CEP UPDATE] Ponto encontrado: ${point.id}`);
+          // ✅ RETORNAR NOVO OBJETO COMPLETAMENTE ISOLADO
+          return {
+            id: point.id,
+            address: point.address,
+            lat: point.lat,
+            lng: point.lng,
+            order: point.order,
+            type: point.type,
+            cep: cleanCep // ✅ ATUALIZAR APENAS ESTE
+          };
         }
-        return point;
+        // ✅ RETORNAR CÓPIA DO PONTO ORIGINAL
+        return { ...point };
       });
       
-      // ✅ VALIDAR QUE APENAS 1 PONTO FOI ALTERADO
-      const changedCount = updated.filter((p, i) => p.cep !== prev[i].cep).length;
-      if (changedCount > 1) {
-        console.error('❌ [CREATE MODAL] MÚLTIPLOS PONTOS FORAM ALTERADOS!', {
-          expected: 1,
-          actual: changedCount
-        });
-      } else if (changedCount === 1) {
-        console.log(`✅ [CREATE MODAL] Apenas 1 ponto foi alterado corretamente`);
-      }
+      console.log('📊 [CEP UPDATE] Estado atualizado:', updated.map(p => ({ 
+        id: p.id, 
+        cep: p.cep 
+      })));
       
       return updated;
     });
@@ -366,6 +378,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
           const original = allPoints.find(p => p.id === optimizedPoint.id);
           return {
             ...optimizedPoint,
+            cep: optimizedPoint.cep || original?.cep || '', // ✅ GARANTIR QUE CEP VAI PARA O PREVIEW
             completed: original?.completed ?? false,
             completedAt: original?.completedAt ?? null,
           };
@@ -376,8 +389,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         status: 'active'
       };
 
-      console.log('✅ [CREATE MODAL] Preview gerado com sucesso');
-      console.log('🎬 [CREATE MODAL] ========================================');
+      console.log('✅ Preview gerado com sucesso');
       setPreviewData(preview);
       setShowPreview(true);
     } catch (error) {
@@ -518,7 +530,10 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                                   <Input
                                     key={`cep-${point.id}-${index}`}
                                     value={point.cep || ''}
-                                    onChange={(e) => updatePointCep(point.id, e.target.value)}
+                                    onChange={(e) => {
+                                      console.log(`⌨️ [INPUT] Digitando no ponto ${point.id}: "${e.target.value}"`);
+                                      updatePointCep(point.id, e.target.value);
+                                    }}
                                     placeholder="00000-000"
                                     maxLength={9}
                                   />
