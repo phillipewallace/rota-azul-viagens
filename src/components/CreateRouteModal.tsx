@@ -47,6 +47,29 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     return `${prefix}-${Date.now()}-${pointIdCounter.current}-${Math.random().toString(36).substr(2, 9)}`;
   }, []);
 
+  // ✅ FUNÇÃO PARA RECALCULAR TIPOS BASEADO NA POSIÇÃO
+  const recalculatePointTypes = useCallback((points: RoutePoint[]): RoutePoint[] => {
+    if (points.length === 0) return points;
+    
+    return points.map((point, index) => {
+      let type: 'origin' | 'destination' | 'waypoint';
+      
+      if (index === 0) {
+        type = 'origin';
+      } else if (index === points.length - 1) {
+        type = 'destination';
+      } else {
+        type = 'waypoint';
+      }
+      
+      return {
+        ...point,
+        type,
+        order: index
+      };
+    });
+  }, []);
+
   useEffect(() => {
     if (editingRoute && open) {
       console.log('🔄 [CREATE MODAL] ========================================');
@@ -83,12 +106,17 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       // ✅ CRIAR NOVA CÓPIA DO ARRAY E ORDENAR
       const sortedPoints = [...pointsWithUniqueIds].sort((a: any, b: any) => a.order - b.order);
       
-      console.log('✅ [CREATE MODAL] IDs únicos confirmados:', sortedPoints.map(p => ({ 
-        id: p.id, 
+      // ✅ RECALCULAR TIPOS APÓS CARREGAR
+      const pointsWithCorrectTypes = recalculatePointTypes(sortedPoints);
+      
+      console.log('✅ [CREATE MODAL] IDs únicos confirmados:', pointsWithCorrectTypes.map(p => ({ 
+        id: p.id,
+        order: p.order,
+        type: p.type,
         address: p.address?.substring(0, 30) + '...' 
       })));
       
-      setAllPoints(sortedPoints);
+      setAllPoints(pointsWithCorrectTypes);
       setStep(2);
       
       console.log('🔄 [CREATE MODAL] ========================================');
@@ -134,12 +162,22 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       lat: 0,
       lng: 0,
       order: allPoints.length,
-      type: 'waypoint',
+      type: 'waypoint', // Temporário, será recalculado
       cep: '' // ✅ INICIALIZAR EXPLICITAMENTE
     };
     
     console.log('➕ [ADD POINT] Novo ponto criado:', newPoint);
-    setAllPoints(prev => [...prev, newPoint]);
+    
+    // ✅ RECALCULAR TIPOS APÓS ADICIONAR
+    const updatedPoints = recalculatePointTypes([...allPoints, newPoint]);
+    
+    console.log('🔄 [ADD POINT] Tipos recalculados:', updatedPoints.map(p => ({
+      id: p.id,
+      order: p.order,
+      type: p.type
+    })));
+    
+    setAllPoints(updatedPoints);
   };
 
   const removePoint = (id: string) => {
@@ -148,13 +186,19 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       return;
     }
     
-    console.log(`🗑️ [CREATE MODAL] Removendo ponto: ${id}`);
+    console.log(`🗑️ [REMOVE POINT] Removendo ponto: ${id}`);
     
     const filteredPoints = allPoints.filter(p => p.id !== id);
-    const reorderedPoints = filteredPoints.map((point, index) => ({
-      ...point,
-      order: index
-    })) as RoutePoint[];
+    
+    // ✅ RECALCULAR TIPOS E ORDEM APÓS REMOVER
+    const reorderedPoints = recalculatePointTypes(filteredPoints);
+    
+    console.log('🔄 [REMOVE POINT] Tipos recalculados:', reorderedPoints.map(p => ({
+      id: p.id,
+      order: p.order,
+      type: p.type
+    })));
+    
     setAllPoints(reorderedPoints);
   };
 
@@ -307,32 +351,28 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     try {
       setLoading(true);
 
-      console.log('🎬 [CREATE MODAL] ========================================');
-      console.log('🎬 [CREATE MODAL] INICIANDO GERAÇÃO DE PREVIEW');
-      console.log('📊 [CREATE MODAL] Total de pontos:', allPoints.length);
+      console.log('🎬 [PREVIEW] ========================================');
+      console.log('🎬 [PREVIEW] INICIANDO GERAÇÃO DE PREVIEW');
+      console.log('📊 [PREVIEW] Total de pontos:', allPoints.length);
+      
+      // ✅ RECALCULAR TIPOS ANTES DA OTIMIZAÇÃO
+      const pointsWithCorrectTypes = recalculatePointTypes(allPoints);
+      
+      console.log('🎬 [PREVIEW] Pontos antes da otimização:');
+      pointsWithCorrectTypes.forEach((p, i) => {
+        console.log(`  ${i}. [${p.type}] ${p.address?.substring(0, 40)} (${p.lat}, ${p.lng})`);
+      });
       
       // ✅ VALIDAÇÃO DETALHADA DE CADA PONTO
-      allPoints.forEach((point, index) => {
-        console.log(`📍 [CREATE MODAL] Ponto ${index}:`, {
-          id: point.id,
-          address: point.address?.substring(0, 30) + '...',
-          lat: point.lat,
-          lng: point.lng,
-          hasCoordinates: !!(point.lat && point.lng),
-          isValid: !!(point.lat && point.lng && point.address && 
-                     typeof point.lat === 'number' && typeof point.lng === 'number' &&
-                     point.lat !== 0 && point.lng !== 0)
-        });
-      });
-
-      const validPoints = allPoints.filter(p => {
+      const validPoints = pointsWithCorrectTypes.filter(p => {
         const isValid = p.lat && p.lng && p.address && 
                        typeof p.lat === 'number' && typeof p.lng === 'number' &&
                        p.lat !== 0 && p.lng !== 0;
         
         if (!isValid) {
-          console.warn('⚠️ [CREATE MODAL] Ponto inválido filtrado:', {
+          console.warn('⚠️ [PREVIEW] Ponto inválido filtrado:', {
             id: p.id,
+            type: p.type,
             address: p.address,
             lat: p.lat,
             lng: p.lng,
@@ -344,15 +384,15 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         return isValid;
       });
       
-      console.log(`✅ [CREATE MODAL] Pontos válidos: ${validPoints.length} de ${allPoints.length}`);
+      console.log(`✅ [PREVIEW] Pontos válidos: ${validPoints.length} de ${pointsWithCorrectTypes.length}`);
 
       if (validPoints.length < 2) {
         toast.error('É necessário pelo menos 2 pontos válidos (origem e destino)');
-        console.error('❌ [CREATE MODAL] Menos de 2 pontos válidos!');
+        console.error('❌ [PREVIEW] Menos de 2 pontos válidos!');
         return;
       }
 
-      console.log('🔄 [CREATE MODAL] Otimizando rota...');
+      console.log('🔄 [PREVIEW] Enviando para otimização com tipos corretos...');
       const optimizedData = await optimizeRoute(validPoints, isEditing ? editingRoute?.id : undefined);
       
       console.log('✅ [CREATE MODAL] Otimização completa:', {
