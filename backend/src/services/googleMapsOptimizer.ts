@@ -123,6 +123,14 @@ class GoogleMapsOptimizer {
   }
 
   private async optimizeWithRoutesAPIv2(points: OptimizationPoint[]): Promise<OptimizationResult> {
+    console.log(`🎯 [OPTIMIZER V2] ========================================`);
+    console.log(`🎯 [OPTIMIZER V2] Recebendo ${points.length} pontos para otimizar`);
+    
+    // ✅ LOGAR CADA PONTO RECEBIDO COM SEU TIPO
+    points.forEach((p, i) => {
+      console.log(`  ${i}. [${p.type || 'SEM TIPO'}] ${p.address?.substring(0, 40)}`);
+    });
+    
     // Identificar origem e destino pelo tipo, não pela posição
     const origin = points.find(p => p.type === 'origin') || points[0];
     const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
@@ -131,6 +139,14 @@ class GoogleMapsOptimizer {
     const waypoints = points.filter(p => 
       p.type === 'waypoint' && p.id !== origin.id && p.id !== destination.id
     );
+
+    console.log(`🚀 [OPTIMIZER V2] Distribuição após filtragem:`);
+    console.log(`   ✅ Origem [FIXO]: ${origin.address?.substring(0, 40)}`);
+    console.log(`   🔄 Waypoints [SERÃO OTIMIZADOS]: ${waypoints.length} ponto(s)`);
+    waypoints.forEach((wp, i) => {
+      console.log(`     ${i+1}. ${wp.address?.substring(0, 40)}`);
+    });
+    console.log(`   ✅ Destino [FIXO]: ${destination.address?.substring(0, 40)}`);
 
     // ✅ CRÍTICO: Aplicar limite rigoroso de 25 waypoints
     const limitedWaypoints = waypoints.slice(0, this.MAX_WAYPOINTS);
