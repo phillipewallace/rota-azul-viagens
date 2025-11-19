@@ -20,6 +20,7 @@ const Index = () => {
     { icon: Route, label: 'Rotas', to: '/routes' },
     { icon: Truck, label: 'Caminhões', to: '/trucks' },
     { icon: Settings, label: 'Gerenciamento', to: '/management' },
+    { icon: BarChart3, label: 'Análises & Histórico', to: '/analytics' },
     { icon: BarChart3, label: 'Relatórios', to: '/reports' },
     { icon: Calendar, label: 'Agenda', to: '/schedule' },
     { icon: Users, label: 'Motoristas', to: '/drivers' },
