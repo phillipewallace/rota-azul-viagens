@@ -7,7 +7,10 @@ import {
   PerformanceData,
   HistoryResponse,
   HistoryFilters,
-  ExecutionDetail
+  ExecutionDetail,
+  RouteUsageData,
+  MaintenanceSummaryData,
+  MonthlyPerformanceData
 } from '@/services/analytics';
 
 export const useAnalytics = () => {
@@ -15,6 +18,9 @@ export const useAnalytics = () => {
   const [trends, setTrends] = useState<TrendData[]>([]);
   const [performance, setPerformance] = useState<PerformanceData | null>(null);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
+  const [routeUsage, setRouteUsage] = useState<RouteUsageData[]>([]);
+  const [maintenanceSummary, setMaintenanceSummary] = useState<MaintenanceSummaryData[]>([]);
+  const [monthlyPerformance, setMonthlyPerformance] = useState<MonthlyPerformanceData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,11 +117,50 @@ export const useAnalytics = () => {
     }
   };
 
+  // Load route usage
+  const loadRouteUsage = async (period: number = 30) => {
+    try {
+      const data = await analyticsService.getRouteUsage(period);
+      setRouteUsage(data);
+    } catch (error) {
+      console.error('Error loading route usage:', error);
+      setError('Erro ao carregar uso de rotas');
+      setRouteUsage([]);
+    }
+  };
+
+  // Load maintenance summary
+  const loadMaintenanceSummary = async (period: number = 30) => {
+    try {
+      const data = await analyticsService.getMaintenanceSummary(period);
+      setMaintenanceSummary(data);
+    } catch (error) {
+      console.error('Error loading maintenance summary:', error);
+      setError('Erro ao carregar resumo de manutenção');
+      setMaintenanceSummary([]);
+    }
+  };
+
+  // Load monthly performance
+  const loadMonthlyPerformance = async (period: number = 180) => {
+    try {
+      const data = await analyticsService.getMonthlyPerformance(period);
+      setMonthlyPerformance(data);
+    } catch (error) {
+      console.error('Error loading monthly performance:', error);
+      setError('Erro ao carregar performance mensal');
+      setMonthlyPerformance([]);
+    }
+  };
+
   const reload = async (period: number = 30) => {
     await Promise.all([
       loadDashboard(period),
       loadTrends(period),
-      loadPerformance(period)
+      loadPerformance(period),
+      loadRouteUsage(period),
+      loadMaintenanceSummary(period),
+      loadMonthlyPerformance(period)
     ]);
   };
 
@@ -124,6 +169,9 @@ export const useAnalytics = () => {
     trends,
     performance,
     history,
+    routeUsage,
+    maintenanceSummary,
+    monthlyPerformance,
     loading,
     error,
     loadDashboard,
@@ -131,6 +179,9 @@ export const useAnalytics = () => {
     loadPerformance,
     loadHistory,
     loadExecutionDetail,
+    loadRouteUsage,
+    loadMaintenanceSummary,
+    loadMonthlyPerformance,
     reload
   };
 };

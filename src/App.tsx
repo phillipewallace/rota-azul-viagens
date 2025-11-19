@@ -10,7 +10,6 @@ import Trucks from "./pages/Trucks";
 import Drivers from "./pages/Drivers";
 import RoutesPage from "./pages/Routes";
 import Schedule from "./pages/Schedule";
-import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Management from "./pages/Management";
 import Maintenance from "./pages/Maintenance";
@@ -86,10 +85,10 @@ function App() {
               }
             />
             <Route
-              path="/reports"
+              path="/analytics"
               element={
                 <ProtectedRoute>
-                  <Reports />
+                  <Analytics />
                 </ProtectedRoute>
               }
             />
@@ -114,14 +113,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Settings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/analytics"
-              element={
-                <ProtectedRoute>
-                  <Analytics />
                 </ProtectedRoute>
               }
             />

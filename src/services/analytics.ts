@@ -157,6 +157,36 @@ export class AnalyticsService extends BaseApiService {
   async getExecutionDetail(id: string): Promise<ExecutionDetail> {
     return this.request<ExecutionDetail>(`/analytics/history/${id}`);
   }
+
+  async getRouteUsage(period: number = 30): Promise<RouteUsageData[]> {
+    return this.request<RouteUsageData[]>(`/analytics/route-usage?period=${period}`);
+  }
+
+  async getMaintenanceSummary(period: number = 30): Promise<MaintenanceSummaryData[]> {
+    return this.request<MaintenanceSummaryData[]>(`/analytics/maintenance-summary?period=${period}`);
+  }
+
+  async getMonthlyPerformance(period: number = 180): Promise<MonthlyPerformanceData[]> {
+    return this.request<MonthlyPerformanceData[]>(`/analytics/monthly-performance?period=${period}`);
+  }
+}
+
+export interface RouteUsageData {
+  route_name: string;
+  execution_count: number;
+  total_distance: number;
+}
+
+export interface MaintenanceSummaryData {
+  type: string;
+  count: number;
+  total_cost: number;
+}
+
+export interface MonthlyPerformanceData {
+  month: string;
+  total_executions: number;
+  total_distance: number;
 }
 
 export const analyticsService = new AnalyticsService();

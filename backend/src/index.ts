@@ -11,7 +11,7 @@ import driversRoutes from './routes/drivers';
 import schedulesRoutes from './routes/schedules';
 import geocodingRoutes from './routes/geocoding';
 import mobileRoutes from './routes/mobile';
-import reportsRoutes from './routes/reports';
+
 import maintenanceRoutes from './routes/maintenance';
 import managementRoutes from './routes/management';
 import settingsRoutes from './routes/settings';
@@ -63,7 +63,7 @@ app.use('/api/drivers', driversRoutes);
 app.use('/api/schedules', schedulesRoutes);
 app.use('/api/geocoding', geocodingRoutes);
 app.use('/api/mobile', mobileRoutes);
-app.use('/api/reports', reportsRoutes);
+
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/management', managementRoutes);
 app.use('/api/settings', settingsRoutes);
