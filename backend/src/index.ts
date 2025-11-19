@@ -16,6 +16,7 @@ import maintenanceRoutes from './routes/maintenance';
 import managementRoutes from './routes/management';
 import settingsRoutes from './routes/settings';
 import uploadRoutes from './routes/upload';
+import analyticsRoutes from './routes/analytics';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -67,6 +68,7 @@ app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/management', managementRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 console.log('✅ [SERVER] Todas as rotas registradas com sucesso');
 
