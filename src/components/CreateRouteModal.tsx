@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,10 +38,14 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
 
   const isEditing = !!editingRoute?.id;
 
+  // ✅ CONTADOR GLOBAL PARA IDs ÚNICOS (NUNCA RESETA)
+  const pointIdCounter = useRef(0);
+
   // ✅ FUNÇÃO PARA GERAR IDs ÚNICOS ROBUSTOS
-  const generateUniqueId = (prefix: string = 'point') => {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  };
+  const generateUniqueId = useCallback((prefix: string = 'point') => {
+    pointIdCounter.current += 1;
+    return `${prefix}-${Date.now()}-${pointIdCounter.current}-${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
 
   useEffect(() => {
     if (editingRoute && open) {
@@ -250,18 +254,37 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const updatePointCep = async (pointId: string, cep: string) => {
     // ✅ GUARD CLAUSE: Verificar se pointId é válido
     if (!pointId) {
-      console.warn('⚠️ [CREATE MODAL] updatePointCep: pointId inválido', { pointId, cep });
+      console.error('❌ [CREATE MODAL] updatePointCep: pointId é undefined!');
       return;
     }
 
     const cleanCep = cep.replace(/\D/g, '');
     
-    console.log(`📝 [CREATE MODAL] Atualizando CEP do ponto ${pointId}:`, cleanCep);
+    console.log(`📝 [CREATE MODAL] Atualizando CEP APENAS do ponto ${pointId}: ${cleanCep}`);
     
-    // ✅ CRIAR NOVO ARRAY COM OBJETOS INDEPENDENTES
-    setAllPoints(prev => prev.map(point => 
-      point.id === pointId ? { ...point, cep: cleanCep } : point
-    ));
+    // ✅ CRIAR NOVO ARRAY COM OBJETOS INDEPENDENTES E VALIDAR
+    setAllPoints(prev => {
+      const updated = prev.map(point => {
+        if (point.id === pointId) {
+          console.log(`✅ [CREATE MODAL] Atualizando ponto ${point.id}: ${point.cep} -> ${cleanCep}`);
+          return { ...point, cep: cleanCep };
+        }
+        return point;
+      });
+      
+      // ✅ VALIDAR QUE APENAS 1 PONTO FOI ALTERADO
+      const changedCount = updated.filter((p, i) => p.cep !== prev[i].cep).length;
+      if (changedCount > 1) {
+        console.error('❌ [CREATE MODAL] MÚLTIPLOS PONTOS FORAM ALTERADOS!', {
+          expected: 1,
+          actual: changedCount
+        });
+      } else if (changedCount === 1) {
+        console.log(`✅ [CREATE MODAL] Apenas 1 ponto foi alterado corretamente`);
+      }
+      
+      return updated;
+    });
 
     if (cleanCep.length === 8) {
       await searchAddressByCep(pointId, cleanCep);
@@ -272,16 +295,69 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     try {
       setLoading(true);
 
-      const validPoints = allPoints.filter(p => p.lat && p.lng && p.address);
+      console.log('🎬 [CREATE MODAL] ========================================');
+      console.log('🎬 [CREATE MODAL] INICIANDO GERAÇÃO DE PREVIEW');
+      console.log('📊 [CREATE MODAL] Total de pontos:', allPoints.length);
+      
+      // ✅ VALIDAÇÃO DETALHADA DE CADA PONTO
+      allPoints.forEach((point, index) => {
+        console.log(`📍 [CREATE MODAL] Ponto ${index}:`, {
+          id: point.id,
+          address: point.address?.substring(0, 30) + '...',
+          lat: point.lat,
+          lng: point.lng,
+          hasCoordinates: !!(point.lat && point.lng),
+          isValid: !!(point.lat && point.lng && point.address && 
+                     typeof point.lat === 'number' && typeof point.lng === 'number' &&
+                     point.lat !== 0 && point.lng !== 0)
+        });
+      });
+
+      const validPoints = allPoints.filter(p => {
+        const isValid = p.lat && p.lng && p.address && 
+                       typeof p.lat === 'number' && typeof p.lng === 'number' &&
+                       p.lat !== 0 && p.lng !== 0;
+        
+        if (!isValid) {
+          console.warn('⚠️ [CREATE MODAL] Ponto inválido filtrado:', {
+            id: p.id,
+            address: p.address,
+            lat: p.lat,
+            lng: p.lng,
+            reason: !p.lat ? 'sem lat' : !p.lng ? 'sem lng' : !p.address ? 'sem endereço' : 
+                   p.lat === 0 ? 'lat = 0' : p.lng === 0 ? 'lng = 0' : 'tipo inválido'
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log(`✅ [CREATE MODAL] Pontos válidos: ${validPoints.length} de ${allPoints.length}`);
+
       if (validPoints.length < 2) {
         toast.error('É necessário pelo menos 2 pontos válidos (origem e destino)');
+        console.error('❌ [CREATE MODAL] Menos de 2 pontos válidos!');
         return;
       }
 
-      console.log('Gerando preview com pontos:', validPoints.length);
+      console.log('🔄 [CREATE MODAL] Otimizando rota...');
+      const optimizedData = await optimizeRoute(validPoints, isEditing ? editingRoute?.id : undefined);
+      
+      console.log('✅ [CREATE MODAL] Otimização completa:', {
+        totalPoints: optimizedData.points.length,
+        distance: optimizedData.totalDistance,
+        time: optimizedData.estimatedTime
+      });
 
-      // Otimizar rota
-      const optimizedData = await optimizeRoute(validPoints);
+      // ✅ VALIDAR PONTOS OTIMIZADOS
+      optimizedData.points.forEach((p: any, i: number) => {
+        console.log(`📍 [CREATE MODAL] Ponto otimizado ${i}:`, {
+          order: p.order,
+          address: p.address?.substring(0, 30) + '...',
+          lat: p.lat,
+          lng: p.lng
+        });
+      });
 
       const preview = {
         name: routeName,
@@ -300,10 +376,12 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         status: 'active'
       };
 
+      console.log('✅ [CREATE MODAL] Preview gerado com sucesso');
+      console.log('🎬 [CREATE MODAL] ========================================');
       setPreviewData(preview);
       setShowPreview(true);
     } catch (error) {
-      console.error('Error generating preview:', error);
+      console.error('❌ [CREATE MODAL] Error generating preview:', error);
       toast.error('Erro ao gerar preview da rota');
     } finally {
       setLoading(false);
@@ -311,24 +389,39 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   };
 
   const handleSave = async () => {
-    if (!previewData) return;
+    if (!previewData) {
+      toast.error('Nenhum preview disponível');
+      return;
+    }
+
+    // ✅ VALIDAR DADOS ANTES DE SALVAR
+    const validPoints = previewData.points?.filter((p: any) => p.lat && p.lng && p.address);
+    if (!validPoints || validPoints.length < 2) {
+      toast.error('É necessário pelo menos 2 pontos válidos');
+      return;
+    }
 
     try {
       setLoading(true);
       
+      console.log('💾 [CREATE MODAL] Salvando rota...', { isEditing, routeId: editingRoute?.id });
+      
       if (isEditing && editingRoute?.id) {
-        await updateRoute({ id: editingRoute.id, route: previewData });
+        const result = await updateRoute({ id: editingRoute.id, route: previewData });
+        console.log('✅ [CREATE MODAL] Rota atualizada:', result);
         toast.success('Rota atualizada com sucesso!');
       } else {
-        await createRoute(previewData);
+        const result = await createRoute(previewData);
+        console.log('✅ [CREATE MODAL] Rota criada:', result);
         toast.success('Rota criada com sucesso!');
       }
       
       onSuccess();
       handleClose();
-    } catch (error) {
-      console.error('Error saving route:', error);
-      toast.error('Erro ao salvar rota');
+    } catch (error: any) {
+      console.error('❌ [CREATE MODAL] Error saving route:', error);
+      toast.error(error.message || 'Erro ao salvar rota. Tente novamente.');
+      // ❌ NÃO chamar onSuccess() ou handleClose() quando houver erro
     } finally {
       setLoading(false);
     }
@@ -423,8 +516,8 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                                 <div>
                                   <Label>CEP (opcional)</Label>
                                   <Input
-                                    key={`cep-${point.id}`}
-                                    value={point.cep}
+                                    key={`cep-${point.id}-${index}`}
+                                    value={point.cep || ''}
                                     onChange={(e) => updatePointCep(point.id, e.target.value)}
                                     placeholder="00000-000"
                                     maxLength={9}
