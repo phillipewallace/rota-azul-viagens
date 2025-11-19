@@ -409,4 +409,76 @@ router.get('/history/:id', async (req, res) => {
   }
 });
 
+// Get route usage statistics
+router.get('/route-usage', async (req, res) => {
+  try {
+    const { period = 30 } = req.query;
+    
+    const result = await pool.query(`
+      SELECT 
+        r.name as route_name,
+        COUNT(re.id) as execution_count,
+        COALESCE(SUM(re.total_distance), 0) as total_distance
+      FROM routes r
+      LEFT JOIN route_executions re ON r.id = re.route_id
+        AND re.start_time >= NOW() - INTERVAL '${period} days'
+      GROUP BY r.id, r.name
+      HAVING COUNT(re.id) > 0
+      ORDER BY execution_count DESC
+      LIMIT 10
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching route usage:', error);
+    res.status(500).json({ error: 'Erro ao buscar uso de rotas' });
+  }
+});
+
+// Get maintenance summary statistics
+router.get('/maintenance-summary', async (req, res) => {
+  try {
+    const { period = 30 } = req.query;
+    
+    const result = await pool.query(`
+      SELECT 
+        type,
+        COUNT(*) as count,
+        COALESCE(SUM(cost), 0) as total_cost
+      FROM maintenance_records
+      WHERE date >= NOW() - INTERVAL '${period} days'
+      GROUP BY type
+      ORDER BY count DESC
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching maintenance summary:', error);
+    res.status(500).json({ error: 'Erro ao buscar resumo de manutenção' });
+  }
+});
+
+// Get monthly performance statistics
+router.get('/monthly-performance', async (req, res) => {
+  try {
+    const { period = 180 } = req.query; // Default to 6 months
+    
+    const result = await pool.query(`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', start_time), 'YYYY-MM') as month,
+        COUNT(*) as total_executions,
+        COALESCE(SUM(total_distance), 0) as total_distance
+      FROM route_executions
+      WHERE start_time >= NOW() - INTERVAL '${period} days'
+      GROUP BY DATE_TRUNC('month', start_time)
+      ORDER BY month ASC
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching monthly performance:', error);
+    res.status(500).json({ error: 'Erro ao buscar performance mensal' });
+  }
+});
+
 export default router;

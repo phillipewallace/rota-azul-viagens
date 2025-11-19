@@ -1,7 +1,16 @@
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ReportStats } from '@/hooks/useReports';
+
+export interface ReportStats {
+  totalRoutes: number;
+  activeRoutes: number;
+  totalTrucks: number;
+  availableTrucks: number;
+  completedTrips: number;
+  totalKm: number;
+  pendingMaintenance: number;
+}
 
 export class PDFGenerator {
   private doc: jsPDF;

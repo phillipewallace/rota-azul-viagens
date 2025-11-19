@@ -2,7 +2,6 @@
 import { routesService } from './routes';
 import { trucksService } from './trucks';
 import { geocodingService } from './geocoding';
-import { reportsService } from './reports';
 
 // Exporta todos os serviços em uma única classe para compatibilidade
 export class ApiService {
@@ -55,23 +54,6 @@ export class ApiService {
 
   async optimizeRoute(points: any[]) {
     return geocodingService.optimizeRoute(points);
-  }
-
-  // Relatórios
-  async getReportStats() {
-    return reportsService.getReportStats();
-  }
-
-  async getMonthlyPerformance() {
-    return reportsService.getMonthlyPerformance();
-  }
-
-  async getRouteUsage() {
-    return reportsService.getRouteUsage();
-  }
-
-  async getMaintenanceStats() {
-    return reportsService.getMaintenanceStats();
   }
 }
 

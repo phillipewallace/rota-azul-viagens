@@ -11,10 +11,14 @@ import { TrendsChart } from "@/components/analytics/TrendsChart";
 import { HistoryTable } from "@/components/analytics/HistoryTable";
 import { ExecutionDetails } from "@/components/analytics/ExecutionDetails";
 import { AnalyticsFilters } from "@/components/analytics/AnalyticsFilters";
+import { RouteUsageChart } from "@/components/analytics/RouteUsageChart";
+import { MaintenanceChart } from "@/components/analytics/MaintenanceChart";
+import { MonthlyPerformanceChart } from "@/components/analytics/MonthlyPerformanceChart";
 import PageHeader from "@/components/PageHeader";
 import { RouteExecution, ExecutionDetail } from "@/services/analytics";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { pdfGenerator } from '@/components/PDFGenerator';
 
 const Analytics = () => {
   const [period, setPeriod] = useState(30);
@@ -32,6 +36,9 @@ const Analytics = () => {
     trends,
     performance,
     history,
+    routeUsage,
+    maintenanceSummary,
+    monthlyPerformance,
     loading,
     loadDashboard,
     loadTrends,
@@ -76,14 +83,24 @@ const Analytics = () => {
   };
 
   const handleExportPDF = () => {
-    toast.info('Exportação de PDF em desenvolvimento');
+    const stats = {
+      totalRoutes: dashboardData?.kpis.totalRoutes || 0,
+      activeRoutes: dashboardData?.kpis.activeRoutes || 0,
+      totalTrucks: dashboardData?.kpis.trucksUsed || 0,
+      availableTrucks: 0,
+      completedTrips: dashboardData?.kpis.completedRoutes || 0,
+      totalKm: Math.round((dashboardData?.kpis.totalDistance || 0) / 1000),
+      pendingMaintenance: 0
+    };
+    pdfGenerator.generateSystemReport(stats, 'all');
+    toast.success('PDF gerado com sucesso');
   };
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 space-y-6">
       <PageHeader
-        title="Análises & Histórico"
-        subtitle="Dashboard de estatísticas e histórico de execuções de rotas"
+        title="Análises & Relatórios"
+        subtitle="Dashboard de estatísticas, histórico de execuções e relatórios gerenciais"
       />
 
       {/* Seletor de Período */}
@@ -332,6 +349,16 @@ const Analytics = () => {
               </Card>
             </>
           ) : null}
+        </TabsContent>
+
+        {/* Tab: Relatórios Gerais */}
+        <TabsContent value="reports" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <RouteUsageChart data={routeUsage} />
+            <MaintenanceChart data={maintenanceSummary} />
+          </div>
+          
+          <MonthlyPerformanceChart data={monthlyPerformance} />
         </TabsContent>
       </Tabs>
 
