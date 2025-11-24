@@ -7,8 +7,8 @@ export const useRoutesCRUD = () => {
   const queryClient = useQueryClient();
 
   const updateRoute = useMutation({
-    mutationFn: async ({ id, route }: { id: string; route: Partial<Route> }) => {
-      console.log(`🔄 [ROUTES CRUD] Atualizando rota ${id}:`, route);
+    mutationFn: async ({ id, route }: { id: string; route: any }) => {
+      console.log('🔄 [ROUTES CRUD] Atualizando rota:', id);
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}`, {
         method: 'PUT',
@@ -18,14 +18,16 @@ export const useRoutesCRUD = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ [ROUTES CRUD] Erro ao atualizar rota:', errorData);
         throw new Error(errorData.error || 'Erro ao atualizar rota');
       }
 
       const result = await response.json();
-      console.log(`✅ [ROUTES CRUD] Rota atualizada com sucesso`);
+      console.log('✅ [ROUTES CRUD] Rota atualizada com sucesso');
       return result;
     },
     onSuccess: () => {
+      console.log('✅ [ROUTES CRUD] Invalidando queries após atualização');
       queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
     },
@@ -33,27 +35,30 @@ export const useRoutesCRUD = () => {
 
   const deleteRoute = useMutation({
     mutationFn: async (id: string) => {
+      console.log('🗑️ [ROUTES CRUD] Excluindo rota:', id);
+      
       const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ [ROUTES CRUD] Erro ao excluir rota:', errorData);
         throw new Error(errorData.error || 'Erro ao excluir rota');
       }
 
-      return response.json();
+      console.log('✅ [ROUTES CRUD] Rota excluída com sucesso');
     },
     onSuccess: () => {
+      console.log('✅ [ROUTES CRUD] Invalidando queries após exclusão');
       queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
     },
   });
 
-  // ✅ CORRIGIDO: Hook de reset usando o endpoint correto
   const resetRoute = useMutation({
     mutationFn: async (id: string) => {
-      console.log(`🔄 [ROUTES CRUD] Resetando rota ${id} via endpoint /reset`);
+      console.log('🔄 [ROUTES CRUD] Resetando rota:', id);
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}/reset`, {
         method: 'POST',
@@ -62,16 +67,43 @@ export const useRoutesCRUD = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error(`❌ [ROUTES CRUD] Erro ao resetar rota:`, errorData);
+        console.error('❌ [ROUTES CRUD] Erro ao resetar rota:', errorData);
         throw new Error(errorData.error || 'Erro ao resetar rota');
       }
 
       const result = await response.json();
-      console.log(`✅ [ROUTES CRUD] Rota resetada:`, result);
+      console.log('✅ [ROUTES CRUD] Rota resetada com sucesso');
       return result;
     },
     onSuccess: (data) => {
-      console.log(`✅ [ROUTES CRUD] Invalidando queries após reset`);
+      console.log('✅ [ROUTES CRUD] Invalidando queries após reset');
+      queryClient.invalidateQueries({ queryKey: ['routes'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+    },
+  });
+
+  // ✅ NOVO: Hook de otimização manual
+  const optimizeRoute = useMutation({
+    mutationFn: async (id: string) => {
+      console.log(`🔄 [ROUTES CRUD] Otimizando rota ${id} manualmente`);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}/optimize-manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(`❌ [ROUTES CRUD] Erro ao otimizar rota:`, errorData);
+        throw new Error(errorData.error || 'Erro ao otimizar rota');
+      }
+
+      const result = await response.json();
+      console.log(`✅ [ROUTES CRUD] Rota otimizada com sucesso`);
+      return result;
+    },
+    onSuccess: (data) => {
+      console.log(`✅ [ROUTES CRUD] Invalidando queries após otimização`);
       queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
     },
@@ -81,6 +113,7 @@ export const useRoutesCRUD = () => {
     updateRoute: updateRoute.mutateAsync,
     deleteRoute: deleteRoute.mutateAsync,
     resetRoute: resetRoute.mutateAsync,
-    isLoading: updateRoute.isPending || deleteRoute.isPending || resetRoute.isPending,
+    optimizeRoute: optimizeRoute.mutateAsync,
+    isLoading: updateRoute.isPending || deleteRoute.isPending || resetRoute.isPending || optimizeRoute.isPending,
   };
 };

@@ -27,6 +27,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
   const [step, setStep] = useState(1);
   const [routeName, setRouteName] = useState('');
   const [routeDescription, setRouteDescription] = useState('');
+  const [optimizationMode, setOptimizationMode] = useState<'fixed' | 'optimized'>('optimized');
   const [allPoints, setAllPoints] = useState<RoutePoint[]>([]);
   const [previewData, setPreviewData] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -79,6 +80,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       
       setRouteName(editingRoute.name || '');
       setRouteDescription(editingRoute.description || '');
+      setOptimizationMode(editingRoute.optimizationMode || 'optimized');
       
       const points = editingRoute.points || [];
       
@@ -130,6 +132,7 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     setStep(1);
     setRouteName('');
     setRouteDescription('');
+    setOptimizationMode('optimized');
     setAllPoints([]);
     setPreviewData(null);
     setShowPreview(false);
@@ -392,18 +395,35 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
         return;
       }
 
-      console.log('🔄 [PREVIEW] Enviando para otimização com tipos corretos...');
-      const optimizedData = await optimizeRoute(validPoints, isEditing ? editingRoute?.id : undefined);
+      // ✅ SE FOR MODO FIXO, NÃO OTIMIZAR
+      let finalPoints;
+      let totalDistance = 0;
+      let estimatedTime = '0min';
       
-      console.log('✅ [CREATE MODAL] Otimização completa:', {
-        totalPoints: optimizedData.points.length,
-        distance: optimizedData.totalDistance,
-        time: optimizedData.estimatedTime
+      if (optimizationMode === 'fixed') {
+        console.log('🔒 [PREVIEW] Modo FIXO - mantendo ordem original');
+        finalPoints = validPoints;
+        // Calcular distância sem otimizar
+        totalDistance = calculateSimpleDistance(validPoints);
+        estimatedTime = `${Math.round(totalDistance * 60 / 50)} min`; // Estimativa simples (50 km/h)
+      } else {
+        console.log('🔄 [PREVIEW] Modo OTIMIZADO - usando Google Maps');
+        const optimizedData = await optimizeRoute(validPoints, isEditing ? editingRoute?.id : undefined);
+        finalPoints = optimizedData.points;
+        totalDistance = optimizedData.totalDistance;
+        estimatedTime = optimizedData.estimatedTime;
+      }
+      
+      console.log('✅ [CREATE MODAL] Processamento completo:', {
+        mode: optimizationMode,
+        totalPoints: finalPoints.length,
+        distance: totalDistance,
+        time: estimatedTime
       });
 
-      // ✅ VALIDAR PONTOS OTIMIZADOS
-      optimizedData.points.forEach((p: any, i: number) => {
-        console.log(`📍 [CREATE MODAL] Ponto otimizado ${i}:`, {
+      // ✅ VALIDAR PONTOS PROCESSADOS
+      finalPoints.forEach((p: any, i: number) => {
+        console.log(`📍 [CREATE MODAL] Ponto processado ${i}:`, {
           order: p.order,
           address: p.address?.substring(0, 30) + '...',
           lat: p.lat,
@@ -414,18 +434,19 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
       const preview = {
         name: routeName,
         description: routeDescription,
-        points: optimizedData.points.map((optimizedPoint: RoutePoint) => {
-          const original = allPoints.find(p => p.id === optimizedPoint.id);
+        points: finalPoints.map((processedPoint: RoutePoint) => {
+          const original = allPoints.find(p => p.id === processedPoint.id);
           return {
-            ...optimizedPoint,
-            cep: optimizedPoint.cep || original?.cep || '', // ✅ GARANTIR QUE CEP VAI PARA O PREVIEW
+            ...processedPoint,
+            cep: processedPoint.cep || original?.cep || '', // ✅ GARANTIR QUE CEP VAI PARA O PREVIEW
             completed: original?.completed ?? false,
             completedAt: original?.completedAt ?? null,
           };
         }),
-        totalDistance: optimizedData.totalDistance,
-        estimatedTime: optimizedData.estimatedTime,
-        optimizedOrder: optimizedData.optimizedOrder,
+        totalDistance: totalDistance,
+        estimatedTime: estimatedTime,
+        optimizedOrder: finalPoints.map((p: any) => p.id),
+        optimizationMode: optimizationMode, // ✅ INCLUIR MODO
         status: 'active'
       };
 
@@ -490,6 +511,23 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
     return { label: `Ponto ${index}`, color: 'bg-blue-500', textColor: 'text-blue-700' };
   };
 
+  // ✅ FUNÇÃO AUXILIAR PARA CALCULAR DISTÂNCIA SIMPLES (SEM OTIMIZAÇÃO)
+  const calculateSimpleDistance = (points: RoutePoint[]): number => {
+    if (points.length < 2) return 0;
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      const R = 6371; // Raio da Terra em km
+      const dLat = (points[i+1].lat - points[i].lat) * Math.PI / 180;
+      const dLng = (points[i+1].lng - points[i].lng) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(points[i].lat * Math.PI / 180) * Math.cos(points[i+1].lat * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      total += R * c;
+    }
+    return total;
+  };
+
   return (
     <>
       <Dialog open={open && !showPreview} onOpenChange={handleClose}>
@@ -521,6 +559,68 @@ const CreateRouteModal: React.FC<CreateRouteModalProps> = ({
                   placeholder="Descreva a rota..."
                   rows={3}
                 />
+              </div>
+              
+              {/* ✅ SELETOR DE MODO DE OTIMIZAÇÃO */}
+              <div className="space-y-2">
+                <Label>Modo de Criação da Rota</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <Card 
+                    className={`cursor-pointer transition-all ${
+                      optimizationMode === 'fixed' 
+                        ? 'border-primary border-2 bg-primary/5' 
+                        : 'border-border hover:border-border/80'
+                    }`}
+                    onClick={() => setOptimizationMode('fixed')}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          optimizationMode === 'fixed' ? 'border-primary bg-primary' : 'border-muted-foreground/30'
+                        }`}>
+                          {optimizationMode === 'fixed' && (
+                            <div className="w-2 h-2 bg-primary-foreground rounded-full"></div>
+                          )}
+                        </div>
+                        <h4 className="font-semibold text-sm">Ordem Fixa</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Os pontos serão mantidos na ordem exata que você cadastrar
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card 
+                    className={`cursor-pointer transition-all ${
+                      optimizationMode === 'optimized' 
+                        ? 'border-primary border-2 bg-primary/5' 
+                        : 'border-border hover:border-border/80'
+                    }`}
+                    onClick={() => setOptimizationMode('optimized')}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          optimizationMode === 'optimized' ? 'border-primary bg-primary' : 'border-muted-foreground/30'
+                        }`}>
+                          {optimizationMode === 'optimized' && (
+                            <div className="w-2 h-2 bg-primary-foreground rounded-full"></div>
+                          )}
+                        </div>
+                        <h4 className="font-semibold text-sm">Otimizar Rota</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Os pontos intermediários serão reorganizados para a melhor sequência
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {optimizationMode === 'fixed' 
+                    ? '⚠️ A origem e destino serão respeitados, mas os pontos intermediários NÃO serão otimizados'
+                    : '✅ A origem e destino serão respeitados, e os pontos intermediários serão otimizados pelo Google Maps'
+                  }
+                </p>
               </div>
               
               <div className="flex justify-end gap-2">

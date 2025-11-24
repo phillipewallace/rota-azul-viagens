@@ -18,7 +18,7 @@ const Routes = () => {
   const [viewingRoute, setViewingRoute] = useState<any>(null);
 
   const { routes, loading, loadRoutes } = useRoutes();
-  const { deleteRoute, updateRoute, resetRoute, isLoading } = useRoutesCRUD();
+  const { deleteRoute, updateRoute, resetRoute, optimizeRoute, isLoading } = useRoutesCRUD();
 
   const handleEdit = (route: any) => {
     if (route.status === 'completed') {
@@ -73,6 +73,26 @@ const Routes = () => {
       } catch (error: any) {
         console.error('Error resetting route:', error);
         toast.error(error.message || 'Erro ao resetar rota');
+      }
+    }
+  };
+
+  // ✅ NOVO: Handler para otimizar rota manualmente
+  const handleOptimize = async (route: any) => {
+    if (route.optimizationMode === 'optimized') {
+      toast.info('Esta rota já está otimizada');
+      return;
+    }
+    
+    if (window.confirm(`Tem certeza que deseja otimizar a rota "${route.name}"? Isso reorganizará os pontos intermediários para a melhor sequência.`)) {
+      try {
+        console.log('🔄 [ROUTES PAGE] Otimizando rota:', route.name);
+        await optimizeRoute(route.id);
+        toast.success('Rota otimizada com sucesso!');
+        loadRoutes();
+      } catch (error: any) {
+        console.error('Error optimizing route:', error);
+        toast.error(error.message || 'Erro ao otimizar rota');
       }
     }
   };
@@ -181,7 +201,12 @@ const Routes = () => {
                       <Navigation className="h-5 w-5 text-blue-600" />
                       {route.name}
                     </CardTitle>
-                    {getStatusBadge(route.status)}
+                    <div className="flex gap-2 items-center flex-wrap">
+                      {getStatusBadge(route.status)}
+                      <Badge variant={route.optimizationMode === 'fixed' ? 'secondary' : 'default'}>
+                        {route.optimizationMode === 'fixed' ? '🔒 Ordem Fixa' : '✅ Otimizada'}
+                      </Badge>
+                    </div>
                   </div>
                   {route.description && (
                     <p className="text-sm text-gray-600">{route.description}</p>
@@ -258,6 +283,19 @@ const Routes = () => {
                       >
                         <Edit className="h-4 w-4 mr-1" />
                         Editar
+                      </Button>
+                    )}
+                    {/* ✅ BOTÃO DE OTIMIZAÇÃO MANUAL */}
+                    {route.optimizationMode === 'fixed' && route.status !== 'completed' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOptimize(route)}
+                        className="text-blue-600 hover:text-blue-700 hover:border-blue-300"
+                        disabled={isLoading}
+                        title="Otimizar rota - reorganiza os pontos intermediários para melhor sequência"
+                      >
+                        <Navigation className="h-4 w-4" />
                       </Button>
                     )}
                     {/* ✅ ÚNICO BOTÃO DE RESET AUTORIZADO */}
