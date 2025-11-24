@@ -19,11 +19,12 @@ router.get('/', async (req, res) => {
         r.optimized_order,
         r.polyline,
         r.status,
+        r.optimization_mode,
         r.created_at,
         COUNT(rp.id) as point_count
       FROM routes r
       LEFT JOIN route_points rp ON r.id = rp.route_id
-      GROUP BY r.id, r.name, r.description, r.points, r.total_distance, r.estimated_time, r.estimated_duration, r.optimized_order, r.polyline, r.status, r.created_at
+      GROUP BY r.id, r.name, r.description, r.points, r.total_distance, r.estimated_time, r.estimated_duration, r.optimized_order, r.polyline, r.status, r.optimization_mode, r.created_at
       ORDER BY r.created_at DESC
     `;
     
@@ -40,6 +41,7 @@ router.get('/', async (req, res) => {
       optimizedOrder: route.optimized_order || [],
       polyline: route.polyline,
       status: route.status,
+      optimizationMode: route.optimization_mode || 'optimized',
       createdAt: route.created_at,
       pointCount: parseInt(route.point_count) || 0
     }));
@@ -84,11 +86,11 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, description, points, totalDistance, estimatedTime, estimatedDuration, optimizedOrder, polyline } = req.body;
+    const { name, description, points, totalDistance, estimatedTime, estimatedDuration, optimizedOrder, polyline, optimizationMode } = req.body;
     
     const query = `
-      INSERT INTO routes (name, description, points, total_distance, estimated_time, estimated_duration, optimized_order, polyline)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO routes (name, description, points, total_distance, estimated_time, estimated_duration, optimized_order, polyline, optimization_mode)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
     
@@ -100,7 +102,8 @@ router.post('/', async (req, res) => {
       estimatedTime,
       parseInt(estimatedDuration) || 0,
       JSON.stringify(optimizedOrder || []),
-      polyline
+      polyline,
+      optimizationMode || 'optimized'
     ]);
     
     // Insert route points if provided
@@ -117,7 +120,8 @@ router.post('/', async (req, res) => {
     const responseRoute = {
       ...result.rows[0],
       totalDistance: parseFloat(result.rows[0].total_distance) || 0,
-      estimatedDuration: parseInt(result.rows[0].estimated_duration) || 0
+      estimatedDuration: parseInt(result.rows[0].estimated_duration) || 0,
+      optimizationMode: result.rows[0].optimization_mode || 'optimized'
     };
     
     res.status(201).json(responseRoute);
@@ -553,8 +557,8 @@ router.put('/:id', async (req, res) => {
       UPDATE routes 
       SET name = $1, description = $2, points = $3, total_distance = $4, 
           estimated_time = $5, estimated_duration = $6, optimized_order = $7, 
-          polyline = $8, status = $9, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $10
+          polyline = $8, status = $9, optimization_mode = COALESCE($10, optimization_mode), updated_at = CURRENT_TIMESTAMP
+      WHERE id = $11
       RETURNING *
     `;
     
@@ -568,6 +572,7 @@ router.put('/:id', async (req, res) => {
       JSON.stringify(optimizedOrder || []),
       polyline,
       status || 'active',
+      req.body.optimizationMode || null,
       id
     ]);
     
@@ -668,6 +673,106 @@ router.post('/:id/reset', async (req, res) => {
     await client.query('ROLLBACK');
     console.error('❌ [ROUTES RESET] Erro ao resetar rota:', error);
     res.status(500).json({ error: 'Erro ao resetar rota' });
+  } finally {
+    client.release();
+  }
+});
+
+// ✅ NOVO ENDPOINT - OTIMIZAR ROTA MANUALMENTE (TRANSFORMA ROTA FIXA EM OTIMIZADA)
+router.post('/:id/optimize-manual', async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    const { id } = req.params;
+    
+    console.log(`🔄 [MANUAL OPTIMIZE] ========================================`);
+    console.log(`🔄 [MANUAL OPTIMIZE] Iniciando otimização manual da rota ${id}`);
+    
+    // Buscar rota atual
+    const routeQuery = 'SELECT * FROM routes WHERE id = $1';
+    const routeResult = await client.query(routeQuery, [id]);
+    
+    if (routeResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Rota não encontrada' });
+    }
+    
+    const route = routeResult.rows[0];
+    const currentPoints = route.points || [];
+    
+    if (currentPoints.length < 2) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Rota deve ter pelo menos 2 pontos' });
+    }
+    
+    console.log(`📍 [MANUAL OPTIMIZE] Pontos atuais: ${currentPoints.length}`);
+    console.log(`🔍 [MANUAL OPTIMIZE] Modo atual: ${route.optimization_mode}`);
+    
+    // ✅ USAR SERVIÇO DE OTIMIZAÇÃO DO GOOGLE MAPS
+    const optimizedResult = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(currentPoints);
+    
+    console.log(`✅ [MANUAL OPTIMIZE] Otimização concluída`);
+    console.log(`📊 [MANUAL OPTIMIZE] Distância: ${optimizedResult.totalDistance} km`);
+    console.log(`⏱️ [MANUAL OPTIMIZE] Tempo: ${optimizedResult.totalDuration} segundos`);
+    
+    // Calcular tempo formatado
+    const hours = Math.floor(optimizedResult.totalDuration / 3600);
+    const minutes = Math.floor((optimizedResult.totalDuration % 3600) / 60);
+    const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+    
+    // ✅ ATUALIZAR ROTA NO BANCO COM MODO 'optimized'
+    await client.query(
+      `UPDATE routes SET 
+       points = $1,
+       total_distance = $2,
+       estimated_time = $3,
+       estimated_duration = $4,
+       optimized_order = $5,
+       polyline = $6,
+       optimization_mode = 'optimized',
+       updated_at = CURRENT_TIMESTAMP
+       WHERE id = $7`,
+      [
+        JSON.stringify(optimizedResult.optimizedPoints),
+        optimizedResult.totalDistance,
+        estimatedTime,
+        Math.round(optimizedResult.totalDuration),
+        JSON.stringify(optimizedResult.optimizedOrder || []),
+        optimizedResult.polyline || null,
+        id
+      ]
+    );
+    
+    // ✅ ATUALIZAR PONTOS NA TABELA route_points
+    await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
+    
+    for (const point of optimizedResult.optimizedPoints) {
+      await client.query(
+        `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
+         VALUES ($1, $2, $3, $4, $5, $6, false)`,
+        [id, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
+      );
+    }
+    
+    await client.query('COMMIT');
+    
+    console.log(`✅ [MANUAL OPTIMIZE] Rota otimizada e atualizada no banco`);
+    console.log(`🔄 [MANUAL OPTIMIZE] ========================================`);
+    
+    res.json({
+      message: 'Rota otimizada com sucesso',
+      points: optimizedResult.optimizedPoints,
+      totalDistance: optimizedResult.totalDistance,
+      estimatedTime: estimatedTime,
+      optimizationMode: 'optimized'
+    });
+    
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ [MANUAL OPTIMIZE] Erro na otimização manual:', error);
+    res.status(500).json({ error: 'Erro ao otimizar rota manualmente' });
   } finally {
     client.release();
   }

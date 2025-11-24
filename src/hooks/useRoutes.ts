@@ -23,6 +23,7 @@ export interface Route {
   totalDistance: number;
   estimatedTime: string;
   optimizedOrder: string[];
+  optimizationMode?: 'fixed' | 'optimized';
   status: 'active' | 'inactive' | 'completed';
   createdAt: string;
   polyline?: string;
