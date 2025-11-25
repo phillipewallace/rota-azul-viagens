@@ -110,9 +110,9 @@ router.post('/', async (req, res) => {
     if (points && points.length > 0) {
       for (const point of points) {
         await pool.query(
-          `INSERT INTO route_points (route_id, address, lat, lng, point_order, type)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [result.rows[0].id, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
+          `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, observation)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [result.rows[0].id, point.address, point.lat, point.lng, point.order, point.type || 'waypoint', point.observation || null]
         );
       }
     }
@@ -365,11 +365,11 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
       await client.query('DELETE FROM route_points WHERE route_id = $1', [routeId]);
       
       for (const point of newPoints) {
-        await client.query(
-          `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
-           VALUES ($1, $2, $3, $4, $5, $6, false)`,
-          [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
-        );
+      await client.query(
+        `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, observation)
+         VALUES ($1, $2, $3, $4, $5, $6, false, $7)`,
+        [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint', point.observation || null]
+      );
       }
       
       return newPoints;
@@ -450,9 +450,9 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
     // ✅ INSERIR APENAS NOVOS PONTOS OTIMIZADOS
     for (const point of optimizedPendingPoints) {
       await client.query(
-        `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, completed_at)
-         VALUES ($1, $2, $3, $4, $5, $6, false, NULL)`,
-        [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
+        `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, completed_at, observation)
+         VALUES ($1, $2, $3, $4, $5, $6, false, NULL, $7)`,
+        [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint', point.observation || null]
       );
     }
     

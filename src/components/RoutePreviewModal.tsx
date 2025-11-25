@@ -91,6 +91,11 @@ const RoutePreviewModal: React.FC<RoutePreviewModalProps> = ({
                           <span className="text-xs text-gray-500">CEP: {point.cep}</span>
                         )}
                       </div>
+                      {point.observation && (
+                        <p className="text-xs text-gray-600 mt-2 p-2 bg-slate-50 rounded border border-slate-200">
+                          <strong>Obs:</strong> {point.observation}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -80,7 +80,7 @@ const TrackingPanel = () => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-medium text-sm" style={{ color: truckColor }}>{truck.name}</h3>
-                  <Badge 
+                   <Badge 
                     className={`text-xs ${
                       truck.status === 'in-route' ? 'bg-green-500/10 text-green-700 border-green-200' : 
                       truck.status === 'maintenance' ? 'bg-amber-500/10 text-amber-700 border-amber-200' : 
@@ -92,8 +92,15 @@ const TrackingPanel = () => {
                       truck.status === 'maintenance' ? 'bg-amber-500' : 
                       'bg-slate-400'
                     }`}></div>
-                    {truck.status === 'in-route' ? 'Em movimento' : 
-                     truck.status === 'maintenance' ? 'Manutenção' : 'Disponível'}
+                    {truck.status === 'in-route' ? (
+                      <span className="flex items-center gap-1">
+                        Em movimento
+                      </span>
+                    ) : truck.status === 'maintenance' ? (
+                      <span className="flex items-center gap-1">
+                        🔧 Manutenção
+                      </span>
+                    ) : 'Disponível'}
                   </Badge>
                 </div>
               

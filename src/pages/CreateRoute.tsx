@@ -89,7 +89,8 @@ const CreateRoute = () => {
           address: point.address || '',
           lat: point.lat || 0,
           lng: point.lng || 0,
-          type: point.type
+          type: point.type,
+          observation: point.observation || ''
         }));
 
         const sortedPoints = [...pointsWithUniqueIds].sort((a: any, b: any) => a.order - b.order);
@@ -152,11 +153,21 @@ const CreateRoute = () => {
       lng: 0,
       order: allPoints.length,
       type: 'waypoint',
-      cep: ''
+      cep: '',
+      observation: ''
     };
     
     const updatedPoints = recalculatePointTypes([...allPoints, newPoint]);
     setAllPoints(updatedPoints);
+
+    // Scroll to newly added point
+    setTimeout(() => {
+      const pointElements = document.querySelectorAll('[data-point-card]');
+      const lastElement = pointElements[pointElements.length - 1];
+      if (lastElement) {
+        lastElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   const removePoint = (id: string) => {
@@ -268,7 +279,8 @@ const CreateRoute = () => {
     const newPoint: RoutePoint = {
       ...pointToDuplicate,
       id: generateUniqueId('duplicate'),
-      order: allPoints.length
+      order: allPoints.length,
+      observation: pointToDuplicate.observation || ''
     };
 
     const updatedPoints = recalculatePointTypes([...allPoints, newPoint]);
@@ -353,6 +365,7 @@ const CreateRoute = () => {
             cep: processedPoint.cep || original?.cep || '',
             completed: original?.completed ?? false,
             completedAt: original?.completedAt ?? null,
+            observation: processedPoint.observation || original?.observation || ''
           };
         }),
         totalDistance: totalDistance,
@@ -552,7 +565,7 @@ const CreateRoute = () => {
             {/* Pontos da Rota */}
             <Card className="shadow-md">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="sticky top-20 z-10 bg-white pb-4 mb-4 border-b flex items-center justify-between">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-blue-600" />
                     Pontos da Rota ({allPoints.length})
