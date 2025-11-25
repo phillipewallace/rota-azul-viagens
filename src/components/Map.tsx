@@ -20,8 +20,8 @@ const MapComponent = () => {
     return saved !== null ? JSON.parse(saved) : false;
   });
   const [realTimeTraffic, setRealTimeTraffic] = useState<any[]>([]);
-  const [activeTrucks, setActiveTrucks] = useState<Set<string>>(new Set());
-  
+  const [selectedTruck, setSelectedTruck] = useState<string | null>(null);
+
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
 
@@ -226,37 +226,51 @@ const MapComponent = () => {
     console.log('📍 Marcador de localização atualizado');
   };
 
-  const createTruckIcon = (color: string, isTracked: boolean = false) => {
-    const size = isTracked ? 44 : 36;
-    const strokeWidth = isTracked ? 3 : 2;
-    const shadowSize = isTracked ? 6 : 4;
+  const createTruckIcon = (color: string, isSelected: boolean = false, truckStatus: string = 'available') => {
+    const size = isSelected ? 48 : 36;
+    const strokeWidth = isSelected ? 3 : 2;
+    const shadowSize = isSelected ? 8 : 4;
+    
+    // Status indicator color
+    let statusColor = '#64748b'; // gray for available
+    if (truckStatus === 'in-route') statusColor = '#22c55e'; // green
+    if (truckStatus === 'maintenance') statusColor = '#f59e0b'; // amber
     
     return {
       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
         <svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="${shadowSize/2}" stdDeviation="${shadowSize/2}" flood-color="rgba(0,0,0,0.3)"/>
+              <feDropShadow dx="0" dy="${shadowSize/2}" stdDeviation="${shadowSize/2}" flood-color="rgba(0,0,0,0.4)"/>
             </filter>
             <linearGradient id="truckGradient" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
               <stop offset="100%" style="stop-color:${adjustBrightness(color, -20)};stop-opacity:1" />
             </linearGradient>
+            ${isSelected ? `
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+            ` : ''}
           </defs>
           
           <!-- Truck body -->
           <rect x="2" y="8" width="12" height="8" rx="1" 
                 fill="url(#truckGradient)" 
-                stroke="${isTracked ? '#22c55e' : '#ffffff'}" 
+                stroke="${isSelected ? statusColor : '#ffffff'}" 
                 stroke-width="${strokeWidth}" 
-                filter="url(#shadow)"/>
+                filter="url(#shadow) ${isSelected ? 'url(#glow)' : ''}"/>
           
           <!-- Truck cab -->
           <rect x="14" y="10" width="6" height="6" rx="1" 
                 fill="url(#truckGradient)" 
-                stroke="${isTracked ? '#22c55e' : '#ffffff'}" 
+                stroke="${isSelected ? statusColor : '#ffffff'}" 
                 stroke-width="${strokeWidth}" 
-                filter="url(#shadow)"/>
+                filter="url(#shadow) ${isSelected ? 'url(#glow)' : ''}"/>
           
           <!-- Wheels -->
           <circle cx="6" cy="17" r="2" 
@@ -272,12 +286,16 @@ const MapComponent = () => {
           <rect x="15" y="11" width="2" height="1.5" rx="0.2" fill="#87ceeb" opacity="0.8"/>
           <rect x="15" y="13" width="2" height="1.5" rx="0.2" fill="#87ceeb" opacity="0.8"/>
           
-          ${isTracked ? `
-          <!-- Tracking indicator -->
-          <circle cx="20" cy="6" r="3" fill="#22c55e" stroke="#ffffff" stroke-width="2">
-            <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+          ${isSelected ? `
+          <!-- Selection indicator -->
+          <circle cx="20" cy="6" r="4" fill="${statusColor}" stroke="#ffffff" stroke-width="2">
+            <animate attributeName="r" values="3;4;3" dur="1.5s" repeatCount="indefinite"/>
           </circle>
-          <text x="20" y="8" text-anchor="middle" font-size="8" fill="white" font-weight="bold">●</text>
+          ` : truckStatus === 'in-route' ? `
+          <!-- Movement indicator -->
+          <circle cx="20" cy="6" r="2.5" fill="${statusColor}" opacity="0.8">
+            <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
+          </circle>
           ` : ''}
         </svg>
       `)}`,
@@ -296,6 +314,20 @@ const MapComponent = () => {
     return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + (B < 255 ? B < 1 ? 0 : B : 255) * 0x100 + (G < 255 ? G < 1 ? 0 : G : 255)).toString(16).slice(1);
   };
 
+  const centerOnTruck = (truckId: string) => {
+    const truck = trucks?.find(t => t.id === truckId);
+    if (!truck || !truck.location || !map.current) return;
+
+    map.current.panTo({ lat: truck.location.lat, lng: truck.location.lng });
+    map.current.setZoom(15);
+    setSelectedTruck(truckId);
+    
+    // Store selection
+    localStorage.setItem('selected-truck', truckId);
+    
+    console.log('📍 Mapa centralizado no caminhão:', truck.name);
+  };
+
   const updateMapMarkers = async () => {
     if (!map.current || !window.google || !mapLoaded) return;
 
@@ -308,21 +340,19 @@ const MapComponent = () => {
     
     if (!Array.isArray(trucks)) return;
     
-    const activeTracking = Array.from(activeTrucks);
-    
     trucks.forEach((truck, index) => {
       if (!truck.location || typeof truck.location.lat !== 'number' || typeof truck.location.lng !== 'number') return;
 
       const truckColor = getTruckColor(truck.id, index);
-      const isActivelyTracked = activeTracking.includes(truck.id);
+      const isSelected = selectedTruck === truck.id;
       
       try {
         const marker = new window.google.maps.Marker({
           position: { lat: truck.location.lat, lng: truck.location.lng },
           map: map.current,
           title: truck.name,
-          icon: createTruckIcon(truckColor, isActivelyTracked),
-          zIndex: isActivelyTracked ? 1000 : 100
+          icon: createTruckIcon(truckColor, isSelected, truck.status),
+          zIndex: isSelected ? 1000 : 100
         });
 
         markersRef.current.push(marker);
@@ -330,11 +360,11 @@ const MapComponent = () => {
         const infoWindow = new window.google.maps.InfoWindow({
           content: `
             <div style="padding: 12px; min-width: 200px;">
-              <h3 style="margin: 0 0 8px 0; color: ${truckColor};">${isActivelyTracked ? '📍' : '🚛'} ${truck.name}</h3>
+              <h3 style="margin: 0 0 8px 0; color: ${truckColor};">${isSelected ? '📍' : '🚛'} ${truck.name}</h3>
               <div style="font-size: 13px; line-height: 1.4;">
                 <div><strong>Placa:</strong> ${truck.plate}</div>
                 <div><strong>Status:</strong> ${truck.status === 'available' ? 'Disponível' : truck.status === 'in-route' ? 'Em Rota' : 'Manutenção'}</div>
-                ${isActivelyTracked ? '<div style="color: #22c55e;"><strong>📍 Rastreamento Ativo</strong></div>' : ''}
+                ${isSelected ? '<div style="color: #22c55e;"><strong>📍 Selecionado</strong></div>' : ''}
                 ${truck.currentRouteName ? `<div><strong>Rota:</strong> ${truck.currentRouteName}</div>` : ''}
                 ${truck.driverName ? `<div><strong>Motorista:</strong> ${truck.driverName}</div>` : ''}
               </div>
@@ -344,12 +374,13 @@ const MapComponent = () => {
 
         marker.addListener('click', () => {
           infoWindow.open(map.current, marker);
+          centerOnTruck(truck.id);
         });
 
         if (truck.currentRoute && truck.status === 'in-route' && Array.isArray(routes)) {
           const route = routes.find(r => r.id === truck.currentRoute);
           if (route && route.points && route.points.length >= 2) {
-            drawTruckRoute(route, truckColor, isActivelyTracked);
+            drawTruckRoute(route, truckColor, isSelected);
           }
         }
       } catch (error) {
@@ -358,7 +389,7 @@ const MapComponent = () => {
     });
   };
 
-  const drawTruckRoute = async (route: any, color: string, isTracked: boolean = false) => {
+  const drawTruckRoute = async (route: any, color: string, isHighlighted: boolean = false) => {
     if (!route.points || route.points.length < 2 || !window.google) return;
 
     try {
@@ -394,9 +425,9 @@ const MapComponent = () => {
               suppressMarkers: false,
               polylineOptions: {
                 strokeColor: color,
-                strokeWeight: isTracked ? 6 : 5,
-                strokeOpacity: isTracked ? 1 : 0.8,
-                icons: isTracked ? [
+                strokeWeight: isHighlighted ? 7 : 4,
+                strokeOpacity: isHighlighted ? 1 : 0.6,
+                icons: isHighlighted ? [
                   {
                     icon: {
                       path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
@@ -411,7 +442,7 @@ const MapComponent = () => {
               markerOptions: {
                 icon: {
                   path: window.google.maps.SymbolPath.CIRCLE,
-                  scale: isTracked ? 8 : 6,
+                  scale: isHighlighted ? 8 : 5,
                   fillColor: color,
                   fillOpacity: 1,
                   strokeColor: '#ffffff',
@@ -421,7 +452,7 @@ const MapComponent = () => {
             });
 
             directionsRenderers.current.push(directionsRenderer);
-            console.log('✅ Rota desenhada com sucesso para:', route.name, isTracked ? '(Rastreada)' : '');
+            console.log('✅ Rota desenhada:', route.name, isHighlighted ? '(Destacada)' : '');
           } catch (error) {
             console.error('Error creating directions renderer:', error);
           }
@@ -452,27 +483,21 @@ const MapComponent = () => {
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'active-truck-tracking') {
-        try {
-          const activeTruckIds = JSON.parse(e.newValue || '[]');
-          setActiveTrucks(new Set(activeTruckIds));
-          console.log('📍 Active truck tracking updated:', activeTruckIds);
-        } catch (error) {
-          console.error('Error parsing active truck tracking:', error);
-        }
+      if (e.key === 'selected-truck') {
+        setSelectedTruck(e.newValue);
+        console.log('📍 Selected truck updated:', e.newValue);
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
     
     try {
-      const stored = localStorage.getItem('active-truck-tracking');
+      const stored = localStorage.getItem('selected-truck');
       if (stored) {
-        const activeTruckIds = JSON.parse(stored);
-        setActiveTrucks(new Set(activeTruckIds));
+        setSelectedTruck(stored);
       }
     } catch (error) {
-      console.error('Error loading initial tracking state:', error);
+      console.error('Error loading selected truck:', error);
     }
 
     return () => {
@@ -496,7 +521,7 @@ const MapComponent = () => {
     if (mapLoaded && !trucksLoading && !routesLoading) {
       updateMapMarkers();
     }
-  }, [trucks, routes, trucksLoading, routesLoading, mapLoaded]);
+  }, [trucks, routes, trucksLoading, routesLoading, mapLoaded, selectedTruck]);
 
   useEffect(() => {
     if (mapLoaded && userLocation) {
@@ -593,12 +618,6 @@ const MapComponent = () => {
         </div>
       )}
 
-      {/* Contador de caminhões ativos */}
-      {activeTrucks.size > 0 && (
-        <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-medium z-10">
-          📍 {activeTrucks.size} caminhão{activeTrucks.size > 1 ? 'ões' : ''} rastreado{activeTrucks.size > 1 ? 's' : ''}
-        </div>
-      )}
     </div>
   );
 };

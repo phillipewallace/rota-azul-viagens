@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import MobileDriver from "./pages/MobileDriver";
 import Analytics from "./pages/Analytics";
+import CreateRoute from "./pages/CreateRoute";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -73,6 +74,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RoutesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/routes/create"
+              element={
+                <ProtectedRoute>
+                  <CreateRoute />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/routes/edit"
+              element={
+                <ProtectedRoute>
+                  <CreateRoute />
                 </ProtectedRoute>
               }
             />

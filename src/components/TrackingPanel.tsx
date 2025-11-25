@@ -58,27 +58,44 @@ const TrackingPanel = () => {
         </div>
       ) : (
         <div className="space-y-3 max-h-96 overflow-y-auto">
-          {trucks.map((truck) => (
-            <Card key={truck.id} className="p-3 border-l-4 border-l-blue-500">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-sm">{truck.name}</h3>
-                <Badge 
-                  variant={truck.status === 'in-route' ? 'default' : truck.status === 'maintenance' ? 'destructive' : 'secondary'}
-                  className={`text-xs ${
-                    truck.status === 'in-route' ? 'bg-green-500' : 
-                    truck.status === 'maintenance' ? 'bg-red-500' : 
-                    'bg-gray-500'
-                  }`}
-                >
-                  <div className={`w-2 h-2 rounded-full mr-1 ${
-                    truck.status === 'in-route' ? 'bg-green-200' : 
-                    truck.status === 'maintenance' ? 'bg-red-200' : 
-                    'bg-gray-200'
-                  }`}></div>
-                  {truck.status === 'in-route' ? 'Em movimento' : 
-                   truck.status === 'maintenance' ? 'Manutenção' : 'Disponível'}
-                </Badge>
-              </div>
+          {trucks.map((truck, index) => {
+            const truckColors = [
+              '#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', 
+              '#eab308', '#06b6d4', '#a16207', '#6366f1', '#84cc16', '#0891b2'
+            ];
+            const truckColor = truckColors[index % truckColors.length];
+            
+            return (
+              <Card 
+                key={truck.id} 
+                className="p-3 border-l-4 cursor-pointer hover:shadow-md transition-all"
+                style={{ borderLeftColor: truckColor }}
+                onClick={() => {
+                  localStorage.setItem('selected-truck', truck.id);
+                  window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'selected-truck',
+                    newValue: truck.id
+                  }));
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium text-sm" style={{ color: truckColor }}>{truck.name}</h3>
+                  <Badge 
+                    className={`text-xs ${
+                      truck.status === 'in-route' ? 'bg-green-500/10 text-green-700 border-green-200' : 
+                      truck.status === 'maintenance' ? 'bg-amber-500/10 text-amber-700 border-amber-200' : 
+                      'bg-slate-500/10 text-slate-700 border-slate-200'
+                    } border backdrop-blur-sm`}
+                  >
+                    <div className={`w-2 h-2 rounded-full mr-1 ${
+                      truck.status === 'in-route' ? 'bg-green-500 animate-pulse' : 
+                      truck.status === 'maintenance' ? 'bg-amber-500' : 
+                      'bg-slate-400'
+                    }`}></div>
+                    {truck.status === 'in-route' ? 'Em movimento' : 
+                     truck.status === 'maintenance' ? 'Manutenção' : 'Disponível'}
+                  </Badge>
+                </div>
               
               <div className="text-xs text-gray-600 space-y-1">
                 <div className="flex justify-between">
@@ -111,7 +128,8 @@ const TrackingPanel = () => {
                 )}
               </div>
             </Card>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>

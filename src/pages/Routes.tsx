@@ -26,10 +26,7 @@ const Routes = () => {
       return;
     }
     console.log('🔧 [ROUTES PAGE] Abrindo rota para edição:', route.name);
-    // Clear any existing state first
-    setViewingRoute(null);
-    setEditingRoute(route);
-    setIsCreateModalOpen(true);
+    navigate(`/routes/edit?edit=${route.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -116,24 +113,71 @@ const Routes = () => {
 
   const handleNewRoute = () => {
     console.log('➕ [ROUTES PAGE] Criando nova rota');
-    // Clear any existing state
-    setViewingRoute(null);
-    setEditingRoute(null);
-    setIsCreateModalOpen(true);
+    navigate('/routes/create');
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      active: 'default',
-      inactive: 'secondary',
-      completed: 'outline'
-    } as const;
-    const labels = {
-      active: 'Ativa',
-      inactive: 'Inativa',
-      completed: 'Concluída'
+  const getStatusBadge = (status: string, optimizationMode?: string) => {
+    const statusConfig = {
+      active: { 
+        label: 'Ativa', 
+        bgColor: 'bg-green-500/10',
+        textColor: 'text-green-700',
+        borderColor: 'border-green-200'
+      },
+      inactive: { 
+        label: 'Inativa', 
+        bgColor: 'bg-slate-500/10',
+        textColor: 'text-slate-700',
+        borderColor: 'border-slate-200'
+      },
+      completed: { 
+        label: 'Concluída', 
+        bgColor: 'bg-blue-500/10',
+        textColor: 'text-blue-700',
+        borderColor: 'border-blue-200'
+      }
     };
-    return <Badge variant={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>;
+
+    const modeConfig = {
+      fixed: {
+        icon: '🔒',
+        label: 'Ordem Fixa',
+        tooltip: 'Os pontos seguem exatamente a sequência definida',
+        bgColor: 'bg-amber-500/10',
+        textColor: 'text-amber-700',
+        borderColor: 'border-amber-200'
+      },
+      optimized: {
+        icon: '✨',
+        label: 'Otimizada',
+        tooltip: 'Os pontos são reorganizados automaticamente',
+        bgColor: 'bg-blue-500/10',
+        textColor: 'text-blue-700',
+        borderColor: 'border-blue-200'
+      }
+    };
+
+    const statusInfo = statusConfig[status as keyof typeof statusConfig] || statusConfig.active;
+    const modeInfo = optimizationMode ? modeConfig[optimizationMode as keyof typeof modeConfig] : null;
+
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        <Badge 
+          className={`${statusInfo.bgColor} ${statusInfo.textColor} ${statusInfo.borderColor} border backdrop-blur-sm font-medium px-2.5 py-1 text-xs shadow-sm`}
+        >
+          {statusInfo.label}
+        </Badge>
+        {modeInfo && (
+          <Badge 
+            className={`${modeInfo.bgColor} ${modeInfo.textColor} ${modeInfo.borderColor} border backdrop-blur-sm font-medium px-2.5 py-1 text-xs shadow-sm`}
+            title={modeInfo.tooltip}
+          >
+            <span className="mr-1">{modeInfo.icon}</span>
+            {modeInfo.label}
+          </Badge>
+        )}
+      </div>
+    );
   };
 
   if (loading) {
@@ -195,57 +239,69 @@ const Routes = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {routes.map((route) => (
               <Card key={route.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
+                <CardHeader className="border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
                   <div className="flex justify-between items-start">
-                    <CardTitle className="flex items-center gap-2">
-                      <Navigation className="h-5 w-5 text-blue-600" />
-                      {route.name}
+                    <CardTitle className="flex items-center gap-2.5 text-slate-900">
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <Navigation className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <span className="font-bold">{route.name}</span>
                     </CardTitle>
-                    <div className="flex gap-2 items-center flex-wrap">
-                      {getStatusBadge(route.status)}
-                      <Badge variant={route.optimizationMode === 'fixed' ? 'secondary' : 'default'}>
-                        {route.optimizationMode === 'fixed' ? '🔒 Ordem Fixa' : '✅ Otimizada'}
-                      </Badge>
-                    </div>
+                    {getStatusBadge(route.status, route.optimizationMode)}
                   </div>
                   {route.description && (
-                    <p className="text-sm text-gray-600">{route.description}</p>
+                    <p className="text-sm text-slate-600 mt-2 line-clamp-2">{route.description}</p>
                   )}
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Pontos:</span>
-                      <span className="text-sm">{route.points?.length || 0} locais</span>
-                    </div>
-                    
-                    {route.totalDistance && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Distância:</span>
-                        <span className="text-sm">{route.totalDistance.toFixed(2)} km</span>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                          <MapPin className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Pontos</p>
+                          <p className="font-semibold text-slate-900">{route.points?.length || 0}</p>
+                        </div>
                       </div>
-                    )}
-                    
+                      
+                      {route.totalDistance && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                            <span className="text-green-600 font-semibold">📏</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Distância</p>
+                            <p className="font-semibold text-slate-900">{route.totalDistance.toFixed(1)} km</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {route.estimatedTime && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Tempo est.:</span>
-                        <span className="text-sm">{route.estimatedTime}</span>
+                      <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                        <span className="text-amber-600">⏱️</span>
+                        <div className="flex-1">
+                          <p className="text-xs text-amber-700 font-medium">Tempo estimado</p>
+                          <p className="text-sm text-amber-900 font-semibold">{route.estimatedTime}</p>
+                        </div>
                       </div>
                     )}
 
                     {route.points && route.points.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-sm font-medium mb-2">Pontos principais:</p>
-                        <div className="space-y-1">
+                      <div className="pt-3 border-t border-slate-100">
+                        <p className="text-xs font-semibold text-slate-700 mb-2.5">Principais pontos</p>
+                        <div className="space-y-2">
                           {route.points.slice(0, 2).map((point, index) => (
-                            <div key={`${route.id}-point-${index}`} className="flex items-center gap-2 text-xs text-gray-600">
-                              <MapPin className="h-3 w-3" />
-                              <span className="truncate">{point.address}</span>
+                            <div key={`${route.id}-point-${index}`} className="flex items-start gap-2 text-xs">
+                              <MapPin className="h-3.5 w-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                              <span className="text-slate-600 line-clamp-1">{point.address}</span>
                             </div>
                           ))}
                           {route.points.length > 2 && (
-                            <p className="text-xs text-gray-500">
-                              +{route.points.length - 2} pontos adicionais
+                            <p className="text-xs text-slate-500 pl-5">
+                              +{route.points.length - 2} mais {route.points.length - 2 === 1 ? 'ponto' : 'pontos'}
                             </p>
                           )}
                         </div>
@@ -253,14 +309,14 @@ const Routes = () => {
                     )}
                   </div>
 
-                  <div className="flex gap-2 mt-6">
+                  <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-slate-100">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleView(route)}
-                      className="flex-1"
+                      className="hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors"
                     >
-                      <Eye className="h-4 w-4 mr-1" />
+                      <Eye className="h-4 w-4 mr-1.5" />
                       Ver
                     </Button>
                     {route.status === 'completed' ? (
@@ -268,10 +324,10 @@ const Routes = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleReactivate(route)}
-                        className="flex-1 text-green-600 hover:text-green-700"
+                        className="hover:bg-green-50 hover:text-green-700 hover:border-green-200 transition-colors"
                         disabled={isLoading}
                       >
-                        <RefreshCw className="h-4 w-4 mr-1" />
+                        <RefreshCw className="h-4 w-4 mr-1.5" />
                         Reativar
                       </Button>
                     ) : (
@@ -279,44 +335,45 @@ const Routes = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(route)}
-                        className="flex-1"
+                        className="hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300 transition-colors"
                       >
-                        <Edit className="h-4 w-4 mr-1" />
+                        <Edit className="h-4 w-4 mr-1.5" />
                         Editar
                       </Button>
                     )}
-                    {/* ✅ BOTÃO DE OTIMIZAÇÃO MANUAL */}
                     {route.optimizationMode === 'fixed' && route.status !== 'completed' && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleOptimize(route)}
-                        className="text-blue-600 hover:text-blue-700 hover:border-blue-300"
+                        className="hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors"
                         disabled={isLoading}
-                        title="Otimizar rota - reorganiza os pontos intermediários para melhor sequência"
+                        title="Otimizar rota"
                       >
-                        <Navigation className="h-4 w-4" />
+                        <Navigation className="h-4 w-4 mr-1.5" />
+                        Otimizar
                       </Button>
                     )}
-                    {/* ✅ ÚNICO BOTÃO DE RESET AUTORIZADO */}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleReset(route)}
-                      className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
+                      className="hover:bg-orange-50 hover:text-orange-700 hover:border-orange-200 transition-colors"
                       disabled={isLoading}
-                      title="Resetar rota - marca TODOS os pontos como não concluídos"
+                      title="Resetar rota"
                     >
-                      <RotateCcw className="h-4 w-4" />
+                      <RotateCcw className="h-4 w-4 mr-1.5" />
+                      Resetar
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleDelete(route.id)}
-                      className="text-red-600 hover:text-red-700 hover:border-red-300"
+                      className="hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
                       disabled={isLoading}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 mr-1.5" />
+                      Excluir
                     </Button>
                   </div>
                 </CardContent>
