@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { GripVertical, Trash2, Search, Copy, MapPin } from 'lucide-react';
 import { RoutePoint } from '@/hooks/useRoutes';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 
 interface RoutePointsListProps {
   points: RoutePoint[];
@@ -89,7 +90,7 @@ const SortablePoint: React.FC<SortablePointProps> = ({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} data-point-card>
       <Card className={`mb-4 ${isDragging ? 'shadow-2xl' : 'shadow-sm'} transition-shadow`}>
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
@@ -202,6 +203,19 @@ const SortablePoint: React.FC<SortablePointProps> = ({
                     placeholder="Auto"
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor={`observation-${point.id}`} className="text-xs text-muted-foreground">Observações (opcional)</Label>
+                <textarea
+                  id={`observation-${point.id}`}
+                  value={point.observation || ''}
+                  onChange={(e) => onUpdate(point.id, 'observation', e.target.value)}
+                  placeholder="Adicione observações sobre este ponto..."
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  rows={3}
+                  style={{ minHeight: '80px' }}
+                />
               </div>
             </div>
           </div>

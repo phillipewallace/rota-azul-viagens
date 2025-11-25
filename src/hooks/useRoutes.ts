@@ -13,6 +13,7 @@ export interface RoutePoint {
   type: 'origin' | 'destination' | 'waypoint';
   completed?: boolean;
   completedAt?: string | null;
+  observation?: string;
 }
 
 export interface Route {

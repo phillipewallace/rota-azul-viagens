@@ -21,6 +21,7 @@ const MapComponent = () => {
   });
   const [realTimeTraffic, setRealTimeTraffic] = useState<any[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<string | null>(null);
+  const [highlightTimeout, setHighlightTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
@@ -227,9 +228,9 @@ const MapComponent = () => {
   };
 
   const createTruckIcon = (color: string, isSelected: boolean = false, truckStatus: string = 'available') => {
-    const size = isSelected ? 48 : 36;
+    const size = isSelected ? 52 : 36; // Increased from 48 to 52 for selected
     const strokeWidth = isSelected ? 3 : 2;
-    const shadowSize = isSelected ? 8 : 4;
+    const shadowSize = isSelected ? 10 : 4; // Increased shadow for selected
     
     // Status indicator color
     let statusColor = '#64748b'; // gray for available
@@ -249,9 +250,11 @@ const MapComponent = () => {
             </linearGradient>
             ${isSelected ? `
             <filter id="glow">
-              <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+              <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+              <feGaussianBlur stdDeviation="3.5" in="SourceGraphic" result="blur2"/>
               <feMerge>
                 <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="blur2"/>
                 <feMergeNode in="SourceGraphic"/>
               </feMerge>
             </filter>
@@ -324,6 +327,20 @@ const MapComponent = () => {
     
     // Store selection
     localStorage.setItem('selected-truck', truckId);
+    
+    // Clear previous highlight timeout
+    if (highlightTimeout) {
+      clearTimeout(highlightTimeout);
+    }
+    
+    // Set new timeout to clear highlight after 40 seconds
+    const timeout = setTimeout(() => {
+      setSelectedTruck(null);
+      localStorage.removeItem('selected-truck');
+      console.log('⏱️ Destaque removido após 40 segundos');
+    }, 40000);
+    
+    setHighlightTimeout(timeout);
     
     console.log('📍 Mapa centralizado no caminhão:', truck.name);
   };
@@ -425,17 +442,20 @@ const MapComponent = () => {
               suppressMarkers: false,
               polylineOptions: {
                 strokeColor: color,
-                strokeWeight: isHighlighted ? 7 : 4,
-                strokeOpacity: isHighlighted ? 1 : 0.6,
+                strokeWeight: isHighlighted ? 8 : 4,
+                strokeOpacity: isHighlighted ? 1 : 0.5,
                 icons: isHighlighted ? [
                   {
                     icon: {
                       path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
                       scale: 3,
-                      strokeColor: color
+                      strokeColor: color,
+                      strokeWeight: 2,
+                      fillColor: color,
+                      fillOpacity: 0.8
                     },
-                    offset: '100%',
-                    repeat: '50px'
+                    offset: '0',
+                    repeat: '60px'
                   }
                 ] : undefined
               },
