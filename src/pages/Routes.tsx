@@ -7,14 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
-import CreateRouteModal from '@/components/CreateRouteModal';
 import RouteMapPreview from '@/components/RouteMapPreview';
 import { toast } from 'sonner';
 
 const Routes = () => {
   const navigate = useNavigate();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingRoute, setEditingRoute] = useState<any>(null);
   const [viewingRoute, setViewingRoute] = useState<any>(null);
 
   const { routes, loading, loadRoutes } = useRoutes();
@@ -95,20 +92,7 @@ const Routes = () => {
   };
 
   const handleView = (route: any) => {
-    // Clear any existing modal state first
-    setIsCreateModalOpen(false);
-    setEditingRoute(null);
     setViewingRoute(route);
-  };
-
-  const handleCloseModal = () => {
-    console.log('❌ [ROUTES PAGE] Fechando modal de edição/criação');
-    setIsCreateModalOpen(false);
-    // Clear the editing route state after a delay to prevent visual glitches
-    setTimeout(() => {
-      setEditingRoute(null);
-    }, 300);
-    loadRoutes();
   };
 
   const handleNewRoute = () => {
@@ -382,14 +366,6 @@ const Routes = () => {
           </div>
         )}
 
-        {/* Modais */}
-        <CreateRouteModal 
-          open={isCreateModalOpen} 
-          onOpenChange={setIsCreateModalOpen}
-          editingRoute={editingRoute}
-          onSuccess={handleCloseModal}
-        />
-
         {viewingRoute && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -412,7 +388,7 @@ const Routes = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="font-medium">Status:</p>
-                      {getStatusBadge(viewingRoute.status)}
+                      {getStatusBadge(viewingRoute.status, viewingRoute.optimizationMode)}
                     </div>
                     <div>
                       <p className="font-medium">Total de Pontos:</p>
