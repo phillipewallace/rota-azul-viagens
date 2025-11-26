@@ -123,11 +123,12 @@ const MapComponent = () => {
         ]
       });
 
-      // Add click listener to clear highlight when clicking outside markers
+      // Add click listener to clear highlight when clicking outside markers/cards
       map.current.addListener('click', (e: any) => {
-        // Only clear if not clicking on a marker
-        if (selectedTruck) {
+        // Check if click was on the map (not on a marker)
+        if (selectedTruck && !e.placeId) {
           clearPremiumHighlight();
+          console.log('🗺️ Clique no mapa - destaque removido');
         }
       });
 
@@ -444,9 +445,14 @@ const MapComponent = () => {
           `
         });
 
+        // Single click: Apply premium highlight only
         marker.addListener('click', () => {
+          applyPremiumHighlight(truck.id);
+        });
+
+        // Double click: Open info window (highlight already applied)
+        marker.addListener('dblclick', () => {
           infoWindow.open(map.current, marker);
-          centerOnTruck(truck.id);
         });
 
         if (truck.currentRoute && truck.status === 'in-route' && Array.isArray(routes)) {
@@ -614,9 +620,10 @@ const MapComponent = () => {
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'selected-truck') {
-        setSelectedTruck(e.newValue);
-        console.log('📍 Selected truck updated:', e.newValue);
+      if (e.key === 'selected-truck' && e.newValue) {
+        // Card click: apply premium highlight
+        applyPremiumHighlight(e.newValue);
+        console.log('📍 Card click - Destaque aplicado:', e.newValue);
       }
     };
 
@@ -634,7 +641,7 @@ const MapComponent = () => {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [trucks]);
 
   useEffect(() => {
     getCurrentLocation();
