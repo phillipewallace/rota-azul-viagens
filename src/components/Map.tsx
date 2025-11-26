@@ -22,7 +22,7 @@ const MapComponent = () => {
   const [realTimeTraffic, setRealTimeTraffic] = useState<any[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<string | null>(null);
   const [highlightTimeout, setHighlightTimeout] = useState<NodeJS.Timeout | null>(null);
-  const highlightedRouteRenderer = useRef<any>(null);
+  const allRouteRenderers = useRef<any[]>([]);
 
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
@@ -123,6 +123,14 @@ const MapComponent = () => {
         ]
       });
 
+      // Add click listener to clear highlight when clicking outside markers
+      map.current.addListener('click', (e: any) => {
+        // Only clear if not clicking on a marker
+        if (selectedTruck) {
+          clearPremiumHighlight();
+        }
+      });
+
       setMapLoaded(true);
       console.log('🗺️ Mapa inicializado com sucesso');
     } catch (error) {
@@ -190,6 +198,15 @@ const MapComponent = () => {
       }
     });
     directionsRenderers.current = [];
+    
+    allRouteRenderers.current.forEach(renderer => {
+      try {
+        renderer.setMap(null);
+      } catch (error) {
+        console.error('Error clearing route renderer:', error);
+      }
+    });
+    allRouteRenderers.current = [];
   };
 
   const clearMarkers = () => {
@@ -228,10 +245,14 @@ const MapComponent = () => {
     console.log('📍 Marcador de localização atualizado');
   };
 
-  const createTruckIcon = (color: string, isSelected: boolean = false, truckStatus: string = 'available') => {
+  const createTruckIcon = (color: string, isSelected: boolean = false, truckStatus: string = 'available', isFaded: boolean = false) => {
     const size = isSelected ? 42 : 36; // Premium scale: 1.18x
     const strokeWidth = isSelected ? 2.5 : 2;
     const shadowSize = isSelected ? 6 : 4;
+    
+    // Apply fading effect when another truck is selected
+    const effectiveColor = isFaded ? '#B0B0B0' : color;
+    const effectiveOpacity = isFaded ? 0.5 : 1;
     
     // Status indicator color
     let statusColor = '#64748b'; // gray for available
@@ -246,8 +267,8 @@ const MapComponent = () => {
               <feDropShadow dx="0" dy="${shadowSize/2}" stdDeviation="${shadowSize/2}" flood-color="rgba(0,0,0,0.4)"/>
             </filter>
             <linearGradient id="truckGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
-              <stop offset="100%" style="stop-color:${adjustBrightness(color, -20)};stop-opacity:1" />
+              <stop offset="0%" style="stop-color:${effectiveColor};stop-opacity:${effectiveOpacity}" />
+              <stop offset="100%" style="stop-color:${adjustBrightness(effectiveColor, -20)};stop-opacity:${effectiveOpacity}" />
             </linearGradient>
             ${isSelected ? `
             <filter id="premiumGlow">
@@ -261,8 +282,8 @@ const MapComponent = () => {
           </defs>
           
           ${isSelected ? `
-          <!-- Premium Halo -->
-          <circle cx="12" cy="13" r="15" fill="none" stroke="#00BFFF" stroke-width="1.5" opacity="0.55">
+          <!-- Premium Halo with truck color -->
+          <circle cx="12" cy="13" r="15" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.55">
             <animate attributeName="r" values="15;16.5;15" dur="2.5s" repeatCount="indefinite"/>
             <animate attributeName="opacity" values="0.55;0.35;0.55" dur="2.5s" repeatCount="indefinite"/>
           </circle>
@@ -271,14 +292,14 @@ const MapComponent = () => {
           <!-- Truck body -->
           <rect x="2" y="8" width="12" height="8" rx="1" 
                 fill="url(#truckGradient)" 
-                stroke="${isSelected ? '#00BFFF' : '#ffffff'}" 
+                stroke="${isSelected ? effectiveColor : '#ffffff'}" 
                 stroke-width="${strokeWidth}" 
                 filter="url(#shadow) ${isSelected ? 'url(#premiumGlow)' : ''}"/>
           
           <!-- Truck cab -->
           <rect x="14" y="10" width="6" height="6" rx="1" 
                 fill="url(#truckGradient)" 
-                stroke="${isSelected ? '#00BFFF' : '#ffffff'}" 
+                stroke="${isSelected ? effectiveColor : '#ffffff'}" 
                 stroke-width="${strokeWidth}" 
                 filter="url(#shadow) ${isSelected ? 'url(#premiumGlow)' : ''}"/>
           
@@ -331,13 +352,14 @@ const MapComponent = () => {
       setHighlightTimeout(null);
     }
     
-    if (highlightedRouteRenderer.current) {
-      highlightedRouteRenderer.current.setMap(null);
-      highlightedRouteRenderer.current = null;
-    }
-    
     setSelectedTruck(null);
     localStorage.removeItem('selected-truck');
+    
+    // Redraw all routes to normal state
+    if (mapLoaded && !trucksLoading && !routesLoading) {
+      updateMapMarkers();
+    }
+    
     console.log('🔄 Destaque premium removido');
   };
 
@@ -346,8 +368,10 @@ const MapComponent = () => {
     const truck = trucks?.find(t => t.id === truckId);
     if (!truck || !truck.location || !map.current) return;
 
-    // Clear any previous highlight
-    clearPremiumHighlight();
+    // Clear any previous timeout
+    if (highlightTimeout) {
+      clearTimeout(highlightTimeout);
+    }
 
     // Center map with premium zoom
     map.current.panTo({ lat: truck.location.lat, lng: truck.location.lng });
@@ -357,11 +381,14 @@ const MapComponent = () => {
     setSelectedTruck(truckId);
     localStorage.setItem('selected-truck', truckId);
     
-    // Set timer to clear after 25 seconds with fade-out
+    // Redraw all markers and routes with new states
+    updateMapMarkers();
+    
+    // Set timer to clear after 5 seconds
     const timeout = setTimeout(() => {
       clearPremiumHighlight();
-      console.log('⏱️ Destaque premium removido após 25 segundos');
-    }, 25000);
+      console.log('⏱️ Destaque premium removido após 5 segundos');
+    }, 5000);
     
     setHighlightTimeout(timeout);
     
@@ -389,14 +416,15 @@ const MapComponent = () => {
 
       const truckColor = getTruckColor(truck.id, index);
       const isSelected = selectedTruck === truck.id;
+      const isFaded = selectedTruck !== null && selectedTruck !== truck.id;
       
       try {
         const marker = new window.google.maps.Marker({
           position: { lat: truck.location.lat, lng: truck.location.lng },
           map: map.current,
           title: truck.name,
-          icon: createTruckIcon(truckColor, isSelected, truck.status),
-          zIndex: isSelected ? 1000 : 100
+          icon: createTruckIcon(truckColor, isSelected, truck.status, isFaded),
+          zIndex: isSelected ? 1000 : (isFaded ? 10 : 100)
         });
 
         markersRef.current.push(marker);
@@ -424,7 +452,7 @@ const MapComponent = () => {
         if (truck.currentRoute && truck.status === 'in-route' && Array.isArray(routes)) {
           const route = routes.find(r => r.id === truck.currentRoute);
           if (route && route.points && route.points.length >= 2) {
-            drawTruckRoute(route, truckColor, isSelected);
+            drawTruckRoute(route, truckColor, isSelected, isFaded);
           }
         }
       } catch (error) {
@@ -433,7 +461,7 @@ const MapComponent = () => {
     });
   };
 
-  const drawTruckRoute = async (route: any, color: string, isHighlighted: boolean = false) => {
+  const drawTruckRoute = async (route: any, color: string, isHighlighted: boolean = false, isFaded: boolean = false) => {
     if (!route.points || route.points.length < 2 || !window.google) return;
 
     try {
@@ -464,17 +492,17 @@ const MapComponent = () => {
         if (status === 'OK' && result) {
           try {
             if (isHighlighted) {
-              // Premium highlighted route with halo effect
+              // Premium highlighted route with halo effect (using truck's own color)
               // First: Draw halo (background layer)
               const haloRenderer = new window.google.maps.DirectionsRenderer({
                 directions: result,
                 map: map.current,
                 suppressMarkers: true,
                 polylineOptions: {
-                  strokeColor: '#00BFFF',
+                  strokeColor: color,
                   strokeWeight: 8,
-                  strokeOpacity: 0.25,
-                  zIndex: 1
+                  strokeOpacity: 0.3,
+                  zIndex: 2
                 }
               });
               
@@ -484,16 +512,16 @@ const MapComponent = () => {
                 map: map.current,
                 suppressMarkers: false,
                 polylineOptions: {
-                  strokeColor: '#00BFFF',
-                  strokeWeight: 5.4,
+                  strokeColor: color,
+                  strokeWeight: 6,
                   strokeOpacity: 1.0,
-                  zIndex: 2
+                  zIndex: 3
                 },
                 markerOptions: {
                   icon: {
                     path: window.google.maps.SymbolPath.CIRCLE,
                     scale: 6,
-                    fillColor: '#00BFFF',
+                    fillColor: color,
                     fillOpacity: 1,
                     strokeColor: '#ffffff',
                     strokeWeight: 2
@@ -501,15 +529,34 @@ const MapComponent = () => {
                 }
               });
 
-              // Store reference to clean up later
-              highlightedRouteRenderer.current = {
-                setMap: (m: any) => {
-                  haloRenderer.setMap(m);
-                  mainRenderer.setMap(m);
-                }
-              };
-              
+              allRouteRenderers.current.push(haloRenderer, mainRenderer);
               console.log('✨ Rota premium destacada:', route.name);
+            } else if (isFaded) {
+              // Faded route (gray, low opacity)
+              const directionsRenderer = new window.google.maps.DirectionsRenderer({
+                directions: result,
+                map: map.current,
+                suppressMarkers: false,
+                polylineOptions: {
+                  strokeColor: '#B0B0B0',
+                  strokeWeight: 4,
+                  strokeOpacity: 0.25,
+                  zIndex: 0
+                },
+                markerOptions: {
+                  icon: {
+                    path: window.google.maps.SymbolPath.CIRCLE,
+                    scale: 4,
+                    fillColor: '#B0B0B0',
+                    fillOpacity: 0.4,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 1
+                  }
+                }
+              });
+
+              allRouteRenderers.current.push(directionsRenderer);
+              console.log('🌫 Rota esmaecida:', route.name);
             } else {
               // Normal route
               const directionsRenderer = new window.google.maps.DirectionsRenderer({
@@ -517,10 +564,10 @@ const MapComponent = () => {
                 map: map.current,
                 suppressMarkers: false,
                 polylineOptions: {
-                  strokeColor: '#2970FF',
+                  strokeColor: color,
                   strokeWeight: 4,
-                  strokeOpacity: 0.9,
-                  zIndex: 0
+                  strokeOpacity: 0.7,
+                  zIndex: 1
                 },
                 markerOptions: {
                   icon: {
@@ -534,7 +581,7 @@ const MapComponent = () => {
                 }
               });
 
-              directionsRenderers.current.push(directionsRenderer);
+              allRouteRenderers.current.push(directionsRenderer);
               console.log('✅ Rota desenhada:', route.name);
             }
           } catch (error) {
