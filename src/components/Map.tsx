@@ -23,6 +23,7 @@ const MapComponent = () => {
   const [selectedTruck, setSelectedTruck] = useState<string | null>(null);
   const [highlightTimeout, setHighlightTimeout] = useState<NodeJS.Timeout | null>(null);
   const allRouteRenderers = useRef<any[]>([]);
+  const lastClickedTruck = useRef<string | null>(null);
 
   const { trucks, loading: trucksLoading } = useTrucks();
   const { routes, loading: routesLoading } = useRoutes();
@@ -125,8 +126,9 @@ const MapComponent = () => {
 
       // Add click listener to clear highlight when clicking outside markers/cards
       map.current.addListener('click', (e: any) => {
-        // Check if click was on the map (not on a marker)
-        if (selectedTruck && !e.placeId) {
+        // Use localStorage to avoid stale closure
+        const currentSelected = localStorage.getItem('selected-truck');
+        if (currentSelected && !e.placeId) {
           clearPremiumHighlight();
           console.log('🗺️ Clique no mapa - destaque removido');
         }
@@ -355,6 +357,7 @@ const MapComponent = () => {
     
     setSelectedTruck(null);
     localStorage.removeItem('selected-truck');
+    lastClickedTruck.current = null;
     
     // Redraw all routes to normal state
     if (mapLoaded && !trucksLoading && !routesLoading) {
@@ -445,14 +448,17 @@ const MapComponent = () => {
           `
         });
 
-        // Single click: Apply premium highlight only
+        // Single click behavior: second click shows info window
         marker.addListener('click', () => {
-          applyPremiumHighlight(truck.id);
-        });
-
-        // Double click: Open info window (highlight already applied)
-        marker.addListener('dblclick', () => {
-          infoWindow.open(map.current, marker);
+          if (lastClickedTruck.current === truck.id) {
+            // Second click on same truck - show info window
+            infoWindow.open(map.current, marker);
+            console.log('ℹ️ Info window opened for truck:', truck.id);
+          } else {
+            // First click - apply premium highlight
+            applyPremiumHighlight(truck.id);
+            lastClickedTruck.current = truck.id;
+          }
         });
 
         if (truck.currentRoute && truck.status === 'in-route' && Array.isArray(routes)) {
