@@ -163,11 +163,74 @@ export const useMobile = () => {
     return result;
   }, []);
 
+  const reorderStops = useCallback(async (routeId: string, reorderedPoints: Array<{ pointId: string; order: number }>) => {
+    const response = await fetch(`${API_BASE_URL}/mobile/route/${routeId}/reorder`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'omit',
+      body: JSON.stringify({ points: reorderedPoints })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error('Erro ao reordenar paradas');
+    }
+
+    const result = await response.json();
+    
+    // Limpar cache relacionado
+    setRequestCache(new Map());
+    
+    return result;
+  }, []);
+
+  const addExtraStop = useCallback(async (
+    routeId: string, 
+    truckId: string, 
+    stopData: {
+      name: string;
+      stopType: string;
+      location: string;
+      insertBeforeId?: string;
+    }
+  ) => {
+    const response = await fetch(`${API_BASE_URL}/mobile/route/${routeId}/extra-stop`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'omit',
+      body: JSON.stringify({
+        ...stopData,
+        truckId,
+        source: 'MOTORISTA'
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error('Erro ao adicionar parada extra');
+    }
+
+    const result = await response.json();
+    
+    // Limpar cache relacionado
+    setRequestCache(new Map());
+    
+    return result;
+  }, []);
+
   return {
     getTruckByPlate,
     updateTruckLocation,
     updateRoutePoint,
     finishRoute,
+    reorderStops,
+    addExtraStop,
     clearCache: () => setRequestCache(new Map())
   };
 };
