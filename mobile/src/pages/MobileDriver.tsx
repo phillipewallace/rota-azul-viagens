@@ -7,8 +7,11 @@ import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
 import { useMobile, TruckMobileData } from '@/hooks/useMobile';
 import { useRouteSync } from '@/hooks/useRouteSync';
-import MobileRouteMap from '@/components/MobileRouteMap';
 import RouteUpdateNotification from '@/components/RouteUpdateNotification';
+import RouteInfoCard from '@/components/RouteInfoCard';
+import RouteExecutionCard from '@/components/RouteExecutionCard';
+import StopsList from './StopsList';
+import { sharedLocationStore } from '@/store/sharedLocationStore';
 
 interface TruckData {
   id: string;
@@ -24,6 +27,7 @@ const MobileDriver = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullTruckData, setFullTruckData] = useState<TruckMobileData | null>(null);
+  const [showStopsList, setShowStopsList] = useState(false);
 
   // ✅ NOVO: Persistência de estado
   const [persistedState, setPersistedState] = useState<{
@@ -33,8 +37,20 @@ const MobileDriver = () => {
     routeProgress: any;
   } | null>(null);
 
-  const { getTruckByPlate, updateTruckLocation, updateRoutePoint, finishRoute } = useMobile();
+  const { getTruckByPlate, updateRoutePoint, finishRoute } = useMobile();
   const { hasRouteChanged, newRouteData, acceptRouteUpdate, dismissRouteUpdate, checkForRouteUpdates } = useRouteSync(fullTruckData);
+
+  // Listener para compartilhamento de localização
+  useEffect(() => {
+    const unsubscribe = sharedLocationStore.subscribe((state) => {
+      if (state.isFromShare && isLoggedIn && fullTruckData?.currentRoute) {
+        console.log('📍 [MOBILE DRIVER] Compartilhamento recebido, abrindo lista');
+        setShowStopsList(true);
+      }
+    });
+
+    return unsubscribe;
+  }, [isLoggedIn, fullTruckData]);
 
   // ✅ CAREGAR ESTADO PERSISTIDO NA INICIALIZAÇÃO
   useEffect(() => {
@@ -268,6 +284,48 @@ const MobileDriver = () => {
     }
   };
 
+  const handleFinishRoute = async () => {
+    if (!fullTruckData?.id) return;
+
+    try {
+      await finishRoute(fullTruckData.id);
+      
+      // Limpar estado
+      const clearedData = {
+        ...fullTruckData,
+        currentRoute: null
+      };
+      
+      setFullTruckData(clearedData);
+      
+      const stateToSave = {
+        isLoggedIn: true,
+        plateNumber,
+        truckData,
+        routeProgress: {}
+      };
+      persistState(stateToSave);
+      
+      toast.success('Rota finalizada com sucesso!');
+      
+    } catch (error) {
+      console.error('❌ [MOBILE] Erro ao finalizar rota:', error);
+      toast.error('Erro ao finalizar rota');
+    }
+  };
+
+  // Se estiver mostrando lista de paradas
+  if (showStopsList && fullTruckData?.currentRoute) {
+    return (
+      <StopsList
+        routeId={fullTruckData.currentRoute.id}
+        truckId={fullTruckData.id}
+        initialPoints={fullTruckData.currentRoute.points}
+        onBack={() => setShowStopsList(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
       {isLoggedIn ? (
@@ -320,13 +378,22 @@ const MobileDriver = () => {
             />
           )}
 
-          {/* Mapa da rota */}
-          {fullTruckData && (
-            <MobileRouteMap 
-              truckData={fullTruckData}
-              onLocationUpdate={updateTruckLocation}
-              onPointUpdate={handlePointUpdate}
-              onFinishRoute={finishRoute}
+          {/* Card de Informações da Rota */}
+          {fullTruckData?.currentRoute && (
+            <RouteInfoCard
+              routeName={fullTruckData.currentRoute.name}
+              totalStops={fullTruckData.currentRoute.pointsCount}
+              completedStops={fullTruckData.currentRoute.completedPoints}
+              onViewStops={() => setShowStopsList(true)}
+            />
+          )}
+
+          {/* Card de Execução da Rota */}
+          {fullTruckData?.currentRoute && (
+            <RouteExecutionCard
+              points={fullTruckData.currentRoute.points}
+              onPointComplete={handlePointUpdate}
+              onFinishRoute={handleFinishRoute}
             />
           )}
         </div>
