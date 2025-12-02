@@ -34,10 +34,11 @@ router.put('/route/:routeId/reorder', async (req, res) => {
     
     // Atualizar ordem de cada ponto
     for (const point of points) {
-      await client.query(
+      const updateResult = await client.query(
         'UPDATE route_points SET point_order = $1 WHERE id = $2 AND route_id = $3',
         [point.order, point.pointId, routeId]
       );
+      console.log(`📍 [MOBILE API] Ponto ${point.pointId} atualizado para ordem ${point.order}, rows affected: ${updateResult.rowCount}`);
     }
     
     // Atualizar timestamp da rota
@@ -77,40 +78,55 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
     const { name, stopType, location, insertBeforeId, truckId, source } = req.body;
     
     console.log(`➕ [MOBILE API] Adicionando parada extra à rota ${routeId}`);
-    console.log(`📋 [MOBILE API] Dados:`, { name, stopType, location, insertBeforeId, truckId, source });
+    console.log(`📋 [MOBILE API] Dados recebidos:`, { name, stopType, location, insertBeforeId, truckId, source });
     
     // Validar campos obrigatórios
-    if (!name || !location) {
+    if (!name || !name.trim()) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Nome e localização são obrigatórios' });
+      return res.status(400).json({ error: 'Nome do cliente/ponto é obrigatório' });
     }
     
-    // Verificar se rota existe e está vinculada ao caminhão
+    if (!location || !location.trim()) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Endereço ou localização é obrigatório' });
+    }
+    
+    // Verificar se rota existe
     const routeCheck = await client.query(
-      `SELECT r.id, r.name, t.id as truck_id, t.name as truck_name
-       FROM routes r
-       LEFT JOIN trucks t ON t.current_route_id = r.id
-       WHERE r.id = $1 AND t.id = $2`,
-      [routeId, truckId]
+      'SELECT id, name FROM routes WHERE id = $1',
+      [routeId]
     );
     
     if (routeCheck.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ 
-        error: 'Rota não encontrada ou não vinculada ao caminhão' 
-      });
+      console.error(`❌ [MOBILE API] Rota ${routeId} não encontrada`);
+      return res.status(404).json({ error: 'Rota não encontrada' });
     }
     
-    // Tentar extrair coordenadas do link de localização (Google Maps)
+    // Se truckId foi fornecido, verificar vínculo (mas não obrigatório)
+    if (truckId) {
+      const truckCheck = await client.query(
+        'SELECT id, name FROM trucks WHERE id = $1 AND current_route_id = $2',
+        [truckId, routeId]
+      );
+      
+      if (truckCheck.rows.length === 0) {
+        console.warn(`⚠️ [MOBILE API] Caminhão ${truckId} não vinculado à rota ${routeId}, mas continuando...`);
+      }
+    }
+    
+    // Extrair coordenadas do link de localização
     let lat = 0;
     let lng = 0;
-    let address = location;
+    let address = location.trim();
     
-    // Padrões de URL do Google Maps
+    // Padrões de URL do Google Maps e Plus Codes
     const patterns = [
-      /maps\?q=(-?\d+\.\d+),(-?\d+\.\d+)/,           // ?q=lat,lng
-      /@(-?\d+\.\d+),(-?\d+\.\d+)/,                   // @lat,lng
-      /maps\/place\/[^\/]+\/@(-?\d+\.\d+),(-?\d+\.\d+)/, // place/@lat,lng
+      /maps\?q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,                    // ?q=lat,lng
+      /@(-?\d+\.?\d*),(-?\d+\.?\d*)/,                            // @lat,lng
+      /maps\/place\/[^\/]+\/@(-?\d+\.?\d*),(-?\d+\.?\d*)/,       // place/@lat,lng
+      /q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,                           // q=lat,lng (simples)
+      /(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/,                      // lat, lng (formato decimal longo)
     ];
     
     for (const pattern of patterns) {
@@ -118,20 +134,20 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
       if (match) {
         lat = parseFloat(match[1]);
         lng = parseFloat(match[2]);
-        console.log(`📍 [MOBILE API] Coordenadas extraídas do link: ${lat}, ${lng}`);
+        console.log(`📍 [MOBILE API] Coordenadas extraídas: ${lat}, ${lng}`);
         break;
       }
     }
     
-    // Se não conseguiu extrair coordenadas, usar localização como endereço
+    // Se não conseguiu extrair coordenadas, ainda pode usar o endereço como texto
     if (lat === 0 && lng === 0) {
-      console.log(`📍 [MOBILE API] Usando localização como endereço texto: ${address}`);
+      console.log(`📍 [MOBILE API] Sem coordenadas extraídas, usando endereço como texto: "${address}"`);
     }
     
     // Determinar ordem de inserção
     let insertOrder = 0;
     
-    if (insertBeforeId) {
+    if (insertBeforeId && insertBeforeId !== 'end') {
       // Inserir antes de um ponto específico
       const beforePointResult = await client.query(
         'SELECT point_order FROM route_points WHERE id = $1 AND route_id = $2',
@@ -185,25 +201,28 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
     
     await client.query('COMMIT');
     
-    console.log(`✅ [MOBILE API] Parada extra adicionada: ${newPoint.id}`);
+    console.log(`✅ [MOBILE API] Parada extra adicionada com sucesso: ${newPoint.id}`);
     
     // Retornar ponto criado no formato esperado pelo frontend
     res.json({
       id: newPoint.id,
       address: newPoint.address,
-      lat: Number(newPoint.lat),
-      lng: Number(newPoint.lng),
+      lat: Number(newPoint.lat) || 0,
+      lng: Number(newPoint.lng) || 0,
       order: Number(newPoint.point_order),
       type: newPoint.type,
-      completed: newPoint.completed,
-      name: name,
-      stopType: stopType
+      completed: newPoint.completed || false,
+      name: name.trim(),
+      stopType: stopType || 'Entrega'
     });
     
-  } catch (error) {
+  } catch (error: any) {
     await client.query('ROLLBACK');
     console.error('❌ [MOBILE API] Erro ao adicionar parada extra:', error);
-    res.status(500).json({ error: 'Erro ao adicionar parada extra' });
+    res.status(500).json({ 
+      error: 'Erro ao adicionar parada extra',
+      details: error.message || 'Erro interno do servidor'
+    });
   } finally {
     client.release();
   }

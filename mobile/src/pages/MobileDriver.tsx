@@ -314,6 +314,13 @@ const MobileDriver = () => {
     }
   };
 
+  // Callback para atualizar dados após mudanças na lista de paradas
+  const handleStopsUpdate = async () => {
+    if (plateNumber) {
+      await reloadTruckData(plateNumber);
+    }
+  };
+
   // Se estiver mostrando lista de paradas
   if (showStopsList && fullTruckData?.currentRoute) {
     return (
@@ -321,110 +328,147 @@ const MobileDriver = () => {
         routeId={fullTruckData.currentRoute.id}
         truckId={fullTruckData.id}
         initialPoints={fullTruckData.currentRoute.points}
-        onBack={() => setShowStopsList(false)}
+        onBack={() => {
+          setShowStopsList(false);
+          handleStopsUpdate();
+        }}
       />
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex flex-col min-h-screen bg-gray-100">
       {isLoggedIn ? (
-        <div className="w-full max-w-4xl space-y-4">
-          {/* Header do motorista */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-semibold">Painel do Motorista</h2>
-                  <p className="text-gray-600">
-                    {truckData?.name} - <span className="font-medium">{truckData?.plate}</span>
-                  </p>
+        <>
+          {/* Área de conteúdo rolável */}
+          <div className="flex-1 overflow-y-auto pb-32">
+            <div className="w-full max-w-4xl mx-auto p-4 space-y-4">
+              {/* Header do motorista */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                      <h2 className="text-xl font-semibold">Painel do Motorista</h2>
+                      <p className="text-gray-600">
+                        {truckData?.name} - <span className="font-medium">{truckData?.plate}</span>
+                      </p>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button variant="outline" size="sm" onClick={() => checkForRouteUpdates()}>
+                        Atualizar
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={handleLogout}>
+                        Sair
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notificação de atualização de rota */}
+              {hasRouteChanged && newRouteData && (
+                <RouteUpdateNotification
+                  onAccept={() => {
+                    const updatedData = acceptRouteUpdate(newRouteData);
+                    setFullTruckData(updatedData);
+                    
+                    // Atualizar estado persistido
+                    const stateToSave = {
+                      isLoggedIn: true,
+                      plateNumber,
+                      truckData,
+                      routeProgress: updatedData.currentRoute ? 
+                        Object.fromEntries(
+                          updatedData.currentRoute.points.map((p: any) => [
+                            p.id, 
+                            { completed: p.completed, completedAt: p.completedAt }
+                          ])
+                        ) : {}
+                    };
+                    persistState(stateToSave);
+                  }}
+                  onDismiss={dismissRouteUpdate}
+                />
+              )}
+
+              {/* Sem rota ativa */}
+              {!fullTruckData?.currentRoute && (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-gray-500">Nenhuma rota ativa no momento</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      Aguarde a atribuição de uma rota pelo administrador
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Card de Informações da Rota */}
+              {fullTruckData?.currentRoute && (
+                <RouteInfoCard
+                  routeName={fullTruckData.currentRoute.name}
+                  totalStops={fullTruckData.currentRoute.points?.length || 0}
+                  completedStops={fullTruckData.currentRoute.points?.filter(p => p.completed).length || 0}
+                  onViewStops={() => setShowStopsList(true)}
+                />
+              )}
+
+              {/* Card de Execução da Rota */}
+              {fullTruckData?.currentRoute && (
+                <RouteExecutionCard
+                  points={fullTruckData.currentRoute.points}
+                  onPointComplete={handlePointUpdate}
+                  onFinishRoute={handleFinishRoute}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Footer fixo com safe-area */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
+            <div className="p-4 pb-safe max-w-4xl mx-auto">
+              {fullTruckData?.currentRoute && (
+                <Button 
+                  className="w-full h-14 text-lg font-semibold"
+                  onClick={() => setShowStopsList(true)}
+                >
+                  Ver Paradas da Rota ({fullTruckData.currentRoute.points?.length || 0})
+                </Button>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center justify-center min-h-screen p-4">
+          <Card className="w-full max-w-sm">
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-semibold mb-4 text-center">
+                Acessar Caminhão
+              </h2>
+
+              {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                  <strong className="font-bold">Erro:</strong>
+                  <span className="block sm:inline"> {error}</span>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => checkForRouteUpdates()}>
-                    Verificar Atualizações
-                  </Button>
-                  <Button variant="destructive" onClick={handleLogout}>
-                    Sair
-                  </Button>
-                </div>
+              )}
+
+              <div className="space-y-4">
+                <Input
+                  type="text"
+                  placeholder="Número da placa"
+                  value={plateNumber}
+                  onChange={(e) => setPlateNumber(e.target.value.toUpperCase())}
+                  disabled={loading}
+                  className="text-center text-lg h-12"
+                />
+                <Button className="w-full h-12 text-lg" onClick={handleLogin} disabled={loading}>
+                  {loading ? 'Carregando...' : 'Entrar'}
+                </Button>
               </div>
             </CardContent>
           </Card>
-
-          {/* Notificação de atualização de rota */}
-          {hasRouteChanged && newRouteData && (
-            <RouteUpdateNotification
-              onAccept={() => {
-                const updatedData = acceptRouteUpdate(newRouteData);
-                setFullTruckData(updatedData);
-                
-                // Atualizar estado persistido
-                const stateToSave = {
-                  isLoggedIn: true,
-                  plateNumber,
-                  truckData,
-                  routeProgress: updatedData.currentRoute ? 
-                    Object.fromEntries(
-                      updatedData.currentRoute.points.map((p: any) => [
-                        p.id, 
-                        { completed: p.completed, completedAt: p.completedAt }
-                      ])
-                    ) : {}
-                };
-                persistState(stateToSave);
-              }}
-              onDismiss={dismissRouteUpdate}
-            />
-          )}
-
-          {/* Card de Informações da Rota */}
-          {fullTruckData?.currentRoute && (
-            <RouteInfoCard
-              routeName={fullTruckData.currentRoute.name}
-              totalStops={fullTruckData.currentRoute.pointsCount}
-              completedStops={fullTruckData.currentRoute.completedPoints}
-              onViewStops={() => setShowStopsList(true)}
-            />
-          )}
-
-          {/* Card de Execução da Rota */}
-          {fullTruckData?.currentRoute && (
-            <RouteExecutionCard
-              points={fullTruckData.currentRoute.points}
-              onPointComplete={handlePointUpdate}
-              onFinishRoute={handleFinishRoute}
-            />
-          )}
         </div>
-      ) : (
-        <Card className="w-96">
-          <CardContent className="p-6">
-            <h2 className="text-2xl font-semibold mb-4 text-center">
-              Acessar Caminhão
-            </h2>
-
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-                <strong className="font-bold">Erro:</strong>
-                <span className="block sm:inline"> {error}</span>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <Input
-                type="text"
-                placeholder="Número da placa"
-                value={plateNumber}
-                onChange={(e) => setPlateNumber(e.target.value)}
-                disabled={loading}
-              />
-              <Button className="w-full" onClick={handleLogin} disabled={loading}>
-                {loading ? 'Carregando...' : 'Entrar'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
