@@ -1,4 +1,16 @@
+/**
+ * StopsList - Lista de paradas da rota com drag & drop
+ * 
+ * Funcionalidades:
+ * - Visualização de todas as paradas
+ * - Drag & drop para reordenar
+ * - Navegação para tela de adicionar parada extra
+ * 
+ * IMPORTANTE: Drag & drop é preservado e funcional
+ */
+
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   DndContext, 
   closestCenter, 
@@ -21,7 +33,6 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { GripVertical, ArrowLeft, Save, Plus, MapPin, CheckCircle2, Loader2 } from 'lucide-react';
 import { useMobile } from '@/hooks/useMobile';
-import AddStopModal from '@/components/AddStopModal';
 import { sharedLocationStore } from '@/store/sharedLocationStore';
 
 interface RoutePoint {
@@ -37,10 +48,10 @@ interface RoutePoint {
 }
 
 interface StopsListProps {
-  routeId: string;
-  truckId: string;
-  initialPoints: RoutePoint[];
-  onBack: () => void;
+  routeId?: string;
+  truckId?: string;
+  initialPoints?: RoutePoint[];
+  onBack?: () => void;
 }
 
 // Componente para item arrastável
@@ -71,16 +82,16 @@ function SortableStopItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white rounded-lg border-2 shadow-sm p-4 mb-3 ${
+      className={`bg-white rounded-xl border-2 shadow-sm p-4 mb-3 ${
         isItemDragging ? 'border-blue-500 shadow-lg' : 'border-gray-200'
       } ${point.completed ? 'bg-green-50 border-green-300' : ''}`}
     >
       <div className="flex items-start gap-3">
-        {/* Handle de arrastar - área maior para toque */}
+        {/* Handle de arrastar */}
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing p-2 -m-2 touch-none"
+          className="cursor-grab active:cursor-grabbing p-3 -m-2 touch-none rounded-lg hover:bg-gray-100"
           style={{ touchAction: 'none' }}
         >
           <GripVertical className="h-6 w-6 text-gray-400" />
@@ -88,14 +99,14 @@ function SortableStopItem({
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className={`font-bold text-lg ${point.completed ? 'text-green-600' : 'text-blue-600'}`}>
+            <span className={`font-bold text-base ${point.completed ? 'text-green-600' : 'text-blue-600'}`}>
               Parada {index + 1}
             </span>
             {point.completed && (
               <CheckCircle2 className="h-5 w-5 text-green-600" />
             )}
             {point.stopType && (
-              <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
                 {point.stopType}
               </span>
             )}
@@ -107,7 +118,7 @@ function SortableStopItem({
           
           <p className="text-xs text-gray-600 break-words flex items-start gap-1">
             <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
-            <span>{point.address}</span>
+            <span className="line-clamp-2">{point.address}</span>
           </p>
         </div>
       </div>
@@ -118,13 +129,13 @@ function SortableStopItem({
 // Componente para overlay durante arraste
 function DragOverlayItem({ point, index }: { point: RoutePoint; index: number }) {
   return (
-    <div className="bg-white rounded-lg border-2 border-blue-500 shadow-2xl p-4">
+    <div className="bg-white rounded-xl border-2 border-blue-500 shadow-2xl p-4">
       <div className="flex items-start gap-3">
-        <div className="p-2">
+        <div className="p-3">
           <GripVertical className="h-6 w-6 text-blue-500" />
         </div>
         <div className="flex-1">
-          <span className="font-bold text-lg text-blue-600">
+          <span className="font-bold text-base text-blue-600">
             Parada {index + 1}
           </span>
           <p className="text-sm font-medium text-gray-900">
@@ -136,20 +147,36 @@ function DragOverlayItem({ point, index }: { point: RoutePoint; index: number })
   );
 }
 
-const StopsList: React.FC<StopsListProps> = ({ 
-  routeId, 
-  truckId, 
-  initialPoints, 
-  onBack 
-}) => {
+const StopsList: React.FC<StopsListProps> = (props) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  
+  // Props podem vir direto ou via navigation state/params
+  const stateData = location.state as { 
+    routeId?: string; 
+    truckId?: string; 
+    initialPoints?: RoutePoint[];
+  } | null;
+  
+  const routeId = props.routeId || stateData?.routeId || searchParams.get('routeId') || '';
+  const truckId = props.truckId || stateData?.truckId || searchParams.get('truckId') || '';
+  const initialPointsRaw = props.initialPoints || stateData?.initialPoints || [];
+  
   const [points, setPoints] = useState<RoutePoint[]>(
-    [...initialPoints].sort((a, b) => a.order - b.order)
+    [...initialPointsRaw].sort((a, b) => a.order - b.order)
   );
   const [saving, setSaving] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const { reorderStops, addExtraStop } = useMobile();
+  const { reorderStops } = useMobile();
+
+  // Atualizar pontos se props mudarem
+  useEffect(() => {
+    if (initialPointsRaw.length > 0) {
+      setPoints([...initialPointsRaw].sort((a, b) => a.order - b.order));
+    }
+  }, [initialPointsRaw]);
 
   // Sensores configurados para toque móvel
   const sensors = useSensors(
@@ -166,14 +193,14 @@ const StopsList: React.FC<StopsListProps> = ({
     })
   );
 
-  // Verificar se há localização compartilhada ao montar
+  // Verificar deep link ao montar
   useEffect(() => {
     const sharedState = sharedLocationStore.getState();
-    if (sharedState.isFromShare && sharedState.sharedContent) {
-      console.log('📍 [STOPS LIST] Abrindo modal com localização compartilhada');
-      setShowAddModal(true);
+    if (sharedState.isFromShare && sharedState.sharedContent && routeId && truckId) {
+      console.log('📍 [STOPS LIST] Redirecionando para adicionar parada com deep link');
+      navigateToAddStop();
     }
-  }, []);
+  }, [routeId, truckId]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -190,7 +217,6 @@ const StopsList: React.FC<StopsListProps> = ({
         
         const reorderedItems = arrayMove(items, oldIndex, newIndex);
         
-        // Atualizar ordem
         return reorderedItems.map((item, idx) => ({
           ...item,
           order: idx
@@ -211,7 +237,6 @@ const StopsList: React.FC<StopsListProps> = ({
     setSaving(true);
 
     try {
-      // Preparar dados para enviar ao backend
       const reorderedPoints = points.map((point, index) => ({
         pointId: point.id,
         order: index
@@ -221,63 +246,21 @@ const StopsList: React.FC<StopsListProps> = ({
 
       await reorderStops(routeId, reorderedPoints);
 
-      toast.success('Ordem das paradas salva com sucesso!');
+      toast.success('Ordem das paradas salva!');
       setHasChanges(false);
       
     } catch (error) {
       console.error('❌ [STOPS LIST] Erro ao salvar:', error);
-      toast.error('Erro ao salvar alterações. Tente novamente.');
+      toast.error('Erro ao salvar. Tente novamente.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAddStop = async (stopData: {
-    name: string;
-    stopType: string;
-    location: string;
-    insertBeforeId?: string;
-  }) => {
-    try {
-      console.log('➕ [STOPS LIST] Adicionando parada extra:', stopData);
-
-      const newStop = await addExtraStop(routeId, truckId, stopData);
-
-      // Atualizar lista local
-      let newPoints = [...points];
-      
-      if (stopData.insertBeforeId) {
-        // Inserir antes de uma parada específica
-        const insertIndex = newPoints.findIndex(p => p.id === stopData.insertBeforeId);
-        if (insertIndex >= 0) {
-          newPoints.splice(insertIndex, 0, newStop);
-        } else {
-          newPoints.push(newStop);
-        }
-      } else {
-        // Adicionar no final
-        newPoints.push(newStop);
-      }
-
-      // Renumerar
-      newPoints = newPoints.map((p, idx) => ({ ...p, order: idx }));
-
-      setPoints(newPoints);
-      setShowAddModal(false);
-      setHasChanges(true);
-      
-      // Limpar conteúdo compartilhado
-      sharedLocationStore.clearSharedContent();
-
-      toast.success('Parada extra adicionada com sucesso!');
-      
-    } catch (error: any) {
-      console.error('❌ [STOPS LIST] Erro ao adicionar parada:', error);
-      
-      // Mensagem de erro mais detalhada
-      const errorMessage = error?.message || 'Erro ao adicionar parada extra';
-      toast.error(errorMessage);
-    }
+  const navigateToAddStop = () => {
+    // Passar dados via URL params (para funcionar com deep links)
+    const pointsEncoded = encodeURIComponent(JSON.stringify(points));
+    navigate(`/add-stop?routeId=${routeId}&truckId=${truckId}&points=${pointsEncoded}`);
   };
 
   const handleBack = () => {
@@ -288,7 +271,11 @@ const StopsList: React.FC<StopsListProps> = ({
       if (!confirm) return;
     }
     
-    onBack();
+    if (props.onBack) {
+      props.onBack();
+    } else {
+      navigate('/');
+    }
   };
 
   const activePoint = activeId ? points.find(p => p.id === activeId) : null;
@@ -297,16 +284,17 @@ const StopsList: React.FC<StopsListProps> = ({
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header fixo */}
-      <div className="bg-white border-b sticky top-0 z-20 shadow-sm">
-        <div className="p-4 safe-top">
+      <header className="bg-white border-b sticky top-0 z-20 shadow-sm">
+        <div className="safe-top" />
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleBack}
-              className="gap-2"
+              className="gap-2 -ml-2"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-5 w-5" />
               Voltar
             </Button>
 
@@ -326,7 +314,7 @@ const StopsList: React.FC<StopsListProps> = ({
           </div>
 
           <h1 className="text-xl font-bold text-gray-900">
-            Lista de Paradas da Rota
+            Lista de Paradas
           </h1>
           <p className="text-sm text-gray-600 mt-1">
             Toque e segure no ícone ≡ para reordenar
@@ -334,14 +322,14 @@ const StopsList: React.FC<StopsListProps> = ({
           
           {hasChanges && (
             <p className="text-sm text-amber-600 font-medium mt-2">
-              ⚠️ Você tem alterações não salvas
+              ⚠️ Alterações não salvas
             </p>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Lista de Paradas */}
-      <div className="flex-1 overflow-y-auto p-4 pb-32">
+      <main className="flex-1 overflow-y-auto p-4 pb-36">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -369,37 +357,27 @@ const StopsList: React.FC<StopsListProps> = ({
         </DndContext>
 
         {points.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            Nenhuma parada na rota
+          <div className="text-center py-12 text-gray-500">
+            <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p className="font-medium">Nenhuma parada na rota</p>
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Footer fixo com botão de adicionar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-10">
-        <div className="p-4 pb-safe">
+      {/* Footer fixo */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-10">
+        <div className="p-4">
           <Button
-            onClick={() => setShowAddModal(true)}
+            onClick={navigateToAddStop}
             variant="outline"
-            className="w-full h-14 gap-2 text-base font-medium"
+            className="w-full h-14 gap-2 text-base font-medium border-2"
           >
             <Plus className="h-5 w-5" />
             Adicionar parada extra
           </Button>
         </div>
-      </div>
-
-      {/* Modal Adicionar Parada */}
-      {showAddModal && (
-        <AddStopModal
-          points={points}
-          onClose={() => {
-            setShowAddModal(false);
-            sharedLocationStore.clearSharedContent();
-          }}
-          onAdd={handleAddStop}
-        />
-      )}
+        <div className="pb-safe bg-white" />
+      </footer>
     </div>
   );
 };

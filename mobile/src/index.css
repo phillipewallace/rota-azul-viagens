@@ -258,7 +258,7 @@
    RESPONSIVIDADE
    ============================================ */
 
-/* Ajustes para telas muito pequenas */
+/* Ajustes para telas muito pequenas (ex: 360x640) */
 @media (max-width: 360px) {
   .touch-input {
     @apply h-12 text-base;
@@ -269,6 +269,45 @@
     @apply h-12 text-base;
     min-height: 48px;
   }
+  
+  /* Ajustar padding em telas pequenas */
+  .p-4 {
+    padding: 12px;
+  }
+  
+  .p-5 {
+    padding: 14px;
+  }
+  
+  .p-6 {
+    padding: 16px;
+  }
+  
+  /* Botões menores */
+  .h-14 {
+    height: 48px;
+  }
+  
+  /* Textos menores */
+  .text-2xl {
+    font-size: 1.25rem;
+  }
+  
+  .text-xl {
+    font-size: 1.125rem;
+  }
+  
+  .text-lg {
+    font-size: 1rem;
+  }
+}
+
+/* Telas pequenas intermediárias */
+@media (max-width: 400px) and (min-width: 361px) {
+  .touch-input {
+    @apply h-13;
+    min-height: 52px;
+  }
 }
 
 /* Ajustes para telas grandes (tablets) */
@@ -276,4 +315,30 @@
   .mobile-card {
     @apply max-w-md mx-auto;
   }
+}
+
+/* ============================================
+   UTILITÁRIOS ADICIONAIS
+   ============================================ */
+
+/* Classe para inputs com altura 13 */
+.h-13 {
+  height: 52px;
+}
+
+/* Linha limitada a 2 linhas */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Garantir que footer fixo não sobrepõe conteúdo */
+.pb-36 {
+  padding-bottom: 9rem;
+}
+
+.pb-40 {
+  padding-bottom: 10rem;
 }

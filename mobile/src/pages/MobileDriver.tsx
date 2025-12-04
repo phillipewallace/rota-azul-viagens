@@ -12,18 +12,18 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from 'sonner';
-import { Truck, LogOut, RefreshCw, MapPin, User } from 'lucide-react';
+import { Truck, LogOut, RefreshCw, MapPin, User, List, ChevronRight } from 'lucide-react';
 import { API_BASE_URL } from '@/services/config';
 import { useMobile, TruckMobileData } from '@/hooks/useMobile';
 import { useRouteSync } from '@/hooks/useRouteSync';
 import RouteUpdateNotification from '@/components/RouteUpdateNotification';
 import RouteInfoCard from '@/components/RouteInfoCard';
 import RouteExecutionCard from '@/components/RouteExecutionCard';
-import StopsList from './StopsList';
 import { sharedLocationStore } from '@/store/sharedLocationStore';
 
 interface TruckData {
@@ -34,13 +34,13 @@ interface TruckData {
 }
 
 const MobileDriver = () => {
+  const navigate = useNavigate();
   const [plateNumber, setPlateNumber] = useState('');
   const [truckData, setTruckData] = useState<TruckData | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullTruckData, setFullTruckData] = useState<TruckMobileData | null>(null);
-  const [showStopsList, setShowStopsList] = useState(false);
 
   // Persistência de estado
   const [persistedState, setPersistedState] = useState<{
@@ -60,17 +60,17 @@ const MobileDriver = () => {
   useEffect(() => {
     const unsubscribe = sharedLocationStore.subscribe((state) => {
       if (state.isFromShare && isLoggedIn && fullTruckData?.currentRoute) {
-        console.log('📍 [MOBILE DRIVER] Compartilhamento recebido, abrindo lista de paradas');
-        setShowStopsList(true);
+        console.log('📍 [MOBILE DRIVER] Compartilhamento recebido, navegando para adicionar parada');
+        navigateToAddStop();
       }
     });
 
-    // Verificar se há conteúdo pendente de compartilhamento (caso tenha feito login após)
+    // Verificar se há conteúdo pendente de compartilhamento
     const checkPendingShare = () => {
       const sharedState = sharedLocationStore.getState();
       if (sharedState.isFromShare && sharedState.sharedContent && isLoggedIn && fullTruckData?.currentRoute) {
-        console.log('📍 [MOBILE DRIVER] Conteúdo pendente encontrado, abrindo lista');
-        setShowStopsList(true);
+        console.log('📍 [MOBILE DRIVER] Conteúdo pendente encontrado, navegando');
+        navigateToAddStop();
       }
     };
 
@@ -102,7 +102,7 @@ const MobileDriver = () => {
           }
         }
       } catch (error) {
-        console.error('❌ [MOBILE] Erro ao carregar estado persistido:', error);
+        console.error('❌ [MOBILE] Erro ao carregar estado:', error);
         localStorage.removeItem('mobile-driver-state');
       }
     };
@@ -110,30 +110,23 @@ const MobileDriver = () => {
     loadPersistedState();
   }, []);
 
-  // Persistir estado sempre que mudar
+  // Persistir estado
   const persistState = (state: any) => {
     try {
       localStorage.setItem('mobile-driver-state', JSON.stringify(state));
-      console.log('💾 [MOBILE] Estado persistido com sucesso');
     } catch (error) {
       console.error('❌ [MOBILE] Erro ao persistir estado:', error);
     }
   };
 
-  // Recarregar dados do caminhão preservando progresso
+  // Recarregar dados do caminhão
   const reloadTruckData = async (plate: string) => {
     try {
-      console.log('🔄 [MOBILE] Recarregando dados do caminhão:', plate);
-      
       const updatedData = await getTruckByPlate(plate);
-      console.log('✅ [MOBILE] Dados atualizados recebidos:', updatedData);
-      
       setFullTruckData(updatedData);
       
-      // Preservar progresso da rota salvo localmente
+      // Preservar progresso da rota
       if (persistedState?.routeProgress && updatedData.currentRoute) {
-        console.log('🔄 [MOBILE] Aplicando progresso salvo da rota');
-        
         const mergedRoute = {
           ...updatedData.currentRoute,
           points: updatedData.currentRoute.points.map(point => {
@@ -177,8 +170,6 @@ const MobileDriver = () => {
         key: 'active-truck-tracking',
         newValue: JSON.stringify(activeTrucks)
       }));
-      
-      console.log('📍 [MOBILE] Lista de rastreamento atualizada:', activeTrucks);
     } catch (error) {
       console.error('❌ [MOBILE] Erro ao atualizar rastreamento:', error);
     }
@@ -194,8 +185,6 @@ const MobileDriver = () => {
     setError(null);
 
     try {
-      console.log('🔍 [MOBILE] Fazendo login com placa:', plateNumber);
-      
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${plateNumber}`, {
         method: 'GET',
         headers: {
@@ -210,7 +199,6 @@ const MobileDriver = () => {
       }
 
       const data = await response.json();
-      console.log('✅ [MOBILE] Dados do caminhão recebidos:', data);
       
       setTruckData(data);
       setFullTruckData(data);
@@ -238,15 +226,15 @@ const MobileDriver = () => {
       setTimeout(() => {
         const sharedState = sharedLocationStore.getState();
         if (sharedState.isFromShare && sharedState.sharedContent && data.currentRoute) {
-          console.log('📍 [MOBILE] Abrindo parada extra após login bem-sucedido');
-          setShowStopsList(true);
+          console.log('📍 [MOBILE] Redirecionando para adicionar parada após login');
+          const pointsEncoded = encodeURIComponent(JSON.stringify(data.currentRoute.points));
+          navigate(`/add-stop?routeId=${data.currentRoute.id}&truckId=${data.id}&points=${pointsEncoded}`);
         }
       }, 500);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
       setError(errorMessage);
-      console.error('❌ [MOBILE] Erro no login:', err);
     } finally {
       setLoading(false);
     }
@@ -257,7 +245,6 @@ const MobileDriver = () => {
       updateActiveTrackingInStorage(truckData.id, false);
     }
     
-    // Limpar estado persistido
     localStorage.removeItem('mobile-driver-state');
     
     setIsLoggedIn(false);
@@ -268,22 +255,18 @@ const MobileDriver = () => {
     setPersistedState(null);
     
     toast.success('Logout realizado com sucesso');
-    console.log('👋 [MOBILE] Logout realizado');
   };
 
-  // Atualizar progresso local quando ponto for marcado
   const handlePointUpdate = async (pointId: string, completed: boolean) => {
     try {
       if (!fullTruckData?.id) return;
       
-      // Atualizar no backend
       await updateRoutePoint({
         truckId: fullTruckData.id,
         pointId,
         completed
       });
       
-      // Atualizar estado local e persistir
       const updatedData = {
         ...fullTruckData,
         currentRoute: {
@@ -298,7 +281,6 @@ const MobileDriver = () => {
       
       setFullTruckData(updatedData);
       
-      // Persistir progresso
       const routeProgress = Object.fromEntries(
         updatedData.currentRoute!.points.map(p => [
           p.id, 
@@ -306,15 +288,12 @@ const MobileDriver = () => {
         ])
       );
       
-      const stateToSave = {
+      persistState({
         isLoggedIn: true,
         plateNumber,
         truckData,
         routeProgress
-      };
-      persistState(stateToSave);
-      
-      console.log('✅ [MOBILE] Ponto atualizado e persistido:', pointId, completed);
+      });
       
     } catch (error) {
       console.error('❌ [MOBILE] Erro ao atualizar ponto:', error);
@@ -328,63 +307,55 @@ const MobileDriver = () => {
     try {
       await finishRoute(fullTruckData.id);
       
-      // Limpar estado
-      const clearedData = {
+      setFullTruckData({
         ...fullTruckData,
         currentRoute: null
-      };
+      });
       
-      setFullTruckData(clearedData);
-      
-      const stateToSave = {
+      persistState({
         isLoggedIn: true,
         plateNumber,
         truckData,
         routeProgress: {}
-      };
-      persistState(stateToSave);
+      });
       
       toast.success('Rota finalizada com sucesso!');
       
     } catch (error) {
-      console.error('❌ [MOBILE] Erro ao finalizar rota:', error);
       toast.error('Erro ao finalizar rota');
     }
   };
 
-  // Callback para atualizar dados após mudanças na lista de paradas
-  const handleStopsUpdate = async () => {
-    if (plateNumber) {
-      await reloadTruckData(plateNumber);
+  // Navegar para lista de paradas
+  const navigateToStops = () => {
+    if (fullTruckData?.currentRoute) {
+      navigate('/stops', {
+        state: {
+          routeId: fullTruckData.currentRoute.id,
+          truckId: fullTruckData.id,
+          initialPoints: fullTruckData.currentRoute.points
+        }
+      });
     }
   };
 
-  // Se estiver mostrando lista de paradas
-  if (showStopsList && fullTruckData?.currentRoute) {
-    return (
-      <StopsList
-        routeId={fullTruckData.currentRoute.id}
-        truckId={fullTruckData.id}
-        initialPoints={fullTruckData.currentRoute.points}
-        onBack={() => {
-          setShowStopsList(false);
-          handleStopsUpdate();
-        }}
-      />
-    );
-  }
+  // Navegar para adicionar parada (usado pelo deep link)
+  const navigateToAddStop = () => {
+    if (fullTruckData?.currentRoute) {
+      const pointsEncoded = encodeURIComponent(JSON.stringify(fullTruckData.currentRoute.points));
+      navigate(`/add-stop?routeId=${fullTruckData.currentRoute.id}&truckId=${fullTruckData.id}&points=${pointsEncoded}`);
+    }
+  };
 
   // Tela de Login
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex flex-col">
-        {/* Safe area top */}
         <div className="safe-top" />
         
-        {/* Conteúdo centralizado */}
-        <div className="flex-1 flex items-center justify-center px-6 py-8">
+        <div className="flex-1 flex items-center justify-center px-5 py-6">
           <Card className="w-full max-w-sm shadow-2xl border-0 overflow-hidden">
-            {/* Header do card com gradiente */}
+            {/* Header do card */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 text-center">
               <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Truck className="h-10 w-10 text-white" />
@@ -393,7 +364,7 @@ const MobileDriver = () => {
               <p className="text-blue-100 text-sm mt-1">Sistema de Gerenciamento de Rotas</p>
             </div>
 
-            <CardContent className="p-6">
+            <CardContent className="p-5">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">
                 Acesso do Motorista
               </h2>
@@ -405,7 +376,6 @@ const MobileDriver = () => {
               )}
 
               <div className="space-y-4">
-                {/* Campo de Placa */}
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">
                     Placa do Veículo
@@ -425,7 +395,6 @@ const MobileDriver = () => {
                   </div>
                 </div>
 
-                {/* Botão de Login */}
                 <Button 
                   className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
                   onClick={handleLogin} 
@@ -442,14 +411,13 @@ const MobileDriver = () => {
                 </Button>
               </div>
 
-              <p className="text-xs text-gray-500 text-center mt-6">
+              <p className="text-xs text-gray-500 text-center mt-5">
                 Insira a placa do seu veículo para acessar sua rota do dia
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Safe area bottom */}
         <div className="pb-safe" />
       </div>
     );
@@ -462,7 +430,7 @@ const MobileDriver = () => {
       <div className="flex-1 overflow-y-auto">
         <div className="safe-top" />
         
-        <div className="w-full max-w-4xl mx-auto p-4 space-y-4 pb-32">
+        <div className="w-full max-w-lg mx-auto p-4 space-y-4 pb-36">
           {/* Header do motorista */}
           <Card className="shadow-sm">
             <CardContent className="p-4">
@@ -509,7 +477,6 @@ const MobileDriver = () => {
                 const updatedData = acceptRouteUpdate(newRouteData);
                 setFullTruckData(updatedData);
                 
-                // Atualizar estado persistido
                 const stateToSave = {
                   isLoggedIn: true,
                   plateNumber,
@@ -535,7 +502,7 @@ const MobileDriver = () => {
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <MapPin className="h-8 w-8 text-gray-400" />
                 </div>
-                <p className="text-gray-600 font-medium">Nenhuma rota ativa no momento</p>
+                <p className="text-gray-600 font-medium">Nenhuma rota ativa</p>
                 <p className="text-sm text-gray-400 mt-2">
                   Aguarde a atribuição de uma rota pelo administrador
                 </p>
@@ -549,8 +516,34 @@ const MobileDriver = () => {
               routeName={fullTruckData.currentRoute.name}
               totalStops={fullTruckData.currentRoute.points?.length || 0}
               completedStops={fullTruckData.currentRoute.points?.filter(p => p.completed).length || 0}
-              onViewStops={() => setShowStopsList(true)}
+              onViewStops={navigateToStops}
             />
+          )}
+
+          {/* Seção: Paradas da Rota */}
+          {fullTruckData?.currentRoute && (
+            <Card className="shadow-sm border-2 border-blue-100">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <List className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Paradas da Rota</h3>
+                    <p className="text-sm text-gray-500">Veja e organize as paradas do seu dia</p>
+                  </div>
+                </div>
+                
+                <Button 
+                  variant="outline"
+                  className="w-full h-12 justify-between text-base font-medium border-2"
+                  onClick={navigateToStops}
+                >
+                  <span>Ver lista completa de paradas</span>
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </CardContent>
+            </Card>
           )}
 
           {/* Card de Execução da Rota */}
@@ -564,13 +557,13 @@ const MobileDriver = () => {
         </div>
       </div>
 
-      {/* Footer fixo com safe-area */}
+      {/* Footer fixo */}
       {fullTruckData?.currentRoute && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 shadow-lg z-50">
-          <div className="p-4 max-w-4xl mx-auto">
+          <div className="p-4 max-w-lg mx-auto">
             <Button 
-              className="w-full h-14 text-lg font-bold shadow-md"
-              onClick={() => setShowStopsList(true)}
+              className="w-full h-14 text-lg font-bold shadow-md bg-blue-600 hover:bg-blue-700"
+              onClick={navigateToStops}
             >
               <MapPin className="h-5 w-5 mr-2" />
               Ver Paradas ({fullTruckData.currentRoute.points?.length || 0})
