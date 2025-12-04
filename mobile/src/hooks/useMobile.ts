@@ -187,6 +187,10 @@ export const useMobile = () => {
     return result;
   }, []);
 
+  /**
+   * Adicionar parada extra à rota
+   * Aceita coordenadas lat/lng opcionais para precisão de localização
+   */
   const addExtraStop = useCallback(async (
     routeId: string, 
     truckId: string, 
@@ -194,9 +198,13 @@ export const useMobile = () => {
       name: string;
       stopType: string;
       location: string;
+      lat?: number;
+      lng?: number;
       insertBeforeId?: string;
     }
   ) => {
+    console.log('📍 [useMobile] Adicionando parada extra:', { routeId, truckId, stopData });
+
     const response = await fetch(`${API_BASE_URL}/mobile/route/${routeId}/extra-stop`, {
       method: 'POST',
       headers: {
@@ -205,18 +213,32 @@ export const useMobile = () => {
       },
       credentials: 'omit',
       body: JSON.stringify({
-        ...stopData,
+        name: stopData.name,
+        stopType: stopData.stopType,
+        location: stopData.location,
+        lat: stopData.lat,
+        lng: stopData.lng,
+        insertBeforeId: stopData.insertBeforeId,
         truckId,
         source: 'MOTORISTA'
       })
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error('Erro ao adicionar parada extra');
+      let errorMessage = 'Erro ao adicionar parada extra';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.details || errorMessage;
+      } catch {
+        const errorText = await response.text();
+        if (errorText) errorMessage = errorText;
+      }
+      console.error('❌ [useMobile] Erro na API:', errorMessage);
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
+    console.log('✅ [useMobile] Parada extra adicionada:', result);
     
     // Limpar cache relacionado
     setRequestCache(new Map());
