@@ -67,7 +67,10 @@ router.put('/route/:routeId/reorder', async (req, res) => {
   }
 });
 
-// Adicionar parada extra à rota
+/**
+ * Adicionar parada extra à rota
+ * Aceita coordenadas lat/lng diretamente do frontend ou extrai de links
+ */
 router.post('/route/:routeId/extra-stop', async (req, res) => {
   const client = await pool.connect();
   
@@ -75,10 +78,14 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
     await client.query('BEGIN');
     
     const { routeId } = req.params;
-    const { name, stopType, location, insertBeforeId, truckId, source } = req.body;
+    const { name, stopType, location, lat: providedLat, lng: providedLng, insertBeforeId, truckId, source } = req.body;
     
     console.log(`➕ [MOBILE API] Adicionando parada extra à rota ${routeId}`);
-    console.log(`📋 [MOBILE API] Dados recebidos:`, { name, stopType, location, insertBeforeId, truckId, source });
+    console.log(`📋 [MOBILE API] Dados recebidos:`, { 
+      name, stopType, location, 
+      providedLat, providedLng, 
+      insertBeforeId, truckId, source 
+    });
     
     // Validar campos obrigatórios
     if (!name || !name.trim()) {
@@ -103,45 +110,56 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
     
-    // Se truckId foi fornecido, verificar vínculo (mas não obrigatório)
+    // Se truckId foi fornecido, verificar vínculo (mas não obrigatório para flexibilidade)
     if (truckId) {
       const truckCheck = await client.query(
-        'SELECT id, name FROM trucks WHERE id = $1 AND current_route_id = $2',
-        [truckId, routeId]
+        'SELECT id, name FROM trucks WHERE id = $1',
+        [truckId]
       );
       
       if (truckCheck.rows.length === 0) {
-        console.warn(`⚠️ [MOBILE API] Caminhão ${truckId} não vinculado à rota ${routeId}, mas continuando...`);
+        console.warn(`⚠️ [MOBILE API] Caminhão ${truckId} não encontrado`);
       }
     }
     
-    // Extrair coordenadas do link de localização
-    let lat = 0;
-    let lng = 0;
+    // Usar coordenadas fornecidas diretamente pelo frontend, se disponíveis
+    let lat = providedLat ? parseFloat(providedLat) : 0;
+    let lng = providedLng ? parseFloat(providedLng) : 0;
     let address = location.trim();
     
-    // Padrões de URL do Google Maps e Plus Codes
-    const patterns = [
-      /maps\?q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,                    // ?q=lat,lng
-      /@(-?\d+\.?\d*),(-?\d+\.?\d*)/,                            // @lat,lng
-      /maps\/place\/[^\/]+\/@(-?\d+\.?\d*),(-?\d+\.?\d*)/,       // place/@lat,lng
-      /q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,                           // q=lat,lng (simples)
-      /(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/,                      // lat, lng (formato decimal longo)
-    ];
-    
-    for (const pattern of patterns) {
-      const match = location.match(pattern);
-      if (match) {
-        lat = parseFloat(match[1]);
-        lng = parseFloat(match[2]);
-        console.log(`📍 [MOBILE API] Coordenadas extraídas: ${lat}, ${lng}`);
-        break;
+    // Se não foram fornecidas coordenadas, tentar extrair do texto/link
+    if ((!lat || lat === 0) && (!lng || lng === 0)) {
+      console.log(`📍 [MOBILE API] Tentando extrair coordenadas do texto...`);
+      
+      // Padrões de URL do Google Maps, Plus Codes e geo: URIs
+      const patterns = [
+        /maps\?q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,                    // ?q=lat,lng
+        /@(-?\d+\.?\d*),(-?\d+\.?\d*)/,                            // @lat,lng
+        /maps\/place\/[^\/]+\/@(-?\d+\.?\d*),(-?\d+\.?\d*)/,       // place/@lat,lng
+        /q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,                           // q=lat,lng (simples)
+        /(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/,                      // lat, lng (formato decimal longo)
+        /geo:(-?\d+\.?\d*),(-?\d+\.?\d*)/,                         // geo:lat,lng (URI)
+        /place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/,                      // place/lat,lng
+      ];
+      
+      for (const pattern of patterns) {
+        const match = location.match(pattern);
+        if (match) {
+          lat = parseFloat(match[1]);
+          lng = parseFloat(match[2]);
+          if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+            console.log(`📍 [MOBILE API] Coordenadas extraídas do link: ${lat}, ${lng}`);
+            break;
+          }
+        }
       }
+    } else {
+      console.log(`📍 [MOBILE API] Usando coordenadas fornecidas: ${lat}, ${lng}`);
     }
     
-    // Se não conseguiu extrair coordenadas, ainda pode usar o endereço como texto
+    // Log final das coordenadas
     if (lat === 0 && lng === 0) {
-      console.log(`📍 [MOBILE API] Sem coordenadas extraídas, usando endereço como texto: "${address}"`);
+      console.log(`📍 [MOBILE API] Sem coordenadas, usando apenas endereço texto: "${address}"`);
     }
     
     // Determinar ordem de inserção
