@@ -58,19 +58,49 @@ const MobileDriver = () => {
    * Quando usuário abre localização do WhatsApp com o app, redireciona para criar parada
    */
   useEffect(() => {
-    const unsubscribe = sharedLocationStore.subscribe((state) => {
-      if (state.isFromShare && isLoggedIn && fullTruckData?.currentRoute) {
-        console.log('📍 [MOBILE DRIVER] Compartilhamento recebido, navegando para adicionar parada');
+    const handleSharedLocation = () => {
+      if (isLoggedIn && fullTruckData?.currentRoute) {
+        console.log('📍 [MOBILE DRIVER] Navegando para adicionar parada com localização');
         navigateToAddStop();
+      }
+    };
+
+    // Escutar mudanças no store
+    const unsubscribe = sharedLocationStore.subscribe((state) => {
+      if (state.isFromShare && state.sharedContent) {
+        console.log('📍 [MOBILE DRIVER] Store atualizado com compartilhamento');
+        handleSharedLocation();
       }
     });
 
+    // Escutar evento customizado do Android
+    const handleSharedLocationEvent = (event: any) => {
+      console.log('📍 [MOBILE DRIVER] Evento sharedLocation recebido:', event.detail);
+      // Armazenar no store e então navegar
+      if (event.detail) {
+        sharedLocationStore.setSharedContent(event.detail);
+        handleSharedLocation();
+      }
+    };
+    window.addEventListener('sharedLocation', handleSharedLocationEvent);
+
     // Verificar se há conteúdo pendente de compartilhamento
     const checkPendingShare = () => {
+      // Verificar store
       const sharedState = sharedLocationStore.getState();
-      if (sharedState.isFromShare && sharedState.sharedContent && isLoggedIn && fullTruckData?.currentRoute) {
-        console.log('📍 [MOBILE DRIVER] Conteúdo pendente encontrado, navegando');
-        navigateToAddStop();
+      if (sharedState.isFromShare && sharedState.sharedContent) {
+        console.log('📍 [MOBILE DRIVER] Conteúdo pendente no store');
+        handleSharedLocation();
+        return;
+      }
+      
+      // Verificar pendingSharedLocation do Android
+      const pendingLocation = (window as any).pendingSharedLocation;
+      if (pendingLocation) {
+        console.log('📍 [MOBILE DRIVER] Conteúdo pendente do Android:', pendingLocation);
+        sharedLocationStore.setSharedContent(pendingLocation);
+        delete (window as any).pendingSharedLocation;
+        handleSharedLocation();
       }
     };
 
@@ -78,7 +108,10 @@ const MobileDriver = () => {
       checkPendingShare();
     }
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      window.removeEventListener('sharedLocation', handleSharedLocationEvent);
+    };
   }, [isLoggedIn, fullTruckData]);
 
   // Carregar estado persistido na inicialização

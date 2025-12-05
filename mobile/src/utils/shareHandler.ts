@@ -1,100 +1,145 @@
 import { App } from '@capacitor/app';
 import { sharedLocationStore } from '@/store/sharedLocationStore';
 
+/**
+ * Handler para localizações compartilhadas do WhatsApp/Google Maps
+ * 
+ * Suporta múltiplos métodos de recebimento:
+ * 1. Capacitor App.addListener('appUrlOpen') - para deep links
+ * 2. Capacitor App.getLaunchUrl() - para quando app é aberto com URL
+ * 3. window.handleAndroidSharedLocation - injeção direta do Android
+ * 4. window event 'sharedLocation' - evento customizado
+ */
 export const initializeShareHandler = () => {
-  // Listener para URLs recebidas (deep links e compartilhamentos)
+  console.log('🔄 [SHARE HANDLER] Inicializando...');
+
+  // === MÉTODO 1: Listener do Capacitor para URLs ===
   App.addListener('appUrlOpen', (data: any) => {
-    console.log('📱 [SHARE HANDLER] App URL recebida:', data);
+    console.log('📱 [SHARE HANDLER] appUrlOpen recebido:', data);
     
     if (data.url) {
-      try {
-        const url = new URL(data.url);
-        
-        // Verificar se é compartilhamento de texto
-        if (url.pathname === '//share' || url.host === 'share') {
-          const sharedText = url.searchParams.get('text');
-          if (sharedText) {
-            console.log('📍 [SHARE HANDLER] Texto compartilhado:', sharedText);
-            sharedLocationStore.setSharedContent(decodeURIComponent(sharedText));
-          }
-        }
-        // Verificar se é URI de localização
-        else if (url.pathname === '//location' || url.host === 'location') {
-          const locationUri = url.searchParams.get('uri');
-          if (locationUri) {
-            console.log('📍 [SHARE HANDLER] URI de localização:', locationUri);
-            sharedLocationStore.setSharedContent(decodeURIComponent(locationUri));
-          }
-        }
-        // Fallback - tentar extrair texto de qualquer parâmetro
-        else {
-          const text = url.searchParams.get('text') || url.searchParams.get('uri');
-          if (text) {
-            console.log('📍 [SHARE HANDLER] Conteúdo extraído:', text);
-            sharedLocationStore.setSharedContent(decodeURIComponent(text));
-          }
-        }
-      } catch (error) {
-        console.error('❌ [SHARE HANDLER] Erro ao processar URL:', error);
-        // Tentar usar URL diretamente como conteúdo
-        if (data.url && data.url.includes('maps')) {
-          sharedLocationStore.setSharedContent(data.url);
-        }
-      }
+      processIncomingUrl(data.url);
     }
   });
 
-  // Verificar se app foi aberto com intent de compartilhamento
+  // === MÉTODO 2: URL de launch (quando app é aberto com URL) ===
   App.getLaunchUrl().then((result) => {
     if (result?.url) {
-      console.log('📱 [SHARE HANDLER] App iniciado com URL:', result.url);
-      
-      try {
-        const url = new URL(result.url);
-        
-        const sharedText = url.searchParams.get('text') || url.searchParams.get('uri');
-        if (sharedText) {
-          console.log('📍 [SHARE HANDLER] Texto compartilhado no launch:', sharedText);
-          sharedLocationStore.setSharedContent(decodeURIComponent(sharedText));
-        }
-      } catch (error) {
-        console.error('❌ [SHARE HANDLER] Erro ao processar launch URL:', error);
-        // Tentar usar URL diretamente se for link de mapa
-        if (result.url.includes('maps') || result.url.includes('geo:')) {
-          sharedLocationStore.setSharedContent(result.url);
-        }
-      }
+      console.log('📱 [SHARE HANDLER] Launch URL detectada:', result.url);
+      processIncomingUrl(result.url);
     }
   }).catch(err => {
     console.warn('⚠️ [SHARE HANDLER] Erro ao obter launch URL:', err);
   });
 
-  console.log('✅ [SHARE HANDLER] Share handler inicializado');
+  // === MÉTODO 3: Handler global para injeção do Android ===
+  (window as any).handleAndroidSharedLocation = (locationData: string) => {
+    console.log('📱 [SHARE HANDLER] Localização recebida do Android:', locationData);
+    processLocationData(locationData);
+  };
+
+  // === MÉTODO 4: Event listener para evento customizado ===
+  window.addEventListener('sharedLocation', (event: any) => {
+    console.log('📱 [SHARE HANDLER] Evento sharedLocation recebido:', event.detail);
+    if (event.detail) {
+      processLocationData(event.detail);
+    }
+  });
+
+  // === MÉTODO 5: Verificar se já existe localização pendente (Android) ===
+  const pendingLocation = (window as any).pendingSharedLocation;
+  if (pendingLocation) {
+    console.log('📱 [SHARE HANDLER] Localização pendente encontrada:', pendingLocation);
+    processLocationData(pendingLocation);
+    delete (window as any).pendingSharedLocation;
+  }
+
+  console.log('✅ [SHARE HANDLER] Inicialização completa');
 };
 
-// Função auxiliar para extrair coordenadas de links do Google Maps
+/**
+ * Processa URLs recebidas (deep links, custom schemes, etc)
+ */
+function processIncomingUrl(url: string) {
+  console.log('🔗 [SHARE HANDLER] Processando URL:', url);
+  
+  try {
+    const urlObj = new URL(url);
+    
+    // Custom scheme: alchemyrotas://share?text=...
+    if (urlObj.protocol === 'alchemyrotas:') {
+      const sharedText = urlObj.searchParams.get('text');
+      const locationUri = urlObj.searchParams.get('uri');
+      
+      if (sharedText) {
+        processLocationData(decodeURIComponent(sharedText));
+      } else if (locationUri) {
+        processLocationData(decodeURIComponent(locationUri));
+      }
+      return;
+    }
+    
+    // URLs de mapas diretas
+    if (url.includes('maps') || url.includes('geo:') || url.includes('google.com')) {
+      processLocationData(url);
+      return;
+    }
+    
+    // Tentar extrair coordenadas de qualquer URL
+    const coords = extractCoordinatesFromText(url);
+    if (coords.lat && coords.lng) {
+      processLocationData(url);
+    }
+  } catch (error) {
+    console.error('❌ [SHARE HANDLER] Erro ao processar URL:', error);
+    
+    // Se falhou como URL, tentar como texto plano
+    if (url.includes('geo:') || url.includes('maps') || url.match(/-?\d+\.\d+/)) {
+      processLocationData(url);
+    }
+  }
+}
+
+/**
+ * Processa dados de localização e atualiza o store
+ */
+function processLocationData(data: string) {
+  if (!data || data.trim() === '') {
+    console.warn('⚠️ [SHARE HANDLER] Dados vazios ignorados');
+    return;
+  }
+  
+  console.log('📍 [SHARE HANDLER] Salvando localização no store:', data);
+  sharedLocationStore.setSharedContent(data);
+}
+
+/**
+ * Extrai coordenadas de texto/link
+ */
 export const extractCoordinatesFromText = (text: string): { lat?: number; lng?: number; address?: string } => {
-  // Padrões para extrair coordenadas
   const patterns = [
     /maps\?q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,           // ?q=lat,lng
     /@(-?\d+\.?\d*),(-?\d+\.?\d*)/,                   // @lat,lng
     /maps\/place\/[^\/]+\/@(-?\d+\.?\d*),(-?\d+\.?\d*)/, // place/@lat,lng
-    /(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/,             // lat, lng (formato decimal longo)
+    /q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,                  // q=lat,lng
+    /(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/,             // lat, lng (decimal longo)
     /geo:(-?\d+\.?\d*),(-?\d+\.?\d*)/,                // geo:lat,lng
+    /place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/,             // place/lat,lng
+    /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/,               // !3dlat!4dlng (Google Maps novo)
+    /ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/,                 // ll=lat,lng
   ];
   
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
-      return {
-        lat: parseFloat(match[1]),
-        lng: parseFloat(match[2]),
-      };
+      const lat = parseFloat(match[1]);
+      const lng = parseFloat(match[2]);
+      if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+        console.log('📍 [SHARE HANDLER] Coordenadas extraídas:', { lat, lng });
+        return { lat, lng };
+      }
     }
   }
   
-  // Se não encontrou coordenadas, retornar texto como endereço
-  return {
-    address: text
-  };
+  return { address: text };
 };
