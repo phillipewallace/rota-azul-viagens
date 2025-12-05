@@ -162,23 +162,61 @@ const AddExtraStopPage: React.FC = () => {
     }
   };
 
+  // Função para processar localização recebida
+  const processSharedLocation = (content: string) => {
+    if (!content || content.trim() === '') return;
+    
+    console.log('📍 [ADD STOP PAGE] Processando localização:', content);
+    setLocation(content);
+    
+    // Tentar extrair coordenadas
+    const coords = extractCoordinatesFromText(content);
+    if (coords.lat && coords.lng) {
+      setCoordinates(coords);
+      console.log('📍 [ADD STOP PAGE] Coordenadas extraídas:', coords);
+      toast.success('Localização detectada!');
+    }
+  };
+
   // Pré-preencher com localização compartilhada (DEEP LINK)
   useEffect(() => {
+    // Verificar store imediatamente
     const sharedState = sharedLocationStore.getState();
-    console.log('📍 [ADD STOP PAGE] Verificando localização compartilhada:', sharedState);
+    console.log('📍 [ADD STOP PAGE] Estado inicial do store:', sharedState);
     
     if (sharedState.sharedContent) {
-      console.log('📍 [ADD STOP PAGE] Preenchendo campo com:', sharedState.sharedContent);
-      setLocation(sharedState.sharedContent);
-      
-      // Tentar extrair coordenadas
-      const coords = extractCoordinatesFromText(sharedState.sharedContent);
-      if (coords.lat && coords.lng) {
-        setCoordinates(coords);
-        console.log('📍 [ADD STOP PAGE] Coordenadas extraídas:', coords);
-        toast.success('Localização do WhatsApp detectada!');
-      }
+      processSharedLocation(sharedState.sharedContent);
     }
+    
+    // Verificar se há localização pendente do Android
+    const pendingLocation = (window as any).pendingSharedLocation;
+    if (pendingLocation) {
+      console.log('📍 [ADD STOP PAGE] Localização pendente do Android:', pendingLocation);
+      processSharedLocation(pendingLocation);
+      delete (window as any).pendingSharedLocation;
+    }
+    
+    // Escutar mudanças no store
+    const unsubscribe = sharedLocationStore.subscribe((state) => {
+      console.log('📍 [ADD STOP PAGE] Store atualizado:', state);
+      if (state.sharedContent) {
+        processSharedLocation(state.sharedContent);
+      }
+    });
+    
+    // Escutar evento customizado do Android
+    const handleSharedLocationEvent = (event: any) => {
+      console.log('📍 [ADD STOP PAGE] Evento sharedLocation recebido:', event.detail);
+      if (event.detail) {
+        processSharedLocation(event.detail);
+      }
+    };
+    window.addEventListener('sharedLocation', handleSharedLocationEvent);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('sharedLocation', handleSharedLocationEvent);
+    };
   }, []);
 
   // Monitorar mudanças no campo de localização
