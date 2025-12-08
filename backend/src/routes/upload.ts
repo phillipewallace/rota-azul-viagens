@@ -1,5 +1,5 @@
 
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -15,10 +15,10 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     cb(null, uploadsDir);
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     // Generate unique filename while preserving extension
     const uniqueName = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
     cb(null, uniqueName);
@@ -30,29 +30,35 @@ const upload = multer({
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, _file, cb) => {
     // Accept all file types
     cb(null, true);
   }
 });
 
-// Upload single file
-router.post('/', upload.single('file'), (req, res) => {
+// Wrapper to handle multer middleware type conflicts
+const uploadMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  upload.single('file')(req, res, next);
+};
+
+// Upload single file handler
+const handleUpload = (req: Request, res: Response) => {
   try {
-    if (!req.file) {
+    const file = (req as any).file;
+    if (!file) {
       res.status(400).json({ error: 'Nenhum arquivo enviado' });
       return;
     }
 
-    console.log('📁 File uploaded:', req.file.filename);
+    console.log('📁 File uploaded:', file.filename);
 
     const fileInfo = {
       id: uuidv4(),
-      originalName: req.file.originalname,
-      filename: req.file.filename,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
-      url: `/api/files/${req.file.filename}`
+      originalName: file.originalname,
+      filename: file.filename,
+      size: file.size,
+      mimetype: file.mimetype,
+      url: `/api/files/${file.filename}`
     };
 
     res.json(fileInfo);
@@ -60,7 +66,9 @@ router.post('/', upload.single('file'), (req, res) => {
     console.error('❌ Upload error:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
-});
+};
+
+router.post('/', uploadMiddleware, handleUpload);
 
 // Serve uploaded files
 router.get('/files/:filename', (req, res) => {
