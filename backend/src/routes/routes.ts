@@ -59,7 +59,15 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     
     const routeQuery = `SELECT * FROM routes WHERE id = $1`;
-    const pointsQuery = `SELECT * FROM route_points WHERE route_id = $1 ORDER BY point_order`;
+    const pointsQuery = `
+      SELECT 
+        id, route_id, address, lat, lng, point_order, type, completed, completed_at,
+        customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, 
+        notes, cep, stop_type, created_at
+      FROM route_points 
+      WHERE route_id = $1 
+      ORDER BY point_order
+    `;
     
     const [routeResult, pointsResult] = await Promise.all([
       pool.query(routeQuery, [id]),
@@ -70,11 +78,32 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
     
+    // Mapear pontos com todos os campos
+    const routePoints = pointsResult.rows.map(p => ({
+      id: p.id,
+      address: p.address,
+      lat: parseFloat(p.lat),
+      lng: parseFloat(p.lng),
+      order: p.point_order,
+      type: p.type,
+      completed: p.completed,
+      completedAt: p.completed_at,
+      customerName: p.customer_name,
+      restroomsQty: p.restrooms_qty,
+      cleaningsQty: p.cleanings_qty,
+      contactName: p.contact_name,
+      contactPhone: p.contact_phone,
+      notes: p.notes,
+      observation: p.notes, // Compatibilidade
+      cep: p.cep,
+      stopType: p.stop_type
+    }));
+    
     const route = {
       ...routeResult.rows[0],
       totalDistance: parseFloat(routeResult.rows[0].total_distance) || 0,
       estimatedDuration: parseInt(routeResult.rows[0].estimated_duration) || 0,
-      routePoints: pointsResult.rows
+      routePoints
     };
     
     res.json(route);
@@ -85,8 +114,25 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  const client = await pool.connect();
+  
   try {
+    await client.query('BEGIN');
+    
     const { name, description, points, totalDistance, estimatedTime, estimatedDuration, optimizedOrder, polyline, optimizationMode } = req.body;
+    
+    console.log(`📝 [ROUTES CREATE] Criando rota "${name}" com ${points?.length || 0} pontos`);
+    
+    // Validar dados mínimos
+    if (!name || !name.trim()) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Nome da rota é obrigatório' });
+    }
+    
+    if (!points || points.length < 2) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
+    }
     
     const query = `
       INSERT INTO routes (name, description, points, total_distance, estimated_time, estimated_duration, optimized_order, polyline, optimization_mode)
@@ -94,28 +140,48 @@ router.post('/', async (req, res) => {
       RETURNING *
     `;
     
-    const result = await pool.query(query, [
-      name,
-      description,
+    const result = await client.query(query, [
+      name.trim(),
+      description || '',
       JSON.stringify(points || []),
       parseFloat(totalDistance) || 0,
-      estimatedTime,
+      estimatedTime || '0min',
       parseInt(estimatedDuration) || 0,
       JSON.stringify(optimizedOrder || []),
-      polyline,
+      polyline || null,
       optimizationMode || 'optimized'
     ]);
     
-    // Insert route points if provided
-    if (points && points.length > 0) {
-      for (const point of points) {
-        await pool.query(
-          `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, observation)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [result.rows[0].id, point.address, point.lat, point.lng, point.order, point.type || 'waypoint', point.observation || null]
-        );
-      }
+    const routeId = result.rows[0].id;
+    
+    // ✅ INSERIR PONTOS COM TODOS OS CAMPOS
+    for (const point of points) {
+      await client.query(
+        `INSERT INTO route_points (
+          route_id, address, lat, lng, point_order, type, completed,
+          customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [
+          routeId,
+          point.address || '',
+          parseFloat(point.lat) || 0,
+          parseFloat(point.lng) || 0,
+          point.order || 0,
+          point.type || 'waypoint',
+          false,
+          point.customerName || point.name || null,
+          point.restroomsQty !== undefined ? parseInt(point.restroomsQty) : null,
+          point.cleaningsQty !== undefined ? parseInt(point.cleaningsQty) : null,
+          point.contactName || null,
+          point.contactPhone || null,
+          point.notes || point.observation || null,
+          point.cep || null,
+          point.stopType || null
+        ]
+      );
     }
+    
+    await client.query('COMMIT');
     
     const responseRoute = {
       ...result.rows[0],
@@ -124,10 +190,15 @@ router.post('/', async (req, res) => {
       optimizationMode: result.rows[0].optimization_mode || 'optimized'
     };
     
+    console.log(`✅ [ROUTES CREATE] Rota "${name}" criada com sucesso (ID: ${routeId})`);
     res.status(201).json(responseRoute);
+    
   } catch (error) {
-    console.error('❌ [ROUTES] Error creating route:', error);
+    await client.query('ROLLBACK');
+    console.error('❌ [ROUTES CREATE] Error creating route:', error);
     res.status(500).json({ error: 'Erro ao criar rota' });
+  } finally {
+    client.release();
   }
 });
 
@@ -483,6 +554,14 @@ router.put('/:id', async (req, res) => {
     console.log(`🔄 [ROUTE UPDATE] ========================================`);
     console.log(`🔄 [ROUTE UPDATE] Atualizando rota ${id} com ${points?.length || 0} pontos`);
     
+    // Log dos pontos recebidos para debug
+    if (points && points.length > 0) {
+      console.log(`📋 [ROUTE UPDATE] Pontos recebidos:`);
+      points.forEach((p: any, i: number) => {
+        console.log(`   ${i}: ${p.address?.substring(0, 30)}... | notes: ${p.notes || p.observation || 'N/A'} | customer: ${p.customerName || 'N/A'}`);
+      });
+    }
+    
     // Verificar se a rota existe
     const routeExists = await client.query('SELECT id, name FROM routes WHERE id = $1', [id]);
     if (routeExists.rows.length === 0) {
@@ -497,10 +576,11 @@ router.put('/:id', async (req, res) => {
     );
     
     let finalPoints = points || [];
+    const isRouteInUse = trucksUsingRoute.rows.length > 0;
     
-    if (trucksUsingRoute.rows.length > 0 && points && points.length > 0) {
+    if (isRouteInUse && points && points.length > 0) {
       console.log(`🚛 [ROUTE UPDATE] Rota em uso por ${trucksUsingRoute.rows.length} caminhão(ões):`);
-      trucksUsingRoute.rows.forEach(truck => {
+      trucksUsingRoute.rows.forEach((truck: any) => {
         console.log(`   - ${truck.name} (${truck.plate})`);
       });
       
@@ -508,19 +588,39 @@ router.put('/:id', async (req, res) => {
       finalPoints = await preserveCompletedPointsIntelligently(client, id, points);
       
     } else {
-      console.log(`🆓 [ROUTE UPDATE] Rota livre - atualização normal`);
+      console.log(`🆓 [ROUTE UPDATE] Rota livre - atualização completa dos pontos`);
       
-      // Atualização normal para rotas não em uso
+      // ✅ ATUALIZAÇÃO COMPLETA - DELETAR E REINSERIR TODOS OS PONTOS COM TODOS OS CAMPOS
       if (points && points.length > 0) {
         await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
         
         for (const point of points) {
           await client.query(
-            `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed)
-             VALUES ($1, $2, $3, $4, $5, $6, false)`,
-            [id, point.address, point.lat, point.lng, point.order, point.type || 'waypoint']
+            `INSERT INTO route_points (
+              route_id, address, lat, lng, point_order, type, completed,
+              customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+            [
+              id,
+              point.address || '',
+              parseFloat(point.lat) || 0,
+              parseFloat(point.lng) || 0,
+              point.order || 0,
+              point.type || 'waypoint',
+              point.completed || false,
+              point.customerName || point.name || null,
+              point.restroomsQty !== undefined ? parseInt(point.restroomsQty) : null,
+              point.cleaningsQty !== undefined ? parseInt(point.cleaningsQty) : null,
+              point.contactName || null,
+              point.contactPhone || null,
+              point.notes || point.observation || null,
+              point.cep || null,
+              point.stopType || null
+            ]
           );
         }
+        
+        console.log(`✅ [ROUTE UPDATE] ${points.length} pontos inseridos com todos os campos`);
       }
     }
     
