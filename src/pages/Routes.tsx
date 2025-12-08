@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw, RotateCcw } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Navigation, Eye, ArrowLeft, RefreshCw, RotateCcw, Copy, CheckSquare, Square } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
@@ -13,6 +14,8 @@ import { toast } from 'sonner';
 const Routes = () => {
   const navigate = useNavigate();
   const [viewingRoute, setViewingRoute] = useState<any>(null);
+  const [selectedPoints, setSelectedPoints] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
 
   const { routes, loading, loadRoutes } = useRoutes();
   const { deleteRoute, updateRoute, resetRoute, optimizeRoute, isLoading } = useRoutesCRUD();
@@ -93,6 +96,72 @@ const Routes = () => {
 
   const handleView = (route: any) => {
     setViewingRoute(route);
+    setSelectedPoints(new Set());
+    setSelectionMode(false);
+  };
+
+  // Toggle seleção de ponto para cópia
+  const togglePointSelection = (pointId: string) => {
+    setSelectedPoints(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(pointId)) {
+        newSet.delete(pointId);
+      } else {
+        newSet.add(pointId);
+      }
+      return newSet;
+    });
+  };
+
+  // Selecionar/desselecionar todos os pontos
+  const toggleSelectAll = () => {
+    if (!viewingRoute?.points) return;
+    
+    if (selectedPoints.size === viewingRoute.points.length) {
+      setSelectedPoints(new Set());
+    } else {
+      const allIds = viewingRoute.points.map((p: any) => p.id);
+      setSelectedPoints(new Set(allIds));
+    }
+  };
+
+  // Criar nova rota com pontos selecionados
+  const handleCopyPointsToNewRoute = () => {
+    if (selectedPoints.size === 0) {
+      toast.error('Selecione ao menos um ponto para copiar');
+      return;
+    }
+
+    if (!viewingRoute?.points) return;
+
+    // Filtrar e ordenar pontos selecionados
+    const pointsToCopy = viewingRoute.points
+      .filter((p: any) => selectedPoints.has(p.id))
+      .sort((a: any, b: any) => a.order - b.order)
+      .map((point: any, index: number) => ({
+        address: point.address,
+        lat: point.lat,
+        lng: point.lng,
+        cep: point.cep || '',
+        customerName: point.customerName || '',
+        restroomsQty: point.restroomsQty,
+        cleaningsQty: point.cleaningsQty,
+        contactName: point.contactName || '',
+        contactPhone: point.contactPhone || '',
+        notes: point.notes || point.observation || '',
+        observation: point.observation || point.notes || '',
+        order: index
+      }));
+
+    // Armazenar pontos no localStorage para a página de criação
+    localStorage.setItem('copiedRoutePoints', JSON.stringify(pointsToCopy));
+    localStorage.setItem('copiedFromRoute', viewingRoute.name);
+
+    toast.success(`${pointsToCopy.length} ponto(s) copiado(s)! Abrindo criação de rota...`);
+    
+    // Fechar modal e navegar
+    setViewingRoute(null);
+    navigate('/routes/create?fromCopy=true');
   };
 
   const handleNewRoute = () => {
@@ -371,9 +440,31 @@ const Routes = () => {
             <div className="bg-white p-6 rounded-lg max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold">Detalhes da Rota</h2>
-                <Button variant="outline" onClick={() => setViewingRoute(null)}>
-                  Fechar
-                </Button>
+                <div className="flex gap-2">
+                  {selectionMode && selectedPoints.size > 0 && (
+                    <Button 
+                      onClick={handleCopyPointsToNewRoute}
+                      className="bg-green-600 hover:bg-green-700 gap-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Criar rota com {selectedPoints.size} ponto(s)
+                    </Button>
+                  )}
+                  <Button 
+                    variant={selectionMode ? "default" : "outline"}
+                    onClick={() => {
+                      setSelectionMode(!selectionMode);
+                      if (!selectionMode) setSelectedPoints(new Set());
+                    }}
+                    className="gap-2"
+                  >
+                    {selectionMode ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                    {selectionMode ? 'Cancelar seleção' : 'Selecionar pontos'}
+                  </Button>
+                  <Button variant="outline" onClick={() => setViewingRoute(null)}>
+                    Fechar
+                  </Button>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -410,12 +501,39 @@ const Routes = () => {
 
                   {viewingRoute.points && viewingRoute.points.length > 0 && (
                     <div>
-                      <h4 className="font-medium mb-3">Pontos da Rota:</h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium">Pontos da Rota:</h4>
+                        {selectionMode && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={toggleSelectAll}
+                            className="text-sm"
+                          >
+                            {selectedPoints.size === viewingRoute.points.length ? 'Desselecionar todos' : 'Selecionar todos'}
+                          </Button>
+                        )}
+                      </div>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {viewingRoute.points
                           .sort((a: any, b: any) => a.order - b.order)
                           .map((point: any, index: number) => (
-                          <div key={`${viewingRoute.id}-detail-point-${point.id || index}`} className="flex items-center gap-3 p-3 border rounded-lg">
+                          <div 
+                            key={`${viewingRoute.id}-detail-point-${point.id || index}`} 
+                            className={`flex items-center gap-3 p-3 border rounded-lg transition-colors cursor-pointer ${
+                              selectionMode && selectedPoints.has(point.id) 
+                                ? 'bg-blue-50 border-blue-300' 
+                                : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => selectionMode && togglePointSelection(point.id)}
+                          >
+                            {selectionMode && (
+                              <Checkbox
+                                checked={selectedPoints.has(point.id)}
+                                onCheckedChange={() => togglePointSelection(point.id)}
+                                className="h-5 w-5"
+                              />
+                            )}
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
                               point.type === 'origin' ? 'bg-green-500' :
                               point.type === 'destination' ? 'bg-red-500' : 'bg-yellow-500'
@@ -423,9 +541,18 @@ const Routes = () => {
                               {index + 1}
                             </div>
                             <div className="flex-1">
-                              <p className="font-medium">{point.address}</p>
+                              <p className="font-medium">{point.customerName || point.address}</p>
+                              {point.customerName && (
+                                <p className="text-sm text-gray-500">{point.address}</p>
+                              )}
                               <p className="text-sm text-gray-600 capitalize">{point.type}</p>
-                              {point.cep && <p className="text-sm text-gray-500">CEP: {point.cep}</p>}
+                              {point.cep && <p className="text-xs text-gray-400">CEP: {point.cep}</p>}
+                              {(point.restroomsQty || point.cleaningsQty) && (
+                                <p className="text-xs text-gray-500">
+                                  {point.restroomsQty && `🚿 ${point.restroomsQty}`}
+                                  {point.cleaningsQty && ` 🧹 ${point.cleaningsQty}`}
+                                </p>
+                              )}
                               {point.completed && (
                                 <p className="text-xs text-green-600 font-medium">✅ Concluído</p>
                               )}
@@ -433,6 +560,12 @@ const Routes = () => {
                           </div>
                         ))}
                       </div>
+                      
+                      {selectionMode && (
+                        <p className="text-sm text-blue-600 mt-3 font-medium">
+                          💡 Selecione os pontos que deseja copiar para uma nova rota
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

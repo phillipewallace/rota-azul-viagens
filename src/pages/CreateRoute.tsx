@@ -99,6 +99,53 @@ const CreateRoute = () => {
         setAllPoints(pointsWithCorrectTypes);
       }
     } else if (!isEditing) {
+      // Verificar se veio da cópia de pontos
+      const fromCopy = searchParams.get('fromCopy');
+      const copiedPoints = localStorage.getItem('copiedRoutePoints');
+      const copiedFromRoute = localStorage.getItem('copiedFromRoute');
+      
+      if (fromCopy === 'true' && copiedPoints) {
+        try {
+          const points = JSON.parse(copiedPoints);
+          if (points && points.length > 0) {
+            console.log('📋 [CREATE ROUTE] Carregando pontos copiados:', points.length);
+            
+            // Converter pontos copiados para o formato esperado
+            const convertedPoints = points.map((point: any, index: number) => ({
+              id: generateUniqueId(`copied-${index}`),
+              order: index,
+              address: point.address || '',
+              lat: point.lat || 0,
+              lng: point.lng || 0,
+              cep: point.cep || '',
+              customerName: point.customerName || '',
+              restroomsQty: point.restroomsQty,
+              cleaningsQty: point.cleaningsQty,
+              contactName: point.contactName || '',
+              contactPhone: point.contactPhone || '',
+              observation: point.observation || point.notes || '',
+              type: index === 0 ? 'origin' : (index === points.length - 1 ? 'destination' : 'waypoint')
+            }));
+            
+            const pointsWithTypes = recalculatePointTypes(convertedPoints);
+            setAllPoints(pointsWithTypes);
+            
+            if (copiedFromRoute) {
+              setRouteDescription(`Baseada na rota: ${copiedFromRoute}`);
+            }
+            
+            toast.success(`${points.length} ponto(s) carregado(s) da rota original!`);
+            
+            // Limpar localStorage após uso
+            localStorage.removeItem('copiedRoutePoints');
+            localStorage.removeItem('copiedFromRoute');
+            return;
+          }
+        } catch (e) {
+          console.error('Erro ao carregar pontos copiados:', e);
+        }
+      }
+      
       // Tentar carregar do autosave
       const saved = loadFromStorage();
       if (saved && saved.points.length > 0) {
@@ -128,7 +175,7 @@ const CreateRoute = () => {
         addPoint();
       }
     }
-  }, [isEditing, editId, routes]);
+  }, [isEditing, editId, routes, searchParams]);
 
   // AutoSave
   useEffect(() => {
