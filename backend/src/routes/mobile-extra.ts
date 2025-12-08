@@ -70,6 +70,8 @@ router.put('/route/:routeId/reorder', async (req, res) => {
 /**
  * Adicionar parada extra à rota
  * Aceita coordenadas lat/lng diretamente do frontend ou extrai de links
+ * 
+ * ✅ ENDPOINT UNIFICADO - Funciona tanto para rotas criadas no web quanto no mobile
  */
 router.post('/route/:routeId/extra-stop', async (req, res) => {
   const client = await pool.connect();
@@ -80,12 +82,31 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
     const { routeId } = req.params;
     const { name, stopType, location, lat: providedLat, lng: providedLng, insertBeforeId, truckId, source } = req.body;
     
-    console.log(`➕ [MOBILE API] Adicionando parada extra à rota ${routeId}`);
-    console.log(`📋 [MOBILE API] Dados recebidos:`, { 
+    console.log(`➕ [MOBILE EXTRA-STOP] ========================================`);
+    console.log(`➕ [MOBILE EXTRA-STOP] Requisição recebida`);
+    console.log(`➕ [MOBILE EXTRA-STOP] Route ID recebido: "${routeId}"`);
+    console.log(`➕ [MOBILE EXTRA-STOP] Tipo do routeId: ${typeof routeId}`);
+    console.log(`➕ [MOBILE EXTRA-STOP] Tamanho do routeId: ${routeId?.length || 0}`);
+    console.log(`📋 [MOBILE EXTRA-STOP] Dados completos:`, JSON.stringify({ 
       name, stopType, location, 
       providedLat, providedLng, 
       insertBeforeId, truckId, source 
-    });
+    }, null, 2));
+    
+    // ✅ VALIDAÇÃO DO ROUTE ID
+    if (!routeId || routeId.trim() === '' || routeId === 'undefined' || routeId === 'null') {
+      await client.query('ROLLBACK');
+      console.error(`❌ [MOBILE EXTRA-STOP] Route ID inválido: "${routeId}"`);
+      return res.status(400).json({ error: 'ID da rota é obrigatório e deve ser válido' });
+    }
+    
+    // ✅ VALIDAÇÃO DO FORMATO UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(routeId.trim())) {
+      await client.query('ROLLBACK');
+      console.error(`❌ [MOBILE EXTRA-STOP] Route ID não é um UUID válido: "${routeId}"`);
+      return res.status(400).json({ error: `ID da rota inválido: ${routeId}` });
+    }
     
     // Validar campos obrigatórios
     if (!name || !name.trim()) {
@@ -98,17 +119,35 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
       return res.status(400).json({ error: 'Endereço ou localização é obrigatório' });
     }
     
-    // Verificar se rota existe
+    // ✅ VERIFICAR SE ROTA EXISTE - Com logging detalhado
+    const cleanRouteId = routeId.trim();
+    console.log(`🔍 [MOBILE EXTRA-STOP] Buscando rota com ID limpo: "${cleanRouteId}"`);
+    
     const routeCheck = await client.query(
-      'SELECT id, name FROM routes WHERE id = $1',
-      [routeId]
+      'SELECT id, name, status FROM routes WHERE id = $1::uuid',
+      [cleanRouteId]
     );
     
+    console.log(`🔍 [MOBILE EXTRA-STOP] Resultado da busca: ${routeCheck.rows.length} linhas`);
+    
     if (routeCheck.rows.length === 0) {
+      // ✅ DEBUG: Listar todas as rotas para comparação
+      const allRoutes = await client.query('SELECT id, name FROM routes LIMIT 10');
+      console.error(`❌ [MOBILE EXTRA-STOP] Rota ${cleanRouteId} NÃO encontrada`);
+      console.error(`📋 [MOBILE EXTRA-STOP] Rotas disponíveis (primeiras 10):`);
+      allRoutes.rows.forEach(r => {
+        console.error(`   - ID: "${r.id}" | Nome: "${r.name}"`);
+      });
+      
       await client.query('ROLLBACK');
-      console.error(`❌ [MOBILE API] Rota ${routeId} não encontrada`);
-      return res.status(404).json({ error: 'Rota não encontrada' });
+      return res.status(404).json({ 
+        error: 'Rota não encontrada',
+        routeIdReceived: cleanRouteId,
+        hint: 'Verifique se o ID da rota está correto e se a rota existe no sistema'
+      });
     }
+    
+    console.log(`✅ [MOBILE EXTRA-STOP] Rota encontrada: ${routeCheck.rows[0].name} (ID: ${routeCheck.rows[0].id})`)
     
     // Se truckId foi fornecido, verificar vínculo (mas não obrigatório para flexibilidade)
     if (truckId) {
@@ -168,8 +207,8 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
     if (insertBeforeId && insertBeforeId !== 'end') {
       // Inserir antes de um ponto específico
       const beforePointResult = await client.query(
-        'SELECT point_order FROM route_points WHERE id = $1 AND route_id = $2',
-        [insertBeforeId, routeId]
+        'SELECT point_order FROM route_points WHERE id = $1 AND route_id = $2::uuid',
+        [insertBeforeId, cleanRouteId]
       );
       
       if (beforePointResult.rows.length > 0) {
@@ -177,44 +216,45 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
         
         // Incrementar ordem dos pontos posteriores
         await client.query(
-          'UPDATE route_points SET point_order = point_order + 1 WHERE route_id = $1 AND point_order >= $2',
-          [routeId, insertOrder]
+          'UPDATE route_points SET point_order = point_order + 1 WHERE route_id = $1::uuid AND point_order >= $2',
+          [cleanRouteId, insertOrder]
         );
         
-        console.log(`📍 [MOBILE API] Inserindo antes do ponto ${insertBeforeId} na ordem ${insertOrder}`);
+        console.log(`📍 [MOBILE EXTRA-STOP] Inserindo antes do ponto ${insertBeforeId} na ordem ${insertOrder}`);
       } else {
         // Se ponto de referência não existe, adicionar no final
         const maxOrderResult = await client.query(
-          'SELECT COALESCE(MAX(point_order), -1) + 1 as next_order FROM route_points WHERE route_id = $1',
-          [routeId]
+          'SELECT COALESCE(MAX(point_order), -1) + 1 as next_order FROM route_points WHERE route_id = $1::uuid',
+          [cleanRouteId]
         );
         insertOrder = maxOrderResult.rows[0].next_order;
       }
     } else {
       // Adicionar no final
       const maxOrderResult = await client.query(
-        'SELECT COALESCE(MAX(point_order), -1) + 1 as next_order FROM route_points WHERE route_id = $1',
-        [routeId]
+        'SELECT COALESCE(MAX(point_order), -1) + 1 as next_order FROM route_points WHERE route_id = $1::uuid',
+        [cleanRouteId]
       );
       insertOrder = maxOrderResult.rows[0].next_order;
       
-      console.log(`📍 [MOBILE API] Adicionando no final na ordem ${insertOrder}`);
+      console.log(`📍 [MOBILE EXTRA-STOP] Adicionando no final na ordem ${insertOrder}`);
     }
     
     // Inserir novo ponto
+    console.log(`💾 [MOBILE EXTRA-STOP] Inserindo ponto com route_id: ${cleanRouteId}`);
     const insertResult = await client.query(
       `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, completed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, false, NULL)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, false, NULL)
        RETURNING id, address, lat, lng, point_order, type, completed`,
-      [routeId, address, lat, lng, insertOrder, 'waypoint']
+      [cleanRouteId, address, lat, lng, insertOrder, 'waypoint']
     );
     
     const newPoint = insertResult.rows[0];
     
     // Atualizar timestamp da rota
     await client.query(
-      'UPDATE routes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [routeId]
+      'UPDATE routes SET updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid',
+      [cleanRouteId]
     );
     
     await client.query('COMMIT');
