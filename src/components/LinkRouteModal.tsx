@@ -1,14 +1,23 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useTrucks } from '@/hooks/useTrucks';
-import { useRoutes } from '@/hooks/useRoutes';
 import { Truck } from '@/hooks/useTrucks';
 import { BaseApiService } from '@/services/base';
+import { API_CONFIG } from '@/services/config';
+import { RefreshCw, Loader2 } from 'lucide-react';
+
+interface Route {
+  id: string;
+  name: string;
+  description?: string;
+  points: any[];
+  totalDistance: number;
+  status: string;
+}
 
 interface LinkRouteModalProps {
   open: boolean;
@@ -41,20 +50,45 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
   const [selectedTruck, setSelectedTruck] = useState('');
   const [selectedRoute, setSelectedRoute] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Estado local para rotas (sempre buscar fresco)
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [routesLoading, setRoutesLoading] = useState(false);
 
   const { trucks, loading: trucksLoading, refetch: refetchTrucks } = useTrucks();
-  const { routes, loading: routesLoading } = useRoutes();
 
-  // Reset form when modal opens/closes or truck changes
+  // ✅ BUSCAR ROTAS SEMPRE QUE O MODAL ABRIR
+  const fetchRoutes = useCallback(async () => {
+    setRoutesLoading(true);
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/routes`);
+      if (!response.ok) throw new Error('Erro ao buscar rotas');
+      const data = await response.json();
+      setRoutes(data);
+      console.log('✅ [LINK MODAL] Rotas carregadas:', data.length);
+    } catch (error) {
+      console.error('❌ [LINK MODAL] Erro ao buscar rotas:', error);
+      toast({
+        title: "Erro ao carregar rotas",
+        description: "Não foi possível buscar as rotas disponíveis.",
+        variant: "destructive"
+      });
+    } finally {
+      setRoutesLoading(false);
+    }
+  }, [toast]);
+
+  // Carregar rotas quando modal abrir
   useEffect(() => {
     if (open) {
+      fetchRoutes();
       setSelectedTruck(truck?.id || '');
       setSelectedRoute('');
     } else {
       setSelectedTruck('');
       setSelectedRoute('');
     }
-  }, [open, truck]);
+  }, [open, truck, fetchRoutes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +191,24 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="route">Selecionar Rota</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label htmlFor="route">Selecionar Rota</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={fetchRoutes}
+                disabled={routesLoading}
+                className="h-7 px-2 text-xs"
+              >
+                {routesLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                <span className="ml-1">Atualizar</span>
+              </Button>
+            </div>
             <Select value={selectedRoute} onValueChange={setSelectedRoute} disabled={routesLoading || isLoading}>
               <SelectTrigger>
                 <SelectValue placeholder={routesLoading ? "Carregando..." : "Escolha uma rota"} />

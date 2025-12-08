@@ -6,14 +6,24 @@ import { API_CONFIG } from '@/services/config';
 export interface RoutePoint {
   id: string;
   address: string;
-  cep: string;
+  cep?: string;
   lat: number;
   lng: number;
   order: number;
   type: 'origin' | 'destination' | 'waypoint';
   completed?: boolean;
   completedAt?: string | null;
-  observation?: string;
+  // Dados operacionais
+  customerName?: string;
+  restroomsQty?: number;
+  cleaningsQty?: number;
+  contactName?: string;
+  contactPhone?: string;
+  notes?: string;
+  observation?: string; // Alias de notes para compatibilidade
+  // Mobile
+  name?: string;
+  stopType?: string;
 }
 
 export interface Route {

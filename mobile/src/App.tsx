@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import MobileDriver from './pages/MobileDriver';
 import StopsList from './pages/StopsList';
 import AddExtraStopPage from './pages/AddExtraStopPage';
+import StopDetailsPage from './pages/StopDetailsPage';
 import { initializeShareHandler } from './utils/shareHandler';
 import './index.css';
 
@@ -19,7 +20,6 @@ const queryClient = new QueryClient({
 
 const App = () => {
   useEffect(() => {
-    // Inicializar handler de compartilhamento quando app montar
     initializeShareHandler();
   }, []);
 
@@ -33,6 +33,7 @@ const App = () => {
             <Route path="/driver" element={<MobileDriver />} />
             <Route path="/stops" element={<StopsList />} />
             <Route path="/add-stop" element={<AddExtraStopPage />} />
+            <Route path="/stop-details" element={<StopDetailsPage />} />
           </Routes>
         </div>
       </BrowserRouter>
