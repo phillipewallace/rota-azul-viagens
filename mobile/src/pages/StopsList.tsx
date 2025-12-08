@@ -5,6 +5,7 @@
  * - Visualização de todas as paradas
  * - Drag & drop para reordenar
  * - Navegação para tela de adicionar parada extra
+ * - Toque no item para ver detalhes
  * 
  * IMPORTANTE: Drag & drop é preservado e funcional
  */
@@ -34,8 +35,10 @@ import { toast } from 'sonner';
 import { GripVertical, ArrowLeft, Save, Plus, MapPin, CheckCircle2, Loader2 } from 'lucide-react';
 import { useMobile } from '@/hooks/useMobile';
 import { sharedLocationStore } from '@/store/sharedLocationStore';
+import { RoutePoint as RoutePointType } from '@/types/route';
 
-interface RoutePoint {
+// Tipo local estendido para compatibilidade com dados existentes
+interface RoutePoint extends Partial<RoutePointType> {
   id: string;
   address: string;
   lat: number;
@@ -54,13 +57,22 @@ interface StopsListProps {
   onBack?: () => void;
 }
 
+// Navegar para detalhes da parada
+const navigateToStopDetails = (navigate: ReturnType<typeof useNavigate>, point: RoutePoint, index: number) => {
+  navigate('/stop-details', { 
+    state: { point, index } 
+  });
+};
+
 // Componente para item arrastável
 function SortableStopItem({ 
   point, 
-  index 
+  index,
+  onTap
 }: { 
   point: RoutePoint; 
   index: number;
+  onTap: () => void;
 }) {
   const {
     attributes,
@@ -97,7 +109,11 @@ function SortableStopItem({
           <GripVertical className="h-6 w-6 text-gray-400" />
         </div>
         
-        <div className="flex-1 min-w-0">
+        {/* Área clicável para abrir detalhes */}
+        <div 
+          className="flex-1 min-w-0 cursor-pointer active:bg-gray-50 rounded-lg -m-1 p-1"
+          onClick={onTap}
+        >
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className={`font-bold text-base ${point.completed ? 'text-green-600' : 'text-blue-600'}`}>
               Parada {index + 1}
@@ -119,6 +135,11 @@ function SortableStopItem({
           <p className="text-xs text-gray-600 break-words flex items-start gap-1">
             <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
             <span className="line-clamp-2">{point.address}</span>
+          </p>
+          
+          {/* Indicador visual para tocar */}
+          <p className="text-xs text-blue-500 mt-2 font-medium">
+            Toque para ver detalhes →
           </p>
         </div>
       </div>
@@ -345,6 +366,7 @@ const StopsList: React.FC<StopsListProps> = (props) => {
                 key={point.id}
                 point={point}
                 index={index}
+                onTap={() => navigateToStopDetails(navigate, point, index)}
               />
             ))}
           </SortableContext>

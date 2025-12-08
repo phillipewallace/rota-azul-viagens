@@ -7,6 +7,7 @@
  * - Pré-preenchimento via deep link (WhatsApp/Maps)
  * - Botão "Sugerir melhor posição" usando GPS
  * - Seleção manual de posição na rota
+ * - Campos operacionais: banheiros, limpezas, contato, observações
  * 
  * IMPORTANTE: Não quebra o drag & drop existente na StopsList
  */
@@ -26,7 +27,11 @@ import {
   AlertCircle,
   Check,
   User,
-  Tag
+  Tag,
+  Phone,
+  FileText,
+  Droplets,
+  Brush
 } from 'lucide-react';
 import { sharedLocationStore } from '@/store/sharedLocationStore';
 import { GOOGLE_MAPS_API_KEY } from '@/services/config';
@@ -95,17 +100,27 @@ const AddExtraStopPage: React.FC = () => {
   const points: RoutePoint[] = pointsParam ? JSON.parse(decodeURIComponent(pointsParam)) : [];
   const pendingPoints = points.filter(p => !p.completed).sort((a, b) => a.order - b.order);
   
-  // Estados do formulário
+  // Estados do formulário - campos básicos
   const [name, setName] = useState('');
   const [stopType, setStopType] = useState('Entrega');
   const [location, setLocation] = useState('');
   const [coordinates, setCoordinates] = useState<{ lat?: number; lng?: number }>({});
   const [insertPosition, setInsertPosition] = useState<string>('end');
+  
+  // Estados do formulário - novos campos operacionais
+  const [restroomsQty, setRestroomsQty] = useState('');
+  const [cleaningsQty, setCleaningsQty] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [notes, setNotes] = useState('');
+  
+  // Estados de UI
   const [isLoadingGPS, setIsLoadingGPS] = useState(false);
   const [isCalculatingPosition, setIsCalculatingPosition] = useState(false);
   const [suggestedPosition, setSuggestedPosition] = useState<string | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showOperationalFields, setShowOperationalFields] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -379,6 +394,14 @@ const AddExtraStopPage: React.FC = () => {
     }
   };
 
+  // Validar campos numéricos
+  const validateNumericField = (value: string): number | undefined => {
+    if (!value || value.trim() === '') return undefined;
+    const num = parseInt(value, 10);
+    if (isNaN(num) || num < 0) return undefined;
+    return num;
+  };
+
   // Salvar parada extra
   const handleSave = async () => {
     if (!name.trim()) {
@@ -396,6 +419,20 @@ const AddExtraStopPage: React.FC = () => {
       return;
     }
 
+    // Validar campos numéricos
+    const parsedRestroomsQty = validateNumericField(restroomsQty);
+    const parsedCleaningsQty = validateNumericField(cleaningsQty);
+
+    if (restroomsQty && parsedRestroomsQty === undefined) {
+      toast.error('Quantidade de banheiros deve ser um número válido');
+      return;
+    }
+
+    if (cleaningsQty && parsedCleaningsQty === undefined) {
+      toast.error('Quantidade de limpezas deve ser um número válido');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -405,7 +442,13 @@ const AddExtraStopPage: React.FC = () => {
         location: location.trim(),
         lat: coordinates.lat,
         lng: coordinates.lng,
-        insertBeforeId: insertPosition !== 'end' ? insertPosition : undefined
+        insertBeforeId: insertPosition !== 'end' ? insertPosition : undefined,
+        // Novos campos operacionais
+        restroomsQty: parsedRestroomsQty,
+        cleaningsQty: parsedCleaningsQty,
+        contactName: contactName.trim() || undefined,
+        contactPhone: contactPhone.trim() || undefined,
+        notes: notes.trim() || undefined
       };
 
       console.log('📍 [ADD STOP PAGE] Salvando:', data);
@@ -526,6 +569,110 @@ const AddExtraStopPage: React.FC = () => {
               </p>
             )}
           </div>
+
+          {/* Seção: Campos operacionais (expansível) */}
+          <Card className="border-gray-200">
+            <button
+              type="button"
+              onClick={() => setShowOperationalFields(!showOperationalFields)}
+              className="w-full p-4 flex items-center justify-between text-left"
+            >
+              <span className="font-semibold text-gray-700">
+                Dados operacionais (opcional)
+              </span>
+              <span className="text-gray-400">
+                {showOperationalFields ? '▲' : '▼'}
+              </span>
+            </button>
+            
+            {showOperationalFields && (
+              <div className="px-4 pb-4 space-y-4 border-t border-gray-100 pt-4">
+                {/* Banheiros e Limpezas em grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="restroomsQty" className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                      <Droplets className="h-3.5 w-3.5" />
+                      Banheiros
+                    </Label>
+                    <Input
+                      id="restroomsQty"
+                      type="number"
+                      min="0"
+                      value={restroomsQty}
+                      onChange={(e) => setRestroomsQty(e.target.value)}
+                      placeholder="0"
+                      className="h-12 text-base"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="cleaningsQty" className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                      <Brush className="h-3.5 w-3.5" />
+                      Limpezas
+                    </Label>
+                    <Input
+                      id="cleaningsQty"
+                      type="number"
+                      min="0"
+                      value={cleaningsQty}
+                      onChange={(e) => setCleaningsQty(e.target.value)}
+                      placeholder="0"
+                      className="h-12 text-base"
+                    />
+                  </div>
+                </div>
+                
+                {/* Nome do responsável */}
+                <div className="space-y-2">
+                  <Label htmlFor="contactName" className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                    <User className="h-3.5 w-3.5" />
+                    Nome do responsável
+                  </Label>
+                  <Input
+                    id="contactName"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Ex: Maria Souza"
+                    className="h-12 text-base"
+                  />
+                </div>
+                
+                {/* Telefone do responsável */}
+                <div className="space-y-2">
+                  <Label htmlFor="contactPhone" className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                    <Phone className="h-3.5 w-3.5" />
+                    Telefone
+                  </Label>
+                  <Input
+                    id="contactPhone"
+                    type="tel"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                    className="h-12 text-base"
+                  />
+                </div>
+                
+                {/* Observações */}
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                    <FileText className="h-3.5 w-3.5" />
+                    Observações
+                  </Label>
+                  <textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Informações adicionais..."
+                    rows={3}
+                    className="w-full border rounded-lg px-4 py-3 text-base resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-gray-400 text-right">{notes.length}/500</p>
+                </div>
+              </div>
+            )}
+          </Card>
 
           {/* Botão: Sugerir melhor posição */}
           <Card className="bg-blue-50 border-blue-200 p-4">

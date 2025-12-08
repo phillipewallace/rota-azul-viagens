@@ -80,7 +80,13 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
     await client.query('BEGIN');
     
     const { routeId } = req.params;
-    const { name, stopType, location, lat: providedLat, lng: providedLng, insertBeforeId, truckId, source } = req.body;
+    const { 
+      name, stopType, location, 
+      lat: providedLat, lng: providedLng, 
+      insertBeforeId, truckId, source,
+      // Novos campos operacionais
+      restroomsQty, cleaningsQty, contactName, contactPhone, notes
+    } = req.body;
     
     console.log(`➕ [MOBILE EXTRA-STOP] ========================================`);
     console.log(`➕ [MOBILE EXTRA-STOP] Requisição recebida`);
@@ -90,7 +96,8 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
     console.log(`📋 [MOBILE EXTRA-STOP] Dados completos:`, JSON.stringify({ 
       name, stopType, location, 
       providedLat, providedLng, 
-      insertBeforeId, truckId, source 
+      insertBeforeId, truckId, source,
+      restroomsQty, cleaningsQty, contactName, contactPhone, notes
     }, null, 2));
     
     // ✅ VALIDAÇÃO DO ROUTE ID
@@ -240,13 +247,30 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
       console.log(`📍 [MOBILE EXTRA-STOP] Adicionando no final na ordem ${insertOrder}`);
     }
     
-    // Inserir novo ponto
+    // Inserir novo ponto com todos os campos operacionais
     console.log(`💾 [MOBILE EXTRA-STOP] Inserindo ponto com route_id: ${cleanRouteId}`);
+    
+    // Parsear campos numéricos de forma segura
+    const parsedRestroomsQty = restroomsQty ? parseInt(restroomsQty, 10) : null;
+    const parsedCleaningsQty = cleaningsQty ? parseInt(cleaningsQty, 10) : null;
+    
     const insertResult = await client.query(
-      `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, completed_at)
-       VALUES ($1::uuid, $2, $3, $4, $5, $6, false, NULL)
-       RETURNING id, address, lat, lng, point_order, type, completed`,
-      [cleanRouteId, address, lat, lng, insertOrder, 'waypoint']
+      `INSERT INTO route_points (
+        route_id, address, lat, lng, point_order, type, completed, completed_at,
+        customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, stop_type
+      )
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, false, NULL, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id, address, lat, lng, point_order, type, completed, customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, stop_type`,
+      [
+        cleanRouteId, address, lat, lng, insertOrder, 'waypoint',
+        name.trim() || null,
+        parsedRestroomsQty,
+        parsedCleaningsQty,
+        contactName?.trim() || null,
+        contactPhone?.trim() || null,
+        notes?.trim() || null,
+        stopType || 'Entrega'
+      ]
     );
     
     const newPoint = insertResult.rows[0];
@@ -270,8 +294,14 @@ router.post('/route/:routeId/extra-stop', async (req, res) => {
       order: Number(newPoint.point_order),
       type: newPoint.type,
       completed: newPoint.completed || false,
-      name: name.trim(),
-      stopType: stopType || 'Entrega'
+      name: newPoint.customer_name || name.trim(),
+      customerName: newPoint.customer_name,
+      restroomsQty: newPoint.restrooms_qty,
+      cleaningsQty: newPoint.cleanings_qty,
+      contactName: newPoint.contact_name,
+      contactPhone: newPoint.contact_phone,
+      notes: newPoint.notes,
+      stopType: newPoint.stop_type || 'Entrega'
     });
     
   } catch (error: any) {
