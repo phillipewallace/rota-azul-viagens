@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { 
@@ -32,12 +32,24 @@ import { RoutePoint, getPointDisplayName, isValidPhoneForCall, formatPhoneForCal
 
 const StopDetailsPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   
-  // Receber dados do ponto via URL params
-  const pointParam = searchParams.get('point');
-  const point: RoutePoint | null = pointParam ? JSON.parse(decodeURIComponent(pointParam)) : null;
-  const index = parseInt(searchParams.get('index') || '0', 10);
+  // Receber dados do ponto via location.state OU URL params
+  const stateData = location.state as { point?: RoutePoint; index?: number } | null;
+  
+  // Priorizar location.state, fallback para URL params
+  let point: RoutePoint | null = null;
+  let index = 0;
+  
+  if (stateData?.point) {
+    point = stateData.point;
+    index = stateData.index ?? 0;
+  } else {
+    const pointParam = searchParams.get('point');
+    point = pointParam ? JSON.parse(decodeURIComponent(pointParam)) : null;
+    index = parseInt(searchParams.get('index') || '0', 10);
+  }
 
   if (!point) {
     return (

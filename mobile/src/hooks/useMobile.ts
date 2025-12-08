@@ -190,6 +190,7 @@ export const useMobile = () => {
   /**
    * Adicionar parada extra à rota
    * Aceita coordenadas lat/lng opcionais para precisão de localização
+   * Inclui campos operacionais: banheiros, limpezas, contato, observações
    */
   const addExtraStop = useCallback(async (
     routeId: string, 
@@ -201,6 +202,12 @@ export const useMobile = () => {
       lat?: number;
       lng?: number;
       insertBeforeId?: string;
+      // Novos campos operacionais
+      restroomsQty?: number;
+      cleaningsQty?: number;
+      contactName?: string;
+      contactPhone?: string;
+      notes?: string;
     }
   ) => {
     // Construir URL completa para debug
@@ -221,7 +228,13 @@ export const useMobile = () => {
       lng: stopData.lng,
       insertBeforeId: stopData.insertBeforeId,
       truckId,
-      source: 'MOTORISTA'
+      source: 'MOTORISTA',
+      // Novos campos operacionais
+      restroomsQty: stopData.restroomsQty,
+      cleaningsQty: stopData.cleaningsQty,
+      contactName: stopData.contactName,
+      contactPhone: stopData.contactPhone,
+      notes: stopData.notes
     };
 
     console.log('📍 [useMobile] Payload:', JSON.stringify(payload, null, 2));

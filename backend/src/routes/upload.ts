@@ -1,5 +1,5 @@
 
-import { Router } from 'express';
+import { Router, Request, Response, RequestHandler } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -37,7 +37,7 @@ const upload = multer({
 });
 
 // Upload single file
-router.post('/', upload.single('file'), async (req, res) => {
+const uploadHandler: RequestHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.file) {
       res.status(400).json({ error: 'Nenhum arquivo enviado' });
@@ -60,10 +60,12 @@ router.post('/', upload.single('file'), async (req, res) => {
     console.error('❌ Upload error:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
-});
+};
+
+router.post('/', upload.single('file'), uploadHandler);
 
 // Serve uploaded files
-router.get('/files/:filename', async (req, res) => {
+const getFileHandler: RequestHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const { filename } = req.params;
     const filePath = path.join(uploadsDir, filename);
@@ -80,10 +82,12 @@ router.get('/files/:filename', async (req, res) => {
     console.error('❌ Error serving file:', error);
     res.status(500).json({ error: 'Erro ao acessar arquivo' });
   }
-});
+};
+
+router.get('/files/:filename', getFileHandler);
 
 // Delete file
-router.delete('/files/:filename', async (req, res) => {
+const deleteFileHandler: RequestHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const { filename } = req.params;
     const filePath = path.join(uploadsDir, filename);
@@ -99,6 +103,8 @@ router.delete('/files/:filename', async (req, res) => {
     console.error('❌ Delete error:', error);
     res.status(500).json({ error: 'Erro ao excluir arquivo' });
   }
-});
+};
+
+router.delete('/files/:filename', deleteFileHandler);
 
 export default router;
