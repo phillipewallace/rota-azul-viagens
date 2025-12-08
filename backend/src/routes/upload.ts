@@ -37,10 +37,11 @@ const upload = multer({
 });
 
 // Upload single file
-router.post('/', upload.single('file'), (req, res) => {
+router.post('/', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      return;
     }
 
     console.log('📁 File uploaded:', req.file.filename);
@@ -62,14 +63,15 @@ router.post('/', upload.single('file'), (req, res) => {
 });
 
 // Serve uploaded files
-router.get('/files/:filename', (req, res) => {
+router.get('/files/:filename', async (req, res) => {
   try {
     const { filename } = req.params;
     const filePath = path.join(uploadsDir, filename);
 
     // Check if file exists
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Arquivo não encontrado' });
+      res.status(404).json({ error: 'Arquivo não encontrado' });
+      return;
     }
 
     console.log('📁 Serving file:', filename);
@@ -81,7 +83,7 @@ router.get('/files/:filename', (req, res) => {
 });
 
 // Delete file
-router.delete('/files/:filename', (req, res) => {
+router.delete('/files/:filename', async (req, res) => {
   try {
     const { filename } = req.params;
     const filePath = path.join(uploadsDir, filename);
