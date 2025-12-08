@@ -2,6 +2,64 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from '@/services/config';
 import { Route } from './useRoutes';
+import { classifyError } from '@/utils/errorHandler';
+
+// Configurações de timeout
+const REQUEST_TIMEOUT = 30000; // 30 segundos
+
+// Helper para fazer requisição com timeout
+const fetchWithTimeout = async (
+  url: string, 
+  options: RequestInit,
+  timeout = REQUEST_TIMEOUT
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('A operação demorou muito. Verifique sua conexão e tente novamente.');
+    }
+    
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Erro de conexão. Verifique sua internet e tente novamente.');
+    }
+    
+    throw error;
+  }
+};
+
+// Processar resposta de erro
+const handleErrorResponse = async (response: Response, defaultMessage: string): Promise<never> => {
+  let errorMessage = defaultMessage;
+  
+  try {
+    const errorData = await response.json();
+    errorMessage = errorData.error || errorData.message || defaultMessage;
+  } catch {
+    // Usar mensagem padrão se não conseguir parsear
+  }
+  
+  // Adicionar contexto baseado no status
+  if (response.status === 404) {
+    errorMessage = 'Rota não encontrada. Pode ter sido removida.';
+  } else if (response.status === 409) {
+    errorMessage = 'Conflito de dados. A rota foi alterada por outro usuário. Recarregue a página.';
+  } else if (response.status >= 500) {
+    errorMessage = 'Erro no servidor. Tente novamente em alguns instantes.';
+  }
+  
+  throw new Error(errorMessage);
+};
 
 export const useRoutesCRUD = () => {
   const queryClient = useQueryClient();
@@ -10,16 +68,17 @@ export const useRoutesCRUD = () => {
     mutationFn: async ({ id, route }: { id: string; route: any }) => {
       console.log('🔄 [ROUTES CRUD] Atualizando rota:', id);
       
-      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(route),
-      });
+      const response = await fetchWithTimeout(
+        `${API_CONFIG.BASE_URL}/routes/${id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(route),
+        }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ [ROUTES CRUD] Erro ao atualizar rota:', errorData);
-        throw new Error(errorData.error || 'Erro ao atualizar rota');
+        await handleErrorResponse(response, 'Erro ao atualizar rota');
       }
 
       const result = await response.json();
@@ -31,20 +90,22 @@ export const useRoutesCRUD = () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
     },
+    onError: (error) => {
+      console.error('❌ [ROUTES CRUD] Erro na atualização:', error);
+    }
   });
 
   const deleteRoute = useMutation({
     mutationFn: async (id: string) => {
       console.log('🗑️ [ROUTES CRUD] Excluindo rota:', id);
       
-      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetchWithTimeout(
+        `${API_CONFIG.BASE_URL}/routes/${id}`,
+        { method: 'DELETE' }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ [ROUTES CRUD] Erro ao excluir rota:', errorData);
-        throw new Error(errorData.error || 'Erro ao excluir rota');
+        await handleErrorResponse(response, 'Erro ao excluir rota');
       }
 
       console.log('✅ [ROUTES CRUD] Rota excluída com sucesso');
@@ -54,59 +115,71 @@ export const useRoutesCRUD = () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
     },
+    onError: (error) => {
+      console.error('❌ [ROUTES CRUD] Erro na exclusão:', error);
+    }
   });
 
   const resetRoute = useMutation({
     mutationFn: async (id: string) => {
       console.log('🔄 [ROUTES CRUD] Resetando rota:', id);
       
-      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}/reset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await fetchWithTimeout(
+        `${API_CONFIG.BASE_URL}/routes/${id}/reset`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ [ROUTES CRUD] Erro ao resetar rota:', errorData);
-        throw new Error(errorData.error || 'Erro ao resetar rota');
+        await handleErrorResponse(response, 'Erro ao resetar rota');
       }
 
       const result = await response.json();
       console.log('✅ [ROUTES CRUD] Rota resetada com sucesso');
       return result;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       console.log('✅ [ROUTES CRUD] Invalidando queries após reset');
       queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
     },
+    onError: (error) => {
+      console.error('❌ [ROUTES CRUD] Erro no reset:', error);
+    }
   });
 
-  // ✅ NOVO: Hook de otimização manual
   const optimizeRoute = useMutation({
     mutationFn: async (id: string) => {
       console.log(`🔄 [ROUTES CRUD] Otimizando rota ${id} manualmente`);
       
-      const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${id}/optimize-manual`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      // Otimização pode demorar mais, usar timeout maior
+      const response = await fetchWithTimeout(
+        `${API_CONFIG.BASE_URL}/routes/${id}/optimize-manual`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+        60000 // 60 segundos para otimização
+      );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error(`❌ [ROUTES CRUD] Erro ao otimizar rota:`, errorData);
-        throw new Error(errorData.error || 'Erro ao otimizar rota');
+        await handleErrorResponse(response, 'Erro ao otimizar rota');
       }
 
       const result = await response.json();
       console.log(`✅ [ROUTES CRUD] Rota otimizada com sucesso`);
       return result;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       console.log(`✅ [ROUTES CRUD] Invalidando queries após otimização`);
       queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
     },
+    onError: (error) => {
+      console.error('❌ [ROUTES CRUD] Erro na otimização:', error);
+    }
   });
 
   return {
