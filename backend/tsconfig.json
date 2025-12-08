@@ -16,13 +16,16 @@
     "sourceMap": true,
     "removeComments": true,
     "useUnknownInCatchVariables": false,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "typeRoots": ["./node_modules/@types"],
+    "baseUrl": "."
   },
   "include": [
     "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "../node_modules"
   ]
 }

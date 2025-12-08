@@ -1,5 +1,5 @@
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -15,10 +15,10 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
+  destination: (_req: any, _file: any, cb: any) => {
     cb(null, uploadsDir);
   },
-  filename: (_req, file, cb) => {
+  filename: (_req: any, file: any, cb: any) => {
     // Generate unique filename while preserving extension
     const uniqueName = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
     cb(null, uniqueName);
@@ -30,56 +30,54 @@ const upload = multer({
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB limit
   },
-  fileFilter: (_req, _file, cb) => {
+  fileFilter: (_req: any, _file: any, cb: any) => {
     // Accept all file types
     cb(null, true);
   }
 });
 
-// Wrapper to handle multer middleware type conflicts
-const uploadMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  upload.single('file')(req, res, next);
-};
-
-// Upload single file handler
-const handleUpload = (req: Request, res: Response) => {
-  try {
-    const file = (req as any).file;
-    if (!file) {
-      res.status(400).json({ error: 'Nenhum arquivo enviado' });
-      return;
+// Upload single file - using any types to avoid Express type conflicts in monorepo
+router.post('/', (req: any, res: any, next: any) => {
+  upload.single('file')(req, res, (err: any) => {
+    if (err) {
+      console.error('❌ Multer error:', err);
+      return res.status(500).json({ error: 'Erro no upload do arquivo' });
     }
+    
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      }
 
-    console.log('📁 File uploaded:', file.filename);
+      console.log('📁 File uploaded:', file.filename);
 
-    const fileInfo = {
-      id: uuidv4(),
-      originalName: file.originalname,
-      filename: file.filename,
-      size: file.size,
-      mimetype: file.mimetype,
-      url: `/api/files/${file.filename}`
-    };
+      const fileInfo = {
+        id: uuidv4(),
+        originalName: file.originalname,
+        filename: file.filename,
+        size: file.size,
+        mimetype: file.mimetype,
+        url: `/api/files/${file.filename}`
+      };
 
-    res.json(fileInfo);
-  } catch (error) {
-    console.error('❌ Upload error:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-};
-
-router.post('/', uploadMiddleware, handleUpload);
+      res.json(fileInfo);
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+});
 
 // Serve uploaded files
-router.get('/files/:filename', (req, res) => {
+router.get('/files/:filename', (req: any, res: any) => {
   try {
     const { filename } = req.params;
     const filePath = path.join(uploadsDir, filename);
 
     // Check if file exists
     if (!fs.existsSync(filePath)) {
-      res.status(404).json({ error: 'Arquivo não encontrado' });
-      return;
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
     }
 
     console.log('📁 Serving file:', filename);
@@ -91,7 +89,7 @@ router.get('/files/:filename', (req, res) => {
 });
 
 // Delete file
-router.delete('/files/:filename', (req, res) => {
+router.delete('/files/:filename', (req: any, res: any) => {
   try {
     const { filename } = req.params;
     const filePath = path.join(uploadsDir, filename);
