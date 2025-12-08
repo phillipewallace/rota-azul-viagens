@@ -203,47 +203,79 @@ export const useMobile = () => {
       insertBeforeId?: string;
     }
   ) => {
-    console.log('📍 [useMobile] Adicionando parada extra:', { routeId, truckId, stopData });
+    // Construir URL completa para debug
+    const apiUrl = `${API_BASE_URL}/mobile/route/${routeId}/extra-stop`;
+    
+    console.log('📍 [useMobile] =============== ADICIONANDO PARADA EXTRA ===============');
+    console.log('📍 [useMobile] API_BASE_URL:', API_BASE_URL);
+    console.log('📍 [useMobile] URL completa:', apiUrl);
+    console.log('📍 [useMobile] RouteId:', routeId);
+    console.log('📍 [useMobile] TruckId:', truckId);
+    console.log('📍 [useMobile] Dados:', JSON.stringify(stopData, null, 2));
 
-    const response = await fetch(`${API_BASE_URL}/mobile/route/${routeId}/extra-stop`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'omit',
-      body: JSON.stringify({
-        name: stopData.name,
-        stopType: stopData.stopType,
-        location: stopData.location,
-        lat: stopData.lat,
-        lng: stopData.lng,
-        insertBeforeId: stopData.insertBeforeId,
-        truckId,
-        source: 'MOTORISTA'
-      })
-    });
+    const payload = {
+      name: stopData.name,
+      stopType: stopData.stopType,
+      location: stopData.location,
+      lat: stopData.lat,
+      lng: stopData.lng,
+      insertBeforeId: stopData.insertBeforeId,
+      truckId,
+      source: 'MOTORISTA'
+    };
 
-    if (!response.ok) {
-      let errorMessage = 'Erro ao adicionar parada extra';
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.error || errorData.details || errorMessage;
-      } catch {
-        const errorText = await response.text();
-        if (errorText) errorMessage = errorText;
+    console.log('📍 [useMobile] Payload:', JSON.stringify(payload, null, 2));
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'omit',
+        body: JSON.stringify(payload)
+      });
+
+      console.log('📍 [useMobile] Response status:', response.status);
+      console.log('📍 [useMobile] Response ok:', response.ok);
+
+      if (!response.ok) {
+        let errorMessage = 'Erro ao adicionar parada extra';
+        
+        // Tentar obter detalhes do erro
+        const responseText = await response.text();
+        console.error('❌ [useMobile] Response text:', responseText);
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.error || errorData.details || errorData.message || errorMessage;
+          console.error('❌ [useMobile] Erro parseado:', errorData);
+        } catch {
+          if (responseText) errorMessage = responseText;
+        }
+        
+        // Adicionar info da URL no erro para debug
+        if (response.status === 404) {
+          errorMessage = `Rota não encontrada: ${apiUrl} (Status: ${response.status})`;
+        }
+        
+        console.error('❌ [useMobile] Erro final:', errorMessage);
+        throw new Error(errorMessage);
       }
-      console.error('❌ [useMobile] Erro na API:', errorMessage);
-      throw new Error(errorMessage);
-    }
 
-    const result = await response.json();
-    console.log('✅ [useMobile] Parada extra adicionada:', result);
-    
-    // Limpar cache relacionado
-    setRequestCache(new Map());
-    
-    return result;
+      const result = await response.json();
+      console.log('✅ [useMobile] Parada extra adicionada com sucesso:', result);
+      
+      // Limpar cache relacionado
+      setRequestCache(new Map());
+      
+      return result;
+    } catch (error: any) {
+      console.error('❌ [useMobile] Exceção ao chamar API:', error);
+      console.error('❌ [useMobile] URL tentada:', apiUrl);
+      throw error;
+    }
   }, []);
 
   return {
