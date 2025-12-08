@@ -1,28 +1,40 @@
 /**
  * Configurações da API para o app mobile
  * 
- * IMPORTANTE: No APK, import.meta.env.MODE pode não ser 'production'
- * dependendo de como o build foi feito. Por isso, usamos detecção mais robusta.
+ * IMPORTANTE: No APK, SEMPRE usar URL de produção.
+ * Múltiplas formas de detecção para garantir funcionamento.
  */
 
-// Detectar se está rodando no Android/iOS (APK) ou no navegador
-const isNativeApp = typeof (window as any).Capacitor !== 'undefined' && 
-                    (window as any).Capacitor.isNativePlatform?.() === true;
+// Múltiplas formas de detectar se está em APK/ambiente mobile
+const capacitorObj = (window as any).Capacitor;
+const isCapacitorNative = capacitorObj?.isNativePlatform?.() === true;
+const hasCapacitorPlatform = capacitorObj?.getPlatform?.() === 'android' || capacitorObj?.getPlatform?.() === 'ios';
+const isCapacitorDefined = typeof capacitorObj !== 'undefined';
 
-// Detectar se é ambiente de desenvolvimento local
-const isLocalDev = typeof window !== 'undefined' && 
-                   (window.location.hostname === 'localhost' || 
-                    window.location.hostname === '127.0.0.1' ||
-                    window.location.hostname.startsWith('192.168.'));
+// Verificar se hostname indica que estamos em WebView (Capacitor usa localhost no WebView)
+const isCapacitorWebView = typeof window !== 'undefined' && 
+  (window.location.protocol === 'capacitor:' || 
+   window.location.protocol === 'ionic:' ||
+   window.location.hostname === 'localhost' && isCapacitorDefined);
 
-console.log('🔍 [CONFIG] isNativeApp:', isNativeApp);
-console.log('🔍 [CONFIG] isLocalDev:', isLocalDev);
-console.log('🔍 [CONFIG] Mode:', import.meta.env.MODE);
+// Verificar se é produção via Vite
+const isViteProduction = import.meta.env.MODE === 'production' || import.meta.env.PROD === true;
 
-// URL da API - APK sempre usa produção, dev local usa localhost
-export const API_BASE_URL = isNativeApp || import.meta.env.MODE === 'production'
-  ? 'https://admmicban.com.br/api'
-  : (import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
+// Decisão final: se qualquer indicador de APK for true, usar produção
+const useProductionAPI = isCapacitorNative || hasCapacitorPlatform || isCapacitorWebView || isViteProduction;
+
+console.log('🔍 [CONFIG] Detecção de ambiente:');
+console.log('  - isCapacitorNative:', isCapacitorNative);
+console.log('  - hasCapacitorPlatform:', hasCapacitorPlatform);
+console.log('  - isCapacitorWebView:', isCapacitorWebView);
+console.log('  - isViteProduction:', isViteProduction);
+console.log('  - useProductionAPI:', useProductionAPI);
+
+// URL da API - SEMPRE produção em APK
+const PRODUCTION_API = 'https://admmicban.com.br/api';
+const DEV_API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+export const API_BASE_URL = useProductionAPI ? PRODUCTION_API : DEV_API;
 
 console.log('🔍 [CONFIG] API_BASE_URL definida como:', API_BASE_URL);
 
@@ -33,8 +45,8 @@ export const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '
 export const APP_CONFIG = {
   version: import.meta.env.VITE_APP_VERSION || '2.0',
   name: import.meta.env.VITE_APP_NAME || 'AlchemyRotas Mobile',
-  apiTimeout: 15000, // 15 segundos
-  locationUpdateInterval: 30000, // 30 segundos
+  apiTimeout: 15000,
+  locationUpdateInterval: 30000,
 };
 
 console.log('🔍 [CONFIG] Configurações do app:', APP_CONFIG);
