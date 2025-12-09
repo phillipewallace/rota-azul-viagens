@@ -59,7 +59,7 @@ router.get('/truck/:plate', async (req, res) => {
       if (routeResult.rows.length > 0) {
         const route = routeResult.rows[0];
         
-        // ✅ CRÍTICO: Buscar pontos COM ESTADO COMPLETED CORRETO DIRETO DO BANCO
+        // ✅ CRÍTICO: Buscar pontos COM TODOS OS CAMPOS OPERACIONAIS
         const pointsQuery = `
           SELECT 
             rp.id,
@@ -72,7 +72,15 @@ router.get('/truck/:plate', async (req, res) => {
               WHEN rp.completed = true OR rp.completed = 't' OR rp.completed = 'true' THEN true
               ELSE false
             END as completed,
-            rp.completed_at
+            rp.completed_at,
+            rp.customer_name,
+            rp.restrooms_qty,
+            rp.cleanings_qty,
+            rp.contact_name,
+            rp.contact_phone,
+            rp.notes,
+            rp.cep,
+            rp.stop_type
           FROM route_points rp
           WHERE rp.route_id = $1
           ORDER BY rp.point_order ASC
@@ -97,7 +105,8 @@ router.get('/truck/:plate', async (req, res) => {
   order: ${point.point_order},
   address: '${point.address.substring(0, 50)}...',
   completed: ${isCompleted},
-  type: '${point.type}'
+  type: '${point.type}',
+  customerName: '${point.customer_name || 'N/A'}'
 }`);
             
             return {
@@ -108,7 +117,18 @@ router.get('/truck/:plate', async (req, res) => {
               order: Number(point.point_order),
               type: point.type,
               completed: isCompleted,
-              completedAt: point.completed_at
+              completedAt: point.completed_at,
+              // ✅ CAMPOS OPERACIONAIS
+              name: point.customer_name,
+              customerName: point.customer_name,
+              restroomsQty: point.restrooms_qty,
+              cleaningsQty: point.cleanings_qty,
+              contactName: point.contact_name,
+              contactPhone: point.contact_phone,
+              notes: point.notes,
+              observation: point.notes,
+              cep: point.cep,
+              stopType: point.stop_type
             };
           });
         }

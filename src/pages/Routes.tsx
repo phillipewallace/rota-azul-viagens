@@ -134,24 +134,28 @@ const Routes = () => {
 
     if (!viewingRoute?.points) return;
 
-    // Filtrar e ordenar pontos selecionados
+    // Filtrar e ordenar pontos selecionados COM TODOS OS CAMPOS
     const pointsToCopy = viewingRoute.points
       .filter((p: any) => selectedPoints.has(p.id))
-      .sort((a: any, b: any) => a.order - b.order)
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
       .map((point: any, index: number) => ({
-        address: point.address,
-        lat: point.lat,
-        lng: point.lng,
+        address: point.address || '',
+        lat: point.lat || 0,
+        lng: point.lng || 0,
         cep: point.cep || '',
+        // ✅ COPIAR TODOS OS CAMPOS OPERACIONAIS
         customerName: point.customerName || '',
-        restroomsQty: point.restroomsQty,
-        cleaningsQty: point.cleaningsQty,
+        restroomsQty: point.restroomsQty !== undefined ? point.restroomsQty : undefined,
+        cleaningsQty: point.cleaningsQty !== undefined ? point.cleaningsQty : undefined,
         contactName: point.contactName || '',
         contactPhone: point.contactPhone || '',
         notes: point.notes || point.observation || '',
         observation: point.observation || point.notes || '',
+        stopType: point.stopType || '',
         order: index
       }));
+    
+    console.log('📋 [ROUTES] Copiando pontos com campos operacionais:', pointsToCopy);
 
     // Armazenar pontos no localStorage para a página de criação
     localStorage.setItem('copiedRoutePoints', JSON.stringify(pointsToCopy));

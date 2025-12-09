@@ -4,15 +4,15 @@ import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = Router();
 
-// Get all routes
+// Get all routes - ✅ BUSCA PONTOS DA TABELA route_points COM TODOS OS CAMPOS OPERACIONAIS
 router.get('/', async (req, res) => {
   try {
-    const query = `
+    // Buscar rotas
+    const routesQuery = `
       SELECT 
         r.id,
         r.name,
         r.description,
-        r.points,
         r.total_distance,
         r.estimated_time,
         r.estimated_duration,
@@ -20,30 +20,62 @@ router.get('/', async (req, res) => {
         r.polyline,
         r.status,
         r.optimization_mode,
-        r.created_at,
-        COUNT(rp.id) as point_count
+        r.created_at
       FROM routes r
-      LEFT JOIN route_points rp ON r.id = rp.route_id
-      GROUP BY r.id, r.name, r.description, r.points, r.total_distance, r.estimated_time, r.estimated_duration, r.optimized_order, r.polyline, r.status, r.optimization_mode, r.created_at
       ORDER BY r.created_at DESC
     `;
     
-    const result = await pool.query(query);
+    const routesResult = await pool.query(routesQuery);
     
-    const routes = result.rows.map(route => ({
-      id: route.id,
-      name: route.name,
-      description: route.description,
-      points: route.points || [],
-      totalDistance: parseFloat(route.total_distance) || 0,
-      estimatedTime: route.estimated_time,
-      estimatedDuration: parseInt(route.estimated_duration) || 0,
-      optimizedOrder: route.optimized_order || [],
-      polyline: route.polyline,
-      status: route.status,
-      optimizationMode: route.optimization_mode || 'optimized',
-      createdAt: route.created_at,
-      pointCount: parseInt(route.point_count) || 0
+    // Para cada rota, buscar os pontos da tabela route_points com todos os campos
+    const routes = await Promise.all(routesResult.rows.map(async (route) => {
+      const pointsQuery = `
+        SELECT 
+          id, address, lat, lng, point_order, type, completed, completed_at,
+          customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, 
+          notes, cep, stop_type
+        FROM route_points 
+        WHERE route_id = $1 
+        ORDER BY point_order
+      `;
+      
+      const pointsResult = await pool.query(pointsQuery, [route.id]);
+      
+      const points = pointsResult.rows.map(p => ({
+        id: p.id,
+        address: p.address,
+        lat: parseFloat(p.lat),
+        lng: parseFloat(p.lng),
+        order: p.point_order,
+        type: p.type,
+        completed: p.completed,
+        completedAt: p.completed_at,
+        customerName: p.customer_name,
+        restroomsQty: p.restrooms_qty,
+        cleaningsQty: p.cleanings_qty,
+        contactName: p.contact_name,
+        contactPhone: p.contact_phone,
+        notes: p.notes,
+        observation: p.notes, // Compatibilidade
+        cep: p.cep,
+        stopType: p.stop_type
+      }));
+      
+      return {
+        id: route.id,
+        name: route.name,
+        description: route.description,
+        points: points,
+        totalDistance: parseFloat(route.total_distance) || 0,
+        estimatedTime: route.estimated_time,
+        estimatedDuration: parseInt(route.estimated_duration) || 0,
+        optimizedOrder: route.optimized_order || [],
+        polyline: route.polyline,
+        status: route.status,
+        optimizationMode: route.optimization_mode || 'optimized',
+        createdAt: route.created_at,
+        pointCount: points.length
+      };
     }));
 
     res.json(routes);
