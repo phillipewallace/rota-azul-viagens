@@ -82,20 +82,33 @@ const CreateRoute = () => {
         setOptimizationMode(routeToEdit.optimizationMode || 'optimized');
 
         const points = routeToEdit.points || [];
+        console.log('📋 [CREATE ROUTE] Pontos da rota para edição:', points);
+        
         const pointsWithUniqueIds = points.map((point: any, index: number) => ({
           id: point.id || generateUniqueId(`existing-${index}`),
-          order: index,
+          order: point.order ?? index,
           cep: point.cep || '',
           address: point.address || '',
           lat: point.lat || 0,
           lng: point.lng || 0,
           type: point.type,
-          observation: point.observation || ''
+          // ✅ CARREGAR TODOS OS CAMPOS OPERACIONAIS
+          customerName: point.customerName || '',
+          restroomsQty: point.restroomsQty,
+          cleaningsQty: point.cleaningsQty,
+          contactName: point.contactName || '',
+          contactPhone: point.contactPhone || '',
+          notes: point.notes || point.observation || '',
+          observation: point.notes || point.observation || '',
+          stopType: point.stopType || '',
+          completed: point.completed || false,
+          completedAt: point.completedAt || null
         }));
 
         const sortedPoints = [...pointsWithUniqueIds].sort((a: any, b: any) => a.order - b.order);
         const pointsWithCorrectTypes = recalculatePointTypes(sortedPoints);
         
+        console.log('✅ [CREATE ROUTE] Pontos carregados com campos operacionais:', pointsWithCorrectTypes.length);
         setAllPoints(pointsWithCorrectTypes);
       }
     } else if (!isEditing) {
@@ -110,7 +123,10 @@ const CreateRoute = () => {
           if (points && points.length > 0) {
             console.log('📋 [CREATE ROUTE] Carregando pontos copiados:', points.length);
             
-            // Converter pontos copiados para o formato esperado
+            // ✅ LIMPAR QUALQUER DRAFT ANTIGO ANTES DE CARREGAR PONTOS COPIADOS
+            clearStorage();
+            
+            // Converter pontos copiados para o formato esperado COM TODOS OS CAMPOS
             const convertedPoints = points.map((point: any, index: number) => ({
               id: generateUniqueId(`copied-${index}`),
               order: index,
@@ -118,22 +134,27 @@ const CreateRoute = () => {
               lat: point.lat || 0,
               lng: point.lng || 0,
               cep: point.cep || '',
+              // ✅ TODOS OS CAMPOS OPERACIONAIS
               customerName: point.customerName || '',
               restroomsQty: point.restroomsQty,
               cleaningsQty: point.cleaningsQty,
               contactName: point.contactName || '',
               contactPhone: point.contactPhone || '',
+              notes: point.notes || point.observation || '',
               observation: point.observation || point.notes || '',
+              stopType: point.stopType || '',
               type: index === 0 ? 'origin' : (index === points.length - 1 ? 'destination' : 'waypoint')
             }));
             
             const pointsWithTypes = recalculatePointTypes(convertedPoints);
             setAllPoints(pointsWithTypes);
+            setRouteName(''); // Limpar nome para forçar usuário a definir novo
             
             if (copiedFromRoute) {
               setRouteDescription(`Baseada na rota: ${copiedFromRoute}`);
             }
             
+            console.log('✅ [CREATE ROUTE] Pontos copiados carregados com todos os campos operacionais');
             toast.success(`${points.length} ponto(s) carregado(s) da rota original!`);
             
             // Limpar localStorage após uso
@@ -146,7 +167,7 @@ const CreateRoute = () => {
         }
       }
       
-      // Tentar carregar do autosave
+      // Tentar carregar do autosave (somente se não veio de cópia)
       const saved = loadFromStorage();
       if (saved && saved.points.length > 0) {
         const shouldRestore = window.confirm(
@@ -412,7 +433,15 @@ const CreateRoute = () => {
             cep: processedPoint.cep || original?.cep || '',
             completed: original?.completed ?? false,
             completedAt: original?.completedAt ?? null,
-            observation: processedPoint.observation || original?.observation || ''
+            // ✅ INCLUIR TODOS OS CAMPOS OPERACIONAIS NO PREVIEW/SAVE
+            customerName: processedPoint.customerName || original?.customerName || '',
+            restroomsQty: processedPoint.restroomsQty ?? original?.restroomsQty,
+            cleaningsQty: processedPoint.cleaningsQty ?? original?.cleaningsQty,
+            contactName: processedPoint.contactName || original?.contactName || '',
+            contactPhone: processedPoint.contactPhone || original?.contactPhone || '',
+            notes: processedPoint.notes || processedPoint.observation || original?.notes || original?.observation || '',
+            observation: processedPoint.notes || processedPoint.observation || original?.notes || original?.observation || '',
+            stopType: processedPoint.stopType || original?.stopType || ''
           };
         }),
         totalDistance: totalDistance,
@@ -421,6 +450,8 @@ const CreateRoute = () => {
         optimizationMode: optimizationMode,
         status: 'active'
       };
+      
+      console.log('📋 [CREATE ROUTE] Preview gerado com campos operacionais:', preview.points.length);
 
       setPreviewData(preview);
       setShowPreview(true);

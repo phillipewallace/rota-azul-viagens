@@ -21,6 +21,17 @@ export interface TruckMobileData {
       type: 'origin' | 'destination' | 'waypoint';
       completed: boolean;
       completedAt?: string;
+      // ✅ CAMPOS OPERACIONAIS
+      name?: string;
+      customerName?: string;
+      restroomsQty?: number;
+      cleaningsQty?: number;
+      contactName?: string;
+      contactPhone?: string;
+      notes?: string;
+      observation?: string;
+      cep?: string;
+      stopType?: string;
     }>;
     lastUpdated?: string;
   };

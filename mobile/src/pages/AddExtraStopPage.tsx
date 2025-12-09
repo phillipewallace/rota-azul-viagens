@@ -107,7 +107,7 @@ const AddExtraStopPage: React.FC = () => {
   const [coordinates, setCoordinates] = useState<{ lat?: number; lng?: number }>({});
   const [insertPosition, setInsertPosition] = useState<string>('end');
   
-  // Estados do formulário - novos campos operacionais
+  // Estados do formulário - campos operacionais (VISÍVEIS por padrão)
   const [restroomsQty, setRestroomsQty] = useState('');
   const [cleaningsQty, setCleaningsQty] = useState('');
   const [contactName, setContactName] = useState('');
@@ -120,7 +120,7 @@ const AddExtraStopPage: React.FC = () => {
   const [suggestedPosition, setSuggestedPosition] = useState<string | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [showOperationalFields, setShowOperationalFields] = useState(false);
+  const [showOperationalFields, setShowOperationalFields] = useState(true); // ✅ VISÍVEL por padrão
   
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
