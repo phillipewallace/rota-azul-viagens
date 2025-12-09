@@ -656,14 +656,15 @@ router.put('/:id', async (req, res) => {
       }
     }
     
-    // ✅ BUSCAR PONTOS FINAIS DO BANCO (COM ESTADO CORRETO)
+    // ✅ BUSCAR PONTOS FINAIS DO BANCO (COM ESTADO CORRETO E TODOS OS CAMPOS OPERACIONAIS)
     const finalPointsFromDB = await client.query(
-      `SELECT address, lat, lng, point_order, type, 
+      `SELECT id, address, lat, lng, point_order, type, 
               CASE 
                 WHEN completed = true OR completed = 't' OR completed = 'true' THEN true
                 ELSE false
               END as completed, 
-              completed_at 
+              completed_at,
+              customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
        FROM route_points 
        WHERE route_id = $1 
        ORDER BY point_order ASC`,
@@ -671,13 +672,22 @@ router.put('/:id', async (req, res) => {
     );
 
     const updatedPoints = finalPointsFromDB.rows.map(p => ({
+      id: p.id,
       address: p.address,
       lat: parseFloat(p.lat),
       lng: parseFloat(p.lng),
       order: p.point_order,
       type: p.type,
       completed: p.completed,
-      completedAt: p.completed_at
+      completedAt: p.completed_at,
+      customerName: p.customer_name,
+      restroomsQty: p.restrooms_qty,
+      cleaningsQty: p.cleanings_qty,
+      contactName: p.contact_name,
+      contactPhone: p.contact_phone,
+      notes: p.notes,
+      cep: p.cep,
+      stopType: p.stop_type
     }));
 
     console.log(`📊 [ROUTE UPDATE] Pontos finais no banco: ${updatedPoints.length} total`);
