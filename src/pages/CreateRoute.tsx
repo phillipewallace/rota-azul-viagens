@@ -5,14 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { RoutePointsList } from '@/components/RoutePointsList';
+import { RoutePointsTable } from '@/components/RoutePointsTable';
 import RouteMapPreview from '@/components/RouteMapPreview';
 import { useRoutes, RoutePoint } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import { useRouteAutoSave } from '@/hooks/useRouteAutoSave';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, MapPin, Plus, Eraser, Eye, Clock, GripVertical } from 'lucide-react';
+import { ArrowLeft, Save, MapPin, Eraser, Eye, Clock, Map, ChevronUp, ChevronDown, Settings2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const CreateRoute = () => {
   const navigate = useNavigate();
@@ -28,13 +29,14 @@ const CreateRoute = () => {
   const [loading, setLoading] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState<number | null>(null);
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
+  const [showMap, setShowMap] = useState(true);
+  const [showSettings, setShowSettings] = useState(true);
 
   const pointIdCounter = useRef(0);
-  const mainContentRef = useRef<HTMLDivElement>(null);
 
   const { getAddressByCep, optimizeRoute, createRoute, routes, loadRoutes } = useRoutes();
   const { updateRoute } = useRoutesCRUD();
-  const { scheduleAutoSave, loadFromStorage, clearStorage, saveToStorage } = useRouteAutoSave(editId || undefined);
+  const { scheduleAutoSave, loadFromStorage, clearStorage } = useRouteAutoSave(editId || undefined);
 
   const isEditing = !!editId;
 
@@ -92,7 +94,6 @@ const CreateRoute = () => {
           lat: point.lat || 0,
           lng: point.lng || 0,
           type: point.type,
-          // ✅ CARREGAR TODOS OS CAMPOS OPERACIONAIS
           customerName: point.customerName || '',
           restroomsQty: point.restroomsQty,
           cleaningsQty: point.cleaningsQty,
@@ -123,10 +124,8 @@ const CreateRoute = () => {
           if (points && points.length > 0) {
             console.log('📋 [CREATE ROUTE] Carregando pontos copiados:', points.length);
             
-            // ✅ LIMPAR QUALQUER DRAFT ANTIGO ANTES DE CARREGAR PONTOS COPIADOS
             clearStorage();
             
-            // Converter pontos copiados para o formato esperado COM TODOS OS CAMPOS
             const convertedPoints = points.map((point: any, index: number) => ({
               id: generateUniqueId(`copied-${index}`),
               order: index,
@@ -134,7 +133,6 @@ const CreateRoute = () => {
               lat: point.lat || 0,
               lng: point.lng || 0,
               cep: point.cep || '',
-              // ✅ TODOS OS CAMPOS OPERACIONAIS
               customerName: point.customerName || '',
               restroomsQty: point.restroomsQty,
               cleaningsQty: point.cleaningsQty,
@@ -148,7 +146,7 @@ const CreateRoute = () => {
             
             const pointsWithTypes = recalculatePointTypes(convertedPoints);
             setAllPoints(pointsWithTypes);
-            setRouteName(''); // Limpar nome para forçar usuário a definir novo
+            setRouteName('');
             
             if (copiedFromRoute) {
               setRouteDescription(`Baseada na rota: ${copiedFromRoute}`);
@@ -157,7 +155,6 @@ const CreateRoute = () => {
             console.log('✅ [CREATE ROUTE] Pontos copiados carregados com todos os campos operacionais');
             toast.success(`${points.length} ponto(s) carregado(s) da rota original!`);
             
-            // Limpar localStorage após uso
             localStorage.removeItem('copiedRoutePoints');
             localStorage.removeItem('copiedFromRoute');
             return;
@@ -167,7 +164,7 @@ const CreateRoute = () => {
         }
       }
       
-      // Tentar carregar do autosave (somente se não veio de cópia)
+      // Tentar carregar do autosave
       const saved = loadFromStorage();
       if (saved && saved.points.length > 0) {
         const shouldRestore = window.confirm(
@@ -227,15 +224,6 @@ const CreateRoute = () => {
     
     const updatedPoints = recalculatePointTypes([...allPoints, newPoint]);
     setAllPoints(updatedPoints);
-
-    // Scroll to newly added point
-    setTimeout(() => {
-      const pointElements = document.querySelectorAll('[data-point-card]');
-      const lastElement = pointElements[pointElements.length - 1];
-      if (lastElement) {
-        lastElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
   };
 
   const removePoint = (id: string) => {
@@ -433,7 +421,6 @@ const CreateRoute = () => {
             cep: processedPoint.cep || original?.cep || '',
             completed: original?.completed ?? false,
             completedAt: original?.completedAt ?? null,
-            // ✅ INCLUIR TODOS OS CAMPOS OPERACIONAIS NO PREVIEW/SAVE
             customerName: processedPoint.customerName || original?.customerName || '',
             restroomsQty: processedPoint.restroomsQty ?? original?.restroomsQty,
             cleaningsQty: processedPoint.cleaningsQty ?? original?.cleaningsQty,
@@ -483,258 +470,270 @@ const CreateRoute = () => {
     try {
       setLoading(true);
       
-      if (isEditing && editId) {
-        await updateRoute({ id: editId, route: previewData });
+      const routeData = {
+        name: routeName,
+        description: routeDescription,
+        points: previewData.points.map((p: any, index: number) => ({
+          ...p,
+          order: index,
+          type: index === 0 ? 'origin' : (index === previewData.points.length - 1 ? 'destination' : 'waypoint'),
+          customerName: p.customerName || '',
+          restroomsQty: p.restroomsQty,
+          cleaningsQty: p.cleaningsQty,
+          contactName: p.contactName || '',
+          contactPhone: p.contactPhone || '',
+          notes: p.notes || p.observation || '',
+          observation: p.notes || p.observation || '',
+          stopType: p.stopType || '',
+          cep: p.cep || ''
+        })),
+        totalDistance: previewData.totalDistance,
+        estimatedTime: previewData.estimatedTime,
+        optimizedOrder: previewData.optimizedOrder,
+        optimizationMode: optimizationMode,
+        status: 'active' as const
+      };
+
+      console.log('📤 [CREATE ROUTE] Salvando rota com dados operacionais:', routeData);
+
+      if (isEditing) {
+        await updateRoute({ id: editId!, route: routeData });
         toast.success('Rota atualizada com sucesso!');
       } else {
-        await createRoute(previewData);
+        await createRoute(routeData);
         toast.success('Rota criada com sucesso!');
       }
       
       clearStorage();
       navigate('/routes');
-    } catch (error: any) {
-      console.error('❌ Erro ao salvar rota:', error);
-      toast.error(error.message || 'Erro ao salvar rota');
+    } catch (error) {
+      console.error('❌ Erro ao salvar:', error);
+      toast.error('Erro ao salvar rota');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
-      {/* Header Fixo */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex flex-col">
+      {/* Header Fixo Compacto */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b shadow-sm">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={() => navigate('/routes')}
-                className="hover:bg-slate-100"
+                className="hover:bg-slate-100 h-8"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <ArrowLeft className="h-4 w-4 mr-1" />
                 Voltar
               </Button>
+              <div className="h-6 w-px bg-slate-200" />
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">
-                  {isEditing ? 'Editar Rota' : 'Criar Nova Rota'}
+                <h1 className="text-lg font-bold text-slate-900">
+                  {isEditing ? 'Editar Rota' : 'Nova Rota'}
                 </h1>
-                {lastSaveTime && (
-                  <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Salvo automaticamente às {lastSaveTime.toLocaleTimeString()}
-                  </p>
-                )}
               </div>
+              {lastSaveTime && (
+                <Badge variant="outline" className="text-xs text-slate-500 bg-slate-50">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Salvo às {lastSaveTime.toLocaleTimeString()}
+                </Badge>
+              )}
             </div>
-            <div className="flex gap-2">
+            
+            <div className="flex items-center gap-2">
+              {/* Toggle Configurações */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSettings(!showSettings)}
+                className={`h-8 ${showSettings ? 'bg-slate-100' : ''}`}
+              >
+                <Settings2 className="h-4 w-4 mr-1" />
+                Config
+                {showSettings ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+              </Button>
+              
+              {/* Toggle Mapa */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMap(!showMap)}
+                className={`h-8 ${showMap ? 'bg-blue-50 text-blue-600' : ''}`}
+              >
+                <Map className="h-4 w-4 mr-1" />
+                Mapa
+                {showMap ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+              </Button>
+
+              <div className="h-6 w-px bg-slate-200" />
+
+              {allPoints.length > 2 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearIntermediatePoints}
+                  className="text-orange-600 hover:bg-orange-50 h-8 text-xs"
+                >
+                  <Eraser className="h-3 w-3 mr-1" />
+                  Limpar
+                </Button>
+              )}
+              
               <Button
                 onClick={generatePreview}
                 disabled={loading || !routeName.trim() || allPoints.length < 2}
                 variant="outline"
-                className="border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                size="sm"
+                className="h-8 border-blue-200 hover:bg-blue-50"
               >
-                <Eye className="h-4 w-4 mr-2" />
-                Visualizar
+                <Eye className="h-4 w-4 mr-1" />
+                Preview
               </Button>
+              
               <Button
                 onClick={handleSave}
                 disabled={loading || !previewData}
-                className="bg-blue-600 hover:bg-blue-700"
+                size="sm"
+                className="h-8 bg-blue-600 hover:bg-blue-700"
               >
-                <Save className="h-4 w-4 mr-2" />
-                Salvar Rota
+                <Save className="h-4 w-4 mr-1" />
+                Salvar
               </Button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Conteúdo Principal */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Painel Esquerdo - Formulário */}
-          <div ref={mainContentRef} className="space-y-6">
-            {/* Informações Básicas */}
-            <Card className="shadow-md">
-              <CardContent className="p-6 space-y-4">
-                <div>
-                  <Label htmlFor="routeName" className="text-sm font-medium">Nome da Rota *</Label>
-                  <Input
-                    id="routeName"
-                    value={routeName}
-                    onChange={(e) => setRouteName(e.target.value)}
-                    placeholder="Ex: Rota Centro - Bairros"
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="routeDescription" className="text-sm font-medium">Descrição (Opcional)</Label>
-                  <Textarea
-                    id="routeDescription"
-                    value={routeDescription}
-                    onChange={(e) => setRouteDescription(e.target.value)}
-                    placeholder="Adicione observações sobre esta rota..."
-                    className="mt-1.5 min-h-[80px]"
-                  />
-                </div>
-
-                {/* Modo de Otimização */}
-                <div>
-                  <Label className="text-sm font-medium mb-3 block">Modo de Criação</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Card 
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        optimizationMode === 'fixed' 
-                          ? 'ring-2 ring-blue-500 bg-blue-50/50' 
-                          : 'hover:border-slate-300'
-                      }`}
-                      onClick={() => setOptimizationMode('fixed')}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            optimizationMode === 'fixed' ? 'border-blue-500 bg-blue-500' : 'border-slate-300'
-                          }`}>
-                            {optimizationMode === 'fixed' && (
-                              <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
-                            )}
-                          </div>
-                          <h4 className="font-semibold text-sm">🔒 Ordem Fixa</h4>
-                        </div>
-                        <p className="text-xs text-slate-600">
-                          Pontos mantidos na ordem exata
-                        </p>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card 
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        optimizationMode === 'optimized' 
-                          ? 'ring-2 ring-blue-500 bg-blue-50/50' 
-                          : 'hover:border-slate-300'
-                      }`}
-                      onClick={() => setOptimizationMode('optimized')}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            optimizationMode === 'optimized' ? 'border-blue-500 bg-blue-500' : 'border-slate-300'
-                          }`}>
-                            {optimizationMode === 'optimized' && (
-                              <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
-                            )}
-                          </div>
-                          <h4 className="font-semibold text-sm">✨ Otimizar</h4>
-                        </div>
-                        <p className="text-xs text-slate-600">
-                          Reorganiza automaticamente
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pontos da Rota */}
-            <Card className="shadow-md">
-              <CardContent className="p-6">
-                <div className="sticky top-20 z-10 bg-white pb-4 mb-4 border-b flex items-center justify-between">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-blue-600" />
-                    Pontos da Rota ({allPoints.length})
-                  </h3>
-                  <div className="flex gap-2">
-                    {allPoints.length > 2 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearIntermediatePoints}
-                        className="text-orange-600 hover:bg-orange-50 hover:text-orange-700 border-orange-200"
-                      >
-                        <Eraser className="h-4 w-4 mr-1" />
-                        Limpar intermediários
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={addPoint}
-                      className="text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-blue-200"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Adicionar Ponto
-                    </Button>
-                  </div>
-                </div>
-
-                {optimizationMode === 'fixed' && allPoints.length > 0 && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-700 flex items-center gap-2">
-                      <GripVertical className="h-4 w-4" />
-                      <strong>Modo Ordem Fixa:</strong> Arraste e solte os pontos para reordenar
-                    </p>
-                  </div>
-                )}
-
-                <RoutePointsList
-                  points={allPoints}
-                  onReorder={reorderPoints}
-                  onRemove={removePoint}
-                  onUpdate={updatePoint}
-                  onSearchByCep={searchAddressByCep}
-                  onSearchByAddress={searchAddressByText}
-                  onDuplicate={duplicatePoint}
-                  isDraggable={optimizationMode === 'fixed'}
-                  searchingAddress={searchingAddress}
+        {/* Painel de Configurações Colapsável */}
+        <Collapsible open={showSettings}>
+          <CollapsibleContent>
+            <div className="px-4 py-3 bg-slate-50/80 border-t flex items-center gap-6 flex-wrap">
+              {/* Nome da Rota */}
+              <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-[300px]">
+                <Label className="text-xs font-medium text-slate-600 shrink-0">Nome:</Label>
+                <Input
+                  value={routeName}
+                  onChange={(e) => setRouteName(e.target.value)}
+                  placeholder="Nome da rota *"
+                  className="h-8 text-sm"
                 />
-              </CardContent>
-            </Card>
-          </div>
+              </div>
 
-          {/* Painel Direito - Preview do Mapa */}
-          <div className="lg:sticky lg:top-24 lg:h-fit">
-            <Card className="shadow-md overflow-hidden">
-              <CardContent className="p-0">
-                <div className="bg-slate-50 border-b p-4">
-                  <h3 className="text-lg font-semibold flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      🗺️ Preview em Tempo Real
-                    </span>
-                    {previewData && (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                        {previewData.points?.length || 0} pontos
-                      </Badge>
-                    )}
-                  </h3>
-                  {previewData && (
-                    <div className="mt-2 text-sm text-slate-600 flex items-center gap-4">
-                      <span>📏 {previewData.totalDistance?.toFixed(2)} km</span>
-                      <span>⏱️ {previewData.estimatedTime}</span>
-                    </div>
-                  )}
+              {/* Descrição */}
+              <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-[400px]">
+                <Label className="text-xs font-medium text-slate-600 shrink-0">Descrição:</Label>
+                <Input
+                  value={routeDescription}
+                  onChange={(e) => setRouteDescription(e.target.value)}
+                  placeholder="Descrição (opcional)"
+                  className="h-8 text-sm"
+                />
+              </div>
+
+              {/* Modo */}
+              <div className="flex items-center gap-3">
+                <Label className="text-xs font-medium text-slate-600">Modo:</Label>
+                <div className="flex bg-white rounded-lg border p-0.5">
+                  <button
+                    onClick={() => setOptimizationMode('fixed')}
+                    className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                      optimizationMode === 'fixed' 
+                        ? 'bg-blue-600 text-white shadow-sm' 
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    🔒 Ordem Fixa
+                  </button>
+                  <button
+                    onClick={() => setOptimizationMode('optimized')}
+                    className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                      optimizationMode === 'optimized' 
+                        ? 'bg-blue-600 text-white shadow-sm' 
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    ✨ Otimizar
+                  </button>
                 </div>
-                <div className="h-[600px] bg-slate-100">
-                  {showPreview && previewData ? (
-                    <RouteMapPreview route={previewData} />
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-slate-400">
-                      <div className="text-center p-8">
-                        <MapPin className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                        <p className="text-sm">Clique em "Visualizar" para ver o preview</p>
-                        <p className="text-xs mt-2">O mapa será atualizado conforme você adiciona pontos</p>
-                      </div>
-                    </div>
-                  )}
+              </div>
+
+              {/* Estatísticas */}
+              <div className="flex items-center gap-4 ml-auto">
+                <Badge variant="outline" className="bg-white">
+                  <MapPin className="h-3 w-3 mr-1" />
+                  {allPoints.length} pontos
+                </Badge>
+                {previewData && (
+                  <>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      📏 {previewData.totalDistance?.toFixed(1)} km
+                    </Badge>
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                      ⏱️ {previewData.estimatedTime}
+                    </Badge>
+                  </>
+                )}
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </header>
+
+      {/* Conteúdo Principal - Tela Inteira */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Tabela de Pontos - Ocupa toda a largura */}
+        <main className={`flex-1 overflow-auto p-4 ${showMap ? 'lg:w-2/3' : 'w-full'}`}>
+          {optimizationMode === 'fixed' && allPoints.length > 0 && (
+            <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg inline-flex items-center gap-2 text-sm text-blue-700">
+              <span className="font-medium">Modo Ordem Fixa:</span>
+              <span>Arraste as linhas para reordenar os pontos</span>
+            </div>
+          )}
+
+          <RoutePointsTable
+            points={allPoints}
+            onReorder={reorderPoints}
+            onRemove={removePoint}
+            onUpdate={updatePoint}
+            onSearchByCep={searchAddressByCep}
+            onSearchByAddress={searchAddressByText}
+            onDuplicate={duplicatePoint}
+            onAddPoint={addPoint}
+            isDraggable={optimizationMode === 'fixed'}
+            searchingAddress={searchingAddress}
+          />
+        </main>
+
+        {/* Painel do Mapa - Lateral */}
+        {showMap && (
+          <aside className="lg:w-1/3 border-l bg-white flex flex-col">
+            <div className="p-3 border-b bg-slate-50 flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                🗺️ Preview
+              </h3>
+              {previewData && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                  {previewData.points?.length || 0} pontos
+                </Badge>
+              )}
+            </div>
+            <div className="flex-1 min-h-[400px] lg:min-h-0">
+              {showPreview && previewData ? (
+                <RouteMapPreview route={previewData} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400 bg-slate-50">
+                  <div className="text-center p-6">
+                    <MapPin className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p className="text-xs">Clique em "Preview" para visualizar</p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              )}
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );
