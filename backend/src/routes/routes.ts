@@ -461,18 +461,35 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
 }`);
     });
 
-    // 2️⃣ SE NÃO HÁ PONTOS CONCLUÍDOS, FAZER ATUALIZAÇÃO NORMAL
+    // 2️⃣ SE NÃO HÁ PONTOS CONCLUÍDOS, FAZER ATUALIZAÇÃO NORMAL COM TODOS OS CAMPOS
     if (trulyCompletedPoints.length === 0) {
-      console.log(`🆕 [INTELLIGENT PRESERVATION] Nenhum ponto concluído - atualização normal`);
+      console.log(`🆕 [INTELLIGENT PRESERVATION] Nenhum ponto concluído - atualização normal com campos operacionais`);
       
       await client.query('DELETE FROM route_points WHERE route_id = $1', [routeId]);
       
       for (const point of newPoints) {
-      await client.query(
-        `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, observation)
-         VALUES ($1, $2, $3, $4, $5, $6, false, $7)`,
-        [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint', point.observation || null]
-      );
+        await client.query(
+          `INSERT INTO route_points (
+            route_id, address, lat, lng, point_order, type, completed,
+            customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, false, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          [
+            routeId,
+            point.address || '',
+            parseFloat(point.lat) || 0,
+            parseFloat(point.lng) || 0,
+            point.order || 0,
+            point.type || 'waypoint',
+            point.customerName || point.name || null,
+            point.restroomsQty !== undefined ? parseInt(point.restroomsQty) : null,
+            point.cleaningsQty !== undefined ? parseInt(point.cleaningsQty) : null,
+            point.contactName || null,
+            point.contactPhone || null,
+            point.notes || point.observation || null,
+            point.cep || null,
+            point.stopType || null
+          ]
+        );
       }
       
       return newPoints;
@@ -484,7 +501,7 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
     
     console.log(`📍 [INTELLIGENT PRESERVATION] Último ponto concluído na ordem: ${lastCompletedOrder}`);
 
-    // 4️⃣ CRIAR LISTA DE PONTOS PRESERVADOS (CONCLUÍDOS)
+    // 4️⃣ CRIAR LISTA DE PONTOS PRESERVADOS (CONCLUÍDOS) COM TODOS OS CAMPOS OPERACIONAIS
     const preservedPoints = trulyCompletedPoints.map(p => ({
       id: p.id,
       address: p.address,
@@ -493,7 +510,15 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
       order: p.point_order,
       type: p.type,
       completed: true,
-      completedAt: p.completed_at
+      completedAt: p.completed_at,
+      customerName: p.customer_name,
+      restroomsQty: p.restrooms_qty,
+      cleaningsQty: p.cleanings_qty,
+      contactName: p.contact_name,
+      contactPhone: p.contact_phone,
+      notes: p.notes,
+      cep: p.cep,
+      stopType: p.stop_type
     }));
 
     // 5️⃣ IDENTIFICAR NOVOS PONTOS QUE VÊM APÓS OS CONCLUÍDOS
@@ -550,12 +575,29 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
     
     console.log(`🗑️ [INTELLIGENT PRESERVATION] Pontos não concluídos removidos`);
     
-    // ✅ INSERIR APENAS NOVOS PONTOS OTIMIZADOS
+    // ✅ INSERIR NOVOS PONTOS COM TODOS OS CAMPOS OPERACIONAIS
     for (const point of optimizedPendingPoints) {
       await client.query(
-        `INSERT INTO route_points (route_id, address, lat, lng, point_order, type, completed, completed_at, observation)
-         VALUES ($1, $2, $3, $4, $5, $6, false, NULL, $7)`,
-        [routeId, point.address, point.lat, point.lng, point.order, point.type || 'waypoint', point.observation || null]
+        `INSERT INTO route_points (
+          route_id, address, lat, lng, point_order, type, completed, completed_at,
+          customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, false, NULL, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        [
+          routeId,
+          point.address || '',
+          parseFloat(point.lat) || 0,
+          parseFloat(point.lng) || 0,
+          point.order || 0,
+          point.type || 'waypoint',
+          point.customerName || point.name || null,
+          point.restroomsQty !== undefined ? parseInt(point.restroomsQty) : null,
+          point.cleaningsQty !== undefined ? parseInt(point.cleaningsQty) : null,
+          point.contactName || null,
+          point.contactPhone || null,
+          point.notes || point.observation || null,
+          point.cep || null,
+          point.stopType || null
+        ]
       );
     }
     
