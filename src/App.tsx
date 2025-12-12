@@ -18,6 +18,7 @@ import Login from "./pages/Login";
 import MobileDriver from "./pages/MobileDriver";
 import Analytics from "./pages/Analytics";
 import CreateRoute from "./pages/CreateRoute";
+import Customers from "./pages/Customers";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -130,6 +131,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers"
+              element={
+                <ProtectedRoute>
+                  <Customers />
                 </ProtectedRoute>
               }
             />
