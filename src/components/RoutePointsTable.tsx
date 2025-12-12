@@ -95,25 +95,25 @@ const SortableRow: React.FC<SortableRowProps> = ({
 
   return (
     <div ref={setNodeRef} style={style} data-point-card>
-      {/* Linha principal - estilo tabela */}
-      <div className={`grid grid-cols-[40px_100px_100px_1fr_180px_80px_80px_150px_100px] gap-2 items-center px-3 py-2 border-b hover:bg-muted/30 transition-colors ${isDragging ? 'bg-primary/10 shadow-lg' : ''} ${isExpanded ? 'bg-blue-50/50' : ''}`}>
+      {/* Linha principal - estilo tabela com altura maior */}
+      <div className={`grid grid-cols-[40px_100px_100px_180px_1fr_80px_80px_150px_1fr_100px] gap-2 items-center px-3 py-3 min-h-[56px] border-b hover:bg-muted/30 transition-colors ${isDragging ? 'bg-primary/10 shadow-lg' : ''} ${isExpanded ? 'bg-blue-50/50' : ''}`}>
         {/* Drag handle */}
         <div className="flex justify-center">
           {isDraggable ? (
             <div
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing hover:bg-muted p-1 rounded transition-colors"
+              className="cursor-grab active:cursor-grabbing hover:bg-muted p-1.5 rounded transition-colors"
             >
-              <GripVertical className="h-4 w-4 text-muted-foreground" />
+              <GripVertical className="h-5 w-5 text-muted-foreground" />
             </div>
           ) : (
-            <span className="text-xs text-muted-foreground">{index + 1}</span>
+            <span className="text-sm text-muted-foreground font-medium">{index + 1}</span>
           )}
         </div>
 
         {/* Tipo/Badge */}
-        <Badge className={`${getPointTypeColor()} text-[10px] px-2 py-0.5 justify-center`}>
+        <Badge className={`${getPointTypeColor()} text-[11px] px-2.5 py-1 justify-center`}>
           {getPointTypeLabel()}
         </Badge>
 
@@ -123,7 +123,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
             value={point.cep || ''}
             onChange={(e) => onUpdate(point.id, 'cep', e.target.value)}
             placeholder="CEP"
-            className="h-8 text-xs"
+            className="h-9 text-sm"
             maxLength={9}
           />
           <TooltipProvider>
@@ -134,9 +134,9 @@ const SortableRow: React.FC<SortableRowProps> = ({
                   size="sm"
                   onClick={() => point.cep && onSearchByCep(point.id, point.cep)}
                   disabled={!point.cep || point.cep.length < 8}
-                  className="h-8 w-8 p-0 shrink-0"
+                  className="h-9 w-9 p-0 shrink-0"
                 >
-                  <Search className="h-3 w-3" />
+                  <Search className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Buscar CEP</TooltipContent>
@@ -144,13 +144,21 @@ const SortableRow: React.FC<SortableRowProps> = ({
           </TooltipProvider>
         </div>
 
+        {/* Cliente - ANTES do Endereço */}
+        <Input
+          value={point.customerName || ''}
+          onChange={(e) => onUpdate(point.id, 'customerName', e.target.value)}
+          placeholder="Nome do cliente"
+          className="h-9 text-sm font-medium"
+        />
+
         {/* Endereço */}
         <div className="flex gap-1">
           <Input
             value={point.address || ''}
             onChange={(e) => onUpdate(point.id, 'address', e.target.value)}
             placeholder="Endereço completo"
-            className="h-8 text-xs"
+            className="h-9 text-sm"
           />
           <TooltipProvider>
             <Tooltip>
@@ -160,23 +168,15 @@ const SortableRow: React.FC<SortableRowProps> = ({
                   size="sm"
                   onClick={() => point.address && onSearchByAddress(point.id, point.address)}
                   disabled={!point.address || point.address.length < 5}
-                  className="h-8 w-8 p-0 shrink-0"
+                  className="h-9 w-9 p-0 shrink-0"
                 >
-                  <MapPin className="h-3 w-3" />
+                  <MapPin className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Buscar coordenadas</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
-
-        {/* Cliente */}
-        <Input
-          value={point.customerName || ''}
-          onChange={(e) => onUpdate(point.id, 'customerName', e.target.value)}
-          placeholder="Nome do cliente"
-          className="h-8 text-xs"
-        />
 
         {/* Qtd Banheiros */}
         <Input
@@ -185,7 +185,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
           value={point.restroomsQty ?? ''}
           onChange={(e) => onUpdate(point.id, 'restroomsQty', e.target.value ? parseInt(e.target.value) : undefined)}
           placeholder="Banh."
-          className="h-8 text-xs text-center"
+          className="h-9 text-sm text-center"
         />
 
         {/* Qtd Limpezas */}
@@ -195,19 +195,30 @@ const SortableRow: React.FC<SortableRowProps> = ({
           value={point.cleaningsQty ?? ''}
           onChange={(e) => onUpdate(point.id, 'cleaningsQty', e.target.value ? parseInt(e.target.value) : undefined)}
           placeholder="Limp."
-          className="h-8 text-xs text-center"
+          className="h-9 text-sm text-center"
         />
 
         {/* Contato (telefone) */}
         <div className="flex items-center gap-1">
-          <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+          <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input
             value={point.contactPhone || ''}
             onChange={(e) => onUpdate(point.id, 'contactPhone', e.target.value)}
             placeholder="Telefone"
-            className="h-8 text-xs"
+            className="h-9 text-sm"
           />
         </div>
+
+        {/* Observações - NOVA COLUNA */}
+        <Input
+          value={point.notes || point.observation || ''}
+          onChange={(e) => {
+            onUpdate(point.id, 'notes', e.target.value);
+            onUpdate(point.id, 'observation', e.target.value);
+          }}
+          placeholder="Observações..."
+          className="h-9 text-sm"
+        />
 
         {/* Ações */}
         <div className="flex items-center gap-1 justify-end">
@@ -218,9 +229,9 @@ const SortableRow: React.FC<SortableRowProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => setExpandedRow(isExpanded ? null : point.id)}
-                  className="h-7 w-7 p-0"
+                  className="h-8 w-8 p-0"
                 >
-                  {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Mais detalhes</TooltipContent>
@@ -234,9 +245,9 @@ const SortableRow: React.FC<SortableRowProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => onDuplicate(point.id)}
-                  className="h-7 w-7 p-0 hover:bg-blue-50 hover:text-blue-600"
+                  className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
                 >
-                  <Copy className="h-3 w-3" />
+                  <Copy className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Duplicar</TooltipContent>
@@ -251,9 +262,9 @@ const SortableRow: React.FC<SortableRowProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => onRemove(point.id)}
-                    className="h-7 w-7 p-0 hover:bg-red-50 hover:text-red-600"
+                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Remover</TooltipContent>
@@ -355,16 +366,17 @@ export const RoutePointsTable: React.FC<RoutePointsTableProps> = ({
 
   return (
     <div className="border rounded-lg overflow-hidden bg-background shadow-sm">
-      {/* Header da tabela */}
-      <div className="grid grid-cols-[40px_100px_100px_1fr_180px_80px_80px_150px_100px] gap-2 items-center px-3 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
+      {/* Header da tabela - com altura maior e fonte maior */}
+      <div className="grid grid-cols-[40px_100px_100px_180px_1fr_80px_80px_150px_1fr_100px] gap-2 items-center px-3 py-3 bg-muted/50 border-b text-sm font-semibold text-muted-foreground">
         <div className="text-center">#</div>
         <div>Tipo</div>
         <div>CEP</div>
-        <div>Endereço</div>
         <div>Cliente</div>
+        <div>Endereço</div>
         <div className="text-center">Banh.</div>
         <div className="text-center">Limp.</div>
         <div>Telefone</div>
+        <div>Observações</div>
         <div className="text-right">Ações</div>
       </div>
 
