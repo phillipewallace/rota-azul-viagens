@@ -19,6 +19,7 @@ const Index = () => {
     { icon: MapPin, label: 'Mapa Principal', to: '/' },
     { icon: Route, label: 'Rotas', to: '/routes' },
     { icon: Truck, label: 'Caminhões', to: '/trucks' },
+    { icon: Users, label: 'Clientes', to: '/customers' },
     { icon: Settings, label: 'Gerenciamento', to: '/management' },
     { icon: BarChart3, label: 'Análises & Relatórios', to: '/analytics' },
     { icon: Calendar, label: 'Agenda', to: '/schedule' },
