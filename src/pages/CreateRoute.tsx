@@ -10,6 +10,7 @@ import RouteMapPreview from '@/components/RouteMapPreview';
 import { useRoutes, RoutePoint } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import { useRouteAutoSave } from '@/hooks/useRouteAutoSave';
+import { googleMapsService } from '@/services/googleMaps';
 import { toast } from 'sonner';
 import { ArrowLeft, Save, MapPin, Eraser, Eye, Clock, Map, ChevronUp, ChevronDown, Settings2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -64,6 +65,13 @@ const CreateRoute = () => {
         type,
         order: index
       };
+    });
+  }, []);
+
+  // Inicializar Google Maps ao carregar o componente
+  useEffect(() => {
+    googleMapsService.initialize().catch(err => {
+      console.error('❌ Erro ao inicializar Google Maps:', err);
     });
   }, []);
 
@@ -289,8 +297,11 @@ const CreateRoute = () => {
     try {
       setSearchingAddress(-1);
       
+      // Garantir que o Google Maps está inicializado
+      await googleMapsService.initialize();
+      
       if (!window.google || !window.google.maps) {
-        toast.error('Google Maps não está disponível');
+        toast.error('Erro ao carregar Google Maps. Tente novamente.');
         return;
       }
 
