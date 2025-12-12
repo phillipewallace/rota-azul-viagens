@@ -632,7 +632,7 @@ router.put('/:id', async (req, res) => {
     if (points && points.length > 0) {
       console.log(`📋 [ROUTE UPDATE] Pontos recebidos:`);
       points.forEach((p: any, i: number) => {
-        console.log(`   ${i}: ${p.address?.substring(0, 30)}... | notes: ${p.notes || p.observation || 'N/A'} | customer: ${p.customerName || 'N/A'}`);
+        console.log(`   ${i}: ${p.address?.substring(0, 30)}... | customer: ${p.customerName || 'N/A'} | notes: ${p.notes || p.observation || 'N/A'}`);
       });
     }
     
@@ -643,69 +643,71 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Rota não encontrada' });
     }
     
-    // ✅ VERIFICAR SE A ROTA ESTÁ SENDO USADA POR ALGUM CAMINHÃO
-    const trucksUsingRoute = await client.query(
-      'SELECT id, name, plate FROM trucks WHERE current_route_id = $1',
+    // ✅ BUSCAR PONTOS EXISTENTES COM ESTADO DE CONCLUSÃO
+    const existingPointsResult = await client.query(
+      `SELECT id, address, completed, completed_at FROM route_points WHERE route_id = $1`,
       [id]
     );
     
-    let finalPoints = points || [];
-    const isRouteInUse = trucksUsingRoute.rows.length > 0;
-    
-    if (isRouteInUse && points && points.length > 0) {
-      console.log(`🚛 [ROUTE UPDATE] Rota em uso por ${trucksUsingRoute.rows.length} caminhão(ões):`);
-      trucksUsingRoute.rows.forEach((truck: any) => {
-        console.log(`   - ${truck.name} (${truck.plate})`);
-      });
-      
-      // ✅ APLICAR PRESERVAÇÃO INTELIGENTE ROBUSTA
-      finalPoints = await preserveCompletedPointsIntelligently(client, id, points);
-      
-    } else {
-      console.log(`🆓 [ROUTE UPDATE] Rota livre - atualização completa dos pontos`);
-      
-      // ✅ ATUALIZAÇÃO COMPLETA - DELETAR E REINSERIR TODOS OS PONTOS COM TODOS OS CAMPOS
-      if (points && points.length > 0) {
-        await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
-        
-        for (const point of points) {
-          await client.query(
-            `INSERT INTO route_points (
-              route_id, address, lat, lng, point_order, type, completed,
-              customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-            [
-              id,
-              point.address || '',
-              parseFloat(point.lat) || 0,
-              parseFloat(point.lng) || 0,
-              point.order || 0,
-              point.type || 'waypoint',
-              point.completed || false,
-              point.customerName || point.name || null,
-              point.restroomsQty !== undefined ? parseInt(point.restroomsQty) : null,
-              point.cleaningsQty !== undefined ? parseInt(point.cleaningsQty) : null,
-              point.contactName || null,
-              point.contactPhone || null,
-              point.notes || point.observation || null,
-              point.cep || null,
-              point.stopType || null
-            ]
-          );
-        }
-        
-        console.log(`✅ [ROUTE UPDATE] ${points.length} pontos inseridos com todos os campos`);
+    // Criar mapa de pontos concluídos por endereço (para preservar estado)
+    const completedByAddress: Map<string, { completed: boolean, completedAt: any }> = new Map();
+    existingPointsResult.rows.forEach((p: any) => {
+      if (p.completed === true || p.completed === 't' || p.completed === 'true') {
+        completedByAddress.set(p.address, { 
+          completed: true, 
+          completedAt: p.completed_at 
+        });
       }
+    });
+    
+    console.log(`🔒 [ROUTE UPDATE] ${completedByAddress.size} pontos com estado 'concluído' a preservar`);
+    
+    // ✅ DELETAR TODOS OS PONTOS EXISTENTES
+    await client.query('DELETE FROM route_points WHERE route_id = $1', [id]);
+    console.log(`🗑️ [ROUTE UPDATE] Pontos antigos removidos`);
+    
+    // ✅ INSERIR TODOS OS PONTOS NOVOS COM TODOS OS CAMPOS OPERACIONAIS
+    if (points && points.length > 0) {
+      for (let i = 0; i < points.length; i++) {
+        const point = points[i];
+        
+        // Verificar se este endereço estava concluído antes
+        const previousState = completedByAddress.get(point.address);
+        const isCompleted = previousState?.completed || point.completed || false;
+        const completedAt = previousState?.completedAt || point.completedAt || null;
+        
+        await client.query(
+          `INSERT INTO route_points (
+            route_id, address, lat, lng, point_order, type, completed, completed_at,
+            customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          [
+            id,
+            point.address || '',
+            parseFloat(point.lat) || 0,
+            parseFloat(point.lng) || 0,
+            i, // Usar índice como ordem
+            point.type || 'waypoint',
+            isCompleted,
+            completedAt,
+            point.customerName || point.name || null,
+            point.restroomsQty !== undefined && point.restroomsQty !== '' ? parseInt(point.restroomsQty) : null,
+            point.cleaningsQty !== undefined && point.cleaningsQty !== '' ? parseInt(point.cleaningsQty) : null,
+            point.contactName || null,
+            point.contactPhone || null,
+            point.notes || point.observation || null,
+            point.cep || null,
+            point.stopType || null
+          ]
+        );
+      }
+      
+      console.log(`✅ [ROUTE UPDATE] ${points.length} pontos inseridos com todos os campos operacionais`);
     }
     
-    // ✅ BUSCAR PONTOS FINAIS DO BANCO (COM ESTADO CORRETO E TODOS OS CAMPOS OPERACIONAIS)
+    // ✅ BUSCAR PONTOS FINAIS DO BANCO
     const finalPointsFromDB = await client.query(
-      `SELECT id, address, lat, lng, point_order, type, 
-              CASE 
-                WHEN completed = true OR completed = 't' OR completed = 'true' THEN true
-                ELSE false
-              END as completed, 
-              completed_at,
+      `SELECT id, address, lat, lng, point_order, type, completed, completed_at,
               customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
        FROM route_points 
        WHERE route_id = $1 
@@ -734,7 +736,6 @@ router.put('/:id', async (req, res) => {
 
     console.log(`📊 [ROUTE UPDATE] Pontos finais no banco: ${updatedPoints.length} total`);
     console.log(`📊 [ROUTE UPDATE] Pontos concluídos: ${updatedPoints.filter(p => p.completed).length}`);
-    console.log(`📊 [ROUTE UPDATE] Pontos pendentes: ${updatedPoints.filter(p => !p.completed).length}`);
 
     // Atualizar dados da rota principal
     const updateQuery = `
@@ -768,7 +769,7 @@ router.put('/:id', async (req, res) => {
       estimatedDuration: parseInt(result.rows[0].estimated_duration) || 0
     };
     
-    console.log(`✅ [ROUTE UPDATE] Rota "${responseRoute.name}" atualizada com preservação inteligente`);
+    console.log(`✅ [ROUTE UPDATE] Rota "${responseRoute.name}" atualizada com sucesso`);
     console.log(`✅ [ROUTE UPDATE] ========================================`);
     
     res.json(responseRoute);
