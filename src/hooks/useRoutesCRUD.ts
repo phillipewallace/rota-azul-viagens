@@ -67,6 +67,10 @@ export const useRoutesCRUD = () => {
   const updateRoute = useMutation({
     mutationFn: async ({ id, route }: { id: string; route: any }) => {
       console.log('🔄 [ROUTES CRUD] Atualizando rota:', id);
+      console.log('📋 [ROUTES CRUD] Pontos a salvar:', route.points?.length || 0);
+      
+      // Timeout maior para rotas com muitos pontos
+      const timeout = route.points?.length > 20 ? 60000 : 30000;
       
       const response = await fetchWithTimeout(
         `${API_CONFIG.BASE_URL}/routes/${id}`,
@@ -74,11 +78,20 @@ export const useRoutesCRUD = () => {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(route),
-        }
+        },
+        timeout
       );
 
       if (!response.ok) {
-        await handleErrorResponse(response, 'Erro ao atualizar rota');
+        // Extrair mensagem de erro do backend
+        let errorMessage = 'Erro ao atualizar rota';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          // Usar mensagem padrão
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();

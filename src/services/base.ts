@@ -1,29 +1,28 @@
-
 import { API_BASE_URL } from './config';
 
 // Configurações de timeout e retry
 const REQUEST_TIMEOUT = 30000; // 30 segundos
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 1000; // 1 segundo
+const MAX_RETRIES = 3; // Aumentado para 3 tentativas
+const RETRY_DELAY = 1500; // 1.5 segundos entre tentativas
 
 // Erros amigáveis ao usuário
 const ERROR_MESSAGES: Record<string, string> = {
-  'Failed to fetch': 'Erro de conexão. Verifique sua internet e tente novamente.',
-  'NetworkError': 'Erro de rede. O servidor pode estar indisponível.',
+  'Failed to fetch': 'Erro de conexão. Verifique sua internet.',
+  'NetworkError': 'Servidor indisponível. Tentando novamente...',
   'TypeError': 'Erro de comunicação com o servidor.',
-  'AbortError': 'Requisição cancelada por timeout. Tente novamente.',
-  '400': 'Dados inválidos. Verifique as informações e tente novamente.',
+  'AbortError': 'Operação demorou muito. Tente novamente.',
+  '400': 'Dados inválidos.',
   '401': 'Sessão expirada. Faça login novamente.',
   '403': 'Acesso negado.',
   '404': 'Recurso não encontrado.',
-  '409': 'Conflito de dados. A informação pode ter sido alterada por outro usuário.',
-  '500': 'Erro interno do servidor. Tente novamente em alguns instantes.',
+  '409': 'Conflito: dados alterados por outro usuário. Recarregue a página.',
+  '500': 'Erro no servidor. Aguarde e tente novamente.',
   '502': 'Servidor temporariamente indisponível.',
-  '503': 'Serviço indisponível. Tente novamente em alguns instantes.',
+  '503': 'Serviço indisponível.',
 };
 
 // Helper para criar timeout com AbortController
-const createTimeoutController = (ms: number): { controller: AbortController; timeoutId: NodeJS.Timeout } => {
+const createTimeoutController = (ms: number): { controller: AbortController; timeoutId: ReturnType<typeof setTimeout> } => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ms);
   return { controller, timeoutId };
@@ -32,8 +31,27 @@ const createTimeoutController = (ms: number): { controller: AbortController; tim
 // Helper para delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Obter mensagem de erro amigável
-const getErrorMessage = (error: any, statusCode?: number): string => {
+// Verificar se erro é recuperável (retry faz sentido)
+const isRetryableError = (error: any, statusCode?: number): boolean => {
+  // Erros de rede são sempre retryable
+  if (error?.name === 'AbortError' || error?.message?.includes('fetch')) {
+    return true;
+  }
+  // Erros 5xx são retryable
+  if (statusCode && statusCode >= 500) {
+    return true;
+  }
+  // Erros 4xx NÃO são retryable (problema nos dados)
+  return false;
+};
+
+// Obter mensagem de erro amigável - PRIORIZA mensagem do backend
+const getErrorMessage = (error: any, statusCode?: number, backendMessage?: string): string => {
+  // Se o backend mandou uma mensagem específica, usar ela
+  if (backendMessage && backendMessage.trim()) {
+    return backendMessage;
+  }
+  
   if (statusCode && ERROR_MESSAGES[statusCode.toString()]) {
     return ERROR_MESSAGES[statusCode.toString()];
   }
@@ -93,30 +111,31 @@ export class BaseApiService {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('❌ [BASE_API] Erro na resposta:', errorText);
+          console.error('❌ [BASE_API] Erro na resposta:', response.status, errorText);
           
-          // Não fazer retry para erros de cliente (4xx)
+          // Tentar extrair mensagem do backend
+          let backendMessage = '';
+          try {
+            const errorData = JSON.parse(errorText);
+            backendMessage = errorData.error || errorData.message || '';
+          } catch {
+            // Corpo não é JSON
+          }
+          
+          // Erros de cliente (4xx) - NÃO fazer retry, erro nos dados
           if (response.status >= 400 && response.status < 500) {
-            let errorMessage = getErrorMessage(null, response.status);
-            
-            // Tentar extrair mensagem do corpo
-            try {
-              const errorData = JSON.parse(errorText);
-              if (errorData.error) {
-                errorMessage = errorData.error;
-              } else if (errorData.message) {
-                errorMessage = errorData.message;
-              }
-            } catch {
-              // Usar mensagem padrão
-            }
-            
+            const errorMessage = getErrorMessage(null, response.status, backendMessage);
             throw new Error(errorMessage);
           }
           
           // Para erros de servidor (5xx), permitir retry
-          lastError = new Error(getErrorMessage(null, response.status));
-          continue;
+          if (isRetryableError(null, response.status)) {
+            console.log(`⚠️ [BASE_API] Erro ${response.status}, tentando novamente...`);
+            lastError = new Error(getErrorMessage(null, response.status, backendMessage));
+            continue;
+          }
+          
+          throw new Error(getErrorMessage(null, response.status, backendMessage));
         }
 
         // Verificar se há conteúdo
