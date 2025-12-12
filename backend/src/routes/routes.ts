@@ -628,13 +628,40 @@ router.put('/:id', async (req, res) => {
     console.log(`🔄 [ROUTE UPDATE] ========================================`);
     console.log(`🔄 [ROUTE UPDATE] Atualizando rota ${id} com ${points?.length || 0} pontos`);
     
-    // Log dos pontos recebidos para debug
-    if (points && points.length > 0) {
-      console.log(`📋 [ROUTE UPDATE] Pontos recebidos:`);
-      points.forEach((p: any, i: number) => {
-        console.log(`   ${i}: ${p.address?.substring(0, 30)}... | customer: ${p.customerName || 'N/A'} | notes: ${p.notes || p.observation || 'N/A'}`);
+    // ✅ VALIDAÇÃO RIGOROSA DOS DADOS RECEBIDOS
+    if (!name || !name.trim()) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Nome da rota é obrigatório' });
+    }
+    
+    if (!points || !Array.isArray(points) || points.length < 2) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'É necessário pelo menos 2 pontos' });
+    }
+    
+    // Validar cada ponto
+    const invalidPoints: string[] = [];
+    points.forEach((p: any, i: number) => {
+      const lat = parseFloat(p.lat);
+      const lng = parseFloat(p.lng);
+      if (!lat || !lng || lat === 0 || lng === 0 || !p.address) {
+        const label = i === 0 ? 'Origem' : (i === points.length - 1 ? 'Destino' : `Parada ${i}`);
+        invalidPoints.push(label);
+      }
+    });
+    
+    if (invalidPoints.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: `Pontos inválidos: ${invalidPoints.join(', ')}. Busque o endereço para obter coordenadas.` 
       });
     }
+    
+    // Log dos pontos recebidos para debug
+    console.log(`📋 [ROUTE UPDATE] Validação OK - Pontos recebidos:`);
+    points.forEach((p: any, i: number) => {
+      console.log(`   ${i}: ${p.address?.substring(0, 30)}... | lat:${p.lat} lng:${p.lng} | customer: ${p.customerName || 'N/A'}`);
+    });
     
     // Verificar se a rota existe
     const routeExists = await client.query('SELECT id, name FROM routes WHERE id = $1', [id]);
@@ -667,43 +694,55 @@ router.put('/:id', async (req, res) => {
     console.log(`🗑️ [ROUTE UPDATE] Pontos antigos removidos`);
     
     // ✅ INSERIR TODOS OS PONTOS NOVOS COM TODOS OS CAMPOS OPERACIONAIS
-    if (points && points.length > 0) {
-      for (let i = 0; i < points.length; i++) {
-        const point = points[i];
-        
-        // Verificar se este endereço estava concluído antes
-        const previousState = completedByAddress.get(point.address);
-        const isCompleted = previousState?.completed || point.completed || false;
-        const completedAt = previousState?.completedAt || point.completedAt || null;
-        
-        await client.query(
-          `INSERT INTO route_points (
-            route_id, address, lat, lng, point_order, type, completed, completed_at,
-            customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
-          [
-            id,
-            point.address || '',
-            parseFloat(point.lat) || 0,
-            parseFloat(point.lng) || 0,
-            i, // Usar índice como ordem
-            point.type || 'waypoint',
-            isCompleted,
-            completedAt,
-            point.customerName || point.name || null,
-            point.restroomsQty !== undefined && point.restroomsQty !== '' ? parseInt(point.restroomsQty) : null,
-            point.cleaningsQty !== undefined && point.cleaningsQty !== '' ? parseInt(point.cleaningsQty) : null,
-            point.contactName || null,
-            point.contactPhone || null,
-            point.notes || point.observation || null,
-            point.cep || null,
-            point.stopType || null
-          ]
-        );
-      }
+    let insertedCount = 0;
+    for (let i = 0; i < points.length; i++) {
+      const point = points[i];
       
-      console.log(`✅ [ROUTE UPDATE] ${points.length} pontos inseridos com todos os campos operacionais`);
+      // Verificar se este endereço estava concluído antes
+      const previousState = completedByAddress.get(point.address);
+      const isCompleted = previousState?.completed || point.completed || false;
+      const completedAt = previousState?.completedAt || point.completedAt || null;
+      
+      // ✅ GARANTIR TODOS OS CAMPOS COM VALORES SEGUROS
+      const customerName = point.customerName || point.name || null;
+      const restroomsQty = (point.restroomsQty !== undefined && point.restroomsQty !== null && point.restroomsQty !== '') 
+        ? parseInt(String(point.restroomsQty)) : null;
+      const cleaningsQty = (point.cleaningsQty !== undefined && point.cleaningsQty !== null && point.cleaningsQty !== '') 
+        ? parseInt(String(point.cleaningsQty)) : null;
+      const contactName = point.contactName || null;
+      const contactPhone = point.contactPhone || null;
+      const notes = point.notes || point.observation || null;
+      const cep = point.cep || null;
+      const stopType = point.stopType || null;
+      
+      await client.query(
+        `INSERT INTO route_points (
+          route_id, address, lat, lng, point_order, type, completed, completed_at,
+          customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+        [
+          id,
+          point.address || '',
+          parseFloat(point.lat) || 0,
+          parseFloat(point.lng) || 0,
+          i,
+          point.type || 'waypoint',
+          isCompleted,
+          completedAt,
+          customerName,
+          restroomsQty,
+          cleaningsQty,
+          contactName,
+          contactPhone,
+          notes,
+          cep,
+          stopType
+        ]
+      );
+      insertedCount++;
     }
+    
+    console.log(`✅ [ROUTE UPDATE] ${insertedCount}/${points.length} pontos inseridos com todos os campos operacionais`);
     
     // ✅ BUSCAR PONTOS FINAIS DO BANCO
     const finalPointsFromDB = await client.query(

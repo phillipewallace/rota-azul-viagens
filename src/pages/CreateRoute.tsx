@@ -461,51 +461,89 @@ const CreateRoute = () => {
     }
   };
 
+  // Validação rigorosa dos pontos antes de salvar
+  const validatePoints = (points: any[]): { valid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    
+    if (!points || points.length < 2) {
+      errors.push('É necessário pelo menos 2 pontos (origem e destino)');
+      return { valid: false, errors };
+    }
+
+    points.forEach((point, index) => {
+      const pointLabel = index === 0 ? 'Origem' : (index === points.length - 1 ? 'Destino' : `Parada ${index}`);
+      
+      // Validar coordenadas
+      if (!point.lat || !point.lng || point.lat === 0 || point.lng === 0) {
+        errors.push(`${pointLabel}: Busque o endereço para obter as coordenadas`);
+      }
+      
+      // Validar endereço
+      if (!point.address || point.address.trim().length < 5) {
+        errors.push(`${pointLabel}: Endereço inválido ou muito curto`);
+      }
+    });
+
+    return { valid: errors.length === 0, errors };
+  };
+
   const handleSave = async () => {
+    // Validação do nome
     if (!routeName.trim()) {
       toast.error('Digite um nome para a rota');
       return;
     }
 
+    // Validação do preview
     if (!previewData) {
       toast.error('Gere o preview antes de salvar');
       return;
     }
 
-    const validPoints = previewData.points?.filter((p: any) => p.lat && p.lng && p.address);
-    if (!validPoints || validPoints.length < 2) {
-      toast.error('É necessário pelo menos 2 pontos válidos');
+    // Validação rigorosa dos pontos
+    const validation = validatePoints(previewData.points);
+    if (!validation.valid) {
+      validation.errors.forEach((error, index) => {
+        setTimeout(() => toast.error(error), index * 500);
+      });
       return;
     }
 
     try {
       setLoading(true);
       
+      // Mapear pontos garantindo todos os campos
       const routeData = {
-        name: routeName,
-        description: routeDescription,
+        name: routeName.trim(),
+        description: routeDescription.trim(),
         points: previewData.points.map((p: any, index: number) => ({
-          ...p,
+          id: p.id,
           order: index,
           type: index === 0 ? 'origin' : (index === previewData.points.length - 1 ? 'destination' : 'waypoint'),
+          address: p.address || '',
+          lat: parseFloat(p.lat) || 0,
+          lng: parseFloat(p.lng) || 0,
+          cep: p.cep || '',
           customerName: p.customerName || '',
-          restroomsQty: p.restroomsQty,
-          cleaningsQty: p.cleaningsQty,
+          restroomsQty: p.restroomsQty !== undefined && p.restroomsQty !== '' ? parseInt(p.restroomsQty) : null,
+          cleaningsQty: p.cleaningsQty !== undefined && p.cleaningsQty !== '' ? parseInt(p.cleaningsQty) : null,
           contactName: p.contactName || '',
           contactPhone: p.contactPhone || '',
           notes: p.notes || p.observation || '',
           observation: p.notes || p.observation || '',
           stopType: p.stopType || '',
-          cep: p.cep || ''
+          completed: p.completed || false,
+          completedAt: p.completedAt || null
         })),
-        totalDistance: previewData.totalDistance,
-        estimatedTime: previewData.estimatedTime,
-        optimizedOrder: previewData.optimizedOrder,
+        totalDistance: previewData.totalDistance || 0,
+        estimatedTime: previewData.estimatedTime || '0min',
+        optimizedOrder: previewData.optimizedOrder || [],
         optimizationMode: optimizationMode,
         status: 'active' as const
       };
 
-      console.log('📤 [CREATE ROUTE] Salvando rota com dados operacionais:', routeData);
+      console.log('📤 [CREATE ROUTE] Salvando rota:', routeData.name);
+      console.log('📤 [CREATE ROUTE] Pontos:', routeData.points.length);
 
       if (isEditing) {
         await updateRoute({ id: editId!, route: routeData });
@@ -517,9 +555,12 @@ const CreateRoute = () => {
       
       clearStorage();
       navigate('/routes');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao salvar:', error);
-      toast.error('Erro ao salvar rota');
+      
+      // Mostrar erro específico do backend se disponível
+      const errorMessage = error?.message || 'Erro ao salvar rota. Tente novamente.';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

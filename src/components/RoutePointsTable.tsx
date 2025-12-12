@@ -73,6 +73,11 @@ const SortableRow: React.FC<SortableRowProps> = ({
     isDragging
   } = useSortable({ id: point.id, disabled: !isDraggable });
 
+  // Verificar se ponto tem coordenadas válidas
+  const hasValidCoordinates = point.lat && point.lng && point.lat !== 0 && point.lng !== 0;
+  const hasValidAddress = point.address && point.address.trim().length >= 5;
+  const isInvalid = !hasValidCoordinates || !hasValidAddress;
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -94,9 +99,23 @@ const SortableRow: React.FC<SortableRowProps> = ({
   const isExpanded = expandedRow === point.id;
 
   return (
-    <div ref={setNodeRef} style={style} data-point-card>
+    <div ref={setNodeRef} style={style} data-point-card className="relative">
+      {/* Indicador visual de erro - fora da grid */}
+      {isInvalid && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-red-500 rounded-r animate-pulse z-10" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-red-600 text-white border-red-600">
+              {!hasValidCoordinates ? 'Busque o endereço para obter coordenadas' : 'Endereço muito curto'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+      
       {/* Linha principal - estilo tabela com altura maior */}
-      <div className={`grid grid-cols-[40px_100px_100px_180px_1fr_80px_80px_150px_1fr_100px] gap-2 items-center px-3 py-3 min-h-[56px] border-b hover:bg-muted/30 transition-colors ${isDragging ? 'bg-primary/10 shadow-lg' : ''} ${isExpanded ? 'bg-blue-50/50' : ''}`}>
+      <div className={`grid grid-cols-[40px_100px_100px_180px_1fr_80px_80px_150px_1fr_100px] gap-2 items-center px-3 py-3 min-h-[56px] border-b hover:bg-muted/30 transition-colors ${isDragging ? 'bg-primary/10 shadow-lg' : ''} ${isExpanded ? 'bg-blue-50/50' : ''} ${isInvalid ? 'bg-red-50/50' : ''}`}>
         {/* Drag handle */}
         <div className="flex justify-center">
           {isDraggable ? (
