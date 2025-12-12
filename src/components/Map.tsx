@@ -82,10 +82,12 @@ const MapComponent = () => {
           resolve(newLocation);
         },
         (error) => {
-          console.error('❌ Erro GPS:', error);
-          setLocationError('Erro ao obter localização GPS');
+          console.log('ℹ️ GPS indisponível, usando localização padrão:', error.message);
+          setLocationError('Usando localização padrão da região');
           const defaultLocation = { lat: -19.9167, lng: -44.0833 };
           setUserLocation(defaultLocation);
+          // Auto-dismiss após 5 segundos
+          setTimeout(() => setLocationError(null), 5000);
           resolve(defaultLocation);
         },
         {
@@ -754,11 +756,10 @@ const MapComponent = () => {
         </div>
       )}
 
-      {/* Error indicator */}
+      {/* Info indicator */}
       {locationError && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg shadow-lg text-sm max-w-sm text-center z-10">
-          <div className="font-medium mb-1">⚠️ Aviso</div>
-          <div>{locationError}</div>
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg shadow-lg text-sm max-w-sm text-center z-10 animate-fade-in">
+          <div className="font-medium">ℹ️ {locationError}</div>
         </div>
       )}
 
