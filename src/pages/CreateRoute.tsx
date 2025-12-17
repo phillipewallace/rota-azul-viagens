@@ -175,8 +175,12 @@ const CreateRoute = () => {
       // Tentar carregar do autosave
       const saved = loadFromStorage();
       if (saved && saved.points.length > 0) {
+        // Usar confirm com mensagem mais clara
         const shouldRestore = window.confirm(
-          'Encontramos um rascunho salvo automaticamente. Deseja restaurá-lo?'
+          `Encontramos um rascunho salvo:\n\n` +
+          `📝 "${saved.routeName || 'Sem nome'}"\n` +
+          `📍 ${saved.points.length} pontos\n\n` +
+          `Clique OK para restaurar ou CANCELAR para descartar e criar nova rota.`
         );
         
         if (shouldRestore) {
@@ -190,16 +194,38 @@ const CreateRoute = () => {
             }, 100);
           }
           toast.success('Rascunho restaurado!');
+          return; // IMPORTANTE: sair após restaurar
         } else {
+          // Usuário recusou - limpar rascunho e criar nova rota
           clearStorage();
+          toast.info('Rascunho descartado. Criando nova rota.');
         }
       }
       
-      // Inicializar com 2 pontos se não houver nada
-      if (allPoints.length === 0 && !saved) {
-        addPoint();
-        addPoint();
-      }
+      // Inicializar com 2 pontos para nova rota
+      const initialPoints: RoutePoint[] = [
+        {
+          id: generateUniqueId('origin'),
+          address: '',
+          lat: 0,
+          lng: 0,
+          order: 0,
+          type: 'origin' as const,
+          cep: '',
+          observation: ''
+        },
+        {
+          id: generateUniqueId('destination'),
+          address: '',
+          lat: 0,
+          lng: 0,
+          order: 1,
+          type: 'destination' as const,
+          cep: '',
+          observation: ''
+        }
+      ];
+      setAllPoints(initialPoints);
     }
   }, [isEditing, editId, routes, searchParams]);
 
@@ -636,11 +662,22 @@ const CreateRoute = () => {
               )}
               
               <Button
-                onClick={generatePreview}
-                disabled={loading || !routeName.trim() || allPoints.length < 2}
+                onClick={() => {
+                  if (!routeName.trim()) {
+                    toast.error('Digite um nome para a rota antes de gerar o preview');
+                    return;
+                  }
+                  if (allPoints.length < 2) {
+                    toast.error('É necessário pelo menos 2 pontos');
+                    return;
+                  }
+                  generatePreview();
+                }}
+                disabled={loading}
                 variant="outline"
                 size="sm"
                 className="h-8 border-blue-200 hover:bg-blue-50"
+                title={!routeName.trim() ? 'Digite o nome da rota primeiro' : 'Gerar preview da rota'}
               >
                 <Eye className="h-4 w-4 mr-1" />
                 Preview
