@@ -4,6 +4,12 @@ import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
 
 const router = Router();
 
+const toIntOrNull = (value: any): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : null;
+};
+
 // Get all routes - ✅ BUSCA PONTOS DA TABELA route_points COM TODOS OS CAMPOS OPERACIONAIS
 router.get('/', async (req, res) => {
   try {
@@ -187,7 +193,7 @@ router.post('/', async (req, res) => {
     const routeId = result.rows[0].id;
     
     // ✅ INSERIR PONTOS COM TODOS OS CAMPOS
-    for (const point of points) {
+    for (const [index, point] of points.entries()) {
       await client.query(
         `INSERT INTO route_points (
           route_id, address, lat, lng, point_order, type, completed,
@@ -198,17 +204,17 @@ router.post('/', async (req, res) => {
           point.address || '',
           parseFloat(point.lat) || 0,
           parseFloat(point.lng) || 0,
-          point.order || 0,
+          Number.isFinite(Number(point.order)) ? Number(point.order) : index,
           point.type || 'waypoint',
           false,
           point.customerName || point.name || null,
-          point.restroomsQty !== undefined ? parseInt(point.restroomsQty) : null,
-          point.cleaningsQty !== undefined ? parseInt(point.cleaningsQty) : null,
+          toIntOrNull(point.restroomsQty),
+          toIntOrNull(point.cleaningsQty),
           point.contactName || null,
           point.contactPhone || null,
           point.notes || point.observation || null,
           point.cep || null,
-          point.stopType || null
+          point.stopType || null,
         ]
       );
     }
@@ -467,7 +473,7 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
       
       await client.query('DELETE FROM route_points WHERE route_id = $1', [routeId]);
       
-      for (const point of newPoints) {
+      for (const [index, point] of newPoints.entries()) {
         await client.query(
           `INSERT INTO route_points (
             route_id, address, lat, lng, point_order, type, completed,
@@ -478,16 +484,16 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
             point.address || '',
             parseFloat(point.lat) || 0,
             parseFloat(point.lng) || 0,
-            point.order || 0,
+            Number.isFinite(Number(point.order)) ? Number(point.order) : index,
             point.type || 'waypoint',
             point.customerName || point.name || null,
-            point.restroomsQty !== undefined ? parseInt(point.restroomsQty) : null,
-            point.cleaningsQty !== undefined ? parseInt(point.cleaningsQty) : null,
+            toIntOrNull(point.restroomsQty),
+            toIntOrNull(point.cleaningsQty),
             point.contactName || null,
             point.contactPhone || null,
             point.notes || point.observation || null,
             point.cep || null,
-            point.stopType || null
+            point.stopType || null,
           ]
         );
       }
@@ -576,7 +582,7 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
     console.log(`🗑️ [INTELLIGENT PRESERVATION] Pontos não concluídos removidos`);
     
     // ✅ INSERIR NOVOS PONTOS COM TODOS OS CAMPOS OPERACIONAIS
-    for (const point of optimizedPendingPoints) {
+    for (const [index, point] of optimizedPendingPoints.entries()) {
       await client.query(
         `INSERT INTO route_points (
           route_id, address, lat, lng, point_order, type, completed, completed_at,
@@ -587,16 +593,16 @@ async function preserveCompletedPointsIntelligently(client: any, routeId: string
           point.address || '',
           parseFloat(point.lat) || 0,
           parseFloat(point.lng) || 0,
-          point.order || 0,
+          Number.isFinite(Number(point.order)) ? Number(point.order) : index,
           point.type || 'waypoint',
           point.customerName || point.name || null,
-          point.restroomsQty !== undefined ? parseInt(point.restroomsQty) : null,
-          point.cleaningsQty !== undefined ? parseInt(point.cleaningsQty) : null,
+          toIntOrNull(point.restroomsQty),
+          toIntOrNull(point.cleaningsQty),
           point.contactName || null,
           point.contactPhone || null,
           point.notes || point.observation || null,
           point.cep || null,
-          point.stopType || null
+          point.stopType || null,
         ]
       );
     }
