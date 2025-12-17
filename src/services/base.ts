@@ -93,10 +93,12 @@ export class BaseApiService {
           await delay(RETRY_DELAY * attempt);
         }
         
+        const token = localStorage.getItem('auth_token');
         const config: RequestInit = {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...options?.headers,
           },
           credentials: 'omit',

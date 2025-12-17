@@ -72,11 +72,16 @@ export const useRoutesCRUD = () => {
       // Timeout maior para rotas com muitos pontos
       const timeout = route.points?.length > 20 ? 60000 : 30000;
       
+      const token = localStorage.getItem('auth_token');
+
       const response = await fetchWithTimeout(
         `${API_CONFIG.BASE_URL}/routes/${id}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify(route),
         },
         timeout
@@ -112,9 +117,15 @@ export const useRoutesCRUD = () => {
     mutationFn: async (id: string) => {
       console.log('🗑️ [ROUTES CRUD] Excluindo rota:', id);
       
+      const token = localStorage.getItem('auth_token');
       const response = await fetchWithTimeout(
         `${API_CONFIG.BASE_URL}/routes/${id}`,
-        { method: 'DELETE' }
+        {
+          method: 'DELETE',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
       );
 
       if (!response.ok) {
@@ -137,11 +148,15 @@ export const useRoutesCRUD = () => {
     mutationFn: async (id: string) => {
       console.log('🔄 [ROUTES CRUD] Resetando rota:', id);
       
+      const token = localStorage.getItem('auth_token');
       const response = await fetchWithTimeout(
         `${API_CONFIG.BASE_URL}/routes/${id}/reset`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         }
       );
 
@@ -168,11 +183,15 @@ export const useRoutesCRUD = () => {
       console.log(`🔄 [ROUTES CRUD] Otimizando rota ${id} manualmente`);
       
       // Otimização pode demorar mais, usar timeout maior
+      const token = localStorage.getItem('auth_token');
       const response = await fetchWithTimeout(
         `${API_CONFIG.BASE_URL}/routes/${id}/optimize-manual`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         },
         60000 // 60 segundos para otimização
       );
