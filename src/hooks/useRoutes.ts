@@ -58,7 +58,12 @@ export const useRoutes = () => {
 
   const getAddressByCep = async (cep: string) => {
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/cep/${cep}`);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/cep/${cep}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!response.ok) {
         throw new Error('Erro ao buscar endereço por CEP');
       }
@@ -89,10 +94,12 @@ export const useRoutes = () => {
         console.log(`🧠 [USE ROUTES] URL: ${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`);
         
         try {
+          const token = localStorage.getItem('auth_token');
           const response = await fetch(`${API_CONFIG.BASE_URL}/routes/${routeId}/optimize-intelligent`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
               points: allPoints.map((point, index) => ({
@@ -154,10 +161,12 @@ export const useRoutes = () => {
         console.log('🔄 [USE ROUTES] Usando otimização tradicional');
         console.log(`🔄 [USE ROUTES] URL: ${API_CONFIG.BASE_URL}/geocoding/optimize`);
         
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_CONFIG.BASE_URL}/geocoding/optimize`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
             points: allPoints.map((point, index) => ({
