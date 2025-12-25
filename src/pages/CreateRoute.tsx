@@ -15,8 +15,20 @@ import { toast } from 'sonner';
 import { ArrowLeft, Save, MapPin, Eraser, Eye, Clock, Map, ChevronUp, ChevronDown, Settings2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileOperatorCreateRoute from '@/components/mobile/operator/MobileOperatorCreateRoute';
 
 const CreateRoute = () => {
+  const isMobile = useIsMobile();
+  
+  if (isMobile) {
+    return <MobileOperatorCreateRoute />;
+  }
+
+  return <DesktopCreateRoute />;
+};
+
+const DesktopCreateRoute = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('edit');
