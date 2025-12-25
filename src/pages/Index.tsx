@@ -7,9 +7,17 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Map from '@/components/Map';
 import TrackingPanel from '@/components/TrackingPanel';
 import LinkRouteModal from '@/components/LinkRouteModal';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileOperatorIndex from '@/components/mobile/operator/MobileOperatorIndex';
 
 const Index = () => {
+  const isMobile = useIsMobile();
   const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
+
+  // Render mobile version for operator
+  if (isMobile) {
+    return <MobileOperatorIndex />;
+  }
 
   const menuItems = [
     { icon: Truck, label: 'Vincular Rota ao Caminhão', action: () => setIsLinkRouteOpen(true) },

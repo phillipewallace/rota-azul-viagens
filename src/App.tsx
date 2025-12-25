@@ -23,6 +23,9 @@ import Customers from "./pages/Customers";
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
 
+// Mobile Operator Components
+import MobileOperatorMenuPage from "./components/mobile/operator/MobileOperatorMenuPage";
+
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -139,6 +142,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Customers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/menu"
+              element={
+                <ProtectedRoute>
+                  <MobileOperatorMenuPage />
                 </ProtectedRoute>
               }
             />

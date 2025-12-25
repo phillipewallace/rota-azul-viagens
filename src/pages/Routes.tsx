@@ -10,8 +10,21 @@ import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import RouteMapPreview from '@/components/RouteMapPreview';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileOperatorRoutes from '@/components/mobile/operator/MobileOperatorRoutes';
 
 const Routes = () => {
+  const isMobile = useIsMobile();
+  
+  // Return mobile version for operator
+  if (isMobile) {
+    return <MobileOperatorRoutes />;
+  }
+
+  return <DesktopRoutes />;
+};
+
+const DesktopRoutes = () => {
   const navigate = useNavigate();
   const [viewingRoute, setViewingRoute] = useState<any>(null);
   const [selectedPoints, setSelectedPoints] = useState<Set<string>>(new Set());
