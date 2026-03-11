@@ -26,7 +26,7 @@ export const useTrucksCRUD = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`https://admmicban.com.br/api/trucks/${id}`, {
+      const response = await fetch(`https://alchemyrotas.com/api/trucks/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Erro ao excluir caminhão');

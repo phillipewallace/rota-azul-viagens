@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://192.168.1.100:5173', 'https://admmicban.com.br'],
+  origin: ['http://localhost:5173', 'http://192.168.1.100:5173', 'https://alchemyrotas.com'],
   credentials: true
 }));
 
