@@ -9,8 +9,8 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     cleartext: true,
     allowNavigation: [
-      'admmicban.com.br',
-      'https://admmicban.com.br',
+      'alchemyrotas.com',
+      'https://alchemyrotas.com',
       'maps.googleapis.com',
       'https://maps.googleapis.com',
       'maps.google.com',
