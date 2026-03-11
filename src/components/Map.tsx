@@ -21,7 +21,7 @@ const MapComponent = () => {
   });
   const [realTimeTraffic, setRealTimeTraffic] = useState<any[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<string | null>(null);
-  const [highlightTimeout, setHighlightTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [highlightTimeout, setHighlightTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const allRouteRenderers = useRef<any[]>([]);
   const lastClickedTruck = useRef<string | null>(null);
 

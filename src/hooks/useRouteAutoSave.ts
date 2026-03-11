@@ -13,7 +13,7 @@ const AUTOSAVE_INTERVAL = 5000; // 5 segundos
 const STORAGE_KEY_PREFIX = 'route-autosave-';
 
 export const useRouteAutoSave = (routeId?: string) => {
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const storageKey = routeId ? `${STORAGE_KEY_PREFIX}${routeId}` : `${STORAGE_KEY_PREFIX}new`;
 
   const saveToStorage = useCallback((data: RouteAutoSaveData) => {
