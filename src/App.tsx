@@ -165,6 +165,14 @@ function App() {
               }
             />
             <Route
+              path="/gestao-interna"
+              element={
+                <ProtectedRoute>
+                  <InternalManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/menu"
               element={
                 <ProtectedRoute>
