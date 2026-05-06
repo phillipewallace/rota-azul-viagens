@@ -179,12 +179,13 @@ const Trucks = () => {
                           >
                             <LinkIcon className="w-4 h-4" />
                           </Button>
-                          {truck.status === 'in-route' && (
+                          {(truck.status === 'in-route' || (truck as any).current_route_id || (truck as any).currentRouteId || (truck as any).current_route) && (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleUnlinkRoute(truck)}
                               title="Desvincular rota"
+                              className="text-orange-600 hover:bg-orange-50"
                             >
                               <Unlink className="w-4 h-4" />
                             </Button>
