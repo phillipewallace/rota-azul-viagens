@@ -134,7 +134,13 @@ router.get('/truck/:plate', async (req, res) => {
               notes: point.notes,
               observation: point.notes,
               cep: point.cep,
-              stopType: point.stop_type
+              stopType: point.stop_type,
+              pointCategory: point.point_category || 'obra',
+              operationType: point.operation_type || 'entrega',
+              recolhidoQty: point.recolhido_qty,
+              autoRemoved: point.auto_removed || false,
+              sanitarioNumbers: point.sanitario_numbers || [],
+              sanitarioRecolhidos: point.sanitario_recolhidos || []
             };
           });
         }
