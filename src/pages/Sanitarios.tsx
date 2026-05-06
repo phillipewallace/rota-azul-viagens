@@ -104,11 +104,17 @@ export default function Sanitarios() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold">Gerenciamento de Sanitários</h1>
-        <p className="text-sm text-muted-foreground">
-          Acompanhe a localização atual e o histórico completo de cada banheiro químico.
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Gerenciamento de Sanitários</h1>
+          <p className="text-sm text-muted-foreground">
+            Acompanhe a localização atual e o histórico completo de cada banheiro químico.
+          </p>
+        </div>
+        <Button onClick={load} variant="outline" size="sm" disabled={loading} className="gap-2">
+          <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          Atualizar
+        </Button>
       </header>
 
       {/* Cadastro rápido + filtros */}
