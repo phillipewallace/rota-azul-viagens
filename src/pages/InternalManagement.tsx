@@ -150,6 +150,7 @@ const InternalManagement: React.FC = () => {
                     tracksExpiry: false, requiresSignedTerm: false,
                   } as ErpItem)}
                   onMovement={(item, type) => setMovementModal({ item, type })}
+                  onHistory={(item) => setHistoryItem(item)}
                   onDelete={async (id) => {
                     if (!confirm('Excluir este item?')) return;
                     await erpService.deleteItem(id);
