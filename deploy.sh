@@ -117,9 +117,8 @@ ok "pm2 OK ($(pm2 jlist | grep -c '\"name\"'))"
 
 # ─── 8) Nginx vhost ─────────────────────────────────────────────────────────
 VHOST="/etc/nginx/sites-available/alchemy-rotas"
-if [[ ! -f "$VHOST" ]]; then
-  log "Criando vhost nginx…"
-  cat > "$VHOST" <<NGINX
+log "Regravando vhost nginx (porta backend: 3002)…"
+cat > "$VHOST" <<NGINX
 server {
   listen 80;
   server_name ${SERVER_NAME} www.${SERVER_NAME};
@@ -142,9 +141,8 @@ server {
   location / { try_files \$uri /index.html; }
 }
 NGINX
-  ln -sf "$VHOST" /etc/nginx/sites-enabled/alchemy-rotas
-  rm -f /etc/nginx/sites-enabled/default
-fi
+ln -sf "$VHOST" /etc/nginx/sites-enabled/alchemy-rotas
+rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 ok "nginx recarregado"
 
