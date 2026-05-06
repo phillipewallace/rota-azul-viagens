@@ -26,7 +26,7 @@ async function loadPlugin(): Promise<any | null> {
   }
 }
 
-async function postLocation(routeId: string, lat: number, lng: number, speed?: number) {
+async function postLocation(routeId: string, truckId: string | null, lat: number, lng: number, speed?: number) {
   try {
     const token = localStorage.getItem('auth_token') || localStorage.getItem('auth-token') || '';
     await fetch(`${API_BASE_URL}/tracking/location`, {
@@ -37,6 +37,7 @@ async function postLocation(routeId: string, lat: number, lng: number, speed?: n
       },
       body: JSON.stringify({
         routeId,
+        truckId: truckId || undefined,
         lat,
         lng,
         speed: speed ?? null,
