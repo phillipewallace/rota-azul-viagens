@@ -72,20 +72,61 @@ export default function Sanitarios() {
   const [selected, setSelected] = useState<(Sanitario & { historico: Movimentacao[] }) | null>(null);
   const [loading, setLoading] = useState(false);
   const [newNum, setNewNum] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
-  const load = async () => {
+  const buildFilterParams = () => {
+    const p = new URLSearchParams();
+    if (statusFilter) p.set('status', statusFilter);
+    if (filter) p.set('q', filter);
+    if (truckFilter) p.set('truckId', truckFilter);
+    return p;
+  };
+
+  const load = async (goToPage = page) => {
     setLoading(true);
     try {
       const url = new URL(`${API_BASE_URL}/sanitarios`);
-      if (statusFilter) url.searchParams.set('status', statusFilter);
-      if (filter) url.searchParams.set('q', filter);
-      if (truckFilter) url.searchParams.set('truckId', truckFilter);
+      const p = buildFilterParams();
+      p.forEach((v, k) => url.searchParams.set(k, v));
+      url.searchParams.set('page', String(goToPage));
+      url.searchParams.set('pageSize', String(pageSize));
       const r = await fetch(url.toString(), { headers: authHeaders() });
       const data = await r.json();
-      setList(Array.isArray(data) ? data : []);
+      // suporta tanto array (legacy) quanto {data,...}
+      if (Array.isArray(data)) {
+        setList(data); setTotal(data.length); setTotalPages(1);
+      } else {
+        setList(data.data || []);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+        setPage(data.page || 1);
+      }
     } catch (e) {
       toast.error('Erro ao carregar sanitários');
     } finally { setLoading(false); }
+  };
+
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const url = new URL(`${API_BASE_URL}/sanitarios/export.csv`);
+      buildFilterParams().forEach((v, k) => url.searchParams.set(k, v));
+      const r = await fetch(url.toString(), { headers: authHeaders() });
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `sanitarios-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success('Exportação concluída');
+    } catch {
+      toast.error('Falha ao exportar CSV');
+    } finally { setExporting(false); }
   };
 
   const loadTrucks = async () => {
@@ -96,11 +137,11 @@ export default function Sanitarios() {
   };
 
   const clearFilters = () => {
-    setFilter(''); setStatusFilter(''); setTruckFilter('');
+    setFilter(''); setStatusFilter(''); setTruckFilter(''); setPage(1);
   };
 
   useEffect(() => { loadTrucks(); }, []);
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [statusFilter, truckFilter]);
+  useEffect(() => { setPage(1); load(1); /* eslint-disable-next-line */ }, [statusFilter, truckFilter, pageSize]);
 
   const openDetail = async (numero: string) => {
     try {
@@ -136,7 +177,7 @@ export default function Sanitarios() {
             Acompanhe a localização atual e o histórico completo de cada banheiro químico.
           </p>
         </div>
-        <Button onClick={load} variant="outline" size="sm" disabled={loading} className="gap-2">
+        <Button onClick={() => load()} variant="outline" size="sm" disabled={loading} className="gap-2">
           <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
@@ -158,7 +199,7 @@ export default function Sanitarios() {
                   onKeyDown={(e) => e.key === 'Enter' && load()}
                 />
               </div>
-              <Button onClick={load} variant="secondary">Buscar</Button>
+              <Button onClick={() => load()} variant="secondary">Buscar</Button>
             </div>
           </div>
 
@@ -197,6 +238,10 @@ export default function Sanitarios() {
             <Button onClick={clearFilters} variant="ghost" size="sm">Limpar filtros</Button>
           )}
 
+          <Button onClick={exportCsv} variant="outline" size="sm" disabled={exporting} className="gap-2">
+            {exporting ? 'Exportando…' : 'Exportar CSV'}
+          </Button>
+
           <div className="flex gap-2 items-end ml-auto">
             <div>
               <label className="text-xs text-muted-foreground">Cadastrar novo</label>
@@ -215,10 +260,20 @@ export default function Sanitarios() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
         {/* Lista */}
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-3 flex-row items-center justify-between">
             <CardTitle className="text-base">
-              {loading ? 'Carregando…' : `${list.length} sanitários`}
+              {loading ? 'Carregando…' : `${total} sanitário${total === 1 ? '' : 's'}`}
             </CardTitle>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Por página:</span>
+              <select
+                className="border rounded h-8 px-1 bg-background"
+                value={pageSize}
+                onChange={(e) => setPageSize(parseInt(e.target.value))}
+              >
+                {[25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
           </CardHeader>
           <CardContent className="p-0 max-h-[70vh] overflow-y-auto">
             <table className="w-full text-sm">
@@ -259,6 +314,23 @@ export default function Sanitarios() {
               </tbody>
             </table>
           </CardContent>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between p-3 border-t text-xs">
+              <span className="text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" disabled={page <= 1 || loading}
+                  onClick={() => { setPage(1); load(1); }}>« Início</Button>
+                <Button size="sm" variant="outline" disabled={page <= 1 || loading}
+                  onClick={() => { const n = page - 1; setPage(n); load(n); }}>‹ Anterior</Button>
+                <Button size="sm" variant="outline" disabled={page >= totalPages || loading}
+                  onClick={() => { const n = page + 1; setPage(n); load(n); }}>Próxima ›</Button>
+                <Button size="sm" variant="outline" disabled={page >= totalPages || loading}
+                  onClick={() => { setPage(totalPages); load(totalPages); }}>Fim »</Button>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Detalhe */}
