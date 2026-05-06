@@ -52,17 +52,23 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
       return true;
     }
     
-    // ✅ NOVO: Verificar mudanças nos endereços
-    const addressChanges = newRoute.points?.some((newPoint: any) => {
+    // ✅ NOVO: Verificar mudanças nos endereços, tipo de operação ou categoria
+    const fieldChanges = newRoute.points?.some((newPoint: any) => {
       const oldPoint = oldRoute.points?.find((p: any) => p.id === newPoint.id);
-      return oldPoint && oldPoint.address !== newPoint.address;
+      if (!oldPoint) return false;
+      return (
+        oldPoint.address !== newPoint.address ||
+        oldPoint.operation_type !== newPoint.operation_type ||
+        oldPoint.point_category !== newPoint.point_category ||
+        oldPoint.recolhido_qty !== newPoint.recolhido_qty
+      );
     });
-    
-    if (addressChanges) {
-      console.log(`🔍 [ROUTE SYNC] Mudança estrutural: endereços alterados`);
+
+    if (fieldChanges) {
+      console.log(`🔍 [ROUTE SYNC] Mudança estrutural: campos operacionais alterados`);
       return true;
     }
-    
+
     // ✅ IGNORAR: Apenas mudanças de completed/completedAt (progresso local)
     console.log(`🔍 [ROUTE SYNC] Apenas mudanças de progresso - mantendo estado local`);
     return false;
