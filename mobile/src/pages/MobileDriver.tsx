@@ -299,44 +299,70 @@ const MobileDriver = () => {
     toast.success('Logout realizado com sucesso');
   };
 
+  /**
+   * V2: Antes de marcar como concluído, exigir fotos (3 mín) e
+   * — em recolhimento — abrir modal de quantidade.
+   * Se uncomplete, faz direto.
+   */
   const handlePointUpdate = async (pointId: string, completed: boolean) => {
+    if (!fullTruckData?.id || !fullTruckData.currentRoute) return;
+    const point = fullTruckData.currentRoute.points.find((p: any) => p.id === pointId);
+    if (!point) return;
+
+    if (!completed) {
+      return commitPointUpdate(pointId, false);
+    }
+
+    setPendingPoint(point);
+    if (point.operationType === 'recolhimento') {
+      setShowQtyModal(true);
+    } else {
+      setShowPhotoModal(true);
+    }
+  };
+
+  const commitPointUpdate = async (
+    pointId: string,
+    completed: boolean,
+    extra?: { recolhidoQty?: number; autoRemoved?: boolean }
+  ) => {
     try {
       if (!fullTruckData?.id) return;
-      
       await updateRoutePoint({
         truckId: fullTruckData.id,
         pointId,
-        completed
-      });
-      
+        completed,
+        ...(extra || {}),
+      } as any);
+
       const updatedData = {
         ...fullTruckData,
         currentRoute: {
           ...fullTruckData.currentRoute!,
-          points: fullTruckData.currentRoute!.points.map(p => 
-            p.id === pointId 
-              ? { ...p, completed, completedAt: completed ? new Date().toISOString() : undefined }
-              : p
-          )
-        }
+          points: fullTruckData.currentRoute!.points
+            .map((p: any) =>
+              p.id === pointId
+                ? {
+                    ...p,
+                    completed,
+                    completedAt: completed ? new Date().toISOString() : undefined,
+                    recolhidoQty: extra?.recolhidoQty ?? p.recolhidoQty,
+                    autoRemoved: extra?.autoRemoved ?? p.autoRemoved,
+                  }
+                : p
+            )
+            .filter((p: any) => !(p.autoRemoved === true)),
+        },
       };
-      
       setFullTruckData(updatedData);
-      
+
       const routeProgress = Object.fromEntries(
-        updatedData.currentRoute!.points.map(p => [
-          p.id, 
-          { completed: p.completed, completedAt: p.completedAt }
+        updatedData.currentRoute!.points.map((p: any) => [
+          p.id,
+          { completed: p.completed, completedAt: p.completedAt },
         ])
       );
-      
-      persistState({
-        isLoggedIn: true,
-        plateNumber,
-        truckData,
-        routeProgress
-      });
-      
+      persistState({ isLoggedIn: true, plateNumber, truckData, routeProgress });
     } catch (error) {
       console.error('❌ [MOBILE] Erro ao atualizar ponto:', error);
       toast.error('Erro ao atualizar ponto da rota');
