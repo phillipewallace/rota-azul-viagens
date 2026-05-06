@@ -382,8 +382,9 @@ const ItemsView: React.FC<{
   items: ErpItem[]; categories: ErpCategory[];
   onEdit: (i: ErpItem) => void; onCreate: () => void;
   onMovement: (i: ErpItem, t: 'in' | 'out' | 'adjust' | 'discard') => void;
+  onHistory: (i: ErpItem) => void;
   onDelete: (id: string) => void;
-}> = ({ items, categories, onEdit, onCreate, onMovement, onDelete }) => {
+}> = ({ items, categories, onEdit, onCreate, onMovement, onHistory, onDelete }) => {
   const [filter, setFilter] = useState<string>('all');
   const filtered = useMemo(
     () => items.filter(i => filter === 'all' || i.categoryId === filter),
