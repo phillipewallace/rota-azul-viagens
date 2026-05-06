@@ -973,19 +973,15 @@ router.post('/:id/optimize-manual', async (req, res) => {
     // ✅ ATUALIZAR ROTA NO BANCO COM MODO 'optimized'
     await client.query(
       `UPDATE routes SET 
-       points = $1,
-       total_distance = $2,
-       estimated_time = $3,
-       estimated_duration = $4,
-       optimized_order = $5,
-       polyline = $6,
+       total_distance = $1,
+       estimated_duration = $2,
+       optimized_order = $3,
+       polyline = $4,
        optimization_mode = 'optimized',
        updated_at = CURRENT_TIMESTAMP
-       WHERE id = $7`,
+       WHERE id = $5`,
       [
-        JSON.stringify(optimizedResult.optimizedPoints),
         optimizedResult.totalDistance,
-        estimatedTime,
         Math.round(optimizedResult.totalDuration),
         JSON.stringify(optimizedResult.optimizedOrder || []),
         optimizedResult.polyline || null,
