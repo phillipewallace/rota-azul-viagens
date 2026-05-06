@@ -401,6 +401,26 @@ const ItemsView: React.FC<{
           </SelectContent>
         </Select>
         <div className="flex-1" />
+        <Button variant="outline" onClick={() => {
+          const headers = ['Item','SKU','Categoria','Estoque','Unidade','Mínimo','Validade'];
+          const rows = filtered.map(i => [i.name, i.sku || '', i.categoryName,
+            Number(i.currentQty), i.unit, Number(i.minQty),
+            i.expiryDate ? new Date(i.expiryDate).toLocaleDateString('pt-BR') : '']);
+          downloadCsv(`estoque-atual-${new Date().toISOString().slice(0,10)}`, headers, rows);
+        }} disabled={filtered.length === 0}>
+          <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+        </Button>
+        <Button variant="outline" onClick={() => {
+          const headers = ['Item','SKU','Categoria','Estoque','Unidade','Mínimo','Validade'];
+          const rows = filtered.map(i => [i.name, i.sku || '', i.categoryName,
+            Number(i.currentQty), i.unit, Number(i.minQty),
+            i.expiryDate ? new Date(i.expiryDate).toLocaleDateString('pt-BR') : '']);
+          downloadPdf({ filename: `estoque-atual-${new Date().toISOString().slice(0,10)}`,
+            title: 'Relatório · Estoque atual', subtitle: `${rows.length} item(ns)`,
+            headers, rows, orientation: 'landscape' });
+        }} disabled={filtered.length === 0}>
+          <FileText className="h-4 w-4 mr-1" /> PDF
+        </Button>
         <Button onClick={onCreate} disabled={categories.length === 0}>
           <Plus className="h-4 w-4 mr-2" /> Novo item
         </Button>
