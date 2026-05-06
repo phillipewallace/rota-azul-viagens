@@ -201,6 +201,14 @@ CREATE TABLE IF NOT EXISTS public.maintenance_records (
 );
 ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS scheduled_date DATE;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS maintenance_date DATE;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS files JSONB DEFAULT '[]';
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS type TEXT;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS cost NUMERIC DEFAULT 0;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS truck_id UUID;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS description TEXT;
 
 -- ============================== SANITARIOS ==================================
 CREATE TABLE IF NOT EXISTS public.sanitarios (
