@@ -10,7 +10,7 @@ const router = Router();
  */
 router.get('/', requireAuth, async (req: any, res: any) => {
   try {
-    const { status, q } = req.query;
+    const { status, q, truckId } = req.query;
     const conds: string[] = [];
     const params: any[] = [];
     if (status) {
@@ -19,17 +19,39 @@ router.get('/', requireAuth, async (req: any, res: any) => {
     }
     if (q) {
       params.push(`%${q}%`);
-      conds.push(`s.numero ILIKE $${params.length}`);
+      conds.push(`(s.numero ILIKE $${params.length} OR s.current_customer_name ILIKE $${params.length} OR s.current_address ILIKE $${params.length})`);
+    }
+    if (truckId) {
+      params.push(truckId);
+      conds.push(`lm.truck_id = $${params.length}`);
     }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    // junta a última localização gps do caminhão (se houver)
     const r = await pool.query(
-      `SELECT s.* FROM sanitarios s ${where} ORDER BY s.numero ASC`,
+      `SELECT s.*, lm.truck_id AS current_truck_id, t.name AS current_truck_name, t.plate AS current_truck_plate
+         FROM sanitarios s
+         LEFT JOIN LATERAL (
+           SELECT truck_id FROM sanitario_movimentacoes m
+            WHERE m.sanitario_id = s.id AND m.truck_id IS NOT NULL
+            ORDER BY occurred_at DESC LIMIT 1
+         ) lm ON TRUE
+         LEFT JOIN trucks t ON t.id = lm.truck_id
+         ${where}
+         ORDER BY s.numero ASC`,
       params
     );
     res.json(r.rows);
   } catch (e: any) {
     console.error('[SANITARIOS] list err:', e);
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
+/** GET /api/sanitarios/meta/trucks — lista de caminhões para filtro */
+router.get('/meta/trucks', requireAuth, async (_req: any, res: any) => {
+  try {
+    const r = await pool.query(`SELECT id, name, plate FROM trucks ORDER BY name ASC`);
+    res.json(r.rows);
+  } catch (e: any) {
     res.status(500).json({ error: e?.message || 'erro' });
   }
 });
