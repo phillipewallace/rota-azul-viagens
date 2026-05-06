@@ -269,4 +269,116 @@ router.get('/dashboard', async (_req: Request, res: Response) => {
   } catch (e: any) { console.error('[ERP dashboard]', e); res.status(500).json({ error: e.message }); }
 });
 
+// ============ FROTA (veículos) ============
+router.get('/vehicles', async (_req: Request, res: Response) => {
+  try {
+    const r = await pool.query(`
+      SELECT v.id, v.name, v.vehicle_type AS "vehicleType", v.brand, v.model, v.year,
+             v.plate, v.renavam, v.chassis, v.color, v.fuel,
+             v.acquisition_date AS "acquisitionDate", v.notes, v.active,
+             v.created_at AS "createdAt", v.updated_at AS "updatedAt",
+             (SELECT COUNT(*) FROM erp_vehicle_comments c WHERE c.vehicle_id = v.id)::int AS "commentsCount",
+             (SELECT COUNT(*) FROM erp_vehicle_comments c WHERE c.vehicle_id = v.id AND c.status='open')::int AS "openCount"
+      FROM erp_vehicles v
+      ORDER BY v.name`);
+    res.json(r.rows);
+  } catch (e: any) { console.error('[ERP vehicles GET]', e); res.status(500).json({ error: e.message }); }
+});
+
+router.post('/vehicles', async (req: Request, res: Response) => {
+  try {
+    const { name, vehicleType, brand, model, year, plate, renavam, chassis, color, fuel, acquisitionDate, notes } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
+    const r = await pool.query(
+      `INSERT INTO erp_vehicles (name,vehicle_type,brand,model,year,plate,renavam,chassis,color,fuel,acquisition_date,notes)
+       VALUES ($1,COALESCE($2,'caminhao'),$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [name, vehicleType, brand || null, model || null, year || null,
+       plate || null, renavam || null, chassis || null, color || null, fuel || null,
+       acquisitionDate || null, notes || null]
+    );
+    res.json(r.rows[0]);
+  } catch (e: any) { console.error('[ERP vehicles POST]', e); res.status(500).json({ error: e.message }); }
+});
+
+router.put('/vehicles/:id', async (req: Request, res: Response) => {
+  try {
+    const { name, vehicleType, brand, model, year, plate, renavam, chassis, color, fuel, acquisitionDate, notes, active } = req.body;
+    const r = await pool.query(
+      `UPDATE erp_vehicles SET
+         name=COALESCE($2,name), vehicle_type=COALESCE($3,vehicle_type),
+         brand=$4, model=$5, year=$6, plate=$7, renavam=$8, chassis=$9,
+         color=$10, fuel=$11, acquisition_date=$12, notes=$13,
+         active=COALESCE($14,active), updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [req.params.id, name, vehicleType, brand || null, model || null, year || null,
+       plate || null, renavam || null, chassis || null, color || null, fuel || null,
+       acquisitionDate || null, notes || null, active]
+    );
+    res.json(r.rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/vehicles/:id', async (req: Request, res: Response) => {
+  try {
+    await pool.query('DELETE FROM erp_vehicles WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Comentários do veículo (timeline: multas, manutenções, observações)
+router.get('/vehicles/:id/comments', async (req: Request, res: Response) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, vehicle_id AS "vehicleId", comment, category,
+              reference_date AS "referenceDate", amount, status,
+              attachment_url AS "attachmentUrl", author,
+              created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM erp_vehicle_comments WHERE vehicle_id=$1
+       ORDER BY COALESCE(reference_date, created_at::date) DESC, created_at DESC`,
+      [req.params.id]
+    );
+    res.json(r.rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/vehicles/:id/comments', async (req: AuthedRequest, res: Response) => {
+  try {
+    const { comment, category, referenceDate, amount, status, attachmentUrl } = req.body;
+    if (!comment || !comment.trim()) return res.status(400).json({ error: 'Comentário obrigatório' });
+    const r = await pool.query(
+      `INSERT INTO erp_vehicle_comments (vehicle_id,comment,category,reference_date,amount,status,attachment_url,author)
+       VALUES ($1,$2,$3,$4,$5,COALESCE($6,'open'),$7,$8) RETURNING *`,
+      [req.params.id, comment, category || null, referenceDate || null,
+       amount != null ? parseFloat(amount) : null, status, attachmentUrl || null,
+       req.user?.username || null]
+    );
+    res.json(r.rows[0]);
+  } catch (e: any) { console.error('[ERP veh comments POST]', e); res.status(500).json({ error: e.message }); }
+});
+
+router.put('/vehicles/:vid/comments/:cid', async (req: Request, res: Response) => {
+  try {
+    const { comment, category, referenceDate, amount, status, attachmentUrl } = req.body;
+    const r = await pool.query(
+      `UPDATE erp_vehicle_comments SET
+         comment=COALESCE($3,comment), category=$4, reference_date=$5,
+         amount=$6, status=COALESCE($7,status), attachment_url=$8,
+         updated_at=NOW()
+       WHERE id=$2 AND vehicle_id=$1 RETURNING *`,
+      [req.params.vid, req.params.cid, comment, category || null,
+       referenceDate || null, amount != null ? parseFloat(amount) : null,
+       status, attachmentUrl || null]
+    );
+    res.json(r.rows[0]);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/vehicles/:vid/comments/:cid', async (req: Request, res: Response) => {
+  try {
+    await pool.query('DELETE FROM erp_vehicle_comments WHERE id=$2 AND vehicle_id=$1',
+      [req.params.vid, req.params.cid]);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 export default router;
