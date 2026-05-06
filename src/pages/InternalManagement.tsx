@@ -570,46 +570,268 @@ const EmployeesView: React.FC<{
 );
 
 /* ============ Movimentações ============ */
-const MovementsView: React.FC<{ movements: ErpMovement[] }> = ({ movements }) => (
-  <Card><CardContent className="p-0">
-    <Table>
-      <TableHeader><TableRow>
-        <TableHead>Data</TableHead><TableHead>Item</TableHead>
-        <TableHead>Tipo</TableHead><TableHead className="text-right">Qtd</TableHead>
-        <TableHead>Funcionário</TableHead><TableHead>Por</TableHead>
-        <TableHead>PDF</TableHead>
-      </TableRow></TableHeader>
-      <TableBody>
-        {movements.length === 0 ? (
-          <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-            Nenhuma movimentação registrada.
-          </TableCell></TableRow>
-        ) : movements.map(m => (
-          <TableRow key={m.id}>
-            <TableCell className="text-xs">{new Date(m.createdAt).toLocaleString('pt-BR')}</TableCell>
-            <TableCell>{m.itemName}</TableCell>
-            <TableCell>
-              <span className={`px-2 py-1 rounded text-xs font-medium ${movementColor[m.type]}`}>
-                {movementLabel[m.type]}
-              </span>
-            </TableCell>
-            <TableCell className="text-right">{Number(m.qty)} {m.unit}</TableCell>
-            <TableCell>{m.employeeName || '-'}</TableCell>
-            <TableCell className="text-xs">{m.performedBy || '-'}</TableCell>
-            <TableCell>
-              {m.signedPdfUrl ? (
-                <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
-                   className="text-blue-600 underline text-xs flex items-center gap-1">
-                  <FileSignature className="h-3 w-3" /> Termo
-                </a>
-              ) : '-'}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  </CardContent></Card>
-);
+const MovementsView: React.FC<{ movements: ErpMovement[]; items: ErpItem[] }> = ({ movements, items }) => {
+  const [type, setType] = useState<string>('all');
+  const [itemId, setItemId] = useState<string>('all');
+  const [from, setFrom] = useState<string>('');
+  const [to, setTo] = useState<string>('');
+
+  const filtered = useMemo(() => movements.filter(m => {
+    if (type !== 'all' && m.type !== type) return false;
+    if (itemId !== 'all' && m.itemId !== itemId) return false;
+    const d = new Date(m.createdAt);
+    if (from && d < new Date(from + 'T00:00:00')) return false;
+    if (to && d > new Date(to + 'T23:59:59')) return false;
+    return true;
+  }), [movements, type, itemId, from, to]);
+
+  const buildExport = () => {
+    const headers = ['Data','Item','Tipo','Quantidade','Unidade','Funcionário','Registrado por','Observações','PDF'];
+    const rows = filtered.map(m => [
+      new Date(m.createdAt).toLocaleString('pt-BR'),
+      m.itemName, movementLabel[m.type], Number(m.qty), m.unit,
+      m.employeeName || '', m.performedBy || '', m.notes || '',
+      m.signedPdfUrl || '',
+    ]);
+    return { headers, rows };
+  };
+  const exportCsv = () => {
+    const { headers, rows } = buildExport();
+    downloadCsv(`movimentacoes-${new Date().toISOString().slice(0,10)}`, headers, rows);
+  };
+  const exportPdf = () => {
+    const { headers, rows } = buildExport();
+    downloadPdf({
+      filename: `movimentacoes-${new Date().toISOString().slice(0,10)}`,
+      title: 'Auditoria · Histórico de movimentações',
+      subtitle: `${rows.length} registro(s)${from ? ` de ${from}` : ''}${to ? ` até ${to}` : ''}`,
+      headers, rows, orientation: 'landscape',
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <Card><CardContent className="pt-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+          <div>
+            <Label className="text-xs">Tipo</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="in">Entrada</SelectItem>
+                <SelectItem value="out">Retirada</SelectItem>
+                <SelectItem value="adjust">Ajuste</SelectItem>
+                <SelectItem value="discard">Descarte</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs">Item</Label>
+            <Select value={itemId} onValueChange={setItemId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os itens</SelectItem>
+                {items.map(i => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">De</Label>
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Até</Label>
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex justify-between items-center mt-3">
+          <span className="text-xs text-muted-foreground">{filtered.length} registro(s)</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportPdf} disabled={filtered.length === 0}>
+              <FileText className="h-4 w-4 mr-1" /> PDF
+            </Button>
+          </div>
+        </div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-0">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Data</TableHead><TableHead>Item</TableHead>
+            <TableHead>Tipo</TableHead><TableHead className="text-right">Qtd</TableHead>
+            <TableHead>Funcionário</TableHead><TableHead>Por</TableHead>
+            <TableHead>PDF</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                Nenhuma movimentação no filtro atual.
+              </TableCell></TableRow>
+            ) : filtered.map(m => (
+              <TableRow key={m.id}>
+                <TableCell className="text-xs">{new Date(m.createdAt).toLocaleString('pt-BR')}</TableCell>
+                <TableCell>{m.itemName}</TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${movementColor[m.type]}`}>
+                    {movementLabel[m.type]}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">{Number(m.qty)} {m.unit}</TableCell>
+                <TableCell>{m.employeeName || '-'}</TableCell>
+                <TableCell className="text-xs">{m.performedBy || '-'}</TableCell>
+                <TableCell>
+                  {m.signedPdfUrl ? (
+                    <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
+                       className="text-blue-600 underline text-xs flex items-center gap-1">
+                      <FileSignature className="h-3 w-3" /> Termo
+                    </a>
+                  ) : '-'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
+    </div>
+  );
+};
+
+/* ============ Histórico por item ============ */
+const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ item, onClose }) => {
+  const [movs, setMovs] = useState<ErpMovement[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    erpService.listMovements(item.id)
+      .then(setMovs)
+      .catch((e: any) => toast.error(e.message))
+      .finally(() => setLoading(false));
+  }, [item.id]);
+
+  const summary = useMemo(() => {
+    const s = { in: 0, out: 0, adjust: 0, discard: 0 };
+    movs.forEach(m => { s[m.type] += Number(m.qty); });
+    return s;
+  }, [movs]);
+
+  const exportCsv = () => {
+    const headers = ['Data','Tipo','Quantidade','Unidade','Funcionário','Registrado por','Observações'];
+    const rows = movs.map(m => [
+      new Date(m.createdAt).toLocaleString('pt-BR'),
+      movementLabel[m.type], Number(m.qty), m.unit,
+      m.employeeName || '', m.performedBy || '', m.notes || '',
+    ]);
+    downloadCsv(`historico-${item.name}-${new Date().toISOString().slice(0,10)}`, headers, rows);
+  };
+  const exportPdf = () => {
+    const headers = ['Data','Tipo','Quantidade','Unidade','Funcionário','Registrado por','Observações'];
+    const rows = movs.map(m => [
+      new Date(m.createdAt).toLocaleString('pt-BR'),
+      movementLabel[m.type], Number(m.qty), m.unit,
+      m.employeeName || '', m.performedBy || '', m.notes || '',
+    ]);
+    downloadPdf({
+      filename: `historico-${item.name}-${new Date().toISOString().slice(0,10)}`,
+      title: `Histórico do item · ${item.name}`,
+      subtitle: `Categoria: ${item.categoryName} · Estoque atual: ${Number(item.currentQty)} ${item.unit}`,
+      headers, rows, orientation: 'landscape',
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-blue-600" />
+            Histórico · {item.name}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {item.categoryName} · Estoque atual <strong>{Number(item.currentQty)} {item.unit}</strong>
+          </p>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <Card><CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Total entrada</p>
+            <p className="text-xl font-bold text-green-600">+{summary.in} {item.unit}</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Total retirada</p>
+            <p className="text-xl font-bold text-blue-600">-{summary.out} {item.unit}</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Ajustes</p>
+            <p className="text-xl font-bold text-amber-600">{summary.adjust}</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Descarte</p>
+            <p className="text-xl font-bold text-red-600">{summary.discard} {item.unit}</p>
+          </CardContent></Card>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={exportCsv} disabled={movs.length === 0}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportPdf} disabled={movs.length === 0}>
+            <FileText className="h-4 w-4 mr-1" /> PDF
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : (
+          <Card><CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Data</TableHead><TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Qtd</TableHead>
+                <TableHead>Funcionário</TableHead><TableHead>Por</TableHead>
+                <TableHead>Obs.</TableHead><TableHead>PDF</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {movs.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                    Nenhuma movimentação registrada.
+                  </TableCell></TableRow>
+                ) : movs.map(m => (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-xs">{new Date(m.createdAt).toLocaleString('pt-BR')}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${movementColor[m.type]}`}>
+                        {movementLabel[m.type]}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">{Number(m.qty)} {m.unit}</TableCell>
+                    <TableCell>{m.employeeName || '-'}</TableCell>
+                    <TableCell className="text-xs">{m.performedBy || '-'}</TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate" title={m.notes || ''}>
+                      {m.notes || '-'}
+                    </TableCell>
+                    <TableCell>
+                      {m.signedPdfUrl ? (
+                        <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
+                           className="text-blue-600 text-xs underline">PDF</a>
+                      ) : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent></Card>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 /* ============ Modais ============ */
 const CategoryModal: React.FC<{ category: ErpCategory; onClose: () => void; onSaved: () => void }> =
