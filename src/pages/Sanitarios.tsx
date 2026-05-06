@@ -260,10 +260,20 @@ export default function Sanitarios() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
         {/* Lista */}
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-3 flex-row items-center justify-between">
             <CardTitle className="text-base">
-              {loading ? 'Carregando…' : `${list.length} sanitários`}
+              {loading ? 'Carregando…' : `${total} sanitário${total === 1 ? '' : 's'}`}
             </CardTitle>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Por página:</span>
+              <select
+                className="border rounded h-8 px-1 bg-background"
+                value={pageSize}
+                onChange={(e) => setPageSize(parseInt(e.target.value))}
+              >
+                {[25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
           </CardHeader>
           <CardContent className="p-0 max-h-[70vh] overflow-y-auto">
             <table className="w-full text-sm">
