@@ -16,8 +16,10 @@ let watcherId: string | null = null;
 
 async function loadPlugin(): Promise<any | null> {
   try {
-    // Import dinâmico — só funciona se o plugin estiver instalado no APK
-    const mod: any = await import(/* @vite-ignore */ '@capacitor-community/background-geolocation');
+    // Import dinâmico via variável para o Vite NÃO tentar resolver em build time.
+    // Só resolve em runtime no APK nativo, onde o plugin está instalado.
+    const pkg = ['@capacitor-community', 'background-geolocation'].join('/');
+    const mod: any = await import(/* @vite-ignore */ pkg);
     return mod.BackgroundGeolocation;
   } catch {
     return null;
