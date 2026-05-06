@@ -80,11 +80,11 @@ export async function startBackgroundTracking(routeId: string, truckId?: string)
   try {
     watcherId = await BG.addWatcher(
       {
-        backgroundMessage: 'Rastreando rota em segundo plano',
-        backgroundTitle: 'Rota em andamento',
+        backgroundMessage: 'Rastreamento ativo — não feche o app até finalizar a rota.',
+        backgroundTitle: '🚛 Rota em andamento',
         requestPermissions: true,
         stale: false,
-        distanceFilter: 50,
+        distanceFilter: 30,
       },
       (loc: any, err: any) => {
         if (err) {
@@ -92,7 +92,7 @@ export async function startBackgroundTracking(routeId: string, truckId?: string)
           return;
         }
         if (!loc) return;
-        if (loc.speed !== null && loc.speed !== undefined && loc.speed < 0.5) return;
+        // Sempre envia (motorista pode estar parado em cliente)
         postLocation(routeId, tId, loc.latitude, loc.longitude, loc.speed);
       }
     );

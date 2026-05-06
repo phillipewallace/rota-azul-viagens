@@ -388,7 +388,9 @@ const MobileDriver = () => {
     }
   };
 
-  // V2 — start/stop background tracking conforme rota ativa
+  // V2 — start background tracking enquanto houver rota ativa.
+  // NÃO paramos no cleanup: o tracking só termina quando o motorista
+  // finalizar a rota (handleFinishRoute) ou fizer logout.
   useEffect(() => {
     const routeId = fullTruckData?.currentRoute?.id;
     if (routeId) {
@@ -397,10 +399,7 @@ const MobileDriver = () => {
       });
       flushQueue().catch(() => {});
     }
-    return () => {
-      if (routeId) stopBackgroundTracking().catch(() => {});
-    };
-  }, [fullTruckData?.currentRoute?.id]);
+  }, [fullTruckData?.currentRoute?.id, fullTruckData?.id]);
 
   // Navegar para lista de paradas
   const navigateToStops = () => {

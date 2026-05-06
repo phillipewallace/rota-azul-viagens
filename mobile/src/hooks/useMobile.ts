@@ -119,15 +119,26 @@ export const useMobile = () => {
     return result;
   }, []);
 
-  const updateRoutePoint = useCallback(async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
+  const updateRoutePoint = useCallback(async (params: {
+    truckId: string;
+    pointId: string;
+    completed: boolean;
+    recolhidoQty?: number;
+    autoRemoved?: boolean;
+    operationType?: string;
+    observation?: string;
+    sanitarioNumbers?: string[];
+    sanitarioRecolhidos?: string[];
+  }) => {
+    const { truckId, pointId, ...rest } = params;
     const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
       method: 'PUT',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
       credentials: 'omit',
-      body: JSON.stringify({ completed }),
+      body: JSON.stringify(rest),
     });
     
     if (!response.ok) {
