@@ -21,9 +21,19 @@ interface Sanitario {
   current_address?: string;
   current_lat?: number;
   current_lng?: number;
+  current_truck_id?: string;
+  current_truck_name?: string;
+  current_truck_plate?: string;
   installed_at?: string;
   notes?: string;
 }
+
+interface Truck { id: string; name: string; plate?: string }
+
+const authHeaders = (): HeadersInit => {
+  const t = localStorage.getItem('auth_token');
+  return t ? { Authorization: `Bearer ${t}` } : {};
+};
 
 interface Movimentacao {
   id: string;
@@ -57,6 +67,8 @@ export default function Sanitarios() {
   const [list, setList] = useState<Sanitario[]>([]);
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [truckFilter, setTruckFilter] = useState('');
+  const [trucks, setTrucks] = useState<Truck[]>([]);
   const [selected, setSelected] = useState<(Sanitario & { historico: Movimentacao[] }) | null>(null);
   const [loading, setLoading] = useState(false);
   const [newNum, setNewNum] = useState('');
@@ -67,7 +79,8 @@ export default function Sanitarios() {
       const url = new URL(`${API_BASE_URL}/sanitarios`);
       if (statusFilter) url.searchParams.set('status', statusFilter);
       if (filter) url.searchParams.set('q', filter);
-      const r = await fetch(url.toString());
+      if (truckFilter) url.searchParams.set('truckId', truckFilter);
+      const r = await fetch(url.toString(), { headers: authHeaders() });
       const data = await r.json();
       setList(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -75,11 +88,23 @@ export default function Sanitarios() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [statusFilter]);
+  const loadTrucks = async () => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/sanitarios/meta/trucks`, { headers: authHeaders() });
+      if (r.ok) setTrucks(await r.json());
+    } catch { /* silencioso */ }
+  };
+
+  const clearFilters = () => {
+    setFilter(''); setStatusFilter(''); setTruckFilter('');
+  };
+
+  useEffect(() => { loadTrucks(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [statusFilter, truckFilter]);
 
   const openDetail = async (numero: string) => {
     try {
-      const r = await fetch(`${API_BASE_URL}/sanitarios/${encodeURIComponent(numero)}`);
+      const r = await fetch(`${API_BASE_URL}/sanitarios/${encodeURIComponent(numero)}`, { headers: authHeaders() });
       if (!r.ok) throw new Error('não encontrado');
       setSelected(await r.json());
     } catch {
@@ -92,8 +117,8 @@ export default function Sanitarios() {
     try {
       const r = await fetch(`${API_BASE_URL}/sanitarios`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numero: newNum.trim() }),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ numero: newNum.trim().toUpperCase() }),
       });
       if (!r.ok) throw new Error();
       toast.success(`Sanitário ${newNum} cadastrado`);
@@ -120,14 +145,14 @@ export default function Sanitarios() {
       {/* Cadastro rápido + filtros */}
       <Card className="mb-4">
         <CardContent className="p-4 flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-muted-foreground">Buscar por número</label>
+          <div className="flex-1 min-w-[240px]">
+            <label className="text-xs text-muted-foreground">Buscar (número, cliente ou endereço)</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   className="pl-8"
-                  placeholder="ex: 1024"
+                  placeholder="ex: 1024, Cliente XPTO, Av. Brasil…"
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && load()}
@@ -140,7 +165,7 @@ export default function Sanitarios() {
           <div>
             <label className="text-xs text-muted-foreground">Status</label>
             <select
-              className="block border rounded-md h-10 px-2"
+              className="block border rounded-md h-10 px-2 bg-background"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -152,7 +177,27 @@ export default function Sanitarios() {
             </select>
           </div>
 
-          <div className="flex gap-2 items-end">
+          <div>
+            <label className="text-xs text-muted-foreground">Caminhão</label>
+            <select
+              className="block border rounded-md h-10 px-2 bg-background min-w-[160px]"
+              value={truckFilter}
+              onChange={(e) => setTruckFilter(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {trucks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}{t.plate ? ` (${t.plate})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(filter || statusFilter || truckFilter) && (
+            <Button onClick={clearFilters} variant="ghost" size="sm">Limpar filtros</Button>
+          )}
+
+          <div className="flex gap-2 items-end ml-auto">
             <div>
               <label className="text-xs text-muted-foreground">Cadastrar novo</label>
               <Input
@@ -183,6 +228,7 @@ export default function Sanitarios() {
                   <th className="p-2">Status</th>
                   <th className="p-2">Cliente atual</th>
                   <th className="p-2">Endereço</th>
+                  <th className="p-2">Caminhão</th>
                   <th className="p-2"></th>
                 </tr>
               </thead>
@@ -192,7 +238,12 @@ export default function Sanitarios() {
                     <td className="p-2 font-mono font-bold">{s.numero}</td>
                     <td className="p-2">{statusBadge(s.status)}</td>
                     <td className="p-2">{s.current_customer_name || '–'}</td>
-                    <td className="p-2 truncate max-w-[280px]">{s.current_address || '–'}</td>
+                    <td className="p-2 truncate max-w-[260px]">{s.current_address || '–'}</td>
+                    <td className="p-2 text-xs">
+                      {s.current_truck_name
+                        ? <>{s.current_truck_name}{s.current_truck_plate ? ` (${s.current_truck_plate})` : ''}</>
+                        : '–'}
+                    </td>
                     <td className="p-2 text-right">
                       <Button size="sm" variant="ghost" onClick={() => openDetail(s.numero)}>
                         <History className="h-4 w-4" />
@@ -201,7 +252,7 @@ export default function Sanitarios() {
                   </tr>
                 ))}
                 {!list.length && !loading && (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">
+                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
                     Nenhum sanitário cadastrado.
                   </td></tr>
                 )}
