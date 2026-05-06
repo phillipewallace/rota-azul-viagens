@@ -390,14 +390,6 @@ const MapComponent = () => {
     // Redraw all markers and routes with new states
     updateMapMarkers();
     
-    // Set timer to clear after 5 seconds
-    const timeout = setTimeout(() => {
-      clearPremiumHighlight();
-      console.log('⏱️ Destaque premium removido após 5 segundos');
-    }, 5000);
-    
-    setHighlightTimeout(timeout);
-    
     console.log('✨ Destaque premium aplicado:', truck.name);
   };
 
