@@ -35,9 +35,10 @@ err()  { echo -e "${C_R}[erro]${C_0}  $*"; exit 1; }
 [[ $EUID -eq 0 ]] || err "Rode com sudo: sudo ./deploy.sh"
 
 # ─── 1) git pull ────────────────────────────────────────────────────────────
-if [[ -d "${PROJECT_DIR}/.git" ]]; then
+if [[ -d "${PROJECT_DIR}/.git" ]] && [[ "${SKIP_GIT:-0}" != "1" ]]; then
   log "Atualizando código (git pull)…"
-  git -C "${PROJECT_DIR}" pull --rebase --autostash || warn "git pull falhou"
+  GIT_TERMINAL_PROMPT=0 git -C "${PROJECT_DIR}" pull --rebase --autostash 2>/dev/null \
+    || warn "git pull pulado (repo privado? rode com SKIP_GIT=1 ou configure SSH key / token)"
 fi
 
 # ─── 2) Dependências do sistema ─────────────────────────────────────────────
@@ -78,7 +79,7 @@ ok "Migrations aplicadas"
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
 log "Backend: instalando deps + compilando TS…"
 cd "${PROJECT_DIR}/backend"
-npm ci >/dev/null
+npm ci >/dev/null 2>&1 || { warn "npm ci falhou (lockfile fora de sync), usando npm install…"; npm install --no-audit --no-fund >/dev/null; }
 npm run build
 if [[ ! -f .env ]]; then
   log "Gerando backend/.env padrão…"
@@ -101,7 +102,7 @@ ok "Backend compilado"
 # ─── 6) Frontend: build + publicar ──────────────────────────────────────────
 log "Frontend: instalando deps + buildando (Vite)…"
 cd "${PROJECT_DIR}"
-npm ci >/dev/null
+npm ci >/dev/null 2>&1 || { warn "npm ci falhou (lockfile fora de sync), usando npm install…"; npm install --no-audit --no-fund >/dev/null; }
 npm run build
 mkdir -p "${WEB_ROOT}"
 rm -rf "${WEB_ROOT:?}/"*
