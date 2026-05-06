@@ -242,6 +242,30 @@ const InternalManagement: React.FC = () => {
 const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard }) => {
   if (!dashboard) return null;
   const { totals, lowStock, expiring } = dashboard;
+
+  const exportLowStock = (kind: 'csv' | 'pdf') => {
+    const headers = ['Item', 'Categoria', 'Atual', 'Mínimo', 'Unidade'];
+    const rows = lowStock.map((it: any) => [
+      it.name, it.categoryName, Number(it.currentQty), Number(it.minQty), it.unit,
+    ]);
+    const fname = `estoque-baixo-${new Date().toISOString().slice(0,10)}`;
+    if (kind === 'csv') downloadCsv(fname, headers, rows);
+    else downloadPdf({ filename: fname, title: 'Relatório · Estoque baixo',
+      subtitle: `${rows.length} item(ns)`, headers, rows });
+  };
+  const exportExpiring = (kind: 'csv' | 'pdf') => {
+    const headers = ['Item', 'Categoria', 'Validade', 'Dias restantes'];
+    const rows = expiring.map((it: any) => [
+      it.name, it.categoryName,
+      new Date(it.expiryDate).toLocaleDateString('pt-BR'),
+      it.daysLeft,
+    ]);
+    const fname = `validades-${new Date().toISOString().slice(0,10)}`;
+    if (kind === 'csv') downloadCsv(fname, headers, rows);
+    else downloadPdf({ filename: fname, title: 'Relatório · Itens vencendo',
+      subtitle: `${rows.length} item(ns)`, headers, rows });
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -260,10 +284,22 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-base">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-          Estoque baixo ({lowStock.length})
-        </CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            Estoque baixo ({lowStock.length})
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => exportLowStock('csv')}
+              disabled={lowStock.length === 0}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => exportLowStock('pdf')}
+              disabled={lowStock.length === 0}>
+              <FileText className="h-4 w-4 mr-1" /> PDF
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
           {lowStock.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum item abaixo do mínimo.</p>
@@ -292,10 +328,22 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-base">
-          <CalendarClock className="h-5 w-5 text-orange-500" />
-          Validade próxima ({expiring.length})
-        </CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarClock className="h-5 w-5 text-orange-500" />
+            Validade próxima ({expiring.length})
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => exportExpiring('csv')}
+              disabled={expiring.length === 0}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => exportExpiring('pdf')}
+              disabled={expiring.length === 0}>
+              <FileText className="h-4 w-4 mr-1" /> PDF
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
           {expiring.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum item próximo da validade.</p>
