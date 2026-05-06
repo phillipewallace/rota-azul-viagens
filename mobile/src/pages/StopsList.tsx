@@ -121,9 +121,20 @@ function SortableStopItem({
             {point.completed && (
               <CheckCircle2 className="h-5 w-5 text-green-600" />
             )}
-            {point.stopType && (
-              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
-                {point.stopType}
+            {point.operationType && (
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                point.operationType === 'entrega' ? 'bg-blue-100 text-blue-700' :
+                point.operationType === 'recolhimento' ? 'bg-orange-100 text-orange-700' :
+                'bg-purple-100 text-purple-700'
+              }`}>
+                {point.operationType === 'entrega' ? '📦 Entrega' :
+                 point.operationType === 'recolhimento' ? '🔄 Recolhimento' :
+                 '🔧 Manutenção'}
+              </span>
+            )}
+            {point.pointCategory && (
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+                {point.pointCategory === 'obra' ? '🏗️ Obra' : '🎉 Evento'}
               </span>
             )}
           </div>

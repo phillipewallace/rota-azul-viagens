@@ -128,16 +128,33 @@ const StopDetailsPage: React.FC = () => {
       {/* Conteúdo */}
       <main className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
         
-        {/* Tipo de Parada */}
-        {point.stopType && (
+        {/* Tipo de Operação e Categoria */}
+        {(point.operationType || point.pointCategory) && (
           <Card className="p-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Sparkles className="h-5 w-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Tipo de Parada</p>
-                <p className="font-semibold">{point.stopType}</p>
+              <div className="flex-1 space-y-2">
+                <p className="text-xs text-gray-500 uppercase">O que fazer aqui</p>
+                <div className="flex gap-2 flex-wrap">
+                  {point.operationType && (
+                    <span className={`text-sm font-bold px-3 py-1.5 rounded-lg ${
+                      point.operationType === 'entrega' ? 'bg-blue-100 text-blue-700' :
+                      point.operationType === 'recolhimento' ? 'bg-orange-100 text-orange-700' :
+                      'bg-purple-100 text-purple-700'
+                    }`}>
+                      {point.operationType === 'entrega' ? '📦 Entrega' :
+                       point.operationType === 'recolhimento' ? '🔄 Recolhimento' :
+                       '🔧 Manutenção'}
+                    </span>
+                  )}
+                  {point.pointCategory && (
+                    <span className="text-sm font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700">
+                      {point.pointCategory === 'obra' ? '🏗️ Obra' : '🎉 Evento'}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </Card>

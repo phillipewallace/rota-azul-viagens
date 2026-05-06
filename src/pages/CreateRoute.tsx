@@ -122,6 +122,12 @@ const DesktopCreateRoute = () => {
           notes: point.notes || point.observation || '',
           observation: point.notes || point.observation || '',
           stopType: point.stopType || '',
+          pointCategory: point.pointCategory || 'obra',
+          operationType: point.operationType || 'entrega',
+          recolhidoQty: point.recolhidoQty,
+          autoRemoved: point.autoRemoved || false,
+          sanitarioNumbers: point.sanitarioNumbers || [],
+          sanitarioRecolhidos: point.sanitarioRecolhidos || [],
           completed: point.completed || false,
           completedAt: point.completedAt || null
         }));
@@ -161,6 +167,12 @@ const DesktopCreateRoute = () => {
               notes: point.notes || point.observation || '',
               observation: point.observation || point.notes || '',
               stopType: point.stopType || '',
+              pointCategory: point.pointCategory || 'obra',
+              operationType: point.operationType || 'entrega',
+              recolhidoQty: point.recolhidoQty,
+              autoRemoved: point.autoRemoved || false,
+              sanitarioNumbers: point.sanitarioNumbers || [],
+              sanitarioRecolhidos: point.sanitarioRecolhidos || [],
               type: index === 0 ? 'origin' : (index === points.length - 1 ? 'destination' : 'waypoint')
             }));
             
@@ -477,7 +489,13 @@ const DesktopCreateRoute = () => {
             contactPhone: processedPoint.contactPhone || original?.contactPhone || '',
             notes: processedPoint.notes || processedPoint.observation || original?.notes || original?.observation || '',
             observation: processedPoint.notes || processedPoint.observation || original?.notes || original?.observation || '',
-            stopType: processedPoint.stopType || original?.stopType || ''
+            stopType: processedPoint.stopType || original?.stopType || '',
+            pointCategory: processedPoint.pointCategory || original?.pointCategory || 'obra',
+            operationType: processedPoint.operationType || original?.operationType || 'entrega',
+            recolhidoQty: processedPoint.recolhidoQty ?? original?.recolhidoQty,
+            autoRemoved: processedPoint.autoRemoved ?? original?.autoRemoved ?? false,
+            sanitarioNumbers: processedPoint.sanitarioNumbers || original?.sanitarioNumbers || [],
+            sanitarioRecolhidos: processedPoint.sanitarioRecolhidos || original?.sanitarioRecolhidos || []
           };
         }),
         totalDistance: totalDistance,
@@ -575,6 +593,12 @@ const DesktopCreateRoute = () => {
           notes: p.notes || p.observation || '',
           observation: p.notes || p.observation || '',
           stopType: p.stopType || '',
+          pointCategory: p.pointCategory || 'obra',
+          operationType: p.operationType || 'entrega',
+          recolhidoQty: p.recolhidoQty ?? null,
+          autoRemoved: p.autoRemoved ?? false,
+          sanitarioNumbers: Array.isArray(p.sanitarioNumbers) ? p.sanitarioNumbers : [],
+          sanitarioRecolhidos: Array.isArray(p.sanitarioRecolhidos) ? p.sanitarioRecolhidos : [],
           completed: p.completed || false,
           completedAt: p.completedAt || null
         })),

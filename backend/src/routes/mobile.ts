@@ -80,7 +80,13 @@ router.get('/truck/:plate', async (req, res) => {
             rp.contact_phone,
             rp.notes,
             rp.cep,
-            rp.stop_type
+            rp.stop_type,
+            COALESCE(rp.point_category, 'obra') AS point_category,
+            COALESCE(rp.operation_type, 'entrega') AS operation_type,
+            rp.recolhido_qty,
+            COALESCE(rp.auto_removed, false) AS auto_removed,
+            rp.sanitario_numbers,
+            rp.sanitario_recolhidos
           FROM route_points rp
           WHERE rp.route_id = $1
           ORDER BY rp.point_order ASC
@@ -128,7 +134,13 @@ router.get('/truck/:plate', async (req, res) => {
               notes: point.notes,
               observation: point.notes,
               cep: point.cep,
-              stopType: point.stop_type
+              stopType: point.stop_type,
+              pointCategory: point.point_category || 'obra',
+              operationType: point.operation_type || 'entrega',
+              recolhidoQty: point.recolhido_qty,
+              autoRemoved: point.auto_removed || false,
+              sanitarioNumbers: point.sanitario_numbers || [],
+              sanitarioRecolhidos: point.sanitario_recolhidos || []
             };
           });
         }
@@ -463,11 +475,13 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     await client.query('UPDATE routes SET updated_at = NOW() WHERE id = $1', [routeId]);
     await client.query('COMMIT');
 
-    // Garante registro em completed_routes (auto-cria se não existir) e sincroniza snapshot
+    // Garante registro em completed_routes (auto-cria com driver/plate se não existir)
     pool.query(
-      `INSERT INTO completed_routes (route_id, route_name, truck_id, truck_plate, started_at, status)
-         SELECT r.id, r.name, t.id, t.plate, NOW(), 'in_progress'
-           FROM routes r LEFT JOIN trucks t ON t.current_route_id = r.id
+      `INSERT INTO completed_routes (route_id, route_name, truck_id, truck_plate, driver_id, driver_name, started_at, status)
+         SELECT r.id, r.name, t.id, t.plate, t.current_driver_id, d.name, NOW(), 'in_progress'
+           FROM routes r
+           LEFT JOIN trucks t ON t.current_route_id = r.id
+           LEFT JOIN drivers d ON d.id = t.current_driver_id
           WHERE r.id = $1::uuid
             AND NOT EXISTS (
               SELECT 1 FROM completed_routes cr
@@ -506,12 +520,21 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
     await client.query('BEGIN');
     
     const { truckId } = req.params;
+    const { totalDistance, totalDuration } = req.body || {};
     
     console.log(`🏁 [MOBILE API] Finalizando rota do caminhão ${truckId}`);
     
-    // Buscar a rota atual do caminhão
+    // Buscar a rota atual + driver + plate
     const truckResult = await client.query(
-      'SELECT current_route_id FROM trucks WHERE id = $1',
+      `SELECT t.current_route_id, t.plate, t.current_driver_id,
+              d.name AS driver_name,
+              r.name AS route_name,
+              r.total_distance AS route_distance,
+              r.estimated_duration AS route_duration
+         FROM trucks t
+         LEFT JOIN drivers d ON d.id = t.current_driver_id
+         LEFT JOIN routes  r ON r.id = t.current_route_id
+        WHERE t.id = $1`,
       [truckId]
     );
     
@@ -520,12 +543,16 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
       return res.status(404).json({ error: 'Caminhão não encontrado' });
     }
     
-    const currentRouteId = truckResult.rows[0].current_route_id;
+    const tr = truckResult.rows[0];
+    const currentRouteId = tr.current_route_id;
     
     if (!currentRouteId) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Caminhão não possui rota ativa' });
     }
+    
+    const finalDistance = totalDistance ?? tr.route_distance ?? null;
+    const finalDuration = totalDuration ?? tr.route_duration ?? null;
     
     // Snapshot final no completed_routes (idempotente, auto-cria se necessário)
     try {
@@ -540,22 +567,30 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
 
       const upd = await client.query(
         `UPDATE completed_routes SET status = 'finished', finished_at = NOW(),
-                points_snapshot = $1::jsonb, photos_count = $2, updated_at = NOW()
-          WHERE route_id = $3::uuid AND status = 'in_progress'
+                total_distance = $1, total_duration = $2,
+                truck_id = COALESCE(truck_id, $6::uuid),
+                truck_plate = COALESCE(truck_plate, $7),
+                driver_id = COALESCE(driver_id, $8::uuid),
+                driver_name = COALESCE(driver_name, $9),
+                route_name = COALESCE(route_name, $10),
+                points_snapshot = $3::jsonb, photos_count = $4, updated_at = NOW()
+          WHERE route_id = $5::uuid AND status = 'in_progress'
           RETURNING id`,
-        [ptsJson, photosCount, currentRouteId]
+        [finalDistance, finalDuration, ptsJson, photosCount, currentRouteId,
+         truckId, tr.plate, tr.current_driver_id, tr.driver_name, tr.route_name]
       );
 
       if (!upd.rows.length) {
-        // Não havia in_progress — criar registro finalizado direto
         await client.query(
           `INSERT INTO completed_routes
-             (route_id, route_name, truck_id, truck_plate, started_at, finished_at,
-              status, points_snapshot, photos_count)
-           SELECT r.id, r.name, t.id, t.plate, NOW(), NOW(), 'finished', $2::jsonb, $3
-             FROM routes r LEFT JOIN trucks t ON t.id = $4::uuid
-            WHERE r.id = $1::uuid`,
-          [currentRouteId, ptsJson, photosCount, truckId]
+             (route_id, route_name, truck_id, truck_plate, driver_id, driver_name,
+              started_at, finished_at, status, total_distance, total_duration,
+              points_snapshot, photos_count)
+           VALUES ($1::uuid, $2, $3::uuid, $4, $5::uuid, $6,
+                   NOW(), NOW(), 'finished', $7, $8, $9::jsonb, $10)`,
+          [currentRouteId, tr.route_name, truckId, tr.plate,
+           tr.current_driver_id, tr.driver_name,
+           finalDistance, finalDuration, ptsJson, photosCount]
         );
       }
     } catch (e: any) {
