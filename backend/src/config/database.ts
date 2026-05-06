@@ -28,9 +28,29 @@ export const setupDatabase = async () => {
     // Verifica se as extensões estão instaladas
     await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
-    
+
     console.log('✅ Extensões do PostgreSQL verificadas');
-    
+
+    // 🛡️ Garantir colunas críticas (auto-migração defensiva — evita 500 se a
+    // migration de sanitários ainda não rodou). Idempotente.
+    const ensureCols: Array<[string, string, string]> = [
+      ['route_points', 'sanitario_numbers', 'TEXT[]'],
+      ['route_points', 'sanitario_recolhidos', 'TEXT[]'],
+      ['route_points', 'point_category', 'TEXT'],
+      ['route_points', 'operation_type', 'TEXT'],
+      ['route_points', 'recolhido_qty', 'INTEGER'],
+      ['route_points', 'auto_removed', 'BOOLEAN DEFAULT FALSE'],
+      ['routes', 'optimization_mode', "TEXT DEFAULT 'optimized'"],
+    ];
+    for (const [table, col, type] of ensureCols) {
+      try {
+        await client.query(`ALTER TABLE public.${table} ADD COLUMN IF NOT EXISTS ${col} ${type}`);
+      } catch (e) {
+        console.warn(`⚠️ Não foi possível garantir ${table}.${col}:`, (e as Error).message);
+      }
+    }
+    console.log('✅ Colunas críticas verificadas');
+
     client.release();
     console.log('✅ Configuração do banco de dados completa');
   } catch (err) {
