@@ -72,20 +72,61 @@ export default function Sanitarios() {
   const [selected, setSelected] = useState<(Sanitario & { historico: Movimentacao[] }) | null>(null);
   const [loading, setLoading] = useState(false);
   const [newNum, setNewNum] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
-  const load = async () => {
+  const buildFilterParams = () => {
+    const p = new URLSearchParams();
+    if (statusFilter) p.set('status', statusFilter);
+    if (filter) p.set('q', filter);
+    if (truckFilter) p.set('truckId', truckFilter);
+    return p;
+  };
+
+  const load = async (goToPage = page) => {
     setLoading(true);
     try {
       const url = new URL(`${API_BASE_URL}/sanitarios`);
-      if (statusFilter) url.searchParams.set('status', statusFilter);
-      if (filter) url.searchParams.set('q', filter);
-      if (truckFilter) url.searchParams.set('truckId', truckFilter);
+      const p = buildFilterParams();
+      p.forEach((v, k) => url.searchParams.set(k, v));
+      url.searchParams.set('page', String(goToPage));
+      url.searchParams.set('pageSize', String(pageSize));
       const r = await fetch(url.toString(), { headers: authHeaders() });
       const data = await r.json();
-      setList(Array.isArray(data) ? data : []);
+      // suporta tanto array (legacy) quanto {data,...}
+      if (Array.isArray(data)) {
+        setList(data); setTotal(data.length); setTotalPages(1);
+      } else {
+        setList(data.data || []);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+        setPage(data.page || 1);
+      }
     } catch (e) {
       toast.error('Erro ao carregar sanitários');
     } finally { setLoading(false); }
+  };
+
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const url = new URL(`${API_BASE_URL}/sanitarios/export.csv`);
+      buildFilterParams().forEach((v, k) => url.searchParams.set(k, v));
+      const r = await fetch(url.toString(), { headers: authHeaders() });
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `sanitarios-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success('Exportação concluída');
+    } catch {
+      toast.error('Falha ao exportar CSV');
+    } finally { setExporting(false); }
   };
 
   const loadTrucks = async () => {
@@ -96,11 +137,11 @@ export default function Sanitarios() {
   };
 
   const clearFilters = () => {
-    setFilter(''); setStatusFilter(''); setTruckFilter('');
+    setFilter(''); setStatusFilter(''); setTruckFilter(''); setPage(1);
   };
 
   useEffect(() => { loadTrucks(); }, []);
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [statusFilter, truckFilter]);
+  useEffect(() => { setPage(1); load(1); /* eslint-disable-next-line */ }, [statusFilter, truckFilter, pageSize]);
 
   const openDetail = async (numero: string) => {
     try {
