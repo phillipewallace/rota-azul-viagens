@@ -314,6 +314,23 @@ export default function Sanitarios() {
               </tbody>
             </table>
           </CardContent>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between p-3 border-t text-xs">
+              <span className="text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" disabled={page <= 1 || loading}
+                  onClick={() => { setPage(1); load(1); }}>« Início</Button>
+                <Button size="sm" variant="outline" disabled={page <= 1 || loading}
+                  onClick={() => { const n = page - 1; setPage(n); load(n); }}>‹ Anterior</Button>
+                <Button size="sm" variant="outline" disabled={page >= totalPages || loading}
+                  onClick={() => { const n = page + 1; setPage(n); load(n); }}>Próxima ›</Button>
+                <Button size="sm" variant="outline" disabled={page >= totalPages || loading}
+                  onClick={() => { setPage(totalPages); load(totalPages); }}>Fim »</Button>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Detalhe */}
