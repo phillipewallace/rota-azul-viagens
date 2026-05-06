@@ -4,8 +4,17 @@
  */
 
 export type PointType = 'origin' | 'destination' | 'waypoint' | 'origem' | 'parada' | 'destino';
+export type PointCategory = 'obra' | 'evento';
+export type OperationType = 'entrega' | 'recolhimento' | 'manutencao';
 
 export interface RoutePoint {
+  // Categoria/Operação V2
+  pointCategory?: PointCategory;
+  operationType?: OperationType;
+  recolhidoQty?: number;
+  autoRemoved?: boolean;
+  manutencaoUntil?: string | null;
+
   id: string;
   order: number;
   type: PointType;
