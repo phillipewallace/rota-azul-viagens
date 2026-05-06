@@ -57,7 +57,7 @@ const Index = () => {
               <p className="text-xs sm:text-sm text-gray-400">Sistema de Roteirização</p>
             </div>
             
-            <div className="flex-1 p-3 sm:p-4">
+            <div className="flex-1 p-3 sm:p-4 overflow-y-auto">
               <div className="space-y-2">
                 {menuItems.map((item, index) => (
                   <Button
