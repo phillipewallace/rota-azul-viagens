@@ -489,7 +489,13 @@ const DesktopCreateRoute = () => {
             contactPhone: processedPoint.contactPhone || original?.contactPhone || '',
             notes: processedPoint.notes || processedPoint.observation || original?.notes || original?.observation || '',
             observation: processedPoint.notes || processedPoint.observation || original?.notes || original?.observation || '',
-            stopType: processedPoint.stopType || original?.stopType || ''
+            stopType: processedPoint.stopType || original?.stopType || '',
+            pointCategory: processedPoint.pointCategory || original?.pointCategory || 'obra',
+            operationType: processedPoint.operationType || original?.operationType || 'entrega',
+            recolhidoQty: processedPoint.recolhidoQty ?? original?.recolhidoQty,
+            autoRemoved: processedPoint.autoRemoved ?? original?.autoRemoved ?? false,
+            sanitarioNumbers: processedPoint.sanitarioNumbers || original?.sanitarioNumbers || [],
+            sanitarioRecolhidos: processedPoint.sanitarioRecolhidos || original?.sanitarioRecolhidos || []
           };
         }),
         totalDistance: totalDistance,
