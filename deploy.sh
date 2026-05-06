@@ -65,16 +65,54 @@ sudo -u postgres psql -d "${DB_NAME}" -c "ALTER SCHEMA public OWNER TO ${DB_USER
 ok "Postgres pronto"
 
 # ─── 4) Migrations (todos os database/*.sql) ────────────────────────────────
-log "Aplicando migrations em database/…"
+log "Aplicando migrations em database/ (modo SEGURO — pula scripts destrutivos)…"
 shopt -s nullglob
+# ⚠️ Esses arquivos contêm DROP TABLE / DELETE — só rodam em setup inicial,
+# NUNCA em deploys subsequentes (apagariam dados de produção, inclusive logins).
+SKIP_PATTERNS='^(complete-schema|complete-schema-fixed|complete-schema-updated|production-schema|fix-maintenance-costs|fix-route-points-integrity)\.sql$'
+
+# Detecta se é o primeiro deploy (tabela 'users' ainda não existe)
+FIRST_DEPLOY=0
+if ! sudo -u postgres psql -d "${DB_NAME}" -tAc \
+     "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='users'" \
+     | grep -q 1; then
+  FIRST_DEPLOY=1
+  warn "Primeiro deploy detectado — schema inicial será aplicado UMA VEZ."
+fi
+
 for f in $(ls "${PROJECT_DIR}/database/"*.sql 2>/dev/null | sort); do
-  echo "  ↳ $(basename "$f")"
+  base=$(basename "$f")
+  if [[ "$base" =~ $SKIP_PATTERNS ]]; then
+    if [[ "$FIRST_DEPLOY" == "1" && "$base" == "complete-schema-fixed.sql" ]]; then
+      echo "  ↳ $base (setup inicial)"
+      sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=0 -f "$f" >/dev/null 2>&1 || true
+    else
+      echo "  ↳ $base (pulado — destrutivo)"
+    fi
+    continue
+  fi
+  echo "  ↳ $base"
   sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=0 -f "$f" >/dev/null 2>&1 \
-    || warn "    (avisos ignorados em $(basename "$f"))"
+    || warn "    (avisos ignorados em $base)"
 done
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO ${DB_USER};" >/dev/null
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${DB_USER};" >/dev/null
-ok "Migrations aplicadas"
+ok "Migrations aplicadas (dados preservados)"
+
+# ─── 4b) Garantir usuário admin (idempotente — nunca sobrescreve se já existir) ──
+ADMIN_USER="${ADMIN_USER:-phillipe.sodre}"
+ADMIN_PASS="${ADMIN_PASS:-@Wallace44}"
+ADMIN_NAME="${ADMIN_NAME:-Phillipe Sodré}"
+log "Garantindo usuário admin '${ADMIN_USER}'…"
+sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=0 <<SQL >/dev/null 2>&1 || warn "  (não foi possível garantir admin — verifique tabela users)"
+INSERT INTO users (username, password, name, role, active)
+VALUES ('${ADMIN_USER}', '${ADMIN_PASS}', '${ADMIN_NAME}', 'admin', true)
+ON CONFLICT (username) DO UPDATE
+  SET password = EXCLUDED.password,
+      role     = 'admin',
+      active   = true;
+SQL
+ok "Admin garantido (${ADMIN_USER})"
 
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
 log "Backend: instalando deps + compilando TS…"
