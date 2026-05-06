@@ -200,16 +200,38 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
   }, [checkForRouteUpdates]);
 
   const acceptRouteUpdate = useCallback((newData: TruckMobileData) => {
-    console.log(`✅ [ROUTE SYNC] Aceitando atualização da rota`);
-    
-    setSyncState(prev => ({ 
-      ...prev, 
+    console.log(`✅ [ROUTE SYNC] Aceitando atualização da rota (preservando pontos concluídos)`);
+
+    // Proteger pontos já concluídos: manter completed/completedAt locais
+    let merged = newData;
+    if (newData?.currentRoute && truckData?.currentRoute) {
+      merged = {
+        ...newData,
+        currentRoute: {
+          ...newData.currentRoute,
+          points: newData.currentRoute.points.map((serverPoint: any) => {
+            const localPoint = truckData.currentRoute!.points.find(p => p.id === serverPoint.id);
+            if (localPoint?.completed) {
+              return {
+                ...serverPoint,
+                completed: true,
+                completedAt: localPoint.completedAt,
+              };
+            }
+            return serverPoint;
+          }),
+        },
+      };
+    }
+
+    setSyncState(prev => ({
+      ...prev,
       hasRouteChanged: false,
-      newRouteData: null
+      newRouteData: null,
     }));
-    
-    return newData;
-  }, []);
+
+    return merged;
+  }, [truckData]);
 
   const dismissRouteUpdate = useCallback(() => {
     console.log(`❌ [ROUTE SYNC] Dispensando atualização da rota`);
