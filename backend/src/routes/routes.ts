@@ -805,19 +805,17 @@ router.put('/:id', async (req, res) => {
     // Atualizar dados da rota principal
     const updateQuery = `
       UPDATE routes 
-      SET name = $1, description = $2, points = $3, total_distance = $4, 
-          estimated_time = $5, estimated_duration = $6, optimized_order = $7, 
-          polyline = $8, status = $9, optimization_mode = COALESCE($10, optimization_mode), updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+      SET name = $1, description = $2, total_distance = $3, 
+          estimated_duration = $4, optimized_order = $5, 
+          polyline = $6, status = $7, optimization_mode = COALESCE($8, optimization_mode), updated_at = CURRENT_TIMESTAMP
+      WHERE id = $9
       RETURNING *
     `;
     
     const result = await client.query(updateQuery, [
       name,
       description,
-      JSON.stringify(updatedPoints),
       parseFloat(totalDistance) || 0,
-      estimatedTime,
       parseInt(estimatedDuration) || 0,
       JSON.stringify(optimizedOrder || []),
       polyline,
