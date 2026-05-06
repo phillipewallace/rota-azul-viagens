@@ -179,6 +179,16 @@ const Trucks = () => {
                           >
                             <LinkIcon className="w-4 h-4" />
                           </Button>
+                          {truck.status === 'in-route' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUnlinkRoute(truck)}
+                              title="Desvincular rota"
+                            >
+                              <Unlink className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="destructive"
