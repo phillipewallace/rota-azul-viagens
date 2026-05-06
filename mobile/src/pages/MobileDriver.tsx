@@ -392,7 +392,7 @@ const MobileDriver = () => {
   useEffect(() => {
     const routeId = fullTruckData?.currentRoute?.id;
     if (routeId) {
-      startBackgroundTracking(routeId).then((ok) => {
+      startBackgroundTracking(routeId, fullTruckData?.id).then((ok) => {
         if (ok) console.log('[MOBILE] Rastreamento em background ativo');
       });
       flushQueue().catch(() => {});

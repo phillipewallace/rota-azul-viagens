@@ -49,16 +49,15 @@ async function postLocation(routeId: string, truckId: string | null, lat: number
   }
 }
 
-async function startFallback(routeId: string): Promise<boolean> {
+async function startFallback(routeId: string, truckId: string | null): Promise<boolean> {
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
     console.warn('[BG-LOC] navigator.geolocation indisponível');
     return false;
   }
   try {
-    // Solicita permissão e inicia watchPosition (foreground)
     fallbackWatchId = navigator.geolocation.watchPosition(
       (pos) => {
-        postLocation(routeId, pos.coords.latitude, pos.coords.longitude, pos.coords.speed ?? undefined);
+        postLocation(routeId, truckId, pos.coords.latitude, pos.coords.longitude, pos.coords.speed ?? undefined);
       },
       (err) => console.warn('[BG-LOC fallback] erro:', err?.message),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
@@ -71,11 +70,12 @@ async function startFallback(routeId: string): Promise<boolean> {
   }
 }
 
-export async function startBackgroundTracking(routeId: string): Promise<boolean> {
+export async function startBackgroundTracking(routeId: string, truckId?: string): Promise<boolean> {
+  const tId = truckId || null;
   const BG = await loadPlugin();
   if (!BG) {
     console.log('[BG-LOC] Plugin nativo ausente — usando fallback navigator.geolocation');
-    return startFallback(routeId);
+    return startFallback(routeId, tId);
   }
   try {
     watcherId = await BG.addWatcher(
@@ -93,14 +93,14 @@ export async function startBackgroundTracking(routeId: string): Promise<boolean>
         }
         if (!loc) return;
         if (loc.speed !== null && loc.speed !== undefined && loc.speed < 0.5) return;
-        postLocation(routeId, loc.latitude, loc.longitude, loc.speed);
+        postLocation(routeId, tId, loc.latitude, loc.longitude, loc.speed);
       }
     );
     console.log('[BG-LOC] Iniciado, watcher:', watcherId);
     return true;
   } catch (e) {
     console.error('[BG-LOC] Falha ao iniciar plugin nativo, tentando fallback:', e);
-    return startFallback(routeId);
+    return startFallback(routeId, tId);
   }
 }
 
