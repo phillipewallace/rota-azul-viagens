@@ -19,6 +19,7 @@ import MobileDriver from "./pages/MobileDriver";
 import Analytics from "./pages/Analytics";
 import CreateRoute from "./pages/CreateRoute";
 import Customers from "./pages/Customers";
+import CompletedRoutes from "./pages/CompletedRoutes";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -142,6 +143,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Customers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rotas-concluidas"
+              element={
+                <ProtectedRoute>
+                  <CompletedRoutes />
                 </ProtectedRoute>
               }
             />

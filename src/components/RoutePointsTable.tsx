@@ -114,130 +114,51 @@ const SortableRow: React.FC<SortableRowProps> = ({
         </TooltipProvider>
       )}
       
-      {/* Linha principal - estilo tabela com altura maior */}
-      <div className={`grid grid-cols-[40px_100px_100px_180px_1fr_80px_80px_150px_1fr_100px] gap-2 items-center px-3 py-3 min-h-[56px] border-b hover:bg-muted/30 transition-colors ${isDragging ? 'bg-primary/10 shadow-lg' : ''} ${isExpanded ? 'bg-blue-50/50' : ''} ${isInvalid ? 'bg-red-50/50' : ''}`}>
-        {/* Drag handle */}
+      {/* Linha principal */}
+      <div className={`grid grid-cols-[40px_90px_100px_160px_minmax(220px,1fr)_70px_70px_190px_130px_140px_minmax(180px,1fr)_100px] gap-2 items-center px-3 py-3 min-h-[56px] border-b hover:bg-muted/30 transition-colors ${isDragging ? 'bg-primary/10 shadow-lg' : ''} ${isExpanded ? 'bg-blue-50/50' : ''} ${isInvalid ? 'bg-red-50/50' : ''}`}>
         <div className="flex justify-center">
           {isDraggable ? (
-            <div
-              {...attributes}
-              {...listeners}
-              className="cursor-grab active:cursor-grabbing hover:bg-muted p-1.5 rounded transition-colors"
-            >
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing hover:bg-muted p-1.5 rounded">
               <GripVertical className="h-5 w-5 text-muted-foreground" />
             </div>
-          ) : (
-            <span className="text-sm text-muted-foreground font-medium">{index + 1}</span>
-          )}
+          ) : (<span className="text-sm text-muted-foreground font-medium">{index + 1}</span>)}
         </div>
 
-        {/* Tipo/Badge */}
-        <Badge className={`${getPointTypeColor()} text-[11px] px-2.5 py-1 justify-center`}>
-          {getPointTypeLabel()}
-        </Badge>
+        <Badge className={`${getPointTypeColor()} text-[11px] px-2.5 py-1 justify-center`}>{getPointTypeLabel()}</Badge>
 
-        {/* CEP */}
         <div className="flex gap-1">
-          <Input
-            value={point.cep || ''}
-            onChange={(e) => onUpdate(point.id, 'cep', e.target.value)}
-            placeholder="CEP"
-            className="h-9 text-sm"
-            maxLength={9}
-          />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => point.cep && onSearchByCep(point.id, point.cep)}
-                  disabled={!point.cep || point.cep.length < 8}
-                  className="h-9 w-9 p-0 shrink-0"
-                >
-                  <Search className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Buscar CEP</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Input value={point.cep || ''} onChange={(e) => onUpdate(point.id, 'cep', e.target.value)} placeholder="CEP" className="h-9 text-sm" maxLength={9} />
+          <Button variant="ghost" size="sm" onClick={() => point.cep && onSearchByCep(point.id, point.cep)} disabled={!point.cep || point.cep.length < 8} className="h-9 w-9 p-0 shrink-0"><Search className="h-4 w-4" /></Button>
         </div>
 
-        {/* Cliente - ANTES do Endereço */}
-        <Input
-          value={point.customerName || ''}
-          onChange={(e) => onUpdate(point.id, 'customerName', e.target.value)}
-          placeholder="Nome do cliente"
-          className="h-9 text-sm font-medium"
-        />
+        <Input value={point.customerName || ''} onChange={(e) => onUpdate(point.id, 'customerName', e.target.value)} placeholder="Nome do cliente" className="h-9 text-sm font-medium" />
 
-        {/* Endereço */}
         <div className="flex gap-1">
-          <Input
-            value={point.address || ''}
-            onChange={(e) => onUpdate(point.id, 'address', e.target.value)}
-            placeholder="Endereço completo"
-            className="h-9 text-sm"
-          />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => point.address && onSearchByAddress(point.id, point.address)}
-                  disabled={!point.address || point.address.length < 5}
-                  className="h-9 w-9 p-0 shrink-0"
-                >
-                  <MapPin className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Buscar coordenadas</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Input value={point.address || ''} onChange={(e) => onUpdate(point.id, 'address', e.target.value)} placeholder="Endereço completo" className="h-9 text-sm" />
+          <Button variant="ghost" size="sm" onClick={() => point.address && onSearchByAddress(point.id, point.address)} disabled={!point.address || point.address.length < 5} className="h-9 w-9 p-0 shrink-0"><MapPin className="h-4 w-4" /></Button>
         </div>
 
-        {/* Qtd Banheiros */}
-        <Input
-          type="number"
-          min="0"
-          value={point.restroomsQty ?? ''}
-          onChange={(e) => onUpdate(point.id, 'restroomsQty', e.target.value ? parseInt(e.target.value) : undefined)}
-          placeholder="Banh."
-          className="h-9 text-sm text-center"
-        />
+        <Input type="number" min="0" value={point.restroomsQty ?? ''} onChange={(e) => onUpdate(point.id, 'restroomsQty', e.target.value ? parseInt(e.target.value) : undefined)} placeholder="Banh." className="h-9 text-sm text-center" />
+        <Input type="number" min="0" value={point.cleaningsQty ?? ''} onChange={(e) => onUpdate(point.id, 'cleaningsQty', e.target.value ? parseInt(e.target.value) : undefined)} placeholder="Limp." className="h-9 text-sm text-center" />
 
-        {/* Qtd Limpezas */}
-        <Input
-          type="number"
-          min="0"
-          value={point.cleaningsQty ?? ''}
-          onChange={(e) => onUpdate(point.id, 'cleaningsQty', e.target.value ? parseInt(e.target.value) : undefined)}
-          placeholder="Limp."
-          className="h-9 text-sm text-center"
-        />
-
-        {/* Contato (telefone) */}
-        <div className="flex items-center gap-1">
+        {/* Telefone — coluna 190px para não cortar */}
+        <div className="flex items-center gap-1 min-w-0">
           <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-          <Input
-            value={point.contactPhone || ''}
-            onChange={(e) => onUpdate(point.id, 'contactPhone', e.target.value)}
-            placeholder="Telefone"
-            className="h-9 text-sm"
-          />
+          <Input value={point.contactPhone || ''} onChange={(e) => onUpdate(point.id, 'contactPhone', e.target.value)} placeholder="(11) 99999-9999" className="h-9 text-sm flex-1 min-w-0" />
         </div>
 
-        {/* Observações - NOVA COLUNA */}
-        <Input
-          value={point.notes || point.observation || ''}
-          onChange={(e) => {
-            onUpdate(point.id, 'notes', e.target.value);
-            onUpdate(point.id, 'observation', e.target.value);
-          }}
-          placeholder="Observações..."
-          className="h-9 text-sm"
-        />
+        <select value={point.pointCategory || 'obra'} onChange={(e) => onUpdate(point.id, 'pointCategory' as any, e.target.value)} className="h-9 text-sm border rounded-md px-2 bg-background">
+          <option value="obra">Obra</option>
+          <option value="evento">Evento</option>
+        </select>
+
+        <select value={point.operationType || 'entrega'} onChange={(e) => onUpdate(point.id, 'operationType' as any, e.target.value)} className="h-9 text-sm border rounded-md px-2 bg-background">
+          <option value="entrega">Entrega</option>
+          <option value="recolhimento">Recolhimento</option>
+          <option value="manutencao">Manutenção</option>
+        </select>
+
+        <Input value={point.notes || point.observation || ''} onChange={(e) => { onUpdate(point.id, 'notes', e.target.value); onUpdate(point.id, 'observation', e.target.value); }} placeholder="Observações..." className="h-9 text-sm" />
 
         {/* Ações */}
         <div className="flex items-center gap-1 justify-end">
@@ -384,9 +305,9 @@ export const RoutePointsTable: React.FC<RoutePointsTableProps> = ({
   };
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-background shadow-sm">
+    <div className="border rounded-lg overflow-x-auto bg-background shadow-sm min-w-full">
       {/* Header da tabela - com altura maior e fonte maior */}
-      <div className="grid grid-cols-[40px_100px_100px_180px_1fr_80px_80px_150px_1fr_100px] gap-2 items-center px-3 py-3 bg-muted/50 border-b text-sm font-semibold text-muted-foreground">
+      <div className="grid grid-cols-[40px_90px_100px_160px_minmax(220px,1fr)_70px_70px_190px_130px_140px_minmax(180px,1fr)_100px] gap-2 items-center px-3 py-3 bg-muted/50 border-b text-sm font-semibold text-muted-foreground">
         <div className="text-center">#</div>
         <div>Tipo</div>
         <div>CEP</div>
@@ -395,6 +316,8 @@ export const RoutePointsTable: React.FC<RoutePointsTableProps> = ({
         <div className="text-center">Banh.</div>
         <div className="text-center">Limp.</div>
         <div>Telefone</div>
+        <div>Categoria</div>
+        <div>Operação</div>
         <div>Observações</div>
         <div className="text-right">Ações</div>
       </div>

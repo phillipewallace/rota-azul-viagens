@@ -19,6 +19,9 @@ import settingsRoutes from './routes/settings';
 import uploadRoutes from './routes/upload';
 import analyticsRoutes from './routes/analytics';
 import customersRoutes from './routes/customers';
+import photosRoutes from './routes/photos';
+import completedRoutesRoutes from './routes/completed-routes';
+import path from 'path';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -73,6 +76,11 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/customers', customersRoutes);
+app.use('/api/photos', photosRoutes);
+app.use('/api/completed-routes', completedRoutesRoutes);
+
+// Servir uploads (fotos)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
 
 console.log('✅ [SERVER] Todas as rotas registradas com sucesso');
 
