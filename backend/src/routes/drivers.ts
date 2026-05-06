@@ -18,13 +18,13 @@ router.get('/', async (req, res) => {
         d.email,
         d.hire_date,
         d.status,
-        d.current_route,
-        d.total_trips,
         d.created_at,
-        COUNT(t.id) as truck_count
+        COUNT(t.id) as truck_count,
+        MAX(t.current_route) as current_route,
+        0 as total_trips
       FROM drivers d
       LEFT JOIN trucks t ON d.id = t.current_driver_id
-      GROUP BY d.id, d.name, d.license_number, d.license_category, d.phone, d.email, d.hire_date, d.status, d.current_route, d.total_trips, d.created_at
+      GROUP BY d.id, d.name, d.license_number, d.license_category, d.phone, d.email, d.hire_date, d.status, d.created_at
       ORDER BY d.created_at DESC
     `;
     
