@@ -56,6 +56,7 @@ const InternalManagement: React.FC = () => {
   const [itemModal, setItemModal] = useState<ErpItem | null>(null);
   const [employeeModal, setEmployeeModal] = useState<ErpEmployee | null>(null);
   const [movementModal, setMovementModal] = useState<{ item: ErpItem; type: 'in' | 'out' | 'adjust' | 'discard' } | null>(null);
+  const [historyItem, setHistoryItem] = useState<ErpItem | null>(null);
 
   const isAdmin = user?.role === 'admin';
 
