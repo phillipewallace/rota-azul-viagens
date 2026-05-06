@@ -62,8 +62,9 @@ router.get('/', async (req, res) => {
     res.json(trucks);
   } catch (error) {
     console.error('❌ [TRUCKS GET] Erro ao buscar caminhões:', error);
+    console.error('🔍 [TRUCKS GET] Mensagem PG:', (error as any)?.message);
     console.error('🔍 [TRUCKS GET] Stack trace:', (error as Error).stack);
-    res.status(500).json({ error: 'Erro ao buscar caminhões' });
+    res.status(500).json({ error: 'Erro ao buscar caminhões', detail: (error as any)?.message });
   }
 });
 
