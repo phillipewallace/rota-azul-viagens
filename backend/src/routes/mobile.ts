@@ -438,6 +438,28 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
       return res.status(404).json({ error: 'Ponto não encontrado' });
     }
 
+    // Regras automáticas por tipo de operação ao concluir:
+    //  - entrega   → vira "manutencao" (permanece na rota)
+    //  - recolhimento → auto_removed = true (sai da rota ativa)
+    //  - manutencao → permanece na rota (no-op)
+    if (completedValue === true) {
+      const row = update.rows[0];
+      const opType = (row.operation_type || row.stop_type || '').toString().toLowerCase();
+      if (opType === 'entrega') {
+        await client.query(
+          `UPDATE route_points
+              SET operation_type = 'manutencao', stop_type = 'manutencao'
+            WHERE id = $1::uuid`,
+          [pointId]
+        );
+      } else if (opType === 'recolhimento') {
+        await client.query(
+          `UPDATE route_points SET auto_removed = true WHERE id = $1::uuid`,
+          [pointId]
+        );
+      }
+    }
+
     await client.query('UPDATE routes SET updated_at = NOW() WHERE id = $1', [routeId]);
     await client.query('COMMIT');
 
