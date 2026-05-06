@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/database';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, softAuth } from '../middleware/requireAuth';
 
 const router = Router();
 
@@ -40,7 +40,7 @@ const upload = multer({
 });
 
 // Upload N fotos para um ponto
-router.post('/route/:routeId/point/:pointId/photos', requireAuth, (req: any, res: any) => {
+router.post('/route/:routeId/point/:pointId/photos', softAuth, (req: any, res: any) => {
   upload.array('photos', 50)(req, res, async (err: any) => {
     if (err) {
       console.error('❌ [PHOTOS] erro multer:', err);

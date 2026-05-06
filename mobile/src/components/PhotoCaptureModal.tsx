@@ -116,11 +116,18 @@ const PhotoCaptureModal: React.FC<Props> = ({
             ref={inputRef}
             type="file"
             accept="image/*"
-            capture="environment"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) addPhoto(f);
+              const files = Array.from(e.target.files || []);
+              const MAX = 25 * 1024 * 1024;
+              for (const f of files) {
+                if (f.size > MAX) {
+                  toast.error(`${f.name}: máximo 25MB`);
+                  continue;
+                }
+                addPhoto(f);
+              }
               e.target.value = '';
             }}
           />
