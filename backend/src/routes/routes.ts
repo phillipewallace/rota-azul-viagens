@@ -205,8 +205,8 @@ router.post('/', async (req, res) => {
         `INSERT INTO route_points (
           route_id, address, lat, lng, point_order, type, completed,
           customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type,
-          point_category, operation_type
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+          point_category, operation_type, sanitario_numbers
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
         [
           routeId,
           point.address || '',
@@ -225,6 +225,7 @@ router.post('/', async (req, res) => {
           point.stopType || null,
           point.pointCategory || 'obra',
           point.operationType || 'entrega',
+          Array.isArray(point.sanitarioNumbers) ? point.sanitarioNumbers : null,
         ]
       );
     }
