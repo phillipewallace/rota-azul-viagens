@@ -300,6 +300,105 @@ CREATE TABLE IF NOT EXISTS public.completed_routes (
 CREATE INDEX IF NOT EXISTS idx_completed_routes_route ON public.completed_routes(route_id);
 CREATE INDEX IF NOT EXISTS idx_completed_routes_status ON public.completed_routes(status);
 
+-- ============================== ERP INTERNO ================================
+-- Módulo de Estoque (papel higiênico, EPIs, produtos químicos, dinâmico)
+CREATE TABLE IF NOT EXISTS public.erp_categories (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         VARCHAR(120) NOT NULL UNIQUE,
+  description  TEXT,
+  icon         VARCHAR(40)  DEFAULT 'package',
+  tracks_expiry BOOLEAN     NOT NULL DEFAULT FALSE,
+  requires_signed_term BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.erp_items (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_id     UUID NOT NULL REFERENCES public.erp_categories(id) ON DELETE RESTRICT,
+  name            VARCHAR(200) NOT NULL,
+  sku             VARCHAR(80),
+  unit            VARCHAR(20)  NOT NULL DEFAULT 'un',
+  current_qty     NUMERIC(12,2) NOT NULL DEFAULT 0,
+  min_qty         NUMERIC(12,2) NOT NULL DEFAULT 0,
+  expiry_date     DATE,
+  expiry_alert_days INT NOT NULL DEFAULT 30,
+  notes           TEXT,
+  active          BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_erp_items_category ON public.erp_items(category_id);
+CREATE INDEX IF NOT EXISTS idx_erp_items_expiry   ON public.erp_items(expiry_date);
+
+CREATE TABLE IF NOT EXISTS public.erp_employees (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        VARCHAR(150) NOT NULL,
+  role        VARCHAR(100),
+  cpf         VARCHAR(20),
+  phone       VARCHAR(30),
+  active      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.erp_movements (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id       UUID NOT NULL REFERENCES public.erp_items(id) ON DELETE CASCADE,
+  type          VARCHAR(20) NOT NULL CHECK (type IN ('in','out','adjust','discard')),
+  qty           NUMERIC(12,2) NOT NULL,
+  employee_id   UUID REFERENCES public.erp_employees(id) ON DELETE SET NULL,
+  performed_by  VARCHAR(150),
+  notes         TEXT,
+  signed_pdf_url TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_erp_mov_item ON public.erp_movements(item_id);
+CREATE INDEX IF NOT EXISTS idx_erp_mov_emp  ON public.erp_movements(employee_id);
+CREATE INDEX IF NOT EXISTS idx_erp_mov_date ON public.erp_movements(created_at);
+
+INSERT INTO public.erp_categories (name, icon, tracks_expiry, requires_signed_term)
+VALUES
+  ('Papel Higiênico', 'scroll-text', FALSE, FALSE),
+  ('EPI',             'hard-hat',    TRUE,  TRUE),
+  ('Produtos Químicos','flask-conical', TRUE, FALSE)
+ON CONFLICT (name) DO NOTHING;
+
+-- Módulo de Frota (carros, caminhões, carretinhas, etc) — separado de 'trucks' operacional
+CREATE TABLE IF NOT EXISTS public.erp_vehicles (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name          VARCHAR(150) NOT NULL,
+  vehicle_type  VARCHAR(40)  NOT NULL DEFAULT 'caminhao',
+  brand         VARCHAR(80),
+  model         VARCHAR(120),
+  year          INT,
+  plate         VARCHAR(20),
+  renavam       VARCHAR(40),
+  chassis       VARCHAR(40),
+  color         VARCHAR(40),
+  fuel          VARCHAR(20),
+  acquisition_date DATE,
+  notes         TEXT,
+  active        BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.erp_vehicle_comments (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vehicle_id  UUID NOT NULL REFERENCES public.erp_vehicles(id) ON DELETE CASCADE,
+  comment     TEXT NOT NULL,
+  category    VARCHAR(40), -- multa, manutencao, abastecimento, observacao, ...
+  reference_date DATE,     -- "dia tal" do evento
+  amount      NUMERIC(12,2),
+  status      VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+  attachment_url TEXT,
+  author      VARCHAR(150),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_erp_vehicle_comments_vehicle ON public.erp_vehicle_comments(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_erp_vehicle_comments_status  ON public.erp_vehicle_comments(status);
+
 -- ============================== OWNERSHIP / GRANTS ==========================
 -- Garante que o usuário 'lipe' tenha permissão em tudo, mesmo que as tabelas
 -- tenham sido criadas por outro owner (postgres). Sem isso, ALTER/SELECT podem

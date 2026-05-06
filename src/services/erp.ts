@@ -97,7 +97,51 @@ export const erpService = {
   createMovement: (data: Partial<ErpMovement>) => req<ErpMovement>('POST', '/movements', data),
   // dashboard
   dashboard: () => req<ErpDashboard>('GET', '/dashboard'),
+  // vehicles
+  listVehicles: () => req<ErpVehicle[]>('GET', '/vehicles'),
+  createVehicle: (data: Partial<ErpVehicle>) => req<ErpVehicle>('POST', '/vehicles', data),
+  updateVehicle: (id: string, data: Partial<ErpVehicle>) => req<ErpVehicle>('PUT', `/vehicles/${id}`, data),
+  deleteVehicle: (id: string) => req<{ ok: true }>('DELETE', `/vehicles/${id}`),
+  listVehicleComments: (id: string) => req<ErpVehicleComment[]>('GET', `/vehicles/${id}/comments`),
+  createVehicleComment: (id: string, data: Partial<ErpVehicleComment>) =>
+    req<ErpVehicleComment>('POST', `/vehicles/${id}/comments`, data),
+  updateVehicleComment: (vid: string, cid: string, data: Partial<ErpVehicleComment>) =>
+    req<ErpVehicleComment>('PUT', `/vehicles/${vid}/comments/${cid}`, data),
+  deleteVehicleComment: (vid: string, cid: string) =>
+    req<{ ok: true }>('DELETE', `/vehicles/${vid}/comments/${cid}`),
 };
+
+export interface ErpVehicle {
+  id: string;
+  name: string;
+  vehicleType: string; // caminhao, carro, carretinha, moto, van, outro
+  brand?: string;
+  model?: string;
+  year?: number;
+  plate?: string;
+  renavam?: string;
+  chassis?: string;
+  color?: string;
+  fuel?: string;
+  acquisitionDate?: string;
+  notes?: string;
+  active: boolean;
+  commentsCount?: number;
+  openCount?: number;
+}
+
+export interface ErpVehicleComment {
+  id: string;
+  vehicleId: string;
+  comment: string;
+  category?: string; // multa, manutencao, abastecimento, observacao
+  referenceDate?: string;
+  amount?: number;
+  status: 'open' | 'closed';
+  attachmentUrl?: string;
+  author?: string;
+  createdAt: string;
+}
 
 // File upload (re-uses existing /upload endpoint)
 export async function uploadSignedPdf(file: File): Promise<string> {

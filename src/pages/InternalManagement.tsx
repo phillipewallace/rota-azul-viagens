@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Pencil, Package, Boxes, Users, History,
   AlertTriangle, CalendarClock, FileSignature, ArrowDownToLine, ArrowUpFromLine,
-  Settings2, Loader2, Upload, Building2,
+  Settings2, Loader2, Upload, Building2, Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ import {
   ErpCategory, ErpItem, ErpEmployee, ErpMovement, ErpDashboard,
 } from '@/services/erp';
 import { useAuth } from '@/hooks/useAuth';
+import VehiclesView from '@/components/erp/VehiclesView';
 
 const movementLabel: Record<string, string> = {
   in: 'Entrada', out: 'Retirada', adjust: 'Ajuste', discard: 'Descarte',
@@ -114,9 +115,10 @@ const InternalManagement: React.FC = () => {
 
       <main className="container mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <TabsList className="grid grid-cols-2 md:grid-cols-5 gap-1 h-auto">
+          <TabsList className="grid grid-cols-3 md:grid-cols-6 gap-1 h-auto">
             <TabsTrigger value="dashboard"><Boxes className="h-4 w-4 mr-2" />Painel</TabsTrigger>
             <TabsTrigger value="items"><Package className="h-4 w-4 mr-2" />Itens</TabsTrigger>
+            <TabsTrigger value="vehicles"><Car className="h-4 w-4 mr-2" />Frota</TabsTrigger>
             <TabsTrigger value="categories"><Settings2 className="h-4 w-4 mr-2" />Categorias</TabsTrigger>
             <TabsTrigger value="employees"><Users className="h-4 w-4 mr-2" />Funcionários</TabsTrigger>
             <TabsTrigger value="movements"><History className="h-4 w-4 mr-2" />Histórico</TabsTrigger>
@@ -152,6 +154,10 @@ const InternalManagement: React.FC = () => {
                     toast.success('Item excluído'); loadAll();
                   }}
                 />
+              </TabsContent>
+
+              <TabsContent value="vehicles" className="mt-6">
+                <VehiclesView />
               </TabsContent>
 
               <TabsContent value="categories" className="mt-6">
