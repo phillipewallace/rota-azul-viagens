@@ -87,28 +87,34 @@ export const useMobile = () => {
   });
 
   const updateRoutePointMutation = useMutation({
-    mutationFn: async ({ truckId, pointId, completed }: { truckId: string; pointId: string; completed: boolean }) => {
-      console.log('🎯 [MOBILE] Atualizando ponto da rota:', { truckId, pointId, completed });
-      
+    mutationFn: async (payload: {
+      truckId: string;
+      pointId: string;
+      completed?: boolean;
+      recolhidoQty?: number;
+      autoRemoved?: boolean;
+      operationType?: string;
+      observation?: string;
+      sanitarioNumbers?: string[];
+      sanitarioRecolhidos?: string[];
+    }) => {
+      const { truckId, pointId, ...body } = payload;
+      const token = localStorage.getItem('auth_token') || '';
       const response = await fetch(`${API_BASE_URL}/mobile/truck/${truckId}/route/point/${pointId}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: 'omit',
-        body: JSON.stringify({ completed }),
+        body: JSON.stringify(body),
       });
-      
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('❌ [MOBILE] Erro ao atualizar ponto:', errorData);
-        throw new Error('Erro ao atualizar ponto da rota');
+        throw new Error(errorData || 'Erro ao atualizar ponto da rota');
       }
-      
-      const result = await response.json();
-      console.log('✅ [MOBILE] Ponto da rota atualizado com sucesso');
-      return result;
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trucks'] });

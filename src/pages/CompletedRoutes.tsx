@@ -122,7 +122,7 @@ const CompletedRoutes: React.FC = () => {
                   <div><strong>Fotos:</strong> {selected.photos_count}</div>
                 </div>
                 <Button asChild className="mb-4">
-                  <a href={`${API_CONFIG.BASE_URL}/completed-routes/${selected.id}/photos.zip`} target="_blank" rel="noreferrer">
+                  <a href={`${API_CONFIG.BASE_URL}/completed-routes/${selected.id}/photos.zip?token=${encodeURIComponent(localStorage.getItem('auth_token') || '')}`} target="_blank" rel="noreferrer">
                     <Download className="h-4 w-4 mr-2" />Baixar todas as fotos (ZIP)
                   </a>
                 </Button>

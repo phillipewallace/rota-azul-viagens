@@ -62,8 +62,8 @@ async function uploadOne(p: PendingPhoto): Promise<void> {
   const fd = new FormData();
   fd.append('photos', p.blob, p.filename);
   fd.append('operationType', p.operationType);
-  const token = localStorage.getItem('auth-token') || '';
-  const res = await fetch(`${API_BASE_URL}/photos/route/${p.routeId}/point/${p.pointId}`, {
+  const token = localStorage.getItem('auth_token') || localStorage.getItem('auth-token') || '';
+  const res = await fetch(`${API_BASE_URL}/photos/route/${p.routeId}/point/${p.pointId}/photos`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: fd,

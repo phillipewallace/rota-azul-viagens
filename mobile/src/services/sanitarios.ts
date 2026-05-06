@@ -14,7 +14,7 @@ export async function movimentarSanitarios(payload: {
   truckId?: string;
   notes?: string;
 }): Promise<void> {
-  const token = localStorage.getItem('auth-token') || '';
+  const token = localStorage.getItem('auth_token') || localStorage.getItem('auth-token') || '';
   const res = await fetch(`${API_BASE_URL}/sanitarios/movimentar`, {
     method: 'POST',
     headers: {
