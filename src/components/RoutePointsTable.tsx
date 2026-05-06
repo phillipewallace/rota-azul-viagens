@@ -274,10 +274,16 @@ const SortableRow: React.FC<SortableRowProps> = ({
             <Input
               value={(point.sanitarioNumbers || []).join(', ')}
               onChange={(e) => {
+                const seen = new Set<string>();
                 const arr = e.target.value
                   .split(',')
-                  .map((s) => s.trim())
-                  .filter(Boolean);
+                  .map((s) => s.trim().toUpperCase())
+                  .filter((s) => {
+                    if (!s) return false;
+                    if (seen.has(s)) return false;
+                    seen.add(s);
+                    return true;
+                  });
                 onUpdate(point.id, 'sanitarioNumbers' as any, arr);
               }}
               placeholder="ex: 1024, 1025, 1030"
