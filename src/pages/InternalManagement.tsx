@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Pencil, Package, Boxes, Users, History,
   AlertTriangle, CalendarClock, FileSignature, ArrowDownToLine, ArrowUpFromLine,
-  Settings2, Loader2, Upload, Building2,
+  Settings2, Loader2, Upload, Building2, Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
