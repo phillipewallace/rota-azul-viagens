@@ -167,6 +167,12 @@ const DesktopCreateRoute = () => {
               notes: point.notes || point.observation || '',
               observation: point.observation || point.notes || '',
               stopType: point.stopType || '',
+              pointCategory: point.pointCategory || 'obra',
+              operationType: point.operationType || 'entrega',
+              recolhidoQty: point.recolhidoQty,
+              autoRemoved: point.autoRemoved || false,
+              sanitarioNumbers: point.sanitarioNumbers || [],
+              sanitarioRecolhidos: point.sanitarioRecolhidos || [],
               type: index === 0 ? 'origin' : (index === points.length - 1 ? 'destination' : 'waypoint')
             }));
             
