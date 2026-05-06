@@ -177,7 +177,7 @@ export default function Sanitarios() {
             Acompanhe a localização atual e o histórico completo de cada banheiro químico.
           </p>
         </div>
-        <Button onClick={load} variant="outline" size="sm" disabled={loading} className="gap-2">
+        <Button onClick={() => load()} variant="outline" size="sm" disabled={loading} className="gap-2">
           <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
@@ -199,7 +199,7 @@ export default function Sanitarios() {
                   onKeyDown={(e) => e.key === 'Enter' && load()}
                 />
               </div>
-              <Button onClick={load} variant="secondary">Buscar</Button>
+              <Button onClick={() => load()} variant="secondary">Buscar</Button>
             </div>
           </div>
 
