@@ -468,6 +468,10 @@ const ItemsView: React.FC<{
                           onClick={() => onMovement(i, 'out')}>
                           <ArrowUpFromLine className="h-4 w-4" />
                         </Button>
+                        <Button size="sm" variant="ghost" title="Ver histórico"
+                          onClick={() => onHistory(i)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => onEdit(i)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
