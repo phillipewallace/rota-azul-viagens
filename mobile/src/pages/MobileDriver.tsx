@@ -25,6 +25,10 @@ import RouteUpdateNotification from '@/components/RouteUpdateNotification';
 import RouteInfoCard from '@/components/RouteInfoCard';
 import RouteExecutionCard from '@/components/RouteExecutionCard';
 import { sharedLocationStore } from '@/store/sharedLocationStore';
+import PhotoCaptureModal from '@/components/PhotoCaptureModal';
+import RecolhimentoQtyModal from '@/components/RecolhimentoQtyModal';
+import { startBackgroundTracking, stopBackgroundTracking } from '@/services/backgroundLocation';
+import { flushQueue } from '@/services/photoUpload';
 
 interface TruckData {
   id: string;
@@ -41,6 +45,11 @@ const MobileDriver = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullTruckData, setFullTruckData] = useState<TruckMobileData | null>(null);
+
+  // V2 — modais de fluxo de conclusão
+  const [pendingPoint, setPendingPoint] = useState<any | null>(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showQtyModal, setShowQtyModal] = useState(false);
 
   // Persistência de estado
   const [persistedState, setPersistedState] = useState<{
