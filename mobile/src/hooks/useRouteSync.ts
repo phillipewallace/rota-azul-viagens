@@ -177,12 +177,12 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
   useEffect(() => {
     if (!truckData?.currentRoute) return;
     
-    // Verificar a cada 2 minutos quando app está ativo
+    // Verificar a cada 20 segundos quando app está ativo (sincronização quase em tempo real)
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         checkForRouteUpdates();
       }
-    }, 120000); // 2 minutos
+    }, 20000); // 20 segundos
     
     // Verificar quando app volta a ficar visível
     const handleVisibilityChange = () => {
