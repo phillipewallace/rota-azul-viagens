@@ -3,11 +3,34 @@ import { pool } from '../config/database';
 import path from 'path';
 import fs from 'fs';
 import archiver from 'archiver';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
 
-// Listar rotas concluídas (e em andamento)
-router.get('/', async (req, res) => {
+const POINT_COLS = `id, address, lat, lng, point_order, type, completed, completed_at,
+  customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone,
+  notes, cep, point_category, operation_type, recolhido_qty, auto_removed,
+  sanitario_numbers, sanitario_recolhidos`;
+
+async function snapshotPoints(routeId: string) {
+  const pts = await pool.query(
+    `SELECT ${POINT_COLS} FROM route_points WHERE route_id = $1::uuid ORDER BY point_order`,
+    [routeId]
+  );
+  // photos por ponto + total
+  const photoAgg = await pool.query(
+    `SELECT point_id, COUNT(*)::int AS c FROM point_photos WHERE route_id = $1::uuid GROUP BY point_id`,
+    [routeId]
+  );
+  const photoMap = new Map<string, number>();
+  photoAgg.rows.forEach((r) => photoMap.set(r.point_id, r.c));
+  const enriched = pts.rows.map((p) => ({ ...p, photos_count: photoMap.get(p.id) || 0 }));
+  const total = Array.from(photoMap.values()).reduce((s, n) => s + n, 0);
+  return { points: enriched, photosCount: total };
+}
+
+// Listar
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { status, from, to, driverId } = req.query as any;
     const conds: string[] = [];
@@ -23,13 +46,12 @@ router.get('/', async (req, res) => {
     );
     res.json(result.rows);
   } catch (e: any) {
-    console.error('❌ [COMPLETED] list:', e);
     res.status(500).json({ error: e.message });
   }
 });
 
 // Detalhes
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const cr = await pool.query(`SELECT * FROM completed_routes WHERE id = $1::uuid`, [id]);
@@ -44,10 +66,11 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Iniciar (chamado quando motorista inicia rota)
-router.post('/start', async (req, res) => {
+// Iniciar
+router.post('/start', requireAuth, async (req, res) => {
   try {
     const { routeId, truckId, truckPlate, driverId, driverName, routeName } = req.body;
+    if (!routeId) return res.status(400).json({ error: 'routeId obrigatório' });
     const exists = await pool.query(
       `SELECT id FROM completed_routes WHERE route_id = $1::uuid AND status = 'in_progress' LIMIT 1`,
       [routeId]
@@ -56,35 +79,23 @@ router.post('/start', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO completed_routes (route_id, route_name, truck_id, truck_plate, driver_id, driver_name, started_at, status)
        VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6, NOW(), 'in_progress') RETURNING *`,
-      [routeId, routeName, truckId || null, truckPlate || null, driverId || null, driverName || null]
+      [routeId, routeName || null, truckId || null, truckPlate || null, driverId || null, driverName || null]
     );
     res.json(result.rows[0]);
   } catch (e: any) {
-    console.error('❌ [COMPLETED] start:', e);
     res.status(500).json({ error: e.message });
   }
 });
 
-// Atualizar snapshot (sempre que ponto é concluído)
-router.put('/:routeId/sync', async (req, res) => {
+// Sync (chamado a cada conclusão)
+router.put('/:routeId/sync', requireAuth, async (req, res) => {
   try {
     const { routeId } = req.params;
-    // Buscar pontos atualizados
-    const pts = await pool.query(
-      `SELECT id, address, lat, lng, point_order, type, completed, completed_at,
-              customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone,
-              notes, cep, point_category, operation_type, recolhido_qty, auto_removed
-       FROM route_points WHERE route_id = $1::uuid ORDER BY point_order`,
-      [routeId]
-    );
-    const photosCount = await pool.query(
-      `SELECT COUNT(*)::int AS c FROM point_photos WHERE route_id = $1::uuid`,
-      [routeId]
-    );
+    const { points, photosCount } = await snapshotPoints(routeId);
     const result = await pool.query(
       `UPDATE completed_routes SET points_snapshot = $1, photos_count = $2, updated_at = NOW()
        WHERE route_id = $3::uuid AND status = 'in_progress' RETURNING *`,
-      [JSON.stringify(pts.rows), photosCount.rows[0].c, routeId]
+      [JSON.stringify(points), photosCount, routeId]
     );
     res.json(result.rows[0] || null);
   } catch (e: any) {
@@ -92,38 +103,37 @@ router.put('/:routeId/sync', async (req, res) => {
   }
 });
 
-// Finalizar
-router.post('/:routeId/finish', async (req, res) => {
+// Finalizar (idempotente)
+router.post('/:routeId/finish', requireAuth, async (req, res) => {
   try {
     const { routeId } = req.params;
     const { totalDistance, totalDuration } = req.body;
-    const pts = await pool.query(
-      `SELECT id, address, lat, lng, point_order, type, completed, completed_at,
-              customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone,
-              notes, cep, point_category, operation_type, recolhido_qty, auto_removed
-       FROM route_points WHERE route_id = $1::uuid ORDER BY point_order`,
-      [routeId]
-    );
-    const photosCount = await pool.query(
-      `SELECT COUNT(*)::int AS c FROM point_photos WHERE route_id = $1::uuid`,
-      [routeId]
-    );
+    const { points, photosCount } = await snapshotPoints(routeId);
     const result = await pool.query(
       `UPDATE completed_routes SET status='finished', finished_at=NOW(),
         total_distance=$1, total_duration=$2, points_snapshot=$3, photos_count=$4, updated_at=NOW()
        WHERE route_id=$5::uuid AND status='in_progress' RETURNING *`,
-      [totalDistance || null, totalDuration || null, JSON.stringify(pts.rows), photosCount.rows[0].c, routeId]
+      [totalDistance ?? null, totalDuration ?? null, JSON.stringify(points), photosCount, routeId]
     );
     res.json(result.rows[0] || null);
   } catch (e: any) {
-    console.error('❌ [COMPLETED] finish:', e);
     res.status(500).json({ error: e.message });
   }
 });
 
-// Download de todas as fotos como ZIP
+// ZIP de fotos (auth via query token para ser baixado por <a href>)
 router.get('/:id/photos.zip', async (req, res) => {
   try {
+    // aceitar token como query param para download direto via <a>
+    const tokenQ = (req.query.token as string) || '';
+    const tokenH = (req.headers.authorization || '').replace('Bearer ', '');
+    const token = tokenH || tokenQ;
+    if (!token) return res.status(401).end();
+    try {
+      const jwt = require('jsonwebtoken');
+      jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
+    } catch { return res.status(401).end(); }
+
     const { id } = req.params;
     const cr = await pool.query(`SELECT route_id, route_name FROM completed_routes WHERE id = $1::uuid`, [id]);
     if (!cr.rows.length) return res.status(404).end();
@@ -148,7 +158,6 @@ router.get('/:id/photos.zip', async (req, res) => {
     }
     await archive.finalize();
   } catch (e: any) {
-    console.error('❌ [COMPLETED] zip:', e);
     if (!res.headersSent) res.status(500).json({ error: e.message });
   }
 });
