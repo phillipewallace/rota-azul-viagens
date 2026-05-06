@@ -642,6 +642,47 @@ const MobileDriver = () => {
           <div className="pb-safe bg-white" />
         </div>
       )}
+
+      {/* V2 — Modais de conclusão */}
+      {pendingPoint && fullTruckData?.currentRoute && (
+        <>
+          <RecolhimentoQtyModal
+            open={showQtyModal}
+            totalQty={pendingPoint.restroomsQty || 1}
+            onClose={() => {
+              setShowQtyModal(false);
+              setPendingPoint(null);
+            }}
+            onConfirm={(qty, autoRemove) => {
+              setShowQtyModal(false);
+              // Após qty, exigir fotos
+              (pendingPoint as any)._recolhidoQty = qty;
+              (pendingPoint as any)._autoRemoved = autoRemove;
+              setShowPhotoModal(true);
+            }}
+          />
+          <PhotoCaptureModal
+            open={showPhotoModal}
+            routeId={fullTruckData.currentRoute.id}
+            pointId={pendingPoint.id}
+            operationType={(pendingPoint.operationType as any) || 'entrega'}
+            minPhotos={3}
+            onClose={() => {
+              setShowPhotoModal(false);
+              setPendingPoint(null);
+            }}
+            onConfirmed={() => {
+              setShowPhotoModal(false);
+              const extra = {
+                recolhidoQty: (pendingPoint as any)._recolhidoQty,
+                autoRemoved: (pendingPoint as any)._autoRemoved,
+              };
+              commitPointUpdate(pendingPoint.id, true, extra);
+              setPendingPoint(null);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 };
