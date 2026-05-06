@@ -661,12 +661,36 @@ const MobileDriver = () => {
             }}
             onConfirm={(qty, autoRemove) => {
               setShowQtyModal(false);
-              // Após qty, exigir fotos
               (pendingPoint as any)._recolhidoQty = qty;
               (pendingPoint as any)._autoRemoved = autoRemove;
+              setShowNumberModal(true);
+            }}
+          />
+
+          <SanitarioNumberModal
+            open={showNumberModal}
+            operationType={(pendingPoint.operationType as any) || 'entrega'}
+            expectedQty={
+              (pendingPoint.operationType === 'recolhimento'
+                ? (pendingPoint as any)._recolhidoQty
+                : pendingPoint.restroomsQty) || 1
+            }
+            initialNumbers={
+              pendingPoint.operationType === 'recolhimento'
+                ? (pendingPoint.sanitario_numbers || pendingPoint.sanitarioNumbers || [])
+                : []
+            }
+            onClose={() => {
+              setShowNumberModal(false);
+              setPendingPoint(null);
+            }}
+            onConfirm={(numeros) => {
+              (pendingPoint as any)._numeros = numeros;
+              setShowNumberModal(false);
               setShowPhotoModal(true);
             }}
           />
+
           <PhotoCaptureModal
             open={showPhotoModal}
             routeId={fullTruckData.currentRoute.id}
@@ -677,13 +701,31 @@ const MobileDriver = () => {
               setShowPhotoModal(false);
               setPendingPoint(null);
             }}
-            onConfirmed={() => {
+            onConfirmed={async () => {
               setShowPhotoModal(false);
+              const numeros: string[] = (pendingPoint as any)._numeros || [];
               const extra = {
                 recolhidoQty: (pendingPoint as any)._recolhidoQty,
                 autoRemoved: (pendingPoint as any)._autoRemoved,
               };
-              commitPointUpdate(pendingPoint.id, true, extra);
+              try {
+                if (numeros.length) {
+                  await movimentarSanitarios({
+                    numeros,
+                    operationType: (pendingPoint.operationType as any) || 'entrega',
+                    routeId: fullTruckData.currentRoute!.id,
+                    routePointId: pendingPoint.id,
+                    customerName: pendingPoint.customerName || pendingPoint.name,
+                    address: pendingPoint.address,
+                    lat: pendingPoint.lat,
+                    lng: pendingPoint.lng,
+                    truckId: fullTruckData.id,
+                  });
+                }
+              } catch (e: any) {
+                toast.error('Sanitários: ' + (e?.message || ''));
+              }
+              await commitPointUpdate(pendingPoint.id, true, extra);
               setPendingPoint(null);
             }}
           />
