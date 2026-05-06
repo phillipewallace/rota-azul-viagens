@@ -441,7 +441,19 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     await client.query('UPDATE routes SET updated_at = NOW() WHERE id = $1', [routeId]);
     await client.query('COMMIT');
 
-    // Sync no completed_routes (fora da transação principal — best effort)
+    // Garante registro em completed_routes (auto-cria se não existir) e sincroniza snapshot
+    pool.query(
+      `INSERT INTO completed_routes (route_id, route_name, truck_id, truck_plate, started_at, status)
+         SELECT r.id, r.name, t.id, t.plate, NOW(), 'in_progress'
+           FROM routes r LEFT JOIN trucks t ON t.current_route_id = r.id
+          WHERE r.id = $1::uuid
+            AND NOT EXISTS (
+              SELECT 1 FROM completed_routes cr
+               WHERE cr.route_id = r.id AND cr.status = 'in_progress'
+            )`,
+      [routeId]
+    ).catch((e) => console.warn('[MOBILE] ensure completed_routes:', e?.message));
+
     pool.query(
       `UPDATE completed_routes
           SET points_snapshot = (
