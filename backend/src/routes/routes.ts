@@ -1112,4 +1112,61 @@ router.post('/:id/optimize', async (req, res) => {
   }
 });
 
+// ✅ NOVO: Otimizador híbrido para rotas grandes (50+ pontos)
+router.post('/:id/optimize-hybrid', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const ptsRes = await client.query(
+      `SELECT id, address, lat, lng, point_order, type, operation_type
+       FROM route_points WHERE route_id = $1 ORDER BY point_order`,
+      [id]
+    );
+    const points = ptsRes.rows.map((p, i) => ({
+      id: p.id, address: p.address, lat: parseFloat(p.lat), lng: parseFloat(p.lng),
+      type: i === 0 ? 'origin' : (i === ptsRes.rows.length - 1 ? 'destination' : (p.type || 'waypoint')),
+      operationType: p.operation_type,
+    }));
+    if (points.length < 3) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Use otimização normal para menos de 3 pontos' });
+    }
+    const result = await optimizeLargeRoute(points as any);
+    const hours = Math.floor(result.totalDuration / 3600);
+    const minutes = Math.floor((result.totalDuration % 3600) / 60);
+    const estimatedTime = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+
+    // Atualizar ordem dos pontos no banco
+    for (let i = 0; i < result.optimizedPoints.length; i++) {
+      await client.query(
+        `UPDATE route_points SET point_order = $1, type = $2 WHERE id = $3::uuid`,
+        [i, i === 0 ? 'origin' : (i === result.optimizedPoints.length - 1 ? 'destination' : 'waypoint'), result.optimizedPoints[i].id]
+      );
+    }
+    await client.query(
+      `UPDATE routes SET total_distance=$1, estimated_time=$2, estimated_duration=$3,
+       optimized_order=$4, polyline=$5, optimization_mode='optimized', updated_at=NOW()
+       WHERE id=$6`,
+      [result.totalDistance, estimatedTime, result.totalDuration,
+       JSON.stringify(result.optimizedOrder), result.polyline, id]
+    );
+    await client.query('COMMIT');
+    res.json({
+      message: 'Otimizado com algoritmo híbrido',
+      totalPoints: result.optimizedPoints.length,
+      totalDistance: result.totalDistance,
+      estimatedTime,
+      polyline: result.polyline,
+    });
+  } catch (e: any) {
+    await client.query('ROLLBACK');
+    console.error('❌ [HYBRID]', e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;
+
