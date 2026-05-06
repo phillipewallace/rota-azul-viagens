@@ -371,28 +371,30 @@ const MobileDriver = () => {
 
   const handleFinishRoute = async () => {
     if (!fullTruckData?.id) return;
-
     try {
       await finishRoute(fullTruckData.id);
-      
-      setFullTruckData({
-        ...fullTruckData,
-        currentRoute: null
-      });
-      
-      persistState({
-        isLoggedIn: true,
-        plateNumber,
-        truckData,
-        routeProgress: {}
-      });
-      
+      await stopBackgroundTracking();
+      setFullTruckData({ ...fullTruckData, currentRoute: null });
+      persistState({ isLoggedIn: true, plateNumber, truckData, routeProgress: {} });
       toast.success('Rota finalizada com sucesso!');
-      
     } catch (error) {
       toast.error('Erro ao finalizar rota');
     }
   };
+
+  // V2 — start/stop background tracking conforme rota ativa
+  useEffect(() => {
+    const routeId = fullTruckData?.currentRoute?.id;
+    if (routeId) {
+      startBackgroundTracking(routeId).then((ok) => {
+        if (ok) console.log('[MOBILE] Rastreamento em background ativo');
+      });
+      flushQueue().catch(() => {});
+    }
+    return () => {
+      if (routeId) stopBackgroundTracking().catch(() => {});
+    };
+  }, [fullTruckData?.currentRoute?.id]);
 
   // Navegar para lista de paradas
   const navigateToStops = () => {
