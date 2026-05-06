@@ -238,6 +238,10 @@ export default function Sanitarios() {
             <Button onClick={clearFilters} variant="ghost" size="sm">Limpar filtros</Button>
           )}
 
+          <Button onClick={exportCsv} variant="outline" size="sm" disabled={exporting} className="gap-2">
+            {exporting ? 'Exportando…' : 'Exportar CSV'}
+          </Button>
+
           <div className="flex gap-2 items-end ml-auto">
             <div>
               <label className="text-xs text-muted-foreground">Cadastrar novo</label>
