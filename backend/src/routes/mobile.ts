@@ -493,30 +493,43 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
       return res.status(400).json({ error: 'Caminhão não possui rota ativa' });
     }
     
-    // Resetar TODOS os pontos da rota
+    // Snapshot final no completed_routes (idempotente)
+    try {
+      const ptsAgg = await client.query(
+        `SELECT COALESCE(jsonb_agg(rp ORDER BY rp.point_order), '[]'::jsonb) AS pts,
+                (SELECT COUNT(*)::int FROM point_photos WHERE route_id = $1::uuid) AS photos
+           FROM route_points rp WHERE rp.route_id = $1::uuid`,
+        [currentRouteId]
+      );
+      await client.query(
+        `UPDATE completed_routes SET status = 'finished', finished_at = NOW(),
+                points_snapshot = $1, photos_count = $2, updated_at = NOW()
+          WHERE route_id = $3::uuid AND status = 'in_progress'`,
+        [ptsAgg.rows[0].pts, ptsAgg.rows[0].photos, currentRouteId]
+      );
+    } catch (e: any) {
+      console.warn('[MOBILE] snapshot finish-route:', e?.message);
+    }
+
+    // Resetar pontos da rota (mantém o snapshot já salvo)
     const resetPointsResult = await client.query(
       'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
       [currentRouteId]
     );
-    
-    console.log(`🔄 [MOBILE API] ${resetPointsResult.rows.length} pontos resetados na rota ${currentRouteId}`);
-    
-    // Desvincular o caminhão da rota
+
     await client.query(
       'UPDATE trucks SET current_route_id = NULL, status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       ['available', truckId]
     );
-    
+
     await client.query('COMMIT');
-    
-    console.log(`✅ [MOBILE API] Rota finalizada para caminhão ${truckId}`);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Rota finalizada e pontos resetados com sucesso',
       pointsReset: resetPointsResult.rows.length
     });
-    
+
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ [MOBILE API] Erro ao finalizar rota:', error);
