@@ -90,8 +90,8 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
       const lastCheck = localStorage.getItem(cacheKey);
       const now = Date.now();
       
-      // Verificar apenas a cada 30 segundos
-      if (lastCheck && (now - parseInt(lastCheck)) < 30000) {
+      // Verificar apenas a cada 10 segundos
+      if (lastCheck && (now - parseInt(lastCheck)) < 10000) {
         console.log('🔄 [ROUTE SYNC] Cache válido, pulando verificação');
         return;
       }
