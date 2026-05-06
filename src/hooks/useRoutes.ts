@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { routesService } from '@/services/routes';
 import { API_CONFIG } from '@/services/config';
 
+export type PointCategory = 'obra' | 'evento';
+export type OperationType = 'entrega' | 'recolhimento' | 'manutencao';
+
 export interface RoutePoint {
   id: string;
   address: string;
@@ -13,15 +16,17 @@ export interface RoutePoint {
   type: 'origin' | 'destination' | 'waypoint';
   completed?: boolean;
   completedAt?: string | null;
-  // Dados operacionais
   customerName?: string;
   restroomsQty?: number;
   cleaningsQty?: number;
   contactName?: string;
   contactPhone?: string;
   notes?: string;
-  observation?: string; // Alias de notes para compatibilidade
-  // Mobile
+  observation?: string;
+  pointCategory?: PointCategory;
+  operationType?: OperationType;
+  recolhidoQty?: number;
+  autoRemoved?: boolean;
   name?: string;
   stopType?: string;
 }
