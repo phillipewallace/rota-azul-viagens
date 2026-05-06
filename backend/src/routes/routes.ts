@@ -354,16 +354,12 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     // ✅ ATUALIZAR ROTA COM DADOS PRESERVADOS
     await client.query(
       `UPDATE routes SET 
-       points = $1, 
-       total_distance = $2, 
-       estimated_time = $3, 
-       estimated_duration = $4,
+       total_distance = $1, 
+       estimated_duration = $2,
        updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $5`,
+       WHERE id = $3`,
       [
-        JSON.stringify(sanitizedPoints),
         totalDistance,
-        estimatedTime,
         Math.round(estimatedDuration),
         id
       ]
