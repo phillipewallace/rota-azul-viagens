@@ -1146,10 +1146,10 @@ router.post('/:id/optimize-hybrid', async (req, res) => {
       );
     }
     await client.query(
-      `UPDATE routes SET total_distance=$1, estimated_time=$2, estimated_duration=$3,
-       optimized_order=$4, polyline=$5, optimization_mode='optimized', updated_at=NOW()
-       WHERE id=$6`,
-      [result.totalDistance, estimatedTime, result.totalDuration,
+      `UPDATE routes SET total_distance=$1, estimated_duration=$2,
+       optimized_order=$3, polyline=$4, optimization_mode='optimized', updated_at=NOW()
+       WHERE id=$5`,
+      [result.totalDistance, result.totalDuration,
        JSON.stringify(result.optimizedOrder), result.polyline, id]
     );
     await client.query('COMMIT');
