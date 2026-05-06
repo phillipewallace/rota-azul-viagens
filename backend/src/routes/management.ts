@@ -159,7 +159,7 @@ router.get('/maintenance', async (req, res) => {
       maintenance_date: record.maintenance_date,
       cost: parseFloat(record.cost) || 0,
       status: record.status,
-      files: record.files ? (typeof record.files === 'string' ? JSON.parse(record.files) : record.files) : [],
+      files: (() => { try { if (!record.files) return []; if (typeof record.files !== 'string') return record.files; return JSON.parse(record.files); } catch { return []; } })(),
       created_at: record.created_at,
       updated_at: record.updated_at
     }));
