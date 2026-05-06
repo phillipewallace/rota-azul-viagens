@@ -265,6 +265,28 @@ const SortableRow: React.FC<SortableRowProps> = ({
               maxLength={500}
             />
           </div>
+
+          {/* Numeração dos sanitários */}
+          <div className="space-y-2 col-span-3">
+            <label className="text-xs font-medium text-muted-foreground">
+              Numeração dos sanitários (separe por vírgula)
+            </label>
+            <Input
+              value={(point.sanitarioNumbers || []).join(', ')}
+              onChange={(e) => {
+                const arr = e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                onUpdate(point.id, 'sanitarioNumbers' as any, arr);
+              }}
+              placeholder="ex: 1024, 1025, 1030"
+              className="h-8 text-xs font-mono"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Pode ser preenchido aqui manualmente ou pelo motorista no app na hora da entrega.
+            </p>
+          </div>
         </div>
       )}
     </div>

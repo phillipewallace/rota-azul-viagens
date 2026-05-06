@@ -27,6 +27,8 @@ export interface RoutePoint {
   operationType?: OperationType;
   recolhidoQty?: number;
   autoRemoved?: boolean;
+  sanitarioNumbers?: string[];
+  sanitarioRecolhidos?: string[];
   name?: string;
   stopType?: string;
 }

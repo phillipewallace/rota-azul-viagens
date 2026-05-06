@@ -70,6 +70,8 @@ router.get('/', async (req, res) => {
         operationType: p.operation_type || 'entrega',
         recolhidoQty: p.recolhido_qty,
         autoRemoved: p.auto_removed || false,
+        sanitarioNumbers: p.sanitario_numbers || [],
+        sanitarioRecolhidos: p.sanitario_recolhidos || [],
       }));
       
       return {
@@ -203,8 +205,8 @@ router.post('/', async (req, res) => {
         `INSERT INTO route_points (
           route_id, address, lat, lng, point_order, type, completed,
           customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type,
-          point_category, operation_type
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+          point_category, operation_type, sanitario_numbers
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
         [
           routeId,
           point.address || '',
@@ -223,6 +225,7 @@ router.post('/', async (req, res) => {
           point.stopType || null,
           point.pointCategory || 'obra',
           point.operationType || 'entrega',
+          Array.isArray(point.sanitarioNumbers) ? point.sanitarioNumbers : null,
         ]
       );
     }
@@ -733,8 +736,9 @@ router.put('/:id', async (req, res) => {
         `INSERT INTO route_points (
           route_id, address, lat, lng, point_order, type, completed, completed_at,
           customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, notes, cep, stop_type,
-          point_category, operation_type, recolhido_qty, auto_removed
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
+          point_category, operation_type, recolhido_qty, auto_removed,
+          sanitario_numbers, sanitario_recolhidos
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)`,
         [
           id,
           point.address || '',
@@ -756,6 +760,8 @@ router.put('/:id', async (req, res) => {
           point.operationType || 'entrega',
           point.recolhidoQty ?? null,
           point.autoRemoved || false,
+          Array.isArray(point.sanitarioNumbers) ? point.sanitarioNumbers : null,
+          Array.isArray(point.sanitarioRecolhidos) ? point.sanitarioRecolhidos : null,
         ]
       );
       insertedCount++;
