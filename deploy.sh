@@ -117,11 +117,45 @@ ok "pm2 OK ($(pm2 jlist | grep -c '\"name\"'))"
 
 # ─── 8) Nginx vhost ─────────────────────────────────────────────────────────
 VHOST="/etc/nginx/sites-available/alchemy-rotas"
-log "Regravando vhost nginx (porta backend: 3002)…"
-cat > "$VHOST" <<NGINX
+log "Limpando vhosts antigos conflitantes (rota-azul-viagens, default, porta 3001)…"
+# Remove links de qualquer vhost antigo para o mesmo server_name
+for f in /etc/nginx/sites-enabled/*; do
+  [[ -e "$f" ]] || continue
+  base="$(basename "$f")"
+  [[ "$base" == "alchemy-rotas" ]] && continue
+  if grep -qE "server_name[^;]*${SERVER_NAME}|proxy_pass[^;]*:3001" "$f" 2>/dev/null; then
+    warn "Removendo vhost conflitante: $f"
+    rm -f "$f"
+  fi
+done
+rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/rota-azul-viagens
+# Detecta certificado SSL existente (Let's Encrypt) para emitir vhost https
+SSL_CERT="/etc/letsencrypt/live/${SERVER_NAME}/fullchain.pem"
+SSL_KEY="/etc/letsencrypt/live/${SERVER_NAME}/privkey.pem"
+HAS_SSL=0
+[[ -f "$SSL_CERT" && -f "$SSL_KEY" ]] && HAS_SSL=1
+
+log "Regravando vhost nginx (porta backend: 3002, ssl=${HAS_SSL})…"
+{
+  cat <<NGINX
 server {
   listen 80;
+  listen [::]:80;
   server_name ${SERVER_NAME} www.${SERVER_NAME};
+NGINX
+  if [[ "$HAS_SSL" == "1" ]]; then
+    cat <<NGINX
+  return 301 https://\$host\$request_uri;
+}
+server {
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+  server_name ${SERVER_NAME} www.${SERVER_NAME};
+  ssl_certificate ${SSL_CERT};
+  ssl_certificate_key ${SSL_KEY};
+NGINX
+  fi
+  cat <<NGINX
   root ${WEB_ROOT};
   index index.html;
   client_max_body_size 25M;
@@ -132,6 +166,7 @@ server {
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_read_timeout 300s;
   }
 
   location /uploads/ {
@@ -141,8 +176,8 @@ server {
   location / { try_files \$uri /index.html; }
 }
 NGINX
+} > "$VHOST"
 ln -sf "$VHOST" /etc/nginx/sites-enabled/alchemy-rotas
-rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 ok "nginx recarregado"
 
