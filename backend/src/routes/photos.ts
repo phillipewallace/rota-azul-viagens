@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/database';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, softAuth } from '../middleware/requireAuth';
 
 const router = Router();
 
@@ -32,7 +32,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 15 * 1024 * 1024, files: 10 },
+  limits: { fileSize: 25 * 1024 * 1024, files: 50 },
   fileFilter: (_req: any, file: any, cb: any) => {
     if (ALLOWED_MIME.has(file.mimetype)) cb(null, true);
     else cb(new Error('Formato não permitido'));
@@ -40,8 +40,8 @@ const upload = multer({
 });
 
 // Upload N fotos para um ponto
-router.post('/route/:routeId/point/:pointId/photos', requireAuth, (req: any, res: any) => {
-  upload.array('photos', 10)(req, res, async (err: any) => {
+router.post('/route/:routeId/point/:pointId/photos', softAuth, (req: any, res: any) => {
+  upload.array('photos', 50)(req, res, async (err: any) => {
     if (err) {
       console.error('❌ [PHOTOS] erro multer:', err);
       return res.status(400).json({ error: err.message || 'Erro no upload' });

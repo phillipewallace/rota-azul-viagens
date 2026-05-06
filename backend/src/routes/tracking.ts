@@ -38,6 +38,13 @@ router.post('/location', softAuth, async (req: any, res: any) => {
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7)`,
       [routeId || null, truckId || null, driverId || null, lat, lng, speed ?? null, recordedAt]
     );
+    // Atualiza posição atual do caminhão para refletir no mapa web
+    if (truckId) {
+      pool.query(
+        `UPDATE trucks SET location_lat = $1, location_lng = $2, updated_at = NOW() WHERE id = $3::uuid`,
+        [lat, lng, truckId]
+      ).catch((e) => console.warn('[TRACKING] update truck loc:', e?.message));
+    }
     res.json({ ok: true });
   } catch (e: any) {
     console.error('[TRACKING] erro:', e);

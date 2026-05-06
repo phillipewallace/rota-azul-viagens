@@ -503,9 +503,9 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
       );
       await client.query(
         `UPDATE completed_routes SET status = 'finished', finished_at = NOW(),
-                points_snapshot = $1, photos_count = $2, updated_at = NOW()
+                points_snapshot = $1::jsonb, photos_count = $2, updated_at = NOW()
           WHERE route_id = $3::uuid AND status = 'in_progress'`,
-        [ptsAgg.rows[0].pts, ptsAgg.rows[0].photos, currentRouteId]
+        [JSON.stringify(ptsAgg.rows[0].pts ?? []), ptsAgg.rows[0].photos ?? 0, currentRouteId]
       );
     } catch (e: any) {
       console.warn('[MOBILE] snapshot finish-route:', e?.message);

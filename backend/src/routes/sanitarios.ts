@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, softAuth } from '../middleware/requireAuth';
 
 const router = Router();
 
@@ -251,7 +251,7 @@ async function registrarMovimentacao(client: any, opts: {
 /**
  * POST /api/sanitarios/movimentar — atômico
  */
-router.post('/movimentar', requireAuth, async (req: any, res: any) => {
+router.post('/movimentar', softAuth, async (req: any, res: any) => {
   const client = await pool.connect();
   try {
     const { numeros, operationType, routeId, routePointId, customerName, address, lat, lng,
