@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Pencil, Package, Boxes, Users, History,
   AlertTriangle, CalendarClock, FileSignature, ArrowDownToLine, ArrowUpFromLine,
-  Settings2, Loader2, Upload, Building2, Car,
+  Settings2, Loader2, Upload, Building2, Car, Download, FileText, FileSpreadsheet, Eye,
 } from 'lucide-react';
+import { downloadCsv, downloadPdf } from '@/utils/exporters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,6 +56,7 @@ const InternalManagement: React.FC = () => {
   const [itemModal, setItemModal] = useState<ErpItem | null>(null);
   const [employeeModal, setEmployeeModal] = useState<ErpEmployee | null>(null);
   const [movementModal, setMovementModal] = useState<{ item: ErpItem; type: 'in' | 'out' | 'adjust' | 'discard' } | null>(null);
+  const [historyItem, setHistoryItem] = useState<ErpItem | null>(null);
 
   const isAdmin = user?.role === 'admin';
 
@@ -148,6 +150,7 @@ const InternalManagement: React.FC = () => {
                     tracksExpiry: false, requiresSignedTerm: false,
                   } as ErpItem)}
                   onMovement={(item, type) => setMovementModal({ item, type })}
+                  onHistory={(item) => setHistoryItem(item)}
                   onDelete={async (id) => {
                     if (!confirm('Excluir este item?')) return;
                     await erpService.deleteItem(id);
@@ -194,7 +197,7 @@ const InternalManagement: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="movements" className="mt-6">
-                <MovementsView movements={movements} />
+                <MovementsView movements={movements} items={items} />
               </TabsContent>
             </>
           )}
@@ -233,6 +236,9 @@ const InternalManagement: React.FC = () => {
           onSaved={() => { setMovementModal(null); loadAll(); }}
         />
       )}
+      {historyItem && (
+        <ItemHistoryModal item={historyItem} onClose={() => setHistoryItem(null)} />
+      )}
     </div>
   );
 };
@@ -241,6 +247,30 @@ const InternalManagement: React.FC = () => {
 const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard }) => {
   if (!dashboard) return null;
   const { totals, lowStock, expiring } = dashboard;
+
+  const exportLowStock = (kind: 'csv' | 'pdf') => {
+    const headers = ['Item', 'Categoria', 'Atual', 'Mínimo', 'Unidade'];
+    const rows = lowStock.map((it: any) => [
+      it.name, it.categoryName, Number(it.currentQty), Number(it.minQty), it.unit,
+    ]);
+    const fname = `estoque-baixo-${new Date().toISOString().slice(0,10)}`;
+    if (kind === 'csv') downloadCsv(fname, headers, rows);
+    else downloadPdf({ filename: fname, title: 'Relatório · Estoque baixo',
+      subtitle: `${rows.length} item(ns)`, headers, rows });
+  };
+  const exportExpiring = (kind: 'csv' | 'pdf') => {
+    const headers = ['Item', 'Categoria', 'Validade', 'Dias restantes'];
+    const rows = expiring.map((it: any) => [
+      it.name, it.categoryName,
+      new Date(it.expiryDate).toLocaleDateString('pt-BR'),
+      it.daysLeft,
+    ]);
+    const fname = `validades-${new Date().toISOString().slice(0,10)}`;
+    if (kind === 'csv') downloadCsv(fname, headers, rows);
+    else downloadPdf({ filename: fname, title: 'Relatório · Itens vencendo',
+      subtitle: `${rows.length} item(ns)`, headers, rows });
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -259,10 +289,22 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-base">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-          Estoque baixo ({lowStock.length})
-        </CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            Estoque baixo ({lowStock.length})
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => exportLowStock('csv')}
+              disabled={lowStock.length === 0}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => exportLowStock('pdf')}
+              disabled={lowStock.length === 0}>
+              <FileText className="h-4 w-4 mr-1" /> PDF
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
           {lowStock.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum item abaixo do mínimo.</p>
@@ -291,10 +333,22 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-base">
-          <CalendarClock className="h-5 w-5 text-orange-500" />
-          Validade próxima ({expiring.length})
-        </CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarClock className="h-5 w-5 text-orange-500" />
+            Validade próxima ({expiring.length})
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => exportExpiring('csv')}
+              disabled={expiring.length === 0}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => exportExpiring('pdf')}
+              disabled={expiring.length === 0}>
+              <FileText className="h-4 w-4 mr-1" /> PDF
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
           {expiring.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum item próximo da validade.</p>
@@ -331,8 +385,9 @@ const ItemsView: React.FC<{
   items: ErpItem[]; categories: ErpCategory[];
   onEdit: (i: ErpItem) => void; onCreate: () => void;
   onMovement: (i: ErpItem, t: 'in' | 'out' | 'adjust' | 'discard') => void;
+  onHistory: (i: ErpItem) => void;
   onDelete: (id: string) => void;
-}> = ({ items, categories, onEdit, onCreate, onMovement, onDelete }) => {
+}> = ({ items, categories, onEdit, onCreate, onMovement, onHistory, onDelete }) => {
   const [filter, setFilter] = useState<string>('all');
   const filtered = useMemo(
     () => items.filter(i => filter === 'all' || i.categoryId === filter),
@@ -349,6 +404,26 @@ const ItemsView: React.FC<{
           </SelectContent>
         </Select>
         <div className="flex-1" />
+        <Button variant="outline" onClick={() => {
+          const headers = ['Item','SKU','Categoria','Estoque','Unidade','Mínimo','Validade'];
+          const rows = filtered.map(i => [i.name, i.sku || '', i.categoryName,
+            Number(i.currentQty), i.unit, Number(i.minQty),
+            i.expiryDate ? new Date(i.expiryDate).toLocaleDateString('pt-BR') : '']);
+          downloadCsv(`estoque-atual-${new Date().toISOString().slice(0,10)}`, headers, rows);
+        }} disabled={filtered.length === 0}>
+          <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+        </Button>
+        <Button variant="outline" onClick={() => {
+          const headers = ['Item','SKU','Categoria','Estoque','Unidade','Mínimo','Validade'];
+          const rows = filtered.map(i => [i.name, i.sku || '', i.categoryName,
+            Number(i.currentQty), i.unit, Number(i.minQty),
+            i.expiryDate ? new Date(i.expiryDate).toLocaleDateString('pt-BR') : '']);
+          downloadPdf({ filename: `estoque-atual-${new Date().toISOString().slice(0,10)}`,
+            title: 'Relatório · Estoque atual', subtitle: `${rows.length} item(ns)`,
+            headers, rows, orientation: 'landscape' });
+        }} disabled={filtered.length === 0}>
+          <FileText className="h-4 w-4 mr-1" /> PDF
+        </Button>
         <Button onClick={onCreate} disabled={categories.length === 0}>
           <Plus className="h-4 w-4 mr-2" /> Novo item
         </Button>
@@ -395,6 +470,10 @@ const ItemsView: React.FC<{
                         <Button size="sm" variant="outline" className="text-blue-600"
                           onClick={() => onMovement(i, 'out')}>
                           <ArrowUpFromLine className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="ghost" title="Ver histórico"
+                          onClick={() => onHistory(i)}>
+                          <Eye className="h-4 w-4" />
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => onEdit(i)}>
                           <Pencil className="h-4 w-4" />
@@ -494,46 +573,268 @@ const EmployeesView: React.FC<{
 );
 
 /* ============ Movimentações ============ */
-const MovementsView: React.FC<{ movements: ErpMovement[] }> = ({ movements }) => (
-  <Card><CardContent className="p-0">
-    <Table>
-      <TableHeader><TableRow>
-        <TableHead>Data</TableHead><TableHead>Item</TableHead>
-        <TableHead>Tipo</TableHead><TableHead className="text-right">Qtd</TableHead>
-        <TableHead>Funcionário</TableHead><TableHead>Por</TableHead>
-        <TableHead>PDF</TableHead>
-      </TableRow></TableHeader>
-      <TableBody>
-        {movements.length === 0 ? (
-          <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-            Nenhuma movimentação registrada.
-          </TableCell></TableRow>
-        ) : movements.map(m => (
-          <TableRow key={m.id}>
-            <TableCell className="text-xs">{new Date(m.createdAt).toLocaleString('pt-BR')}</TableCell>
-            <TableCell>{m.itemName}</TableCell>
-            <TableCell>
-              <span className={`px-2 py-1 rounded text-xs font-medium ${movementColor[m.type]}`}>
-                {movementLabel[m.type]}
-              </span>
-            </TableCell>
-            <TableCell className="text-right">{Number(m.qty)} {m.unit}</TableCell>
-            <TableCell>{m.employeeName || '-'}</TableCell>
-            <TableCell className="text-xs">{m.performedBy || '-'}</TableCell>
-            <TableCell>
-              {m.signedPdfUrl ? (
-                <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
-                   className="text-blue-600 underline text-xs flex items-center gap-1">
-                  <FileSignature className="h-3 w-3" /> Termo
-                </a>
-              ) : '-'}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  </CardContent></Card>
-);
+const MovementsView: React.FC<{ movements: ErpMovement[]; items: ErpItem[] }> = ({ movements, items }) => {
+  const [type, setType] = useState<string>('all');
+  const [itemId, setItemId] = useState<string>('all');
+  const [from, setFrom] = useState<string>('');
+  const [to, setTo] = useState<string>('');
+
+  const filtered = useMemo(() => movements.filter(m => {
+    if (type !== 'all' && m.type !== type) return false;
+    if (itemId !== 'all' && m.itemId !== itemId) return false;
+    const d = new Date(m.createdAt);
+    if (from && d < new Date(from + 'T00:00:00')) return false;
+    if (to && d > new Date(to + 'T23:59:59')) return false;
+    return true;
+  }), [movements, type, itemId, from, to]);
+
+  const buildExport = () => {
+    const headers = ['Data','Item','Tipo','Quantidade','Unidade','Funcionário','Registrado por','Observações','PDF'];
+    const rows = filtered.map(m => [
+      new Date(m.createdAt).toLocaleString('pt-BR'),
+      m.itemName, movementLabel[m.type], Number(m.qty), m.unit,
+      m.employeeName || '', m.performedBy || '', m.notes || '',
+      m.signedPdfUrl || '',
+    ]);
+    return { headers, rows };
+  };
+  const exportCsv = () => {
+    const { headers, rows } = buildExport();
+    downloadCsv(`movimentacoes-${new Date().toISOString().slice(0,10)}`, headers, rows);
+  };
+  const exportPdf = () => {
+    const { headers, rows } = buildExport();
+    downloadPdf({
+      filename: `movimentacoes-${new Date().toISOString().slice(0,10)}`,
+      title: 'Auditoria · Histórico de movimentações',
+      subtitle: `${rows.length} registro(s)${from ? ` de ${from}` : ''}${to ? ` até ${to}` : ''}`,
+      headers, rows, orientation: 'landscape',
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <Card><CardContent className="pt-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+          <div>
+            <Label className="text-xs">Tipo</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="in">Entrada</SelectItem>
+                <SelectItem value="out">Retirada</SelectItem>
+                <SelectItem value="adjust">Ajuste</SelectItem>
+                <SelectItem value="discard">Descarte</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs">Item</Label>
+            <Select value={itemId} onValueChange={setItemId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os itens</SelectItem>
+                {items.map(i => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">De</Label>
+            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Até</Label>
+            <Input type="date" value={to} onChange={e => setTo(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex justify-between items-center mt-3">
+          <span className="text-xs text-muted-foreground">{filtered.length} registro(s)</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportPdf} disabled={filtered.length === 0}>
+              <FileText className="h-4 w-4 mr-1" /> PDF
+            </Button>
+          </div>
+        </div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-0">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Data</TableHead><TableHead>Item</TableHead>
+            <TableHead>Tipo</TableHead><TableHead className="text-right">Qtd</TableHead>
+            <TableHead>Funcionário</TableHead><TableHead>Por</TableHead>
+            <TableHead>PDF</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                Nenhuma movimentação no filtro atual.
+              </TableCell></TableRow>
+            ) : filtered.map(m => (
+              <TableRow key={m.id}>
+                <TableCell className="text-xs">{new Date(m.createdAt).toLocaleString('pt-BR')}</TableCell>
+                <TableCell>{m.itemName}</TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${movementColor[m.type]}`}>
+                    {movementLabel[m.type]}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">{Number(m.qty)} {m.unit}</TableCell>
+                <TableCell>{m.employeeName || '-'}</TableCell>
+                <TableCell className="text-xs">{m.performedBy || '-'}</TableCell>
+                <TableCell>
+                  {m.signedPdfUrl ? (
+                    <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
+                       className="text-blue-600 underline text-xs flex items-center gap-1">
+                      <FileSignature className="h-3 w-3" /> Termo
+                    </a>
+                  ) : '-'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
+    </div>
+  );
+};
+
+/* ============ Histórico por item ============ */
+const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ item, onClose }) => {
+  const [movs, setMovs] = useState<ErpMovement[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    erpService.listMovements(item.id)
+      .then(setMovs)
+      .catch((e: any) => toast.error(e.message))
+      .finally(() => setLoading(false));
+  }, [item.id]);
+
+  const summary = useMemo(() => {
+    const s = { in: 0, out: 0, adjust: 0, discard: 0 };
+    movs.forEach(m => { s[m.type] += Number(m.qty); });
+    return s;
+  }, [movs]);
+
+  const exportCsv = () => {
+    const headers = ['Data','Tipo','Quantidade','Unidade','Funcionário','Registrado por','Observações'];
+    const rows = movs.map(m => [
+      new Date(m.createdAt).toLocaleString('pt-BR'),
+      movementLabel[m.type], Number(m.qty), m.unit,
+      m.employeeName || '', m.performedBy || '', m.notes || '',
+    ]);
+    downloadCsv(`historico-${item.name}-${new Date().toISOString().slice(0,10)}`, headers, rows);
+  };
+  const exportPdf = () => {
+    const headers = ['Data','Tipo','Quantidade','Unidade','Funcionário','Registrado por','Observações'];
+    const rows = movs.map(m => [
+      new Date(m.createdAt).toLocaleString('pt-BR'),
+      movementLabel[m.type], Number(m.qty), m.unit,
+      m.employeeName || '', m.performedBy || '', m.notes || '',
+    ]);
+    downloadPdf({
+      filename: `historico-${item.name}-${new Date().toISOString().slice(0,10)}`,
+      title: `Histórico do item · ${item.name}`,
+      subtitle: `Categoria: ${item.categoryName} · Estoque atual: ${Number(item.currentQty)} ${item.unit}`,
+      headers, rows, orientation: 'landscape',
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-blue-600" />
+            Histórico · {item.name}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {item.categoryName} · Estoque atual <strong>{Number(item.currentQty)} {item.unit}</strong>
+          </p>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <Card><CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Total entrada</p>
+            <p className="text-xl font-bold text-green-600">+{summary.in} {item.unit}</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Total retirada</p>
+            <p className="text-xl font-bold text-blue-600">-{summary.out} {item.unit}</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Ajustes</p>
+            <p className="text-xl font-bold text-amber-600">{summary.adjust}</p>
+          </CardContent></Card>
+          <Card><CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Descarte</p>
+            <p className="text-xl font-bold text-red-600">{summary.discard} {item.unit}</p>
+          </CardContent></Card>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={exportCsv} disabled={movs.length === 0}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportPdf} disabled={movs.length === 0}>
+            <FileText className="h-4 w-4 mr-1" /> PDF
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : (
+          <Card><CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Data</TableHead><TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Qtd</TableHead>
+                <TableHead>Funcionário</TableHead><TableHead>Por</TableHead>
+                <TableHead>Obs.</TableHead><TableHead>PDF</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {movs.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                    Nenhuma movimentação registrada.
+                  </TableCell></TableRow>
+                ) : movs.map(m => (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-xs">{new Date(m.createdAt).toLocaleString('pt-BR')}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${movementColor[m.type]}`}>
+                        {movementLabel[m.type]}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">{Number(m.qty)} {m.unit}</TableCell>
+                    <TableCell>{m.employeeName || '-'}</TableCell>
+                    <TableCell className="text-xs">{m.performedBy || '-'}</TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate" title={m.notes || ''}>
+                      {m.notes || '-'}
+                    </TableCell>
+                    <TableCell>
+                      {m.signedPdfUrl ? (
+                        <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
+                           className="text-blue-600 text-xs underline">PDF</a>
+                      ) : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent></Card>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 /* ============ Modais ============ */
 const CategoryModal: React.FC<{ category: ErpCategory; onClose: () => void; onSaved: () => void }> =
