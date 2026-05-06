@@ -451,20 +451,15 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     }
 
     // Regras automáticas por tipo de operação ao concluir:
-    //  - entrega   → vira "manutencao" (permanece na rota)
+    //  - entrega → permanece como entrega (NÃO converte mais para manutencao)
     //  - recolhimento → auto_removed = true (sai da rota ativa)
     //  - manutencao → permanece na rota (no-op)
+    // IMPORTANTE: o operation_type definido no painel web é a fonte de verdade
+    // e não deve ser sobrescrito automaticamente pelo backend.
     if (completedValue === true) {
       const row = update.rows[0];
       const opType = (row.operation_type || row.stop_type || '').toString().toLowerCase();
-      if (opType === 'entrega') {
-        await client.query(
-          `UPDATE route_points
-              SET operation_type = 'manutencao', stop_type = 'manutencao'
-            WHERE id = $1::uuid`,
-          [pointId]
-        );
-      } else if (opType === 'recolhimento') {
+      if (opType === 'recolhimento') {
         await client.query(
           `UPDATE route_points SET auto_removed = true WHERE id = $1::uuid`,
           [pointId]
