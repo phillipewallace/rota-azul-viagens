@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Link as LinkIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Link as LinkIcon, Unlink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -61,6 +61,27 @@ const Trucks = () => {
   const handleLinkRoute = (truck: TruckType) => {
     setLinkingTruck(truck);
     setShowLinkModal(true);
+  };
+
+  const handleUnlinkRoute = async (truck: TruckType) => {
+    if (!confirm(`Desvincular a rota atual de ${truck.name}?`)) return;
+    try {
+      const { API_CONFIG } = await import('@/services/config');
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_CONFIG.BASE_URL}/trucks/unlink-route`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ truckId: truck.id }),
+      });
+      if (!res.ok) throw new Error('Falha ao desvincular');
+      await refetch();
+      toast({ title: 'Rota desvinculada com sucesso!' });
+    } catch (e: any) {
+      toast({ title: 'Erro ao desvincular rota', description: e?.message, variant: 'destructive' });
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -158,6 +179,16 @@ const Trucks = () => {
                           >
                             <LinkIcon className="w-4 h-4" />
                           </Button>
+                          {truck.status === 'in-route' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUnlinkRoute(truck)}
+                              title="Desvincular rota"
+                            >
+                              <Unlink className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="destructive"

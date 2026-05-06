@@ -52,17 +52,23 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
       return true;
     }
     
-    // ✅ NOVO: Verificar mudanças nos endereços
-    const addressChanges = newRoute.points?.some((newPoint: any) => {
+    // ✅ NOVO: Verificar mudanças nos endereços, tipo de operação ou categoria
+    const fieldChanges = newRoute.points?.some((newPoint: any) => {
       const oldPoint = oldRoute.points?.find((p: any) => p.id === newPoint.id);
-      return oldPoint && oldPoint.address !== newPoint.address;
+      if (!oldPoint) return false;
+      return (
+        oldPoint.address !== newPoint.address ||
+        oldPoint.operation_type !== newPoint.operation_type ||
+        oldPoint.point_category !== newPoint.point_category ||
+        oldPoint.recolhido_qty !== newPoint.recolhido_qty
+      );
     });
-    
-    if (addressChanges) {
-      console.log(`🔍 [ROUTE SYNC] Mudança estrutural: endereços alterados`);
+
+    if (fieldChanges) {
+      console.log(`🔍 [ROUTE SYNC] Mudança estrutural: campos operacionais alterados`);
       return true;
     }
-    
+
     // ✅ IGNORAR: Apenas mudanças de completed/completedAt (progresso local)
     console.log(`🔍 [ROUTE SYNC] Apenas mudanças de progresso - mantendo estado local`);
     return false;
@@ -84,8 +90,8 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
       const lastCheck = localStorage.getItem(cacheKey);
       const now = Date.now();
       
-      // Verificar apenas a cada 30 segundos
-      if (lastCheck && (now - parseInt(lastCheck)) < 30000) {
+      // Verificar apenas a cada 10 segundos
+      if (lastCheck && (now - parseInt(lastCheck)) < 10000) {
         console.log('🔄 [ROUTE SYNC] Cache válido, pulando verificação');
         return;
       }
@@ -171,12 +177,12 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
   useEffect(() => {
     if (!truckData?.currentRoute) return;
     
-    // Verificar a cada 2 minutos quando app está ativo
+    // Verificar a cada 20 segundos quando app está ativo (sincronização quase em tempo real)
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         checkForRouteUpdates();
       }
-    }, 120000); // 2 minutos
+    }, 20000); // 20 segundos
     
     // Verificar quando app volta a ficar visível
     const handleVisibilityChange = () => {
@@ -194,16 +200,38 @@ export const useRouteSync = (truckData: TruckMobileData | null) => {
   }, [checkForRouteUpdates]);
 
   const acceptRouteUpdate = useCallback((newData: TruckMobileData) => {
-    console.log(`✅ [ROUTE SYNC] Aceitando atualização da rota`);
-    
-    setSyncState(prev => ({ 
-      ...prev, 
+    console.log(`✅ [ROUTE SYNC] Aceitando atualização da rota (preservando pontos concluídos)`);
+
+    // Proteger pontos já concluídos: manter completed/completedAt locais
+    let merged = newData;
+    if (newData?.currentRoute && truckData?.currentRoute) {
+      merged = {
+        ...newData,
+        currentRoute: {
+          ...newData.currentRoute,
+          points: newData.currentRoute.points.map((serverPoint: any) => {
+            const localPoint = truckData.currentRoute!.points.find(p => p.id === serverPoint.id);
+            if (localPoint?.completed) {
+              return {
+                ...serverPoint,
+                completed: true,
+                completedAt: localPoint.completedAt,
+              };
+            }
+            return serverPoint;
+          }),
+        },
+      };
+    }
+
+    setSyncState(prev => ({
+      ...prev,
       hasRouteChanged: false,
-      newRouteData: null
+      newRouteData: null,
     }));
-    
-    return newData;
-  }, []);
+
+    return merged;
+  }, [truckData]);
 
   const dismissRouteUpdate = useCallback(() => {
     console.log(`❌ [ROUTE SYNC] Dispensando atualização da rota`);
