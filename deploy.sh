@@ -81,7 +81,7 @@ if [[ ! -f .env ]]; then
   log "Gerando backend/.env padrão…"
   cat > .env <<EOF
 NODE_ENV=production
-PORT=3001
+PORT=3002
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=${DB_NAME}
@@ -128,7 +128,7 @@ server {
   client_max_body_size 25M;
 
   location /api/ {
-    proxy_pass http://127.0.0.1:3001/api/;
+    proxy_pass http://127.0.0.1:3002/api/;
     proxy_set_header Host \$host;
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -136,7 +136,7 @@ server {
   }
 
   location /uploads/ {
-    proxy_pass http://127.0.0.1:3001/uploads/;
+    proxy_pass http://127.0.0.1:3002/uploads/;
   }
 
   location / { try_files \$uri /index.html; }
