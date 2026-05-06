@@ -425,6 +425,7 @@ export default function Sanitarios() {
           </CardContent>
         </Card>
       </div>
+      </div>
     </div>
   );
 }
