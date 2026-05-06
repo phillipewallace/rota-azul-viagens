@@ -513,12 +513,37 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
            FROM route_points rp WHERE rp.route_id = $1::uuid`,
         [currentRouteId]
       );
-      await client.query(
+    // Snapshot final no completed_routes (idempotente, auto-cria se necessário)
+    try {
+      const ptsAgg = await client.query(
+        `SELECT COALESCE(jsonb_agg(rp ORDER BY rp.point_order), '[]'::jsonb) AS pts,
+                (SELECT COUNT(*)::int FROM point_photos WHERE route_id = $1::uuid) AS photos
+           FROM route_points rp WHERE rp.route_id = $1::uuid`,
+        [currentRouteId]
+      );
+      const ptsJson = JSON.stringify(ptsAgg.rows[0].pts ?? []);
+      const photosCount = ptsAgg.rows[0].photos ?? 0;
+
+      const upd = await client.query(
         `UPDATE completed_routes SET status = 'finished', finished_at = NOW(),
                 points_snapshot = $1::jsonb, photos_count = $2, updated_at = NOW()
-          WHERE route_id = $3::uuid AND status = 'in_progress'`,
-        [JSON.stringify(ptsAgg.rows[0].pts ?? []), ptsAgg.rows[0].photos ?? 0, currentRouteId]
+          WHERE route_id = $3::uuid AND status = 'in_progress'
+          RETURNING id`,
+        [ptsJson, photosCount, currentRouteId]
       );
+
+      if (!upd.rows.length) {
+        // Não havia in_progress — criar registro finalizado direto
+        await client.query(
+          `INSERT INTO completed_routes
+             (route_id, route_name, truck_id, truck_plate, started_at, finished_at,
+              status, points_snapshot, photos_count)
+           SELECT r.id, r.name, t.id, t.plate, NOW(), NOW(), 'finished', $2::jsonb, $3
+             FROM routes r LEFT JOIN trucks t ON t.id = $4::uuid
+            WHERE r.id = $1::uuid`,
+          [currentRouteId, ptsJson, photosCount, truckId]
+        );
+      }
     } catch (e: any) {
       console.warn('[MOBILE] snapshot finish-route:', e?.message);
     }
