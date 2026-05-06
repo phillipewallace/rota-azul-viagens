@@ -67,6 +67,8 @@ export default function Sanitarios() {
   const [list, setList] = useState<Sanitario[]>([]);
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [truckFilter, setTruckFilter] = useState('');
+  const [trucks, setTrucks] = useState<Truck[]>([]);
   const [selected, setSelected] = useState<(Sanitario & { historico: Movimentacao[] }) | null>(null);
   const [loading, setLoading] = useState(false);
   const [newNum, setNewNum] = useState('');
@@ -77,7 +79,8 @@ export default function Sanitarios() {
       const url = new URL(`${API_BASE_URL}/sanitarios`);
       if (statusFilter) url.searchParams.set('status', statusFilter);
       if (filter) url.searchParams.set('q', filter);
-      const r = await fetch(url.toString());
+      if (truckFilter) url.searchParams.set('truckId', truckFilter);
+      const r = await fetch(url.toString(), { headers: authHeaders() });
       const data = await r.json();
       setList(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -85,11 +88,23 @@ export default function Sanitarios() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [statusFilter]);
+  const loadTrucks = async () => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/sanitarios/meta/trucks`, { headers: authHeaders() });
+      if (r.ok) setTrucks(await r.json());
+    } catch { /* silencioso */ }
+  };
+
+  const clearFilters = () => {
+    setFilter(''); setStatusFilter(''); setTruckFilter('');
+  };
+
+  useEffect(() => { loadTrucks(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [statusFilter, truckFilter]);
 
   const openDetail = async (numero: string) => {
     try {
-      const r = await fetch(`${API_BASE_URL}/sanitarios/${encodeURIComponent(numero)}`);
+      const r = await fetch(`${API_BASE_URL}/sanitarios/${encodeURIComponent(numero)}`, { headers: authHeaders() });
       if (!r.ok) throw new Error('não encontrado');
       setSelected(await r.json());
     } catch {
