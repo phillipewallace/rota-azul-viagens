@@ -80,7 +80,13 @@ router.get('/truck/:plate', async (req, res) => {
             rp.contact_phone,
             rp.notes,
             rp.cep,
-            rp.stop_type
+            rp.stop_type,
+            COALESCE(rp.point_category, 'obra') AS point_category,
+            COALESCE(rp.operation_type, 'entrega') AS operation_type,
+            rp.recolhido_qty,
+            COALESCE(rp.auto_removed, false) AS auto_removed,
+            rp.sanitario_numbers,
+            rp.sanitario_recolhidos
           FROM route_points rp
           WHERE rp.route_id = $1
           ORDER BY rp.point_order ASC
