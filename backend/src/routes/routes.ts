@@ -187,17 +187,15 @@ router.post('/', async (req, res) => {
     }
     
     const query = `
-      INSERT INTO routes (name, description, points, total_distance, estimated_time, estimated_duration, optimized_order, polyline, optimization_mode)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO routes (name, description, total_distance, estimated_duration, optimized_order, polyline, optimization_mode)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
     
     const result = await client.query(query, [
       name.trim(),
       description || '',
-      JSON.stringify(points || []),
       parseFloat(totalDistance) || 0,
-      estimatedTime || '0min',
       parseInt(estimatedDuration) || 0,
       JSON.stringify(optimizedOrder || []),
       polyline || null,
@@ -356,16 +354,12 @@ router.post('/:id/optimize-intelligent', async (req, res) => {
     // ✅ ATUALIZAR ROTA COM DADOS PRESERVADOS
     await client.query(
       `UPDATE routes SET 
-       points = $1, 
-       total_distance = $2, 
-       estimated_time = $3, 
-       estimated_duration = $4,
+       total_distance = $1, 
+       estimated_duration = $2,
        updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $5`,
+       WHERE id = $3`,
       [
-        JSON.stringify(sanitizedPoints),
         totalDistance,
-        estimatedTime,
         Math.round(estimatedDuration),
         id
       ]

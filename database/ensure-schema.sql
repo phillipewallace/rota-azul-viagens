@@ -200,6 +200,96 @@ CREATE TABLE IF NOT EXISTS public.maintenance_records (
 ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
+-- ============================== SANITARIOS ==================================
+CREATE TABLE IF NOT EXISTS public.sanitarios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  numero TEXT NOT NULL UNIQUE,
+  modelo TEXT,
+  status TEXT NOT NULL DEFAULT 'disponivel',
+  current_route_point_id UUID,
+  current_customer_name TEXT,
+  current_address TEXT,
+  current_lat DOUBLE PRECISION,
+  current_lng DOUBLE PRECISION,
+  installed_at TIMESTAMPTZ,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sanitarios_status ON public.sanitarios(status);
+CREATE INDEX IF NOT EXISTS idx_sanitarios_numero ON public.sanitarios(numero);
+
+CREATE TABLE IF NOT EXISTS public.sanitario_movimentacoes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sanitario_id UUID NOT NULL REFERENCES public.sanitarios(id) ON DELETE CASCADE,
+  sanitario_numero TEXT NOT NULL,
+  operation_type TEXT NOT NULL,
+  route_id UUID,
+  route_point_id UUID,
+  customer_name TEXT,
+  address TEXT,
+  lat DOUBLE PRECISION,
+  lng DOUBLE PRECISION,
+  driver_id UUID,
+  driver_name TEXT,
+  truck_id UUID,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  notes TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_mov_sanitario ON public.sanitario_movimentacoes(sanitario_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mov_numero ON public.sanitario_movimentacoes(sanitario_numero);
+CREATE INDEX IF NOT EXISTS idx_mov_route ON public.sanitario_movimentacoes(route_id);
+
+-- ============================== TRACKING LOCATIONS ==========================
+CREATE TABLE IF NOT EXISTS public.tracking_locations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  route_id UUID,
+  truck_id UUID,
+  driver_id UUID,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  speed DOUBLE PRECISION,
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tracking_route ON public.tracking_locations(route_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tracking_truck ON public.tracking_locations(truck_id, recorded_at DESC);
+
+-- ============================== POINT PHOTOS ================================
+CREATE TABLE IF NOT EXISTS public.point_photos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  route_id UUID NOT NULL,
+  point_id UUID NOT NULL,
+  file_path TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  operation_type TEXT,
+  uploaded_at TIMESTAMPTZ DEFAULT NOW(),
+  uploaded_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_point_photos_route ON public.point_photos(route_id);
+CREATE INDEX IF NOT EXISTS idx_point_photos_point ON public.point_photos(point_id);
+
+-- ============================== COMPLETED ROUTES ============================
+CREATE TABLE IF NOT EXISTS public.completed_routes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  route_id UUID NOT NULL,
+  route_name TEXT NOT NULL,
+  truck_id UUID,
+  truck_plate TEXT,
+  driver_id UUID,
+  driver_name TEXT,
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  total_distance NUMERIC(10,2),
+  total_duration INTEGER,
+  points_snapshot JSONB DEFAULT '[]'::jsonb,
+  photos_count INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'in_progress',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_completed_routes_route ON public.completed_routes(route_id);
+CREATE INDEX IF NOT EXISTS idx_completed_routes_status ON public.completed_routes(status);
+
 -- ============================== OWNERSHIP / GRANTS ==========================
 -- Garante que o usuário 'lipe' tenha permissão em tudo, mesmo que as tabelas
 -- tenham sido criadas por outro owner (postgres). Sem isso, ALTER/SELECT podem

@@ -170,6 +170,9 @@ export default function Sanitarios() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      <Button asChild variant="ghost" size="sm" className="mb-3 gap-2">
+        <a href="/"><span aria-hidden>←</span> Voltar</a>
+      </Button>
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Gerenciamento de Sanitários</h1>
