@@ -671,7 +671,15 @@ const MobileDriver = () => {
               setShowQtyModal(false);
               (pendingPoint as any)._recolhidoQty = qty;
               (pendingPoint as any)._autoRemoved = autoRemove;
-              setShowNumberModal(true);
+              const existing: string[] =
+                pendingPoint.sanitario_numbers || pendingPoint.sanitarioNumbers || [];
+              // Se já temos números registrados e a qtd recolhida bate, pula o modal
+              if (existing.length > 0 && existing.length === qty) {
+                (pendingPoint as any)._numeros = existing;
+                setShowPhotoModal(true);
+              } else {
+                setShowNumberModal(true);
+              }
             }}
           />
 
