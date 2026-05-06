@@ -510,14 +510,19 @@ const DesktopCreateRoute = () => {
 
     points.forEach((point, index) => {
       const pointLabel = index === 0 ? 'Origem' : (index === points.length - 1 ? 'Destino' : `Parada ${index}`);
-      
-      // Validar coordenadas
-      if (!point.lat || !point.lng || point.lat === 0 || point.lng === 0) {
+      const hasCoords = point.lat && point.lng && point.lat !== 0 && point.lng !== 0;
+      const addr = (point.address || '').trim();
+
+      // Coordenadas: obrigatórias
+      if (!hasCoords) {
         errors.push(`${pointLabel}: Busque o endereço para obter as coordenadas`);
       }
-      
-      // Validar endereço
-      if (!point.address || point.address.trim().length < 5) {
+
+      // Endereço: aceita qualquer coisa não-vazia se já tiver coordenadas válidas
+      // (rotas salvas podem ter address curto vindo de geocoding reverso)
+      if (!addr) {
+        errors.push(`${pointLabel}: Endereço vazio`);
+      } else if (!hasCoords && addr.length < 5) {
         errors.push(`${pointLabel}: Endereço inválido ou muito curto`);
       }
     });
