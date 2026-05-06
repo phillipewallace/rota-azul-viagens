@@ -593,6 +593,12 @@ const DesktopCreateRoute = () => {
           notes: p.notes || p.observation || '',
           observation: p.notes || p.observation || '',
           stopType: p.stopType || '',
+          pointCategory: p.pointCategory || 'obra',
+          operationType: p.operationType || 'entrega',
+          recolhidoQty: p.recolhidoQty ?? null,
+          autoRemoved: p.autoRemoved ?? false,
+          sanitarioNumbers: Array.isArray(p.sanitarioNumbers) ? p.sanitarioNumbers : [],
+          sanitarioRecolhidos: Array.isArray(p.sanitarioRecolhidos) ? p.sanitarioRecolhidos : [],
           completed: p.completed || false,
           completedAt: p.completedAt || null
         })),
