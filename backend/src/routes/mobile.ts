@@ -527,14 +527,6 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
       return res.status(400).json({ error: 'Caminhão não possui rota ativa' });
     }
     
-    // Snapshot final no completed_routes (idempotente)
-    try {
-      const ptsAgg = await client.query(
-        `SELECT COALESCE(jsonb_agg(rp ORDER BY rp.point_order), '[]'::jsonb) AS pts,
-                (SELECT COUNT(*)::int FROM point_photos WHERE route_id = $1::uuid) AS photos
-           FROM route_points rp WHERE rp.route_id = $1::uuid`,
-        [currentRouteId]
-      );
     // Snapshot final no completed_routes (idempotente, auto-cria se necessário)
     try {
       const ptsAgg = await client.query(
