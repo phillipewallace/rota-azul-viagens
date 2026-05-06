@@ -70,6 +70,8 @@ router.get('/', async (req, res) => {
         operationType: p.operation_type || 'entrega',
         recolhidoQty: p.recolhido_qty,
         autoRemoved: p.auto_removed || false,
+        sanitarioNumbers: p.sanitario_numbers || [],
+        sanitarioRecolhidos: p.sanitario_recolhidos || [],
       }));
       
       return {
