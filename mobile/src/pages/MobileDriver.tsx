@@ -317,10 +317,13 @@ const MobileDriver = () => {
     }
 
     setPendingPoint(point);
+    // Fluxo:
+    //  recolhimento → Qty → Numbers → Photos
+    //  entrega/manutenção → Numbers → Photos
     if (point.operationType === 'recolhimento') {
       setShowQtyModal(true);
     } else {
-      setShowPhotoModal(true);
+      setShowNumberModal(true);
     }
   };
 
