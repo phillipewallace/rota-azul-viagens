@@ -24,6 +24,7 @@ const MobileOperatorMenu = () => {
     { icon: Calendar, label: 'Agenda', to: '/schedule' },
     { icon: BarChart3, label: 'Análises', to: '/analytics' },
     { icon: Wrench, label: 'Manutenção', to: '/maintenance' },
+    { icon: Building2, label: 'Gestão Interna (ERP)', to: '/gestao-interna' },
     { icon: Settings, label: 'Configurações', to: '/settings' },
   ];
 
