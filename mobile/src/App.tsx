@@ -21,6 +21,8 @@ const queryClient = new QueryClient({
 const App = () => {
   useEffect(() => {
     initializeShareHandler();
+    // Flush fila offline de fotos (se houver) ao iniciar
+    import('./services/photoUpload').then(m => m.flushQueue().catch(() => {}));
   }, []);
 
   return (

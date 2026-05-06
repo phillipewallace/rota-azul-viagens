@@ -40,7 +40,8 @@ router.get('/', async (req, res) => {
         SELECT 
           id, address, lat, lng, point_order, type, completed, completed_at,
           customer_name, restrooms_qty, cleanings_qty, contact_name, contact_phone, 
-          notes, cep, stop_type, point_category, operation_type, recolhido_qty, auto_removed
+          notes, cep, stop_type, point_category, operation_type, recolhido_qty, auto_removed,
+          sanitario_numbers, sanitario_recolhidos
         FROM route_points 
         WHERE route_id = $1 
         ORDER BY point_order

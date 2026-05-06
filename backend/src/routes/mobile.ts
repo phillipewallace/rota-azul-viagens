@@ -376,74 +376,89 @@ async function validatePointCompletionInDatabase(client: any, pointId: string, e
   }
 }
 
-// Update route point status with BRUTAL VALIDATION
+// Update route point — agora aceita campos operacionais V2
 router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
   const client = await pool.connect();
-  
   try {
     await client.query('BEGIN');
-    
     const { truckId, pointId } = req.params;
-    const { completed } = req.body;
+    const {
+      completed,
+      recolhidoQty,
+      autoRemoved,
+      operationType,
+      observation,
+      sanitarioNumbers,
+      sanitarioRecolhidos,
+    } = req.body || {};
 
-    const completedValue = Boolean(completed);
+    const completedValue = completed === undefined ? null : Boolean(completed);
 
-    console.log(`🎯 [MOBILE API] ========================================`);
-    console.log(`🎯 [MOBILE API] ATUALIZAÇÃO DE PONTO COM VALIDAÇÃO BRUTA`);
-    console.log(`🎯 [MOBILE API] Ponto: ${pointId}`);
-    console.log(`🎯 [MOBILE API] Caminhão: ${truckId}`);
-    console.log(`🎯 [MOBILE API] Novo status: ${completedValue}`);
-    console.log(`🎯 [MOBILE API] Timestamp: ${new Date().toISOString()}`);
+    // valida vínculo caminhão-rota-ponto
+    const ck = await client.query(
+      `SELECT rp.route_id FROM route_points rp
+        JOIN trucks t ON t.current_route_id = rp.route_id
+        WHERE rp.id = $1::uuid AND t.id = $2::uuid`,
+      [pointId, truckId]
+    );
+    if (!ck.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Ponto/caminhão não vinculados' });
+    }
+    const routeId = ck.rows[0].route_id;
 
-    // ✅ EXECUTAR VALIDAÇÃO COMPLETA E BRUTA
-    const validationResult = await validatePointCompletionInDatabase(
-      client, 
-      pointId, 
-      completedValue, 
-      truckId
+    const update = await client.query(
+      `UPDATE route_points SET
+         completed       = COALESCE($1::boolean, completed),
+         completed_at    = CASE WHEN $1::boolean = true THEN NOW()
+                                WHEN $1::boolean = false THEN NULL
+                                ELSE completed_at END,
+         recolhido_qty   = COALESCE($2::int, recolhido_qty),
+         auto_removed    = COALESCE($3::boolean, auto_removed),
+         operation_type  = COALESCE($4, operation_type),
+         notes           = COALESCE($5, notes),
+         sanitario_numbers    = COALESCE($6::text[], sanitario_numbers),
+         sanitario_recolhidos = COALESCE($7::text[], sanitario_recolhidos)
+       WHERE id = $8::uuid
+       RETURNING *`,
+      [
+        completedValue,
+        recolhidoQty === undefined || recolhidoQty === null ? null : parseInt(String(recolhidoQty)),
+        autoRemoved === undefined ? null : Boolean(autoRemoved),
+        operationType || null,
+        observation ?? null,
+        Array.isArray(sanitarioNumbers) ? sanitarioNumbers : null,
+        Array.isArray(sanitarioRecolhidos) ? sanitarioRecolhidos : null,
+        pointId,
+      ]
     );
 
+    if (!update.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Ponto não encontrado' });
+    }
+
+    await client.query('UPDATE routes SET updated_at = NOW() WHERE id = $1', [routeId]);
     await client.query('COMMIT');
 
-    console.log(`✅ [MOBILE API] SUCESSO TOTAL - PONTO VALIDADO E ATUALIZADO`);
-    console.log(`   - Point ID: ${validationResult.pointId}`);
-    console.log(`   - Status final: ${validationResult.actualCompleted}`);
-    console.log(`   - Completed at: ${validationResult.completedAt}`);
-    console.log(`   - Route ID: ${validationResult.routeId}`);
-    console.log(`   - Truck ID: ${validationResult.truckId}`);
-    console.log(`🎯 [MOBILE API] ========================================`);
+    // Sync no completed_routes (fora da transação principal — best effort)
+    pool.query(
+      `UPDATE completed_routes
+          SET points_snapshot = (
+            SELECT COALESCE(jsonb_agg(rp ORDER BY rp.point_order), '[]'::jsonb)
+              FROM route_points rp WHERE rp.route_id = $1::uuid
+          ),
+          photos_count = (SELECT COUNT(*)::int FROM point_photos WHERE route_id = $1::uuid),
+          updated_at = NOW()
+        WHERE route_id = $1::uuid AND status = 'in_progress'`,
+      [routeId]
+    ).catch((e) => console.warn('[MOBILE] sync completed_routes:', e?.message));
 
-    res.json({ 
-      success: true, 
-      point: {
-        id: validationResult.pointId,
-        completed: validationResult.actualCompleted,
-        completedAt: validationResult.completedAt
-      },
-      validation: {
-        verified: true,
-        routeUpdated: true,
-        truckValidated: true
-      }
-    });
-    
-  } catch (error) {
-    await client.query('ROLLBACK');
-    
-    console.error(`❌ [MOBILE API] FALHA CRÍTICA NA ATUALIZAÇÃO DO PONTO`);
-    console.error(`   - Point ID: ${req.params.pointId}`);
-    console.error(`   - Truck ID: ${req.params.truckId}`);
-    console.error(`   - Erro: ${error.message}`);
-    console.error(`   - Stack: ${error.stack}`);
-    console.log(`🎯 [MOBILE API] ========================================`);
-    
-    res.status(500).json({ 
-      error: 'Erro crítico ao atualizar ponto da rota',
-      details: error.message,
-      pointId: req.params.pointId,
-      truckId: req.params.truckId,
-      timestamp: new Date().toISOString()
-    });
+    res.json({ success: true, point: update.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('❌ [MOBILE] update ponto:', error);
+    res.status(500).json({ error: error?.message || 'Erro ao atualizar ponto' });
   } finally {
     client.release();
   }
@@ -478,30 +493,43 @@ router.post('/truck/:truckId/finish-route', async (req, res) => {
       return res.status(400).json({ error: 'Caminhão não possui rota ativa' });
     }
     
-    // Resetar TODOS os pontos da rota
+    // Snapshot final no completed_routes (idempotente)
+    try {
+      const ptsAgg = await client.query(
+        `SELECT COALESCE(jsonb_agg(rp ORDER BY rp.point_order), '[]'::jsonb) AS pts,
+                (SELECT COUNT(*)::int FROM point_photos WHERE route_id = $1::uuid) AS photos
+           FROM route_points rp WHERE rp.route_id = $1::uuid`,
+        [currentRouteId]
+      );
+      await client.query(
+        `UPDATE completed_routes SET status = 'finished', finished_at = NOW(),
+                points_snapshot = $1, photos_count = $2, updated_at = NOW()
+          WHERE route_id = $3::uuid AND status = 'in_progress'`,
+        [ptsAgg.rows[0].pts, ptsAgg.rows[0].photos, currentRouteId]
+      );
+    } catch (e: any) {
+      console.warn('[MOBILE] snapshot finish-route:', e?.message);
+    }
+
+    // Resetar pontos da rota (mantém o snapshot já salvo)
     const resetPointsResult = await client.query(
       'UPDATE route_points SET completed = false, completed_at = NULL WHERE route_id = $1 RETURNING id',
       [currentRouteId]
     );
-    
-    console.log(`🔄 [MOBILE API] ${resetPointsResult.rows.length} pontos resetados na rota ${currentRouteId}`);
-    
-    // Desvincular o caminhão da rota
+
     await client.query(
       'UPDATE trucks SET current_route_id = NULL, status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       ['available', truckId]
     );
-    
+
     await client.query('COMMIT');
-    
-    console.log(`✅ [MOBILE API] Rota finalizada para caminhão ${truckId}`);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Rota finalizada e pontos resetados com sucesso',
       pointsReset: resetPointsResult.rows.length
     });
-    
+
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ [MOBILE API] Erro ao finalizar rota:', error);

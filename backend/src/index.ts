@@ -29,9 +29,18 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173', 'http://localhost:8080', 'http://192.168.1.100:5173',
+  'https://alchemyrotas.com', 'https://www.alchemyrotas.com',
+  'capacitor://localhost', 'http://localhost', 'https://localhost', 'ionic://localhost',
+];
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://192.168.1.100:5173', 'https://alchemyrotas.com'],
-  credentials: true
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    return cb(null, true); // permitir APK (sem origin) e fallback amplo
+  },
+  credentials: true,
 }));
 
 app.use(express.json({ limit: '50mb' }));

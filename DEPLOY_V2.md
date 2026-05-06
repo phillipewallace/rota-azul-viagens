@@ -1,5 +1,12 @@
 # Deploy Premium V2 — instruções para o VPS
 
+## 0. Variáveis de ambiente (backend)
+Adicione em `/var/www/rota-azul-viagens/backend/.env`:
+```
+GOOGLE_MAPS_API_KEY=AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w
+JWT_SECRET=<seu-segredo-forte>
+```
+
 ## 1. Backend
 ```bash
 cd /var/www/rota-azul-viagens/backend
@@ -9,9 +16,11 @@ npm run build
 pm2 restart all
 ```
 
-## 2. Banco de dados
+## 2. Banco de dados (3 migrations, em ordem)
 ```bash
 sudo -u postgres psql -d roteirizador1 -f database/migration-v2-categorias-fotos-concluidas.sql
+sudo -u postgres psql -d roteirizador1 -f database/migration-v2-sanitarios.sql
+sudo -u postgres psql -d roteirizador1 -f database/migration-v2-fixes.sql
 sudo -u postgres psql -d roteirizador1 -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO lipe; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO lipe;"
 mkdir -p /var/www/rota-azul-viagens/backend/uploads/photos
 chown -R www-data:www-data /var/www/rota-azul-viagens/backend/uploads
