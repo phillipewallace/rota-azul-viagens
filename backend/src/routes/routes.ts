@@ -100,7 +100,8 @@ router.get('/', async (req, res) => {
     res.json(routes);
   } catch (error) {
     console.error('❌ [ROUTES] Error fetching routes:', error);
-    res.status(500).json({ error: 'Erro ao buscar rotas' });
+    console.error('🔍 [ROUTES] Mensagem PG:', (error as any)?.message);
+    res.status(500).json({ error: 'Erro ao buscar rotas', detail: (error as any)?.message });
   }
 });
 
