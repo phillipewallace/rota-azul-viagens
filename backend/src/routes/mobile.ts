@@ -475,11 +475,13 @@ router.put('/truck/:truckId/route/point/:pointId', async (req, res) => {
     await client.query('UPDATE routes SET updated_at = NOW() WHERE id = $1', [routeId]);
     await client.query('COMMIT');
 
-    // Garante registro em completed_routes (auto-cria se não existir) e sincroniza snapshot
+    // Garante registro em completed_routes (auto-cria com driver/plate se não existir)
     pool.query(
-      `INSERT INTO completed_routes (route_id, route_name, truck_id, truck_plate, started_at, status)
-         SELECT r.id, r.name, t.id, t.plate, NOW(), 'in_progress'
-           FROM routes r LEFT JOIN trucks t ON t.current_route_id = r.id
+      `INSERT INTO completed_routes (route_id, route_name, truck_id, truck_plate, driver_id, driver_name, started_at, status)
+         SELECT r.id, r.name, t.id, t.plate, t.current_driver_id, d.name, NOW(), 'in_progress'
+           FROM routes r
+           LEFT JOIN trucks t ON t.current_route_id = r.id
+           LEFT JOIN drivers d ON d.id = t.current_driver_id
           WHERE r.id = $1::uuid
             AND NOT EXISTS (
               SELECT 1 FROM completed_routes cr
