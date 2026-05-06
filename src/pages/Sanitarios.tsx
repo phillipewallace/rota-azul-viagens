@@ -145,14 +145,14 @@ export default function Sanitarios() {
       {/* Cadastro rápido + filtros */}
       <Card className="mb-4">
         <CardContent className="p-4 flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-muted-foreground">Buscar por número</label>
+          <div className="flex-1 min-w-[240px]">
+            <label className="text-xs text-muted-foreground">Buscar (número, cliente ou endereço)</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   className="pl-8"
-                  placeholder="ex: 1024"
+                  placeholder="ex: 1024, Cliente XPTO, Av. Brasil…"
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && load()}
@@ -165,7 +165,7 @@ export default function Sanitarios() {
           <div>
             <label className="text-xs text-muted-foreground">Status</label>
             <select
-              className="block border rounded-md h-10 px-2"
+              className="block border rounded-md h-10 px-2 bg-background"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -177,7 +177,27 @@ export default function Sanitarios() {
             </select>
           </div>
 
-          <div className="flex gap-2 items-end">
+          <div>
+            <label className="text-xs text-muted-foreground">Caminhão</label>
+            <select
+              className="block border rounded-md h-10 px-2 bg-background min-w-[160px]"
+              value={truckFilter}
+              onChange={(e) => setTruckFilter(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {trucks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}{t.plate ? ` (${t.plate})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(filter || statusFilter || truckFilter) && (
+            <Button onClick={clearFilters} variant="ghost" size="sm">Limpar filtros</Button>
+          )}
+
+          <div className="flex gap-2 items-end ml-auto">
             <div>
               <label className="text-xs text-muted-foreground">Cadastrar novo</label>
               <Input
@@ -208,6 +228,7 @@ export default function Sanitarios() {
                   <th className="p-2">Status</th>
                   <th className="p-2">Cliente atual</th>
                   <th className="p-2">Endereço</th>
+                  <th className="p-2">Caminhão</th>
                   <th className="p-2"></th>
                 </tr>
               </thead>
@@ -217,7 +238,12 @@ export default function Sanitarios() {
                     <td className="p-2 font-mono font-bold">{s.numero}</td>
                     <td className="p-2">{statusBadge(s.status)}</td>
                     <td className="p-2">{s.current_customer_name || '–'}</td>
-                    <td className="p-2 truncate max-w-[280px]">{s.current_address || '–'}</td>
+                    <td className="p-2 truncate max-w-[260px]">{s.current_address || '–'}</td>
+                    <td className="p-2 text-xs">
+                      {s.current_truck_name
+                        ? <>{s.current_truck_name}{s.current_truck_plate ? ` (${s.current_truck_plate})` : ''}</>
+                        : '–'}
+                    </td>
                     <td className="p-2 text-right">
                       <Button size="sm" variant="ghost" onClick={() => openDetail(s.numero)}>
                         <History className="h-4 w-4" />
@@ -226,7 +252,7 @@ export default function Sanitarios() {
                   </tr>
                 ))}
                 {!list.length && !loading && (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">
+                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
                     Nenhum sanitário cadastrado.
                   </td></tr>
                 )}
