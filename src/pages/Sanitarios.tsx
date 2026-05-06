@@ -117,8 +117,8 @@ export default function Sanitarios() {
     try {
       const r = await fetch(`${API_BASE_URL}/sanitarios`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numero: newNum.trim() }),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ numero: newNum.trim().toUpperCase() }),
       });
       if (!r.ok) throw new Error();
       toast.success(`Sanitário ${newNum} cadastrado`);
