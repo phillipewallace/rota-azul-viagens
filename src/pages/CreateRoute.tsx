@@ -122,6 +122,12 @@ const DesktopCreateRoute = () => {
           notes: point.notes || point.observation || '',
           observation: point.notes || point.observation || '',
           stopType: point.stopType || '',
+          pointCategory: point.pointCategory || 'obra',
+          operationType: point.operationType || 'entrega',
+          recolhidoQty: point.recolhidoQty,
+          autoRemoved: point.autoRemoved || false,
+          sanitarioNumbers: point.sanitarioNumbers || [],
+          sanitarioRecolhidos: point.sanitarioRecolhidos || [],
           completed: point.completed || false,
           completedAt: point.completedAt || null
         }));
