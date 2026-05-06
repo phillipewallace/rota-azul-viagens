@@ -236,6 +236,9 @@ const InternalManagement: React.FC = () => {
           onSaved={() => { setMovementModal(null); loadAll(); }}
         />
       )}
+      {historyItem && (
+        <ItemHistoryModal item={historyItem} onClose={() => setHistoryItem(null)} />
+      )}
     </div>
   );
 };
