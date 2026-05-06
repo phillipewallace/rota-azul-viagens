@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Menu, MapPin, Route, Truck, Calendar, BarChart3, Settings, Users } from 'lucide-react';
+import { Menu, MapPin, Route, Truck, Calendar, BarChart3, Settings, Users, Building2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -34,6 +34,7 @@ const Index = () => {
     { icon: BarChart3, label: 'Análises & Relatórios', to: '/analytics' },
     { icon: Calendar, label: 'Agenda', to: '/schedule' },
     { icon: Users, label: 'Motoristas', to: '/drivers' },
+    { icon: Building2, label: 'Gestão Interna (ERP)', to: '/gestao-interna' },
     { icon: Settings, label: 'Configurações', to: '/settings' },
   ];
 
