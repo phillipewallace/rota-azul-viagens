@@ -20,6 +20,7 @@ import Analytics from "./pages/Analytics";
 import CreateRoute from "./pages/CreateRoute";
 import Customers from "./pages/Customers";
 import CompletedRoutes from "./pages/CompletedRoutes";
+import Sanitarios from "./pages/Sanitarios";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -151,6 +152,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CompletedRoutes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sanitarios"
+              element={
+                <ProtectedRoute>
+                  <Sanitarios />
                 </ProtectedRoute>
               }
             />
