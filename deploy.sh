@@ -78,7 +78,7 @@ ok "Migrations aplicadas"
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
 log "Backend: instalando deps + compilando TS…"
 cd "${PROJECT_DIR}/backend"
-npm ci >/dev/null
+npm ci >/dev/null 2>&1 || { warn "npm ci falhou (lockfile fora de sync), usando npm install…"; npm install --no-audit --no-fund >/dev/null; }
 npm run build
 if [[ ! -f .env ]]; then
   log "Gerando backend/.env padrão…"
@@ -101,7 +101,7 @@ ok "Backend compilado"
 # ─── 6) Frontend: build + publicar ──────────────────────────────────────────
 log "Frontend: instalando deps + buildando (Vite)…"
 cd "${PROJECT_DIR}"
-npm ci >/dev/null
+npm ci >/dev/null 2>&1 || { warn "npm ci falhou (lockfile fora de sync), usando npm install…"; npm install --no-audit --no-fund >/dev/null; }
 npm run build
 mkdir -p "${WEB_ROOT}"
 rm -rf "${WEB_ROOT:?}/"*
