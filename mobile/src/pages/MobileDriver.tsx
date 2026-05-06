@@ -25,6 +25,10 @@ import RouteUpdateNotification from '@/components/RouteUpdateNotification';
 import RouteInfoCard from '@/components/RouteInfoCard';
 import RouteExecutionCard from '@/components/RouteExecutionCard';
 import { sharedLocationStore } from '@/store/sharedLocationStore';
+import PhotoCaptureModal from '@/components/PhotoCaptureModal';
+import RecolhimentoQtyModal from '@/components/RecolhimentoQtyModal';
+import { startBackgroundTracking, stopBackgroundTracking } from '@/services/backgroundLocation';
+import { flushQueue } from '@/services/photoUpload';
 
 interface TruckData {
   id: string;
@@ -41,6 +45,11 @@ const MobileDriver = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullTruckData, setFullTruckData] = useState<TruckMobileData | null>(null);
+
+  // V2 — modais de fluxo de conclusão
+  const [pendingPoint, setPendingPoint] = useState<any | null>(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showQtyModal, setShowQtyModal] = useState(false);
 
   // Persistência de estado
   const [persistedState, setPersistedState] = useState<{
@@ -290,44 +299,70 @@ const MobileDriver = () => {
     toast.success('Logout realizado com sucesso');
   };
 
+  /**
+   * V2: Antes de marcar como concluído, exigir fotos (3 mín) e
+   * — em recolhimento — abrir modal de quantidade.
+   * Se uncomplete, faz direto.
+   */
   const handlePointUpdate = async (pointId: string, completed: boolean) => {
+    if (!fullTruckData?.id || !fullTruckData.currentRoute) return;
+    const point = fullTruckData.currentRoute.points.find((p: any) => p.id === pointId);
+    if (!point) return;
+
+    if (!completed) {
+      return commitPointUpdate(pointId, false);
+    }
+
+    setPendingPoint(point);
+    if (point.operationType === 'recolhimento') {
+      setShowQtyModal(true);
+    } else {
+      setShowPhotoModal(true);
+    }
+  };
+
+  const commitPointUpdate = async (
+    pointId: string,
+    completed: boolean,
+    extra?: { recolhidoQty?: number; autoRemoved?: boolean }
+  ) => {
     try {
       if (!fullTruckData?.id) return;
-      
       await updateRoutePoint({
         truckId: fullTruckData.id,
         pointId,
-        completed
-      });
-      
+        completed,
+        ...(extra || {}),
+      } as any);
+
       const updatedData = {
         ...fullTruckData,
         currentRoute: {
           ...fullTruckData.currentRoute!,
-          points: fullTruckData.currentRoute!.points.map(p => 
-            p.id === pointId 
-              ? { ...p, completed, completedAt: completed ? new Date().toISOString() : undefined }
-              : p
-          )
-        }
+          points: fullTruckData.currentRoute!.points
+            .map((p: any) =>
+              p.id === pointId
+                ? {
+                    ...p,
+                    completed,
+                    completedAt: completed ? new Date().toISOString() : undefined,
+                    recolhidoQty: extra?.recolhidoQty ?? p.recolhidoQty,
+                    autoRemoved: extra?.autoRemoved ?? p.autoRemoved,
+                  }
+                : p
+            )
+            .filter((p: any) => !(p.autoRemoved === true)),
+        },
       };
-      
       setFullTruckData(updatedData);
-      
+
       const routeProgress = Object.fromEntries(
-        updatedData.currentRoute!.points.map(p => [
-          p.id, 
-          { completed: p.completed, completedAt: p.completedAt }
+        updatedData.currentRoute!.points.map((p: any) => [
+          p.id,
+          { completed: p.completed, completedAt: p.completedAt },
         ])
       );
-      
-      persistState({
-        isLoggedIn: true,
-        plateNumber,
-        truckData,
-        routeProgress
-      });
-      
+      persistState({ isLoggedIn: true, plateNumber, truckData, routeProgress });
     } catch (error) {
       console.error('❌ [MOBILE] Erro ao atualizar ponto:', error);
       toast.error('Erro ao atualizar ponto da rota');
@@ -336,28 +371,30 @@ const MobileDriver = () => {
 
   const handleFinishRoute = async () => {
     if (!fullTruckData?.id) return;
-
     try {
       await finishRoute(fullTruckData.id);
-      
-      setFullTruckData({
-        ...fullTruckData,
-        currentRoute: null
-      });
-      
-      persistState({
-        isLoggedIn: true,
-        plateNumber,
-        truckData,
-        routeProgress: {}
-      });
-      
+      await stopBackgroundTracking();
+      setFullTruckData({ ...fullTruckData, currentRoute: null });
+      persistState({ isLoggedIn: true, plateNumber, truckData, routeProgress: {} });
       toast.success('Rota finalizada com sucesso!');
-      
     } catch (error) {
       toast.error('Erro ao finalizar rota');
     }
   };
+
+  // V2 — start/stop background tracking conforme rota ativa
+  useEffect(() => {
+    const routeId = fullTruckData?.currentRoute?.id;
+    if (routeId) {
+      startBackgroundTracking(routeId).then((ok) => {
+        if (ok) console.log('[MOBILE] Rastreamento em background ativo');
+      });
+      flushQueue().catch(() => {});
+    }
+    return () => {
+      if (routeId) stopBackgroundTracking().catch(() => {});
+    };
+  }, [fullTruckData?.currentRoute?.id]);
 
   // Navegar para lista de paradas
   const navigateToStops = () => {
@@ -604,6 +641,47 @@ const MobileDriver = () => {
           </div>
           <div className="pb-safe bg-white" />
         </div>
+      )}
+
+      {/* V2 — Modais de conclusão */}
+      {pendingPoint && fullTruckData?.currentRoute && (
+        <>
+          <RecolhimentoQtyModal
+            open={showQtyModal}
+            totalQty={pendingPoint.restroomsQty || 1}
+            onClose={() => {
+              setShowQtyModal(false);
+              setPendingPoint(null);
+            }}
+            onConfirm={(qty, autoRemove) => {
+              setShowQtyModal(false);
+              // Após qty, exigir fotos
+              (pendingPoint as any)._recolhidoQty = qty;
+              (pendingPoint as any)._autoRemoved = autoRemove;
+              setShowPhotoModal(true);
+            }}
+          />
+          <PhotoCaptureModal
+            open={showPhotoModal}
+            routeId={fullTruckData.currentRoute.id}
+            pointId={pendingPoint.id}
+            operationType={(pendingPoint.operationType as any) || 'entrega'}
+            minPhotos={3}
+            onClose={() => {
+              setShowPhotoModal(false);
+              setPendingPoint(null);
+            }}
+            onConfirmed={() => {
+              setShowPhotoModal(false);
+              const extra = {
+                recolhidoQty: (pendingPoint as any)._recolhidoQty,
+                autoRemoved: (pendingPoint as any)._autoRemoved,
+              };
+              commitPointUpdate(pendingPoint.id, true, extra);
+              setPendingPoint(null);
+            }}
+          />
+        </>
       )}
     </div>
   );
