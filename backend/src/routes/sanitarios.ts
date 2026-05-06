@@ -8,26 +8,75 @@ const router = Router();
  * GET /api/sanitarios — lista todos com status atual
  * query: ?status=...&q=numero
  */
+/** Normaliza string p/ busca: minúsculas, sem acentos/pontuação/espaços */
+const NORM_SQL = (col: string) =>
+  `regexp_replace(lower(coalesce(${col},'')), '[^a-z0-9]+', '', 'g')`;
+
+function buildSanitariosQuery(query: any) {
+  const { status, q, truckId } = query;
+  const conds: string[] = [];
+  const params: any[] = [];
+  if (status) { params.push(status); conds.push(`s.status = $${params.length}`); }
+  if (truckId) { params.push(truckId); conds.push(`lm.truck_id = $${params.length}`); }
+  if (q && String(q).trim()) {
+    const norm = String(q).toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (norm) {
+      params.push(`%${norm}%`);
+      const idx = params.length;
+      conds.push(
+        `(${NORM_SQL('s.numero')} LIKE $${idx}
+         OR ${NORM_SQL('s.current_customer_name')} LIKE $${idx}
+         OR ${NORM_SQL('s.current_address')} LIKE $${idx})`
+      );
+    }
+  }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  return { where, params };
+}
+
 router.get('/', requireAuth, async (req: any, res: any) => {
   try {
-    const { status, q, truckId } = req.query;
-    const conds: string[] = [];
-    const params: any[] = [];
-    if (status) {
-      params.push(status);
-      conds.push(`s.status = $${params.length}`);
-    }
-    if (q) {
-      params.push(`%${q}%`);
-      conds.push(`(s.numero ILIKE $${params.length} OR s.current_customer_name ILIKE $${params.length} OR s.current_address ILIKE $${params.length})`);
-    }
-    if (truckId) {
-      params.push(truckId);
-      conds.push(`lm.truck_id = $${params.length}`);
-    }
-    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize) || 50));
+    const offset = (page - 1) * pageSize;
+    const { where, params } = buildSanitariosQuery(req.query);
+
+    const baseFrom = `FROM sanitarios s
+      LEFT JOIN LATERAL (
+        SELECT truck_id FROM sanitario_movimentacoes m
+         WHERE m.sanitario_id = s.id AND m.truck_id IS NOT NULL
+         ORDER BY occurred_at DESC LIMIT 1
+      ) lm ON TRUE
+      LEFT JOIN trucks t ON t.id = lm.truck_id
+      ${where}`;
+
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS total ${baseFrom}`, params);
+    const total = countRes.rows[0]?.total || 0;
+
+    const dataParams = [...params, pageSize, offset];
     const r = await pool.query(
       `SELECT s.*, lm.truck_id AS current_truck_id, t.name AS current_truck_name, t.plate AS current_truck_plate
+        ${baseFrom}
+        ORDER BY s.numero ASC
+        LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
+    );
+    res.json({ data: r.rows, page, pageSize, total, totalPages: Math.ceil(total / pageSize) });
+  } catch (e: any) {
+    console.error('[SANITARIOS] list err:', e);
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
+/** GET /api/sanitarios/export.csv — exporta lista filtrada (mesmos filtros) */
+router.get('/export.csv', requireAuth, async (req: any, res: any) => {
+  try {
+    const { where, params } = buildSanitariosQuery(req.query);
+    const r = await pool.query(
+      `SELECT s.numero, s.modelo, s.status,
+              s.current_customer_name, s.current_address,
+              t.name AS truck_name, t.plate AS truck_plate,
+              s.installed_at, s.notes
          FROM sanitarios s
          LEFT JOIN LATERAL (
            SELECT truck_id FROM sanitario_movimentacoes m
@@ -39,9 +88,27 @@ router.get('/', requireAuth, async (req: any, res: any) => {
          ORDER BY s.numero ASC`,
       params
     );
-    res.json(r.rows);
+    const esc = (v: any) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v).replace(/"/g, '""');
+      return /[",;\n]/.test(s) ? `"${s}"` : s;
+    };
+    const header = ['numero','modelo','status','cliente_atual','endereco_atual','caminhao','placa','instalado_em','observacoes'];
+    const lines = [header.join(';')];
+    for (const row of r.rows) {
+      lines.push([
+        row.numero, row.modelo, row.status,
+        row.current_customer_name, row.current_address,
+        row.truck_name, row.truck_plate,
+        row.installed_at ? new Date(row.installed_at).toISOString() : '',
+        row.notes,
+      ].map(esc).join(';'));
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="sanitarios-${Date.now()}.csv"`);
+    res.send('\uFEFF' + lines.join('\n'));
   } catch (e: any) {
-    console.error('[SANITARIOS] list err:', e);
+    console.error('[SANITARIOS] export err:', e);
     res.status(500).json({ error: e?.message || 'erro' });
   }
 });
