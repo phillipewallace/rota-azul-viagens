@@ -27,8 +27,10 @@ import RouteExecutionCard from '@/components/RouteExecutionCard';
 import { sharedLocationStore } from '@/store/sharedLocationStore';
 import PhotoCaptureModal from '@/components/PhotoCaptureModal';
 import RecolhimentoQtyModal from '@/components/RecolhimentoQtyModal';
+import SanitarioNumberModal from '@/components/SanitarioNumberModal';
 import { startBackgroundTracking, stopBackgroundTracking } from '@/services/backgroundLocation';
 import { flushQueue } from '@/services/photoUpload';
+import { movimentarSanitarios } from '@/services/sanitarios';
 
 interface TruckData {
   id: string;
