@@ -187,17 +187,15 @@ router.post('/', async (req, res) => {
     }
     
     const query = `
-      INSERT INTO routes (name, description, points, total_distance, estimated_time, estimated_duration, optimized_order, polyline, optimization_mode)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO routes (name, description, total_distance, estimated_duration, optimized_order, polyline, optimization_mode)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
     
     const result = await client.query(query, [
       name.trim(),
       description || '',
-      JSON.stringify(points || []),
       parseFloat(totalDistance) || 0,
-      estimatedTime || '0min',
       parseInt(estimatedDuration) || 0,
       JSON.stringify(optimizedOrder || []),
       polyline || null,
