@@ -197,7 +197,7 @@ const InternalManagement: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="movements" className="mt-6">
-                <MovementsView movements={movements} />
+                <MovementsView movements={movements} items={items} />
               </TabsContent>
             </>
           )}
