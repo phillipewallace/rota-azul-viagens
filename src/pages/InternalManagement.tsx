@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Pencil, Package, Boxes, Users, History,
   AlertTriangle, CalendarClock, FileSignature, ArrowDownToLine, ArrowUpFromLine,
-  Settings2, Loader2, Upload, Building2, Car,
+  Settings2, Loader2, Upload, Building2, Car, Download, FileText, FileSpreadsheet, Eye,
 } from 'lucide-react';
+import { downloadCsv, downloadPdf } from '@/utils/exporters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
