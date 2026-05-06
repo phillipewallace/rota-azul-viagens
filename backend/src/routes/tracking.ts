@@ -1,19 +1,37 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
+import { softAuth, requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
+
+// Rate-limit em memória: 1 ping por truck por segundo
+const lastPing = new Map<string, number>();
+const RATE_MS = 1000;
 
 /**
  * POST /api/tracking/location
  * Recebe ping de localização do app mobile (rastreamento em background)
  * Body: { routeId, truckId?, driverId?, lat, lng, speed?, timestamp? }
  */
-router.post('/location', async (req: any, res: any) => {
+router.post('/location', softAuth, async (req: any, res: any) => {
   try {
     const { routeId, truckId, driverId, lat, lng, speed, timestamp } = req.body || {};
     if (typeof lat !== 'number' || typeof lng !== 'number') {
-      return res.status(400).json({ error: 'lat/lng obrigatórios' });
+      return res.status(400).json({ error: 'lat/lng obrigatórios (number)' });
     }
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return res.status(400).json({ error: 'lat/lng fora de range' });
+    }
+
+    // Rate-limit por truck (ou IP fallback)
+    const key = truckId || req.ip || 'anon';
+    const now = Date.now();
+    const last = lastPing.get(key) || 0;
+    if (now - last < RATE_MS) {
+      return res.status(202).json({ ok: true, rateLimited: true });
+    }
+    lastPing.set(key, now);
+
     const recordedAt = timestamp ? new Date(timestamp) : new Date();
     await pool.query(
       `INSERT INTO tracking_locations (route_id, truck_id, driver_id, lat, lng, speed, recorded_at)
@@ -27,11 +45,7 @@ router.post('/location', async (req: any, res: any) => {
   }
 });
 
-/**
- * GET /api/tracking/route/:routeId
- * Retorna o trajeto registrado para uma rota
- */
-router.get('/route/:routeId', async (req: any, res: any) => {
+router.get('/route/:routeId', requireAuth, async (req: any, res: any) => {
   try {
     const { routeId } = req.params;
     const r = await pool.query(
@@ -47,11 +61,7 @@ router.get('/route/:routeId', async (req: any, res: any) => {
   }
 });
 
-/**
- * GET /api/tracking/truck/:truckId/latest
- * Última localização conhecida de um caminhão
- */
-router.get('/truck/:truckId/latest', async (req: any, res: any) => {
+router.get('/truck/:truckId/latest', requireAuth, async (req: any, res: any) => {
   try {
     const { truckId } = req.params;
     const r = await pool.query(
@@ -63,6 +73,19 @@ router.get('/truck/:truckId/latest', async (req: any, res: any) => {
       [truckId]
     );
     res.json(r.rows[0] || null);
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
+/**
+ * POST /api/tracking/purge — apaga pings antigos (>30 dias).
+ * Pode ser chamado por cron externo.
+ */
+router.post('/purge', requireAuth, async (_req: any, res: any) => {
+  try {
+    const r = await pool.query(`DELETE FROM tracking_locations WHERE recorded_at < NOW() - INTERVAL '30 days'`);
+    res.json({ ok: true, deleted: r.rowCount });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'erro' });
   }
