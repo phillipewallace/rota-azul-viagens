@@ -92,6 +92,7 @@ app.use('/api/photos', photosRoutes);
 app.use('/api/completed-routes', completedRoutesRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/sanitarios', sanitariosRoutes);
+app.use('/api/erp', erpInventoryRoutes);
 
 // Servir uploads (fotos)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
