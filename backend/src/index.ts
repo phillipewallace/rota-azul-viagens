@@ -21,6 +21,8 @@ import analyticsRoutes from './routes/analytics';
 import customersRoutes from './routes/customers';
 import photosRoutes from './routes/photos';
 import completedRoutesRoutes from './routes/completed-routes';
+import trackingRoutes from './routes/tracking';
+import sanitariosRoutes from './routes/sanitarios';
 import path from 'path';
 
 const app = express();
@@ -78,6 +80,8 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/photos', photosRoutes);
 app.use('/api/completed-routes', completedRoutesRoutes);
+app.use('/api/tracking', trackingRoutes);
+app.use('/api/sanitarios', sanitariosRoutes);
 
 // Servir uploads (fotos)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));

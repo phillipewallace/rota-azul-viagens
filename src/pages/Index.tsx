@@ -27,6 +27,7 @@ const Index = () => {
     { icon: MapPin, label: 'Mapa Principal', to: '/' },
     { icon: Route, label: 'Rotas', to: '/routes' },
     { icon: Route, label: 'Rotas Concluídas', to: '/rotas-concluidas' },
+    { icon: Settings, label: 'Sanitários', to: '/sanitarios' },
     { icon: Truck, label: 'Caminhões', to: '/trucks' },
     { icon: Users, label: 'Clientes', to: '/customers' },
     { icon: Settings, label: 'Gerenciamento', to: '/management' },
