@@ -63,6 +63,27 @@ const Trucks = () => {
     setShowLinkModal(true);
   };
 
+  const handleUnlinkRoute = async (truck: TruckType) => {
+    if (!confirm(`Desvincular a rota atual de ${truck.name}?`)) return;
+    try {
+      const { API_CONFIG } = await import('@/services/config');
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_CONFIG.BASE_URL}/trucks/unlink-route`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ truckId: truck.id }),
+      });
+      if (!res.ok) throw new Error('Falha ao desvincular');
+      await refetch();
+      toast({ title: 'Rota desvinculada com sucesso!' });
+    } catch (e: any) {
+      toast({ title: 'Erro ao desvincular rota', description: e?.message, variant: 'destructive' });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants = {
       available: 'default',
