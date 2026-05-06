@@ -21,9 +21,19 @@ interface Sanitario {
   current_address?: string;
   current_lat?: number;
   current_lng?: number;
+  current_truck_id?: string;
+  current_truck_name?: string;
+  current_truck_plate?: string;
   installed_at?: string;
   notes?: string;
 }
+
+interface Truck { id: string; name: string; plate?: string }
+
+const authHeaders = (): HeadersInit => {
+  const t = localStorage.getItem('auth_token');
+  return t ? { Authorization: `Bearer ${t}` } : {};
+};
 
 interface Movimentacao {
   id: string;
