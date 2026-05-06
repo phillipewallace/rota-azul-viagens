@@ -52,6 +52,7 @@ const MobileDriver = () => {
   const [pendingPoint, setPendingPoint] = useState<any | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showQtyModal, setShowQtyModal] = useState(false);
+  const [showNumberModal, setShowNumberModal] = useState(false);
 
   // Persistência de estado
   const [persistedState, setPersistedState] = useState<{
