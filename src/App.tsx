@@ -21,6 +21,7 @@ import CreateRoute from "./pages/CreateRoute";
 import Customers from "./pages/Customers";
 import CompletedRoutes from "./pages/CompletedRoutes";
 import Sanitarios from "./pages/Sanitarios";
+import InternalManagement from "./pages/InternalManagement";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
