@@ -316,12 +316,21 @@ const MobileDriver = () => {
       return commitPointUpdate(pointId, false);
     }
 
+    const existingNumbers: string[] =
+      (point as any).sanitario_numbers || (point as any).sanitarioNumbers || [];
+    const hasNumbers = existingNumbers.length > 0;
+
     setPendingPoint(point);
     // Fluxo:
-    //  recolhimento → Qty → Numbers → Photos
-    //  entrega/manutenção → Numbers → Photos
+    //  recolhimento → Qty → (Numbers se necessário) → Photos
+    //  manutenção → (Numbers se necessário) → Photos
+    //  entrega → Numbers → Photos
     if (point.operationType === 'recolhimento') {
       setShowQtyModal(true);
+    } else if (point.operationType === 'manutencao' && hasNumbers) {
+      // já tem números registrados → pular modal e ir direto p/ fotos
+      (point as any)._numeros = existingNumbers;
+      setShowPhotoModal(true);
     } else {
       setShowNumberModal(true);
     }
@@ -662,7 +671,15 @@ const MobileDriver = () => {
               setShowQtyModal(false);
               (pendingPoint as any)._recolhidoQty = qty;
               (pendingPoint as any)._autoRemoved = autoRemove;
-              setShowNumberModal(true);
+              const existing: string[] =
+                pendingPoint.sanitario_numbers || pendingPoint.sanitarioNumbers || [];
+              // Se já temos números registrados e a qtd recolhida bate, pula o modal
+              if (existing.length > 0 && existing.length === qty) {
+                (pendingPoint as any)._numeros = existing;
+                setShowPhotoModal(true);
+              } else {
+                setShowNumberModal(true);
+              }
             }}
           />
 
