@@ -70,6 +70,8 @@ ALTER TABLE public.routes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
 ALTER TABLE public.routes ADD COLUMN IF NOT EXISTS optimization_mode TEXT DEFAULT 'optimized';
 ALTER TABLE public.routes ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE public.routes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+-- Coluna legada 'points' (JSONB) — mantida por compatibilidade com builds antigos
+ALTER TABLE public.routes ADD COLUMN IF NOT EXISTS points JSONB DEFAULT '[]'::jsonb;
 
 -- ============================== ROUTE_POINTS ================================
 CREATE TABLE IF NOT EXISTS public.route_points (

@@ -805,19 +805,17 @@ router.put('/:id', async (req, res) => {
     // Atualizar dados da rota principal
     const updateQuery = `
       UPDATE routes 
-      SET name = $1, description = $2, points = $3, total_distance = $4, 
-          estimated_time = $5, estimated_duration = $6, optimized_order = $7, 
-          polyline = $8, status = $9, optimization_mode = COALESCE($10, optimization_mode), updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+      SET name = $1, description = $2, total_distance = $3, 
+          estimated_duration = $4, optimized_order = $5, 
+          polyline = $6, status = $7, optimization_mode = COALESCE($8, optimization_mode), updated_at = CURRENT_TIMESTAMP
+      WHERE id = $9
       RETURNING *
     `;
     
     const result = await client.query(updateQuery, [
       name,
       description,
-      JSON.stringify(updatedPoints),
       parseFloat(totalDistance) || 0,
-      estimatedTime,
       parseInt(estimatedDuration) || 0,
       JSON.stringify(optimizedOrder || []),
       polyline,
@@ -975,19 +973,15 @@ router.post('/:id/optimize-manual', async (req, res) => {
     // ✅ ATUALIZAR ROTA NO BANCO COM MODO 'optimized'
     await client.query(
       `UPDATE routes SET 
-       points = $1,
-       total_distance = $2,
-       estimated_time = $3,
-       estimated_duration = $4,
-       optimized_order = $5,
-       polyline = $6,
+       total_distance = $1,
+       estimated_duration = $2,
+       optimized_order = $3,
+       polyline = $4,
        optimization_mode = 'optimized',
        updated_at = CURRENT_TIMESTAMP
-       WHERE id = $7`,
+       WHERE id = $5`,
       [
-        JSON.stringify(optimizedResult.optimizedPoints),
         optimizedResult.totalDistance,
-        estimatedTime,
         Math.round(optimizedResult.totalDuration),
         JSON.stringify(optimizedResult.optimizedOrder || []),
         optimizedResult.polyline || null,
@@ -1152,10 +1146,10 @@ router.post('/:id/optimize-hybrid', async (req, res) => {
       );
     }
     await client.query(
-      `UPDATE routes SET total_distance=$1, estimated_time=$2, estimated_duration=$3,
-       optimized_order=$4, polyline=$5, optimization_mode='optimized', updated_at=NOW()
-       WHERE id=$6`,
-      [result.totalDistance, estimatedTime, result.totalDuration,
+      `UPDATE routes SET total_distance=$1, estimated_duration=$2,
+       optimized_order=$3, polyline=$4, optimization_mode='optimized', updated_at=NOW()
+       WHERE id=$5`,
+      [result.totalDistance, result.totalDuration,
        JSON.stringify(result.optimizedOrder), result.polyline, id]
     );
     await client.query('COMMIT');
