@@ -119,6 +119,39 @@ router.post('/link-route', async (req, res) => {
   }
 });
 
+// Unlink route from truck
+router.post('/unlink-route', async (req, res) => {
+  try {
+    const { truckId } = req.body;
+    console.log(`🔓 [TRUCK UNLINK] Desvinculando rota do caminhão ${truckId}`);
+
+    if (!truckId) {
+      return res.status(400).json({ error: 'Truck ID é obrigatório' });
+    }
+
+    const result = await pool.query(
+      `UPDATE trucks
+         SET current_route_id = NULL,
+             current_route = NULL,
+             status = 'available',
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [truckId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Caminhão não encontrado' });
+    }
+
+    console.log(`✅ [TRUCK UNLINK] Rota desvinculada: ${result.rows[0].name}`);
+    res.json({ success: true, message: 'Rota desvinculada com sucesso' });
+  } catch (error) {
+    console.error('❌ [TRUCK UNLINK] Erro ao desvincular rota:', error);
+    res.status(500).json({ error: 'Erro ao desvincular rota' });
+  }
+});
+
 // Get single truck by ID
 router.get('/:id', async (req, res) => {
   try {
