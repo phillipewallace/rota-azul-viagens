@@ -95,15 +95,14 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
     ],
   },
   {
-    category: 'Carroceria',
+    category: 'Carroceria (3/4 embutida)',
     vehicleType: 'carroceria',
     items: [
       { key: 'travas_carroceria', label: 'Travas da carroceria' },
-      { key: 'lonas_amarras', label: 'Lonas e amarrações' },
       { key: 'ganchos', label: 'Ganchos / correntes' },
       { key: 'plataforma', label: 'Plataforma / assoalho' },
-      { key: 'sistema_hidraulico', label: 'Sistema hidráulico' },
-      { key: 'conexoes_eletricas', label: 'Conexões elétricas com a carreta' },
+      { key: 'estrutura_carroceria', label: 'Estrutura / fixação da carroceria embutida' },
+      { key: 'portas_carroceria', label: 'Portas e fechaduras da carroceria' },
     ],
   },
   {
