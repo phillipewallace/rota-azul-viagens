@@ -172,19 +172,37 @@ export default function PublicChecklist() {
       <div className="max-w-3xl mx-auto p-4 space-y-4">
         <Card>
           <CardHeader><CardTitle className="text-base">Informações iniciais</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
+          <CardContent className="space-y-3">
             <div>
-              <Label>Hodômetro (km)</Label>
-              <Input type="number" value={odometer} onChange={e => setOdometer(e.target.value)} />
+              <Label>Tipo de veículo</Label>
+              <Select value={vehicleType ?? ''} onValueChange={(v) => setVehicleType(v as VehicleType)}>
+                <SelectTrigger><SelectValue placeholder="Selecione: Carroceria ou Tanque" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="carroceria">Carroceria</SelectItem>
+                  <SelectItem value="tanque">Tanque</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div>
-              <Label>Nível combustível</Label>
-              <Input value={fuelLevel} onChange={e => setFuelLevel(e.target.value)} placeholder="Ex: 3/4" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Hodômetro (km)</Label>
+                <Input type="number" value={odometer} onChange={e => setOdometer(e.target.value)} />
+              </div>
+              <div>
+                <Label>Nível combustível</Label>
+                <Input value={fuelLevel} onChange={e => setFuelLevel(e.target.value)} placeholder="Ex: 3/4" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {CHECKLIST_TEMPLATE.map(cat => (
+        {!vehicleType && (
+          <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
+            Selecione o tipo de veículo acima para carregar os itens da checklist.
+          </CardContent></Card>
+        )}
+
+        {vehicleType && activeCategories.map(cat => (
           <Card key={cat.category}>
             <CardHeader><CardTitle className="text-base">{cat.category}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
