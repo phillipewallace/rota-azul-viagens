@@ -13,7 +13,7 @@ import { checklistsService } from '@/services/checklists';
 
 type ItemState = { status: ChecklistStatus | null; notes: string };
 
-interface TruckInfo { id: string; name: string; plate: string; model: string; year: number }
+interface TruckInfo { id: string; name: string; plate: string; model: string; year: number; kind: 'truck' | 'carretinha' }
 
 const STATUS_BUTTONS: { value: ChecklistStatus; label: string; icon: any; color: string }[] = [
   { value: 'ok',        label: 'OK',       icon: CheckCircle2, color: 'bg-emerald-500 hover:bg-emerald-600 text-white' },
@@ -51,9 +51,11 @@ export default function PublicChecklist() {
     try {
       const t = await checklistsService.lookupTruck(plate.trim());
       setTruck(t);
-      toast.success(`Caminhão encontrado: ${t.name}`);
+      // Se for carretinha, já fixa o tipo
+      if (t.kind === 'carretinha') setVehicleType('carretinha');
+      toast.success(`${t.kind === 'carretinha' ? 'Carretinha' : 'Caminhão'} encontrado: ${t.name}`);
     } catch (e: any) {
-      toast.error(e.message || 'Caminhão não encontrado');
+      toast.error(e.message || 'Veículo não encontrado');
     } finally {
       setLoading(false);
     }
@@ -76,8 +78,11 @@ export default function PublicChecklist() {
     const sig = sigRef.current?.toDataURL();
     if (!sig) return toast.error('Capture a assinatura');
 
+    const isCarretinha = truck!.kind === 'carretinha';
     const payload = {
-      truckId: truck!.id,
+      truckId: isCarretinha ? null : truck!.id,
+      carretinhaId: isCarretinha ? truck!.id : null,
+      vehicleKind: truck!.kind,
       truckPlate: truck!.plate,
       truckName: truck!.name,
       truckModel: truck!.model,
@@ -85,8 +90,8 @@ export default function PublicChecklist() {
       signerName: signerName.trim(),
       signerDocument: signerDoc.trim(),
       signatureDataUrl: sig,
-      odometerKm: odometer || null,
-      fuelLevel: fuelLevel || null,
+      odometerKm: isCarretinha ? null : (odometer || null),
+      fuelLevel: isCarretinha ? null : (fuelLevel || null),
       generalNotes: generalNotes || null,
       items: activeCategories.flatMap(cat =>
         cat.items.map(it => ({
@@ -132,11 +137,11 @@ export default function PublicChecklist() {
         <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" /> Checklist de Caminhão
+              <Truck className="h-5 w-5" /> Checklist de Veículo
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Label>Placa do caminhão</Label>
+            <Label>Placa do veículo (caminhão ou carretinha)</Label>
             <Input
               value={plate}
               onChange={e => setPlate(e.target.value.toUpperCase())}
@@ -145,7 +150,7 @@ export default function PublicChecklist() {
               autoFocus
             />
             <Button className="w-full" onClick={lookup} disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar caminhão'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar veículo'}
             </Button>
           </CardContent>
         </Card>
@@ -153,12 +158,14 @@ export default function PublicChecklist() {
     );
   }
 
+  const isCarretinha = truck.kind === 'carretinha';
+
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
       <div className="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div>
-            <div className="text-xs opacity-80">Caminhão</div>
+            <div className="text-xs opacity-80">{isCarretinha ? 'Carretinha' : 'Caminhão'}</div>
             <div className="font-bold">{truck.name} · {truck.plate}</div>
             {truck.model && <div className="text-xs opacity-80">{truck.model}</div>}
           </div>
@@ -173,26 +180,34 @@ export default function PublicChecklist() {
         <Card>
           <CardHeader><CardTitle className="text-base">Informações iniciais</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <Label>Tipo de veículo</Label>
-              <Select value={vehicleType ?? ''} onValueChange={(v) => setVehicleType(v as VehicleType)}>
-                <SelectTrigger><SelectValue placeholder="Selecione: Carroceria ou Tanque" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="carroceria">Carroceria</SelectItem>
-                  <SelectItem value="tanque">Tanque</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Hodômetro (km)</Label>
-                <Input type="number" value={odometer} onChange={e => setOdometer(e.target.value)} />
+            {isCarretinha ? (
+              <div className="text-sm bg-amber-50 border border-amber-200 rounded p-2 text-amber-800">
+                Veículo identificado como <b>carretinha</b>. Checklist específica carregada.
               </div>
+            ) : (
               <div>
-                <Label>Nível combustível</Label>
-                <Input value={fuelLevel} onChange={e => setFuelLevel(e.target.value)} placeholder="Ex: 3/4" />
+                <Label>Tipo de veículo</Label>
+                <Select value={vehicleType ?? ''} onValueChange={(v) => setVehicleType(v as VehicleType)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione: Carroceria ou Tanque" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="carroceria">Carroceria</SelectItem>
+                    <SelectItem value="tanque">Tanque</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
+            {!isCarretinha && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Hodômetro (km)</Label>
+                  <Input type="number" value={odometer} onChange={e => setOdometer(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Nível combustível</Label>
+                  <Input value={fuelLevel} onChange={e => setFuelLevel(e.target.value)} placeholder="Ex: 3/4" />
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

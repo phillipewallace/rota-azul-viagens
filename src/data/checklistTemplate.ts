@@ -1,8 +1,8 @@
-// Checklist completo de inspeção de caminhão.
+// Checklist completo de inspeção de veículos.
 // Usado tanto no formulário público quanto na visualização administrativa.
 
 export type ChecklistStatus = 'ok' | 'attention' | 'critical' | 'na';
-export type VehicleType = 'carroceria' | 'tanque';
+export type VehicleType = 'carroceria' | 'tanque' | 'carretinha';
 
 export interface ChecklistItemDef {
   key: string;
@@ -12,13 +12,15 @@ export interface ChecklistItemDef {
 export interface ChecklistCategoryDef {
   category: string;
   items: ChecklistItemDef[];
-  /** Se definido, a categoria só aparece para o tipo de veículo correspondente. */
-  vehicleType?: VehicleType;
+  /** Se definido, a categoria só aparece para os tipos de veículo correspondentes. */
+  vehicleTypes?: VehicleType[];
 }
 
-export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
+// ============ CHECKLIST CAMINHÃO (carroceria/tanque) ============
+const TRUCK_TEMPLATE: ChecklistCategoryDef[] = [
   {
     category: 'Externo / Lataria',
+    vehicleTypes: ['carroceria', 'tanque'],
     items: [
       { key: 'parachoque_dianteiro', label: 'Para-choque dianteiro' },
       { key: 'parachoque_traseiro', label: 'Para-choque traseiro' },
@@ -32,6 +34,7 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
   {
     category: 'Iluminação',
+    vehicleTypes: ['carroceria', 'tanque'],
     items: [
       { key: 'farol_baixo', label: 'Farol baixo' },
       { key: 'farol_alto', label: 'Farol alto' },
@@ -47,6 +50,7 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
   {
     category: 'Pneus e Rodas',
+    vehicleTypes: ['carroceria', 'tanque'],
     items: [
       { key: 'pneu_diant_esq', label: 'Pneu dianteiro esquerdo' },
       { key: 'pneu_diant_dir', label: 'Pneu dianteiro direito' },
@@ -59,6 +63,7 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
   {
     category: 'Motor / Compartimento',
+    vehicleTypes: ['carroceria', 'tanque'],
     items: [
       { key: 'oleo_motor', label: 'Nível de óleo do motor' },
       { key: 'agua_radiador', label: 'Água do radiador' },
@@ -71,6 +76,7 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
   {
     category: 'Cabine Interna',
+    vehicleTypes: ['carroceria', 'tanque'],
     items: [
       { key: 'cintos', label: 'Cintos de segurança' },
       { key: 'bancos', label: 'Bancos / regulagem' },
@@ -85,6 +91,7 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
   {
     category: 'Freios e Suspensão',
+    vehicleTypes: ['carroceria', 'tanque'],
     items: [
       { key: 'freio_servico', label: 'Freio de serviço' },
       { key: 'freio_estacionamento', label: 'Freio de estacionamento' },
@@ -96,7 +103,7 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
   {
     category: 'Carroceria (3/4 embutida)',
-    vehicleType: 'carroceria',
+    vehicleTypes: ['carroceria'],
     items: [
       { key: 'travas_carroceria', label: 'Travas da carroceria' },
       { key: 'ganchos', label: 'Ganchos / correntes' },
@@ -107,8 +114,9 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
   {
     category: 'Tanque / Equipamentos Sanitários',
-    vehicleType: 'tanque',
+    vehicleTypes: ['tanque'],
     items: [
+      { key: 'plataforma_tanque', label: 'Plataforma do tanque' },
       { key: 'tanque_dejeto', label: 'Tanque de dejetos' },
       { key: 'tanque_agua_limpa', label: 'Tanque de água limpa' },
       { key: 'mangueiras', label: 'Mangueiras' },
@@ -119,6 +127,7 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
   {
     category: 'Limpeza',
+    vehicleTypes: ['carroceria', 'tanque'],
     items: [
       { key: 'limpeza_cabine', label: 'Cabine limpa' },
       { key: 'limpeza_externa', label: 'Veículo limpo externamente' },
@@ -127,9 +136,100 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
   },
 ];
 
+// ============ CHECKLIST CARRETINHA ============
+const CARRETINHA_TEMPLATE: ChecklistCategoryDef[] = [
+  {
+    category: 'Identificação',
+    vehicleTypes: ['carretinha'],
+    items: [
+      { key: 'c_placa_visivel', label: 'Placa legível e fixada' },
+      { key: 'c_chassi', label: 'Número de chassi visível' },
+      { key: 'c_documento', label: 'Documento da carretinha em dia' },
+    ],
+  },
+  {
+    category: 'Estrutura e Lataria',
+    vehicleTypes: ['carretinha'],
+    items: [
+      { key: 'c_chassi_estrutura', label: 'Chassi sem trincas/soldas comprometidas' },
+      { key: 'c_assoalho', label: 'Assoalho / piso em bom estado' },
+      { key: 'c_laterais', label: 'Laterais e portas' },
+      { key: 'c_pintura', label: 'Pintura / sem ferrugem grave' },
+      { key: 'c_para_lamas', label: 'Para-lamas fixos' },
+    ],
+  },
+  {
+    category: 'Acoplamento',
+    vehicleTypes: ['carretinha'],
+    items: [
+      { key: 'c_engate', label: 'Engate / cabeçote em bom estado' },
+      { key: 'c_trava_engate', label: 'Trava do engate funcional' },
+      { key: 'c_corrente_seguranca', label: 'Correntes de segurança' },
+      { key: 'c_pe_apoio', label: 'Pé de apoio / macaco regulável' },
+      { key: 'c_conector_eletrico', label: 'Conector elétrico (chicote)' },
+    ],
+  },
+  {
+    category: 'Iluminação e Sinalização',
+    vehicleTypes: ['carretinha'],
+    items: [
+      { key: 'c_lanterna_traseira', label: 'Lanternas traseiras' },
+      { key: 'c_luz_freio', label: 'Luz de freio' },
+      { key: 'c_setas', label: 'Setas direcionais' },
+      { key: 'c_luz_placa', label: 'Luz da placa' },
+      { key: 'c_refletivos', label: 'Faixas refletivas / catadióptricos' },
+    ],
+  },
+  {
+    category: 'Pneus e Rodas',
+    vehicleTypes: ['carretinha'],
+    items: [
+      { key: 'c_pneu_esq', label: 'Pneu esquerdo' },
+      { key: 'c_pneu_dir', label: 'Pneu direito' },
+      { key: 'c_estepe', label: 'Estepe (se houver)' },
+      { key: 'c_calibragem', label: 'Calibragem correta' },
+      { key: 'c_parafusos', label: 'Parafusos das rodas' },
+      { key: 'c_rolamentos', label: 'Cubos / rolamentos sem folga' },
+    ],
+  },
+  {
+    category: 'Freios e Suspensão',
+    vehicleTypes: ['carretinha'],
+    items: [
+      { key: 'c_freio', label: 'Sistema de freio (se aplicável)' },
+      { key: 'c_molas', label: 'Molas / feixes' },
+      { key: 'c_suspensao', label: 'Suspensão geral' },
+    ],
+  },
+  {
+    category: 'Carga e Amarração',
+    vehicleTypes: ['carretinha'],
+    items: [
+      { key: 'c_amarracoes', label: 'Pontos de amarração / olhais' },
+      { key: 'c_cintas', label: 'Cintas / cordas em bom estado' },
+      { key: 'c_lonas', label: 'Lonas / coberturas (se houver)' },
+      { key: 'c_travas_carga', label: 'Travas da carga' },
+    ],
+  },
+  {
+    category: 'Limpeza',
+    vehicleTypes: ['carretinha'],
+    items: [
+      { key: 'c_limpeza_geral', label: 'Carretinha limpa externamente' },
+      { key: 'c_limpeza_carga', label: 'Compartimento de carga limpo' },
+    ],
+  },
+];
+
+export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
+  ...TRUCK_TEMPLATE,
+  ...CARRETINHA_TEMPLATE,
+];
+
 /** Retorna as categorias aplicáveis ao tipo de veículo selecionado. */
 export function getChecklistFor(vehicleType: VehicleType | null): ChecklistCategoryDef[] {
-  return CHECKLIST_TEMPLATE.filter(c => !c.vehicleType || c.vehicleType === vehicleType);
+  if (!vehicleType) return [];
+  return CHECKLIST_TEMPLATE.filter(c => !c.vehicleTypes || c.vehicleTypes.includes(vehicleType));
 }
 
 export const STATUS_LABEL: Record<ChecklistStatus, string> = {

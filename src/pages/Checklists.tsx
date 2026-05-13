@@ -72,14 +72,41 @@ function exportChecklistPdf(d: ChecklistDetail) {
     doc.text(lines, 14, y); y += lines.length * 5 + 4;
   }
 
-  if (y > 220) { doc.addPage(); y = 20; }
-  doc.setFont('helvetica', 'bold'); doc.text('Assinatura do responsável', 14, y); y += 6;
+  // Bloco de assinaturas (motorista + responsável da empresa)
+  if (y > 200) { doc.addPage(); y = 20; }
+  doc.setFont('helvetica', 'bold');
+  doc.text('Assinaturas', 14, y); y += 6;
   doc.setFont('helvetica', 'normal');
-  doc.text(`Nome: ${d.signerName}`, 14, y); y += 5;
-  doc.text(`RG/CPF: ${d.signerDocument}`, 14, y); y += 5;
+  doc.setFontSize(10);
+
+  const colW = 88;
+  const sigBoxH = 28;
+  const leftX = 14;
+  const rightX = 14 + colW + 8;
+
+  // Caixas
+  doc.rect(leftX, y, colW, sigBoxH);
+  doc.rect(rightX, y, colW, sigBoxH);
+
+  // Assinatura do motorista (imagem)
   if (d.signatureDataUrl) {
-    try { doc.addImage(d.signatureDataUrl, 'PNG', 14, y, 80, 30); y += 32; } catch {}
+    try { doc.addImage(d.signatureDataUrl, 'PNG', leftX + 2, y + 2, colW - 4, sigBoxH - 4); } catch {}
   }
+
+  y += sigBoxH + 4;
+  // Linhas e legendas
+  doc.setFontSize(9);
+  doc.text('Motorista responsável', leftX, y);
+  doc.text('Responsável (empresa)', rightX, y);
+  y += 5;
+  doc.setFont('helvetica', 'bold');
+  doc.text(d.signerName, leftX, y);
+  doc.text('_______________________________', rightX, y);
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.text(`RG/CPF: ${d.signerDocument}`, leftX, y);
+  doc.text('Nome / Cargo', rightX, y);
+  y += 6;
 
   doc.save(`checklist-${d.truckPlate}-${new Date(d.createdAt).toISOString().slice(0,10)}.pdf`);
 }
@@ -267,12 +294,32 @@ export default function Checklists() {
 
               <Card>
                 <CardHeader className="py-2"><CardTitle className="text-sm">Assinatura</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div><b>Nome:</b> {detail.signerName}</div>
-                  <div><b>RG/CPF:</b> {detail.signerDocument}</div>
-                  {detail.signatureDataUrl && (
-                    <img src={detail.signatureDataUrl} alt="Assinatura" className="border rounded bg-white max-w-sm" />
-                  )}
+                <CardContent className="text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    {/* Motorista */}
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Motorista responsável</div>
+                      <div className="bg-white border rounded h-32 flex items-center justify-center overflow-hidden">
+                        {detail.signatureDataUrl ? (
+                          <img src={detail.signatureDataUrl} alt="Assinatura do motorista" className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Sem assinatura</span>
+                        )}
+                      </div>
+                      <div className="border-t pt-1 text-center">
+                        <div className="font-medium">{detail.signerName}</div>
+                        <div className="text-xs text-muted-foreground">RG/CPF: {detail.signerDocument}</div>
+                      </div>
+                    </div>
+                    {/* Responsável da empresa */}
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Responsável (empresa)</div>
+                      <div className="bg-white border border-dashed rounded h-32" />
+                      <div className="border-t pt-1 text-center text-xs text-muted-foreground">
+                        Nome / Cargo: ____________________
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
