@@ -33,6 +33,7 @@ interface RoutePointsTableProps {
   onSearchByAddress: (id: string, address: string) => void;
   onDuplicate: (id: string) => void;
   onAddPoint: () => void;
+  onAddFromSanitario?: () => void;
   isDraggable: boolean;
   searchingAddress: number | null;
 }
