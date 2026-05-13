@@ -181,6 +181,8 @@ router.get('/:id', requireAuth, async (req: AuthedRequest, res: Response) => {
         general_notes AS "generalNotes",
         summary_status AS "summaryStatus",
         critical_count AS "criticalCount", attention_count AS "attentionCount",
+        vehicle_kind AS "vehicleKind", vehicle_type AS "vehicleType",
+        carretinha_id AS "carretinhaId",
         created_at AS "createdAt"
        FROM truck_checklists WHERE id=$1`,
       [id]
