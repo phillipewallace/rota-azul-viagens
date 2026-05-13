@@ -28,6 +28,7 @@ export default function PublicChecklist() {
   const [loading, setLoading] = useState(false);
 
   const [items, setItems] = useState<Record<string, ItemState>>({});
+  const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
   const [odometer, setOdometer] = useState('');
   const [fuelLevel, setFuelLevel] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
