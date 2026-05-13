@@ -251,4 +251,60 @@ router.get('/lookup/truck/:plate', async (req: Request, res: Response) => {
   }
 });
 
+// ============ Pendentes de 2ª assinatura por placa (público) ============
+router.get('/lookup/pending/:plate', async (req: Request, res: Response) => {
+  try {
+    const { plate } = req.params;
+    const r = await pool.query(
+      `SELECT id, truck_plate AS "truckPlate", truck_name AS "truckName",
+              truck_model AS "truckModel", vehicle_kind AS "vehicleKind",
+              signer_name AS "signerName", signature_mode AS "signatureMode",
+              created_at AS "createdAt"
+         FROM truck_checklists
+        WHERE UPPER(REPLACE(truck_plate, '-', '')) = UPPER(REPLACE($1, '-', ''))
+          AND signature_mode IN ('cliente','conferente')
+          AND second_signature_data_url IS NULL
+        ORDER BY created_at DESC
+        LIMIT 50`,
+      [plate]
+    );
+    res.json(r.rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============ Salvar 2ª assinatura (público) ============
+router.post('/:id/second-signature', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { signerName, signerDocument, signatureDataUrl } = req.body || {};
+    if (!signerName || !signerDocument || !signatureDataUrl) {
+      return res.status(400).json({ error: 'Nome, documento e assinatura são obrigatórios' });
+    }
+    const cur = await pool.query(
+      `SELECT signature_mode, second_signature_data_url FROM truck_checklists WHERE id=$1`,
+      [id]
+    );
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Checklist não encontrada' });
+    if (cur.rows[0].signature_mode === 'none') {
+      return res.status(400).json({ error: 'Esta checklist não requer 2ª assinatura' });
+    }
+    if (cur.rows[0].second_signature_data_url) {
+      return res.status(409).json({ error: 'Esta checklist já foi assinada' });
+    }
+    await pool.query(
+      `UPDATE truck_checklists
+          SET second_signer_name=$1, second_signer_document=$2,
+              second_signature_data_url=$3, second_signed_at=NOW()
+        WHERE id=$4`,
+      [String(signerName).trim(), String(signerDocument).trim(), signatureDataUrl, id]
+    );
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
+
