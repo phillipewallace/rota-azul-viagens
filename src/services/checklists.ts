@@ -22,13 +22,32 @@ export interface ChecklistSummary {
   summaryStatus: ChecklistStatus;
   criticalCount: number;
   attentionCount: number;
+  vehicleKind?: 'truck' | 'carretinha' | null;
+  vehicleType?: string | null;
+  carretinhaId?: string | null;
+  signatureMode?: 'none' | 'cliente' | 'conferente';
+  secondSignerName?: string | null;
+  secondSignerDocument?: string | null;
+  secondSignedAt?: string | null;
   createdAt: string;
 }
 
 export interface ChecklistDetail extends ChecklistSummary {
   signatureDataUrl: string | null;
   generalNotes: string | null;
+  secondSignatureDataUrl?: string | null;
   items: ChecklistItem[];
+}
+
+export interface PendingChecklist {
+  id: string;
+  truckPlate: string;
+  truckName: string | null;
+  truckModel: string | null;
+  vehicleKind: 'truck' | 'carretinha';
+  signerName: string;
+  signatureMode: 'cliente' | 'conferente';
+  createdAt: string;
 }
 
 function authHeaders(): Record<string, string> {
