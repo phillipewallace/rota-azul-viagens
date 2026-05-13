@@ -38,8 +38,12 @@ export default function PublicChecklist() {
   const [done, setDone] = useState(false);
   const sigRef = useRef<SignaturePadHandle>(null);
 
-  const totalItems = CHECKLIST_TEMPLATE.reduce((s, c) => s + c.items.length, 0);
-  const filledCount = Object.values(items).filter(i => i?.status).length;
+  const activeCategories = getChecklistFor(vehicleType);
+  const totalItems = activeCategories.reduce((s, c) => s + c.items.length, 0);
+  const filledCount = activeCategories.reduce(
+    (s, c) => s + c.items.filter(it => items[it.key]?.status).length,
+    0
+  );
 
   const lookup = async () => {
     if (!plate.trim()) return toast.error('Informe a placa');
