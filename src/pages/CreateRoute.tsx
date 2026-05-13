@@ -853,8 +853,14 @@ const DesktopCreateRoute = () => {
             onSearchByAddress={searchAddressByText}
             onDuplicate={duplicatePoint}
             onAddPoint={addPoint}
+            onAddFromSanitario={() => setSanPickerOpen(true)}
             isDraggable={optimizationMode === 'fixed'}
             searchingAddress={searchingAddress}
+          />
+          <SanitarioPickerModal
+            open={sanPickerOpen}
+            onOpenChange={setSanPickerOpen}
+            onPick={addPointFromSanitario}
           />
         </main>
 
