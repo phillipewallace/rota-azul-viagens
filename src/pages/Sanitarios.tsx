@@ -80,6 +80,22 @@ export default function Sanitarios() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [exporting, setExporting] = useState(false);
+  const [allocOpen, setAllocOpen] = useState(false);
+  const [allocCustomerId, setAllocCustomerId] = useState('');
+  const [allocSearch, setAllocSearch] = useState('');
+  const [allocNotes, setAllocNotes] = useState('');
+  const [allocBusy, setAllocBusy] = useState(false);
+  const [baixaOpen, setBaixaOpen] = useState(false);
+  const [baixaNotes, setBaixaNotes] = useState('');
+  const { customers } = useCustomers();
+  const filteredCustomers = useMemo(() => {
+    const q = allocSearch.trim().toLowerCase();
+    if (!q) return customers.slice(0, 50);
+    return customers.filter(c =>
+      (c.customerName || '').toLowerCase().includes(q) ||
+      (c.address || '').toLowerCase().includes(q)
+    ).slice(0, 50);
+  }, [customers, allocSearch]);
 
   const buildFilterParams = () => {
     const p = new URLSearchParams();
