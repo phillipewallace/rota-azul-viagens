@@ -72,14 +72,41 @@ function exportChecklistPdf(d: ChecklistDetail) {
     doc.text(lines, 14, y); y += lines.length * 5 + 4;
   }
 
-  if (y > 220) { doc.addPage(); y = 20; }
-  doc.setFont('helvetica', 'bold'); doc.text('Assinatura do responsável', 14, y); y += 6;
+  // Bloco de assinaturas (motorista + responsável da empresa)
+  if (y > 200) { doc.addPage(); y = 20; }
+  doc.setFont('helvetica', 'bold');
+  doc.text('Assinaturas', 14, y); y += 6;
   doc.setFont('helvetica', 'normal');
-  doc.text(`Nome: ${d.signerName}`, 14, y); y += 5;
-  doc.text(`RG/CPF: ${d.signerDocument}`, 14, y); y += 5;
+  doc.setFontSize(10);
+
+  const colW = 88;
+  const sigBoxH = 28;
+  const leftX = 14;
+  const rightX = 14 + colW + 8;
+
+  // Caixas
+  doc.rect(leftX, y, colW, sigBoxH);
+  doc.rect(rightX, y, colW, sigBoxH);
+
+  // Assinatura do motorista (imagem)
   if (d.signatureDataUrl) {
-    try { doc.addImage(d.signatureDataUrl, 'PNG', 14, y, 80, 30); y += 32; } catch {}
+    try { doc.addImage(d.signatureDataUrl, 'PNG', leftX + 2, y + 2, colW - 4, sigBoxH - 4); } catch {}
   }
+
+  y += sigBoxH + 4;
+  // Linhas e legendas
+  doc.setFontSize(9);
+  doc.text('Motorista responsável', leftX, y);
+  doc.text('Responsável (empresa)', rightX, y);
+  y += 5;
+  doc.setFont('helvetica', 'bold');
+  doc.text(d.signerName, leftX, y);
+  doc.text('_______________________________', rightX, y);
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.text(`RG/CPF: ${d.signerDocument}`, leftX, y);
+  doc.text('Nome / Cargo', rightX, y);
+  y += 6;
 
   doc.save(`checklist-${d.truckPlate}-${new Date(d.createdAt).toISOString().slice(0,10)}.pdf`);
 }
