@@ -22,6 +22,8 @@ import Customers from "./pages/Customers";
 import CompletedRoutes from "./pages/CompletedRoutes";
 import Sanitarios from "./pages/Sanitarios";
 import InternalManagement from "./pages/InternalManagement";
+import Checklists from "./pages/Checklists";
+import PublicChecklist from "./pages/PublicChecklist";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -50,6 +52,7 @@ function App() {
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/mobile" element={<MobileDriver />} />
+            <Route path="/checklist" element={<PublicChecklist />} />
             
             {/* Protected Routes */}
             <Route
@@ -173,7 +176,14 @@ function App() {
               }
             />
             <Route
-              path="/menu"
+              path="/checklists"
+              element={
+                <ProtectedRoute>
+                  <Checklists />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               element={
                 <ProtectedRoute>
                   <MobileOperatorMenuPage />

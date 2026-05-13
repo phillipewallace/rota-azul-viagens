@@ -399,6 +399,39 @@ CREATE TABLE IF NOT EXISTS public.erp_vehicle_comments (
 CREATE INDEX IF NOT EXISTS idx_erp_vehicle_comments_vehicle ON public.erp_vehicle_comments(vehicle_id);
 CREATE INDEX IF NOT EXISTS idx_erp_vehicle_comments_status  ON public.erp_vehicle_comments(status);
 
+-- ============================== TRUCK CHECKLISTS ===========================
+CREATE TABLE IF NOT EXISTS public.truck_checklists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  truck_id UUID REFERENCES public.trucks(id) ON DELETE SET NULL,
+  truck_plate TEXT NOT NULL,
+  truck_name TEXT,
+  truck_model TEXT,
+  signer_name TEXT NOT NULL,
+  signer_document TEXT NOT NULL,
+  signature_data_url TEXT,
+  odometer_km NUMERIC,
+  fuel_level TEXT,
+  general_notes TEXT,
+  summary_status TEXT DEFAULT 'ok',
+  critical_count INT DEFAULT 0,
+  attention_count INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_checklists_truck   ON public.truck_checklists(truck_id);
+CREATE INDEX IF NOT EXISTS idx_checklists_plate   ON public.truck_checklists(truck_plate);
+CREATE INDEX IF NOT EXISTS idx_checklists_created ON public.truck_checklists(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.truck_checklist_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  checklist_id UUID REFERENCES public.truck_checklists(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,
+  item_key TEXT NOT NULL,
+  item_label TEXT NOT NULL,
+  status TEXT NOT NULL,
+  notes TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_checklist_items_checklist ON public.truck_checklist_items(checklist_id);
+
 -- ============================== OWNERSHIP / GRANTS ==========================
 -- Garante que o usuário 'lipe' tenha permissão em tudo, mesmo que as tabelas
 -- tenham sido criadas por outro owner (postgres). Sem isso, ALTER/SELECT podem
