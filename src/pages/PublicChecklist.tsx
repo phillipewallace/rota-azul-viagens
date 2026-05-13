@@ -165,7 +165,7 @@ export default function PublicChecklist() {
       <div className="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div>
-            <div className="text-xs opacity-80">Caminhão</div>
+            <div className="text-xs opacity-80">{isCarretinha ? 'Carretinha' : 'Caminhão'}</div>
             <div className="font-bold">{truck.name} · {truck.plate}</div>
             {truck.model && <div className="text-xs opacity-80">{truck.model}</div>}
           </div>
@@ -180,26 +180,34 @@ export default function PublicChecklist() {
         <Card>
           <CardHeader><CardTitle className="text-base">Informações iniciais</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <Label>Tipo de veículo</Label>
-              <Select value={vehicleType ?? ''} onValueChange={(v) => setVehicleType(v as VehicleType)}>
-                <SelectTrigger><SelectValue placeholder="Selecione: Carroceria ou Tanque" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="carroceria">Carroceria</SelectItem>
-                  <SelectItem value="tanque">Tanque</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Hodômetro (km)</Label>
-                <Input type="number" value={odometer} onChange={e => setOdometer(e.target.value)} />
+            {isCarretinha ? (
+              <div className="text-sm bg-amber-50 border border-amber-200 rounded p-2 text-amber-800">
+                Veículo identificado como <b>carretinha</b>. Checklist específica carregada.
               </div>
+            ) : (
               <div>
-                <Label>Nível combustível</Label>
-                <Input value={fuelLevel} onChange={e => setFuelLevel(e.target.value)} placeholder="Ex: 3/4" />
+                <Label>Tipo de veículo</Label>
+                <Select value={vehicleType ?? ''} onValueChange={(v) => setVehicleType(v as VehicleType)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione: Carroceria ou Tanque" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="carroceria">Carroceria</SelectItem>
+                    <SelectItem value="tanque">Tanque</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
+            {!isCarretinha && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Hodômetro (km)</Label>
+                  <Input type="number" value={odometer} onChange={e => setOdometer(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Nível combustível</Label>
+                  <Input value={fuelLevel} onChange={e => setFuelLevel(e.target.value)} placeholder="Ex: 3/4" />
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
