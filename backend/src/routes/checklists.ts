@@ -23,11 +23,14 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
       fuelLevel,
       generalNotes,
       items,
+      signatureMode,  // 'none' | 'cliente' | 'conferente'
     } = req.body;
 
     if (!truckPlate || !signerName || !signerDocument || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
     }
+
+    const mode = ['none', 'cliente', 'conferente'].includes(signatureMode) ? signatureMode : 'none';
 
     const kind = vehicleKind || (vehicleType === 'carretinha' ? 'carretinha' : 'truck');
 
@@ -70,8 +73,9 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
       `INSERT INTO truck_checklists
        (truck_id, truck_plate, truck_name, truck_model, signer_name, signer_document,
         signature_data_url, odometer_km, fuel_level, general_notes, summary_status,
-        critical_count, attention_count, vehicle_kind, vehicle_type, carretinha_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id, created_at`,
+        critical_count, attention_count, vehicle_kind, vehicle_type, carretinha_id,
+        signature_mode)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id, created_at`,
       [
         resolvedTruckId,
         String(truckPlate).toUpperCase(),
@@ -89,6 +93,7 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
         kind,
         vehicleType || null,
         resolvedCarretinhaId,
+        mode,
       ]
     );
     const checklistId = ins.rows[0].id;
