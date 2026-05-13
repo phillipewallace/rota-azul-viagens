@@ -382,16 +382,28 @@ export const RoutePointsTable: React.FC<RoutePointsTableProps> = ({
       </DndContext>
 
       {/* Botão para adicionar ponto */}
-      <div className="p-2 border-t bg-muted/30">
+      <div className="p-2 border-t bg-muted/30 flex gap-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={onAddPoint}
-          className="w-full h-8 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 border border-dashed"
+          className="flex-1 h-8 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 border border-dashed"
         >
           <Plus className="h-3 w-3 mr-1" />
           Adicionar ponto
         </Button>
+        {onAddFromSanitario && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onAddFromSanitario}
+            className="flex-1 h-8 text-xs text-blue-700 hover:text-blue-800 hover:bg-blue-50 border border-dashed border-blue-300"
+            title="Puxar dados de um sanitário já alocado em cliente"
+          >
+            <MapPin className="h-3 w-3 mr-1" />
+            Puxar sanitário alocado
+          </Button>
+        )}
       </div>
     </div>
   );
