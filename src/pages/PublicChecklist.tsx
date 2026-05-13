@@ -51,9 +51,11 @@ export default function PublicChecklist() {
     try {
       const t = await checklistsService.lookupTruck(plate.trim());
       setTruck(t);
-      toast.success(`Caminhão encontrado: ${t.name}`);
+      // Se for carretinha, já fixa o tipo
+      if (t.kind === 'carretinha') setVehicleType('carretinha');
+      toast.success(`${t.kind === 'carretinha' ? 'Carretinha' : 'Caminhão'} encontrado: ${t.name}`);
     } catch (e: any) {
-      toast.error(e.message || 'Caminhão não encontrado');
+      toast.error(e.message || 'Veículo não encontrado');
     } finally {
       setLoading(false);
     }
