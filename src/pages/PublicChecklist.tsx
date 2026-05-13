@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Truck, CheckCircle2, AlertTriangle, XCircle, MinusCircle, Loader2 } from 'lucide-react';
-import { CHECKLIST_TEMPLATE, ChecklistStatus, STATUS_LABEL } from '@/data/checklistTemplate';
+import { CHECKLIST_TEMPLATE, ChecklistStatus, STATUS_LABEL, VehicleType, getChecklistFor } from '@/data/checklistTemplate';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SignaturePad, SignaturePadHandle } from '@/components/SignaturePad';
 import { checklistsService } from '@/services/checklists';
 
