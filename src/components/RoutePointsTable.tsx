@@ -309,6 +309,7 @@ export const RoutePointsTable: React.FC<RoutePointsTableProps> = ({
   onSearchByAddress,
   onDuplicate,
   onAddPoint,
+  onAddFromSanitario,
   isDraggable,
   searchingAddress
 }) => {
