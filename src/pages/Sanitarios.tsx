@@ -172,6 +172,65 @@ export default function Sanitarios() {
     }
   };
 
+  const movimentar = async (payload: any) => {
+    const r = await fetch(`${API_BASE_URL}/sanitarios/movimentar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) throw new Error('movimentar falhou');
+  };
+
+  const submitAlocacao = async () => {
+    if (!selected || !allocCustomerId) return;
+    const c = customers.find(x => x.id === allocCustomerId);
+    if (!c) { toast.error('Selecione um cliente'); return; }
+    setAllocBusy(true);
+    try {
+      await movimentar({
+        numeros: [selected.numero],
+        operationType: 'entrega',
+        customerName: c.customerName,
+        address: c.address,
+        lat: c.lat, lng: c.lng,
+        notes: allocNotes || null,
+      });
+      toast.success(`Alocado para ${c.customerName}`);
+      setAllocOpen(false); setAllocNotes(''); setAllocCustomerId(''); setAllocSearch('');
+      await openDetail(selected.numero);
+      load();
+    } catch { toast.error('Erro ao alocar'); }
+    finally { setAllocBusy(false); }
+  };
+
+  const submitBaixa = async () => {
+    if (!selected) return;
+    setAllocBusy(true);
+    try {
+      await movimentar({
+        numeros: [selected.numero],
+        operationType: 'recolhimento',
+        customerName: selected.current_customer_name,
+        address: selected.current_address,
+        notes: baixaNotes || null,
+      });
+      toast.success('Baixa registrada — sanitário voltou ao galpão');
+      setBaixaOpen(false); setBaixaNotes('');
+      await openDetail(selected.numero);
+      load();
+    } catch { toast.error('Erro ao dar baixa'); }
+    finally { setAllocBusy(false); }
+  };
+
+  const setManutencao = async () => {
+    if (!selected) return;
+    try {
+      await movimentar({ numeros: [selected.numero], operationType: 'manutencao' });
+      toast.success('Marcado em manutenção');
+      await openDetail(selected.numero); load();
+    } catch { toast.error('Erro'); }
+  };
+
   const create = async () => {
     if (!newNum.trim()) return;
     try {
