@@ -13,6 +13,9 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
       truckId,
       truckName,
       truckModel,
+      vehicleKind,    // 'truck' | 'carretinha'
+      vehicleType,    // 'carroceria' | 'tanque' | 'carretinha'
+      carretinhaId,
       signerName,
       signerDocument,
       signatureDataUrl,
@@ -26,10 +29,14 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
     }
 
-    let resolvedTruckId = truckId || null;
+    const kind = vehicleKind || (vehicleType === 'carretinha' ? 'carretinha' : 'truck');
+
+    let resolvedTruckId = kind === 'truck' ? (truckId || null) : null;
+    let resolvedCarretinhaId = kind === 'carretinha' ? (carretinhaId || null) : null;
     let resolvedName = truckName || null;
     let resolvedModel = truckModel || null;
-    if (!resolvedTruckId) {
+
+    if (kind === 'truck' && !resolvedTruckId) {
       const t = await client.query(
         `SELECT id, name, model FROM trucks
          WHERE UPPER(REPLACE(plate, '-', '')) = UPPER(REPLACE($1, '-', '')) LIMIT 1`,
@@ -37,6 +44,18 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
       );
       if (t.rows[0]) {
         resolvedTruckId = t.rows[0].id;
+        resolvedName = resolvedName || t.rows[0].name;
+        resolvedModel = resolvedModel || t.rows[0].model;
+      }
+    }
+    if (kind === 'carretinha' && !resolvedCarretinhaId) {
+      const t = await client.query(
+        `SELECT id, name, model FROM carretinhas
+         WHERE UPPER(REPLACE(plate, '-', '')) = UPPER(REPLACE($1, '-', '')) LIMIT 1`,
+        [truckPlate]
+      );
+      if (t.rows[0]) {
+        resolvedCarretinhaId = t.rows[0].id;
         resolvedName = resolvedName || t.rows[0].name;
         resolvedModel = resolvedModel || t.rows[0].model;
       }
@@ -51,8 +70,8 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
       `INSERT INTO truck_checklists
        (truck_id, truck_plate, truck_name, truck_model, signer_name, signer_document,
         signature_data_url, odometer_km, fuel_level, general_notes, summary_status,
-        critical_count, attention_count)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, created_at`,
+        critical_count, attention_count, vehicle_kind, vehicle_type, carretinha_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id, created_at`,
       [
         resolvedTruckId,
         String(truckPlate).toUpperCase(),
@@ -67,6 +86,9 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
         summary,
         critical,
         attention,
+        kind,
+        vehicleType || null,
+        resolvedCarretinhaId,
       ]
     );
     const checklistId = ins.rows[0].id;
