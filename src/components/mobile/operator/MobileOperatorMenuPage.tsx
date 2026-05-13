@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  MapPin, Route, Truck, Users, Calendar, BarChart3, 
+  MapPin, Route, Truck, Users, 
   Settings, Wrench, Building2, ChevronRight
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,14 +17,7 @@ const MobileOperatorMenuPage = () => {
       title: 'Gestão',
       items: [
         { icon: Building2, label: 'Clientes', to: '/customers', color: 'bg-purple-100 text-purple-600' },
-        { icon: Calendar, label: 'Agenda', to: '/schedule', color: 'bg-orange-100 text-orange-600' },
         { icon: Settings, label: 'Gerenciamento', to: '/management', color: 'bg-slate-100 text-slate-600' },
-      ]
-    },
-    {
-      title: 'Análises',
-      items: [
-        { icon: BarChart3, label: 'Análises & Relatórios', to: '/analytics', color: 'bg-blue-100 text-blue-600' },
         { icon: Wrench, label: 'Manutenção', to: '/maintenance', color: 'bg-amber-100 text-amber-600' },
       ]
     },
