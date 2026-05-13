@@ -285,6 +285,26 @@ const DesktopCreateRoute = () => {
     setAllPoints(updatedPoints);
   };
 
+  // Picker de sanitários alocados
+  const [sanPickerOpen, setSanPickerOpen] = useState(false);
+  const addPointFromSanitario = (s: AllocatedSanitario) => {
+    const newPoint: RoutePoint = {
+      id: generateUniqueId('san'),
+      address: s.current_address || '',
+      lat: s.current_lat || 0,
+      lng: s.current_lng || 0,
+      order: allPoints.length,
+      type: 'waypoint',
+      cep: '',
+      observation: '',
+      customerName: s.current_customer_name || '',
+      operationType: 'recolhimento',
+      sanitarioRecolhidos: [s.numero],
+    } as any;
+    setAllPoints(recalculatePointTypes([...allPoints, newPoint]));
+    toast.success(`Sanitário ${s.numero} adicionado à rota (recolhimento)`);
+  };
+
   const removePoint = (id: string) => {
     if (allPoints.length <= 2) {
       toast.error('É necessário pelo menos 2 pontos (origem e destino)');
