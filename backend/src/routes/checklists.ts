@@ -153,6 +153,8 @@ router.get('/', requireAuth, async (req: AuthedRequest, res: Response) => {
         odometer_km AS "odometerKm", fuel_level AS "fuelLevel",
         summary_status AS "summaryStatus",
         critical_count AS "criticalCount", attention_count AS "attentionCount",
+        vehicle_kind AS "vehicleKind", vehicle_type AS "vehicleType",
+        carretinha_id AS "carretinhaId",
         created_at AS "createdAt"
       FROM truck_checklists
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
