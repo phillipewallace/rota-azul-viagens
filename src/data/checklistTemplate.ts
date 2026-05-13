@@ -81,7 +81,6 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
       { key: 'palhetas', label: 'Palhetas em bom estado' },
       { key: 'esguicho_agua', label: 'Esguicho de água' },
       { key: 'espelhos_internos', label: 'Espelhos internos' },
-      { key: 'rastreador', label: 'Rastreador funcionando' },
     ],
   },
   {
