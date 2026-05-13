@@ -443,6 +443,25 @@ export default function Sanitarios() {
                   )}
                 </div>
 
+                {/* Ações */}
+                <div className="flex flex-wrap gap-2">
+                  {selected.status !== 'em_cliente' && (
+                    <Button size="sm" onClick={() => setAllocOpen(true)} className="gap-1">
+                      <ArrowRightLeft className="h-4 w-4" /> Alocar a cliente
+                    </Button>
+                  )}
+                  {selected.status === 'em_cliente' && (
+                    <Button size="sm" variant="default" onClick={() => setBaixaOpen(true)} className="gap-1 bg-green-600 hover:bg-green-700">
+                      <LogOut className="h-4 w-4" /> Dar baixa
+                    </Button>
+                  )}
+                  {selected.status !== 'manutencao' && (
+                    <Button size="sm" variant="outline" onClick={setManutencao} className="gap-1">
+                      <Wrench className="h-4 w-4" /> Manutenção
+                    </Button>
+                  )}
+                </div>
+
                 {selected.status === 'em_cliente' && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1">
                     <div className="flex items-center gap-2 text-sm">
