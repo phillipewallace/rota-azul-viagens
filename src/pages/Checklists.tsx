@@ -316,9 +316,9 @@ export default function Checklists() {
               )}
 
               <Card>
-                <CardHeader className="py-2"><CardTitle className="text-sm">Assinatura</CardTitle></CardHeader>
+                <CardHeader className="py-2"><CardTitle className="text-sm">Assinaturas</CardTitle></CardHeader>
                 <CardContent className="text-sm">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <div className={`grid grid-cols-1 ${detail.signatureMode && detail.signatureMode !== 'none' ? 'md:grid-cols-2' : ''} gap-6 items-start`}>
                     {/* Motorista */}
                     <div className="space-y-2">
                       <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Motorista responsável</div>
@@ -334,14 +334,25 @@ export default function Checklists() {
                         <div className="text-xs text-muted-foreground">RG/CPF: {detail.signerDocument}</div>
                       </div>
                     </div>
-                    {/* Responsável da empresa */}
-                    <div className="space-y-2">
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Responsável (empresa)</div>
-                      <div className="bg-white border border-dashed rounded h-32" />
-                      <div className="border-t pt-1 text-center text-xs text-muted-foreground">
-                        Nome / Cargo: ____________________
+                    {/* Cliente / Conferente — só aparece se modo != none */}
+                    {detail.signatureMode && detail.signatureMode !== 'none' && (
+                      <div className="space-y-2">
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                          {detail.signatureMode === 'cliente' ? 'Cliente' : 'Conferente'}
+                        </div>
+                        <div className="bg-white border rounded h-32 flex items-center justify-center overflow-hidden">
+                          {detail.secondSignatureDataUrl ? (
+                            <img src={detail.secondSignatureDataUrl} alt="Assinatura adicional" className="max-h-full max-w-full object-contain" />
+                          ) : (
+                            <span className="text-xs text-amber-600 italic">Pendente — buscar pela placa para assinar</span>
+                          )}
+                        </div>
+                        <div className="border-t pt-1 text-center">
+                          <div className="font-medium">{detail.secondSignerName || '—'}</div>
+                          <div className="text-xs text-muted-foreground">RG/CPF: {detail.secondSignerDocument || '—'}</div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
