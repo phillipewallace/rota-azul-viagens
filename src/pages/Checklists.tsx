@@ -267,12 +267,32 @@ export default function Checklists() {
 
               <Card>
                 <CardHeader className="py-2"><CardTitle className="text-sm">Assinatura</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div><b>Nome:</b> {detail.signerName}</div>
-                  <div><b>RG/CPF:</b> {detail.signerDocument}</div>
-                  {detail.signatureDataUrl && (
-                    <img src={detail.signatureDataUrl} alt="Assinatura" className="border rounded bg-white max-w-sm" />
-                  )}
+                <CardContent className="text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    {/* Motorista */}
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Motorista responsável</div>
+                      <div className="bg-white border rounded h-32 flex items-center justify-center overflow-hidden">
+                        {detail.signatureDataUrl ? (
+                          <img src={detail.signatureDataUrl} alt="Assinatura do motorista" className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Sem assinatura</span>
+                        )}
+                      </div>
+                      <div className="border-t pt-1 text-center">
+                        <div className="font-medium">{detail.signerName}</div>
+                        <div className="text-xs text-muted-foreground">RG/CPF: {detail.signerDocument}</div>
+                      </div>
+                    </div>
+                    {/* Responsável da empresa */}
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Responsável (empresa)</div>
+                      <div className="bg-white border border-dashed rounded h-32" />
+                      <div className="border-t pt-1 text-center text-xs text-muted-foreground">
+                        Nome / Cargo: ____________________
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
