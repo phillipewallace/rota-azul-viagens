@@ -65,8 +65,6 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
       { key: 'fluido_freio', label: 'Fluido de freio' },
       { key: 'arla', label: 'Nível de Arla 32' },
       { key: 'correias', label: 'Correias e mangueiras' },
-      { key: 'bateria', label: 'Bateria e terminais' },
-      { key: 'filtros', label: 'Filtros (ar/combustível)' },
       { key: 'vazamento_motor', label: 'Sem vazamento no motor' },
       { key: 'tacografo', label: 'Tacógrafo aferido' },
     ],
@@ -83,7 +81,6 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
       { key: 'palhetas', label: 'Palhetas em bom estado' },
       { key: 'esguicho_agua', label: 'Esguicho de água' },
       { key: 'espelhos_internos', label: 'Espelhos internos' },
-      { key: 'rastreador', label: 'Rastreador funcionando' },
     ],
   },
   {
@@ -98,15 +95,14 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
     ],
   },
   {
-    category: 'Carroceria',
+    category: 'Carroceria (3/4 embutida)',
     vehicleType: 'carroceria',
     items: [
       { key: 'travas_carroceria', label: 'Travas da carroceria' },
-      { key: 'lonas_amarras', label: 'Lonas e amarrações' },
       { key: 'ganchos', label: 'Ganchos / correntes' },
       { key: 'plataforma', label: 'Plataforma / assoalho' },
-      { key: 'sistema_hidraulico', label: 'Sistema hidráulico' },
-      { key: 'conexoes_eletricas', label: 'Conexões elétricas com a carreta' },
+      { key: 'estrutura_carroceria', label: 'Estrutura / fixação da carroceria embutida' },
+      { key: 'portas_carroceria', label: 'Portas e fechaduras da carroceria' },
     ],
   },
   {
