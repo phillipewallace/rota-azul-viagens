@@ -160,6 +160,10 @@ router.get('/', requireAuth, async (req: AuthedRequest, res: Response) => {
         critical_count AS "criticalCount", attention_count AS "attentionCount",
         vehicle_kind AS "vehicleKind", vehicle_type AS "vehicleType",
         carretinha_id AS "carretinhaId",
+        signature_mode AS "signatureMode",
+        second_signer_name AS "secondSignerName",
+        second_signer_document AS "secondSignerDocument",
+        second_signed_at AS "secondSignedAt",
         created_at AS "createdAt"
       FROM truck_checklists
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
