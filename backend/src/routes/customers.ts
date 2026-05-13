@@ -3,6 +3,37 @@ import { pool } from '../config/database';
 
 const router = Router();
 
+// GET /customers/:id/history - Histórico do cliente (sanitários atualmente alocados + movimentações)
+router.get('/:id/history', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const cust = await pool.query(`SELECT customer_name FROM customers WHERE id = $1`, [id]);
+    if (!cust.rows[0]) { res.status(404).json({ error: 'cliente não encontrado' }); return; }
+    const name = cust.rows[0].customer_name;
+    if (!name) { res.json({ current: [], history: [] }); return; }
+
+    const current = await pool.query(
+      `SELECT id, numero, status, current_address, installed_at
+         FROM sanitarios
+        WHERE status = 'em_cliente' AND lower(current_customer_name) = lower($1)
+        ORDER BY installed_at DESC NULLS LAST`,
+      [name]
+    );
+    const history = await pool.query(
+      `SELECT id, sanitario_numero, operation_type, address, driver_name, occurred_at, notes
+         FROM sanitario_movimentacoes
+        WHERE lower(customer_name) = lower($1)
+        ORDER BY occurred_at DESC
+        LIMIT 200`,
+      [name]
+    );
+    res.json({ current: current.rows, history: history.rows });
+  } catch (e: any) {
+    console.error('[customers/:id/history]', e);
+    res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+});
+
 // GET /customers - Listar todos os clientes
 router.get('/', async (req: Request, res: Response) => {
   try {

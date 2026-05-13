@@ -3,13 +3,16 @@
  * - Lista mestre com filtro por status e busca por número
  * - Detalhe lateral com cliente atual e histórico completo
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen } from 'lucide-react';
+import { useCustomers, Customer } from '@/hooks/useCustomers';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Sanitario {
@@ -77,6 +80,22 @@ export default function Sanitarios() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [exporting, setExporting] = useState(false);
+  const [allocOpen, setAllocOpen] = useState(false);
+  const [allocCustomerId, setAllocCustomerId] = useState('');
+  const [allocSearch, setAllocSearch] = useState('');
+  const [allocNotes, setAllocNotes] = useState('');
+  const [allocBusy, setAllocBusy] = useState(false);
+  const [baixaOpen, setBaixaOpen] = useState(false);
+  const [baixaNotes, setBaixaNotes] = useState('');
+  const { customers } = useCustomers();
+  const filteredCustomers = useMemo(() => {
+    const q = allocSearch.trim().toLowerCase();
+    if (!q) return customers.slice(0, 50);
+    return customers.filter(c =>
+      (c.customerName || '').toLowerCase().includes(q) ||
+      (c.address || '').toLowerCase().includes(q)
+    ).slice(0, 50);
+  }, [customers, allocSearch]);
 
   const buildFilterParams = () => {
     const p = new URLSearchParams();
@@ -151,6 +170,65 @@ export default function Sanitarios() {
     } catch {
       toast.error('Falha ao abrir detalhes');
     }
+  };
+
+  const movimentar = async (payload: any) => {
+    const r = await fetch(`${API_BASE_URL}/sanitarios/movimentar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) throw new Error('movimentar falhou');
+  };
+
+  const submitAlocacao = async () => {
+    if (!selected || !allocCustomerId) return;
+    const c = customers.find(x => x.id === allocCustomerId);
+    if (!c) { toast.error('Selecione um cliente'); return; }
+    setAllocBusy(true);
+    try {
+      await movimentar({
+        numeros: [selected.numero],
+        operationType: 'entrega',
+        customerName: c.customerName,
+        address: c.address,
+        lat: c.lat, lng: c.lng,
+        notes: allocNotes || null,
+      });
+      toast.success(`Alocado para ${c.customerName}`);
+      setAllocOpen(false); setAllocNotes(''); setAllocCustomerId(''); setAllocSearch('');
+      await openDetail(selected.numero);
+      load();
+    } catch { toast.error('Erro ao alocar'); }
+    finally { setAllocBusy(false); }
+  };
+
+  const submitBaixa = async () => {
+    if (!selected) return;
+    setAllocBusy(true);
+    try {
+      await movimentar({
+        numeros: [selected.numero],
+        operationType: 'recolhimento',
+        customerName: selected.current_customer_name,
+        address: selected.current_address,
+        notes: baixaNotes || null,
+      });
+      toast.success('Baixa registrada — sanitário voltou ao galpão');
+      setBaixaOpen(false); setBaixaNotes('');
+      await openDetail(selected.numero);
+      load();
+    } catch { toast.error('Erro ao dar baixa'); }
+    finally { setAllocBusy(false); }
+  };
+
+  const setManutencao = async () => {
+    if (!selected) return;
+    try {
+      await movimentar({ numeros: [selected.numero], operationType: 'manutencao' });
+      toast.success('Marcado em manutenção');
+      await openDetail(selected.numero); load();
+    } catch { toast.error('Erro'); }
   };
 
   const create = async () => {
@@ -365,6 +443,25 @@ export default function Sanitarios() {
                   )}
                 </div>
 
+                {/* Ações */}
+                <div className="flex flex-wrap gap-2">
+                  {selected.status !== 'em_cliente' && (
+                    <Button size="sm" onClick={() => setAllocOpen(true)} className="gap-1">
+                      <ArrowRightLeft className="h-4 w-4" /> Alocar a cliente
+                    </Button>
+                  )}
+                  {selected.status === 'em_cliente' && (
+                    <Button size="sm" variant="default" onClick={() => setBaixaOpen(true)} className="gap-1 bg-green-600 hover:bg-green-700">
+                      <LogOut className="h-4 w-4" /> Dar baixa
+                    </Button>
+                  )}
+                  {selected.status !== 'manutencao' && (
+                    <Button size="sm" variant="outline" onClick={setManutencao} className="gap-1">
+                      <Wrench className="h-4 w-4" /> Manutenção
+                    </Button>
+                  )}
+                </div>
+
                 {selected.status === 'em_cliente' && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1">
                     <div className="flex items-center gap-2 text-sm">
@@ -426,6 +523,72 @@ export default function Sanitarios() {
         </Card>
       </div>
       </div>
+
+      {/* Modal alocar a cliente */}
+      <Dialog open={allocOpen} onOpenChange={setAllocOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Alocar sanitário {selected?.numero} a um cliente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">Buscar cliente</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input className="pl-8" placeholder="Nome ou endereço…" value={allocSearch} onChange={(e) => setAllocSearch(e.target.value)} />
+              </div>
+            </div>
+            <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
+              {filteredCustomers.length === 0 && (
+                <div className="p-3 text-xs text-muted-foreground">Nenhum cliente encontrado. Cadastre na aba Clientes.</div>
+              )}
+              {filteredCustomers.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setAllocCustomerId(c.id)}
+                  className={`w-full text-left p-2 hover:bg-muted/30 ${allocCustomerId === c.id ? 'bg-blue-50' : ''}`}
+                >
+                  <div className="text-sm font-medium">{c.customerName || '(sem nome)'}</div>
+                  <div className="text-xs text-muted-foreground truncate">{c.address || '—'}</div>
+                </button>
+              ))}
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Observações (opcional)</label>
+              <Textarea rows={2} value={allocNotes} onChange={(e) => setAllocNotes(e.target.value)} placeholder="Ex: instalado próximo ao portão B" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAllocOpen(false)}>Cancelar</Button>
+            <Button onClick={submitAlocacao} disabled={!allocCustomerId || allocBusy}>
+              {allocBusy ? 'Alocando…' : 'Confirmar alocação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal dar baixa */}
+      <Dialog open={baixaOpen} onOpenChange={setBaixaOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dar baixa do sanitário {selected?.numero}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Será registrado o recolhimento de <strong>{selected?.current_customer_name}</strong> e o sanitário ficará disponível no galpão.
+              O histórico do cliente será preservado.
+            </p>
+            <Textarea rows={2} placeholder="Observações da baixa (opcional)" value={baixaNotes} onChange={(e) => setBaixaNotes(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBaixaOpen(false)}>Cancelar</Button>
+            <Button onClick={submitBaixa} disabled={allocBusy} className="bg-green-600 hover:bg-green-700">
+              {allocBusy ? 'Registrando…' : 'Confirmar baixa'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

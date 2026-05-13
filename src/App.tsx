@@ -9,14 +9,12 @@ import Index from "./pages/Index";
 import Trucks from "./pages/Trucks";
 import Drivers from "./pages/Drivers";
 import RoutesPage from "./pages/Routes";
-import Schedule from "./pages/Schedule";
 import Settings from "./pages/Settings";
 import Management from "./pages/Management";
 import Maintenance from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import MobileDriver from "./pages/MobileDriver";
-import Analytics from "./pages/Analytics";
 import CreateRoute from "./pages/CreateRoute";
 import Customers from "./pages/Customers";
 import CompletedRoutes from "./pages/CompletedRoutes";
@@ -101,22 +99,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CreateRoute />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/schedule"
-              element={
-                <ProtectedRoute>
-                  <Schedule />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/analytics"
-              element={
-                <ProtectedRoute>
-                  <Analytics />
                 </ProtectedRoute>
               }
             />

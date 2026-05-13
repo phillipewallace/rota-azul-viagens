@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  MapPin, Route, Truck, Users, Calendar, BarChart3, 
+  MapPin, Route, Truck, Users, 
   Settings, Wrench, Building2, LogOut 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,8 +21,6 @@ const MobileOperatorMenu = () => {
 
   const secondaryItems = [
     { icon: Building2, label: 'Clientes', to: '/customers' },
-    { icon: Calendar, label: 'Agenda', to: '/schedule' },
-    { icon: BarChart3, label: 'Análises', to: '/analytics' },
     { icon: Wrench, label: 'Manutenção', to: '/maintenance' },
     { icon: Building2, label: 'Gestão Interna (ERP)', to: '/gestao-interna' },
     { icon: Settings, label: 'Configurações', to: '/settings' },
