@@ -39,8 +39,8 @@ function authHeaders(): Record<string, string> {
 export const checklistsService = {
   async lookupTruck(plate: string) {
     const r = await fetch(`${API_BASE_URL}/checklists/lookup/truck/${encodeURIComponent(plate)}`);
-    if (!r.ok) throw new Error('Caminhão não encontrado');
-    return r.json() as Promise<{ id: string; name: string; plate: string; model: string; year: number }>;
+    if (!r.ok) throw new Error('Veículo não encontrado');
+    return r.json() as Promise<{ id: string; name: string; plate: string; model: string; year: number; kind: 'truck' | 'carretinha' }>;
   },
   async submit(payload: any) {
     const r = await fetch(`${API_BASE_URL}/checklists`, {
