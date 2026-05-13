@@ -22,8 +22,12 @@ const SUMMARY_BADGE: Record<string, { label: string; cls: string }> = {
 
 function exportChecklistPdf(d: ChecklistDetail) {
   const doc = new jsPDF();
+  const isCarretinha = d.vehicleKind === 'carretinha';
+  const vehicleLabel = isCarretinha ? 'Carretinha' : 'Caminhão';
+  const mode = (d.signatureMode || 'none') as 'none' | 'cliente' | 'conferente';
+
   doc.setFontSize(16);
-  doc.text('Checklist de Inspeção do Caminhão', 14, 16);
+  doc.text(`Checklist de Inspeção — ${vehicleLabel}`, 14, 16);
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, 14, 22);
@@ -38,11 +42,13 @@ function exportChecklistPdf(d: ChecklistDetail) {
     doc.text(val, 60, y);
     y += 6;
   };
-  line('Caminhão:', `${d.truckName || '-'} (${d.truckPlate})`);
+  line(`${vehicleLabel}:`, `${d.truckName || '-'} (${d.truckPlate})`);
   if (d.truckModel) line('Modelo:', d.truckModel);
   line('Data:', new Date(d.createdAt).toLocaleString('pt-BR'));
-  line('Hodômetro:', d.odometerKm != null ? `${d.odometerKm} km` : '-');
-  line('Combustível:', d.fuelLevel || '-');
+  if (!isCarretinha) {
+    line('Hodômetro:', d.odometerKm != null ? `${d.odometerKm} km` : '-');
+    line('Combustível:', d.fuelLevel || '-');
+  }
   line('Status geral:', SUMMARY_BADGE[d.summaryStatus]?.label || d.summaryStatus);
   line('Críticos / Atenção:', `${d.criticalCount} / ${d.attentionCount}`);
 
@@ -72,40 +78,53 @@ function exportChecklistPdf(d: ChecklistDetail) {
     doc.text(lines, 14, y); y += lines.length * 5 + 4;
   }
 
-  // Bloco de assinaturas (motorista + responsável da empresa)
+  // ==================== Bloco de assinaturas ====================
   if (y > 200) { doc.addPage(); y = 20; }
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
   doc.text('Assinaturas', 14, y); y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
 
-  const colW = 88;
-  const sigBoxH = 28;
+  const showSecond = mode !== 'none';
+  const colW = showSecond ? 88 : 180;
+  const sigBoxH = 32;
   const leftX = 14;
   const rightX = 14 + colW + 8;
 
-  // Caixas
+  // Caixa motorista
   doc.rect(leftX, y, colW, sigBoxH);
-  doc.rect(rightX, y, colW, sigBoxH);
-
-  // Assinatura do motorista (imagem)
   if (d.signatureDataUrl) {
     try { doc.addImage(d.signatureDataUrl, 'PNG', leftX + 2, y + 2, colW - 4, sigBoxH - 4); } catch {}
   }
 
-  y += sigBoxH + 4;
-  // Linhas e legendas
+  // Caixa segundo signatário (apenas se modo != none)
+  if (showSecond) {
+    doc.rect(rightX, y, colW, sigBoxH);
+    if (d.secondSignatureDataUrl) {
+      try { doc.addImage(d.secondSignatureDataUrl, 'PNG', rightX + 2, y + 2, colW - 4, sigBoxH - 4); } catch {}
+    }
+  }
+
+  y += sigBoxH + 5;
   doc.setFontSize(9);
-  doc.text('Motorista responsável', leftX, y);
-  doc.text('Responsável (empresa)', rightX, y);
-  y += 5;
   doc.setFont('helvetica', 'bold');
-  doc.text(d.signerName, leftX, y);
-  doc.text('_______________________________', rightX, y);
+  doc.text('Motorista responsável', leftX, y);
+  if (showSecond) {
+    doc.text(mode === 'cliente' ? 'Cliente' : 'Conferente', rightX, y);
+  }
   y += 5;
+
   doc.setFont('helvetica', 'normal');
+  doc.text(`Nome: ${d.signerName}`, leftX, y);
+  if (showSecond) {
+    doc.text(`Nome: ${d.secondSignerName || '________________________'}`, rightX, y);
+  }
+  y += 5;
   doc.text(`RG/CPF: ${d.signerDocument}`, leftX, y);
-  doc.text('Nome / Cargo', rightX, y);
+  if (showSecond) {
+    doc.text(`RG/CPF: ${d.secondSignerDocument || '________________________'}`, rightX, y);
+  }
   y += 6;
 
   doc.save(`checklist-${d.truckPlate}-${new Date(d.createdAt).toISOString().slice(0,10)}.pdf`);
