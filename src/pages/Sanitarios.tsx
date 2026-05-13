@@ -523,6 +523,72 @@ export default function Sanitarios() {
         </Card>
       </div>
       </div>
+
+      {/* Modal alocar a cliente */}
+      <Dialog open={allocOpen} onOpenChange={setAllocOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Alocar sanitário {selected?.numero} a um cliente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">Buscar cliente</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input className="pl-8" placeholder="Nome ou endereço…" value={allocSearch} onChange={(e) => setAllocSearch(e.target.value)} />
+              </div>
+            </div>
+            <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
+              {filteredCustomers.length === 0 && (
+                <div className="p-3 text-xs text-muted-foreground">Nenhum cliente encontrado. Cadastre na aba Clientes.</div>
+              )}
+              {filteredCustomers.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setAllocCustomerId(c.id)}
+                  className={`w-full text-left p-2 hover:bg-muted/30 ${allocCustomerId === c.id ? 'bg-blue-50' : ''}`}
+                >
+                  <div className="text-sm font-medium">{c.customerName || '(sem nome)'}</div>
+                  <div className="text-xs text-muted-foreground truncate">{c.address || '—'}</div>
+                </button>
+              ))}
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Observações (opcional)</label>
+              <Textarea rows={2} value={allocNotes} onChange={(e) => setAllocNotes(e.target.value)} placeholder="Ex: instalado próximo ao portão B" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAllocOpen(false)}>Cancelar</Button>
+            <Button onClick={submitAlocacao} disabled={!allocCustomerId || allocBusy}>
+              {allocBusy ? 'Alocando…' : 'Confirmar alocação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal dar baixa */}
+      <Dialog open={baixaOpen} onOpenChange={setBaixaOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dar baixa do sanitário {selected?.numero}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Será registrado o recolhimento de <strong>{selected?.current_customer_name}</strong> e o sanitário ficará disponível no galpão.
+              O histórico do cliente será preservado.
+            </p>
+            <Textarea rows={2} placeholder="Observações da baixa (opcional)" value={baixaNotes} onChange={(e) => setBaixaNotes(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBaixaOpen(false)}>Cancelar</Button>
+            <Button onClick={submitBaixa} disabled={allocBusy} className="bg-green-600 hover:bg-green-700">
+              {allocBusy ? 'Registrando…' : 'Confirmar baixa'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
