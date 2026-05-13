@@ -1,0 +1,164 @@
+// Checklist completo de inspeção de caminhão.
+// Usado tanto no formulário público quanto na visualização administrativa.
+
+export type ChecklistStatus = 'ok' | 'attention' | 'critical' | 'na';
+
+export interface ChecklistItemDef {
+  key: string;
+  label: string;
+}
+
+export interface ChecklistCategoryDef {
+  category: string;
+  items: ChecklistItemDef[];
+}
+
+export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
+  {
+    category: 'Documentação',
+    items: [
+      { key: 'crlv', label: 'CRLV em dia' },
+      { key: 'seguro', label: 'Seguro vigente' },
+      { key: 'antt', label: 'ANTT/RNTRC' },
+      { key: 'tacografo', label: 'Tacógrafo aferido' },
+      { key: 'cnh_motorista', label: 'CNH do motorista válida' },
+    ],
+  },
+  {
+    category: 'Externo / Lataria',
+    items: [
+      { key: 'parachoque_dianteiro', label: 'Para-choque dianteiro' },
+      { key: 'parachoque_traseiro', label: 'Para-choque traseiro' },
+      { key: 'retrovisor_esq', label: 'Retrovisor esquerdo' },
+      { key: 'retrovisor_dir', label: 'Retrovisor direito' },
+      { key: 'placas_visiveis', label: 'Placas legíveis' },
+      { key: 'adesivos', label: 'Adesivos / identificação visual' },
+      { key: 'vazamentos_visiveis', label: 'Sem vazamentos visíveis no chão' },
+      { key: 'lataria_geral', label: 'Lataria sem amassados/avarias' },
+    ],
+  },
+  {
+    category: 'Iluminação',
+    items: [
+      { key: 'farol_baixo', label: 'Farol baixo' },
+      { key: 'farol_alto', label: 'Farol alto' },
+      { key: 'farol_neblina', label: 'Farol de neblina' },
+      { key: 'lanternas_traseiras', label: 'Lanternas traseiras' },
+      { key: 'luz_freio', label: 'Luz de freio' },
+      { key: 'luz_re', label: 'Luz de ré' },
+      { key: 'setas', label: 'Setas dianteiras e traseiras' },
+      { key: 'pisca_alerta', label: 'Pisca-alerta' },
+      { key: 'luz_placa', label: 'Luz da placa' },
+      { key: 'luz_interna', label: 'Luz interna da cabine' },
+    ],
+  },
+  {
+    category: 'Pneus e Rodas',
+    items: [
+      { key: 'pneu_diant_esq', label: 'Pneu dianteiro esquerdo' },
+      { key: 'pneu_diant_dir', label: 'Pneu dianteiro direito' },
+      { key: 'pneu_tras_esq', label: 'Pneu traseiro esquerdo' },
+      { key: 'pneu_tras_dir', label: 'Pneu traseiro direito' },
+      { key: 'estepe', label: 'Estepe em condições' },
+      { key: 'calibragem', label: 'Calibragem correta' },
+      { key: 'sulcos', label: 'Sulcos dentro do limite legal' },
+      { key: 'parafusos_roda', label: 'Parafusos das rodas' },
+    ],
+  },
+  {
+    category: 'Motor / Compartimento',
+    items: [
+      { key: 'oleo_motor', label: 'Nível de óleo do motor' },
+      { key: 'agua_radiador', label: 'Água do radiador' },
+      { key: 'fluido_freio', label: 'Fluido de freio' },
+      { key: 'fluido_direcao', label: 'Fluido de direção' },
+      { key: 'arla', label: 'Nível de Arla 32' },
+      { key: 'correias', label: 'Correias e mangueiras' },
+      { key: 'bateria', label: 'Bateria e terminais' },
+      { key: 'filtros', label: 'Filtros (ar/combustível)' },
+      { key: 'vazamento_motor', label: 'Sem vazamento no motor' },
+    ],
+  },
+  {
+    category: 'Cabine Interna',
+    items: [
+      { key: 'cintos', label: 'Cintos de segurança' },
+      { key: 'bancos', label: 'Bancos / regulagem' },
+      { key: 'painel_instrumentos', label: 'Painel de instrumentos' },
+      { key: 'ar_condicionado', label: 'Ar-condicionado' },
+      { key: 'buzina', label: 'Buzina' },
+      { key: 'limpadores', label: 'Limpadores de para-brisa' },
+      { key: 'palhetas', label: 'Palhetas em bom estado' },
+      { key: 'esguicho_agua', label: 'Esguicho de água' },
+      { key: 'espelhos_internos', label: 'Espelhos internos' },
+      { key: 'rastreador', label: 'Rastreador funcionando' },
+    ],
+  },
+  {
+    category: 'Freios e Suspensão',
+    items: [
+      { key: 'freio_servico', label: 'Freio de serviço' },
+      { key: 'freio_estacionamento', label: 'Freio de estacionamento' },
+      { key: 'abs', label: 'Sistema ABS' },
+      { key: 'ruidos_freio', label: 'Sem ruídos no freio' },
+      { key: 'suspensao', label: 'Suspensão' },
+      { key: 'amortecedores', label: 'Amortecedores' },
+    ],
+  },
+  {
+    category: 'Itens de Segurança',
+    items: [
+      { key: 'triangulo', label: 'Triângulo de sinalização' },
+      { key: 'macaco', label: 'Macaco' },
+      { key: 'chave_roda', label: 'Chave de roda' },
+      { key: 'extintor', label: 'Extintor (validade)' },
+      { key: 'kit_primeiros_socorros', label: 'Kit primeiros socorros' },
+      { key: 'cones', label: 'Cones de sinalização' },
+      { key: 'colete_refletivo', label: 'Colete refletivo' },
+    ],
+  },
+  {
+    category: 'Carroceria / Carreta',
+    items: [
+      { key: 'travas_carroceria', label: 'Travas da carroceria' },
+      { key: 'lonas_amarras', label: 'Lonas e amarrações' },
+      { key: 'ganchos', label: 'Ganchos / correntes' },
+      { key: 'plataforma', label: 'Plataforma / assoalho' },
+      { key: 'sistema_hidraulico', label: 'Sistema hidráulico' },
+      { key: 'conexoes_eletricas', label: 'Conexões elétricas com a carreta' },
+    ],
+  },
+  {
+    category: 'Equipamentos Sanitários',
+    items: [
+      { key: 'tanque_dejeto', label: 'Tanque de dejetos' },
+      { key: 'tanque_agua_limpa', label: 'Tanque de água limpa' },
+      { key: 'mangueiras', label: 'Mangueiras' },
+      { key: 'bomba', label: 'Bomba sucção' },
+      { key: 'valvulas', label: 'Válvulas de descarga' },
+      { key: 'vazamento_sanitario', label: 'Sem vazamentos no sistema' },
+    ],
+  },
+  {
+    category: 'Limpeza',
+    items: [
+      { key: 'limpeza_cabine', label: 'Cabine limpa' },
+      { key: 'limpeza_externa', label: 'Veículo limpo externamente' },
+      { key: 'limpeza_compartimento', label: 'Compartimento de carga limpo' },
+    ],
+  },
+];
+
+export const STATUS_LABEL: Record<ChecklistStatus, string> = {
+  ok: 'OK',
+  attention: 'Atenção',
+  critical: 'Crítico',
+  na: 'N/A',
+};
+
+export const STATUS_COLOR: Record<ChecklistStatus, string> = {
+  ok: 'bg-emerald-500',
+  attention: 'bg-amber-500',
+  critical: 'bg-red-600',
+  na: 'bg-gray-400',
+};
