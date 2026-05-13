@@ -84,6 +84,7 @@ export default function Sanitarios() {
   const [allocCustomerId, setAllocCustomerId] = useState('');
   const [allocSearch, setAllocSearch] = useState('');
   const [allocNotes, setAllocNotes] = useState('');
+  const [allocAddress, setAllocAddress] = useState('');
   const [allocBusy, setAllocBusy] = useState(false);
   const [baixaOpen, setBaixaOpen] = useState(false);
   const [baixaNotes, setBaixaNotes] = useState('');
