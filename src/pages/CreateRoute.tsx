@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { RoutePointsTable } from '@/components/RoutePointsTable';
+import SanitarioPickerModal, { AllocatedSanitario } from '@/components/SanitarioPickerModal';
 import RouteMapPreview from '@/components/RouteMapPreview';
 import { useRoutes, RoutePoint } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
