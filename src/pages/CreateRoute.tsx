@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { RoutePointsTable } from '@/components/RoutePointsTable';
+import SanitarioPickerModal, { AllocatedSanitario } from '@/components/SanitarioPickerModal';
 import RouteMapPreview from '@/components/RouteMapPreview';
 import { useRoutes, RoutePoint } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
@@ -282,6 +283,26 @@ const DesktopCreateRoute = () => {
     
     const updatedPoints = recalculatePointTypes([...allPoints, newPoint]);
     setAllPoints(updatedPoints);
+  };
+
+  // Picker de sanitários alocados
+  const [sanPickerOpen, setSanPickerOpen] = useState(false);
+  const addPointFromSanitario = (s: AllocatedSanitario) => {
+    const newPoint: RoutePoint = {
+      id: generateUniqueId('san'),
+      address: s.current_address || '',
+      lat: s.current_lat || 0,
+      lng: s.current_lng || 0,
+      order: allPoints.length,
+      type: 'waypoint',
+      cep: '',
+      observation: '',
+      customerName: s.current_customer_name || '',
+      operationType: 'recolhimento',
+      sanitarioRecolhidos: [s.numero],
+    } as any;
+    setAllPoints(recalculatePointTypes([...allPoints, newPoint]));
+    toast.success(`Sanitário ${s.numero} adicionado à rota (recolhimento)`);
   };
 
   const removePoint = (id: string) => {
@@ -832,8 +853,14 @@ const DesktopCreateRoute = () => {
             onSearchByAddress={searchAddressByText}
             onDuplicate={duplicatePoint}
             onAddPoint={addPoint}
+            onAddFromSanitario={() => setSanPickerOpen(true)}
             isDraggable={optimizationMode === 'fixed'}
             searchingAddress={searchingAddress}
+          />
+          <SanitarioPickerModal
+            open={sanPickerOpen}
+            onOpenChange={setSanPickerOpen}
+            onPick={addPointFromSanitario}
           />
         </main>
 

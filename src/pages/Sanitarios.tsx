@@ -84,6 +84,7 @@ export default function Sanitarios() {
   const [allocCustomerId, setAllocCustomerId] = useState('');
   const [allocSearch, setAllocSearch] = useState('');
   const [allocNotes, setAllocNotes] = useState('');
+  const [allocAddress, setAllocAddress] = useState('');
   const [allocBusy, setAllocBusy] = useState(false);
   const [baixaOpen, setBaixaOpen] = useState(false);
   const [baixaNotes, setBaixaNotes] = useState('');
@@ -185,18 +186,23 @@ export default function Sanitarios() {
     if (!selected || !allocCustomerId) return;
     const c = customers.find(x => x.id === allocCustomerId);
     if (!c) { toast.error('Selecione um cliente'); return; }
+    const finalAddress = (allocAddress || '').trim() || c.address || '';
+    if (!finalAddress) { toast.error('Informe o endereço da obra/local'); return; }
+    const usingClientAddress = finalAddress === (c.address || '');
     setAllocBusy(true);
     try {
       await movimentar({
         numeros: [selected.numero],
         operationType: 'entrega',
         customerName: c.customerName,
-        address: c.address,
-        lat: c.lat, lng: c.lng,
+        address: finalAddress,
+        // só envia coords se mantivermos o endereço cadastrado do cliente
+        lat: usingClientAddress ? c.lat : undefined,
+        lng: usingClientAddress ? c.lng : undefined,
         notes: allocNotes || null,
       });
       toast.success(`Alocado para ${c.customerName}`);
-      setAllocOpen(false); setAllocNotes(''); setAllocCustomerId(''); setAllocSearch('');
+      setAllocOpen(false); setAllocNotes(''); setAllocCustomerId(''); setAllocSearch(''); setAllocAddress('');
       await openDetail(selected.numero);
       load();
     } catch { toast.error('Erro ao alocar'); }
@@ -546,7 +552,11 @@ export default function Sanitarios() {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => setAllocCustomerId(c.id)}
+                  onClick={() => {
+                    setAllocCustomerId(c.id);
+                    // pré-preenche o endereço com o cadastrado, mas é editável
+                    if (!allocAddress.trim()) setAllocAddress(c.address || '');
+                  }}
                   className={`w-full text-left p-2 hover:bg-muted/30 ${allocCustomerId === c.id ? 'bg-blue-50' : ''}`}
                 >
                   <div className="text-sm font-medium">{c.customerName || '(sem nome)'}</div>
@@ -555,13 +565,27 @@ export default function Sanitarios() {
               ))}
             </div>
             <div>
+              <label className="text-xs text-muted-foreground">
+                Endereço da obra/local <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                rows={2}
+                value={allocAddress}
+                onChange={(e) => setAllocAddress(e.target.value)}
+                placeholder="Endereço onde o sanitário ficará (ex: Obra Rua X, 100 — Bairro)"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Pode ser diferente do endereço cadastrado da empresa. Esse endereço será exibido no sanitário e poderá ser puxado depois ao montar a rota.
+              </p>
+            </div>
+            <div>
               <label className="text-xs text-muted-foreground">Observações (opcional)</label>
               <Textarea rows={2} value={allocNotes} onChange={(e) => setAllocNotes(e.target.value)} placeholder="Ex: instalado próximo ao portão B" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setAllocOpen(false)}>Cancelar</Button>
-            <Button onClick={submitAlocacao} disabled={!allocCustomerId || allocBusy}>
+            <Button onClick={submitAlocacao} disabled={!allocCustomerId || !allocAddress.trim() || allocBusy}>
               {allocBusy ? 'Alocando…' : 'Confirmar alocação'}
             </Button>
           </DialogFooter>
