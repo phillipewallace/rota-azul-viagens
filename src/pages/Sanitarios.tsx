@@ -186,18 +186,23 @@ export default function Sanitarios() {
     if (!selected || !allocCustomerId) return;
     const c = customers.find(x => x.id === allocCustomerId);
     if (!c) { toast.error('Selecione um cliente'); return; }
+    const finalAddress = (allocAddress || '').trim() || c.address || '';
+    if (!finalAddress) { toast.error('Informe o endereço da obra/local'); return; }
+    const usingClientAddress = finalAddress === (c.address || '');
     setAllocBusy(true);
     try {
       await movimentar({
         numeros: [selected.numero],
         operationType: 'entrega',
         customerName: c.customerName,
-        address: c.address,
-        lat: c.lat, lng: c.lng,
+        address: finalAddress,
+        // só envia coords se mantivermos o endereço cadastrado do cliente
+        lat: usingClientAddress ? c.lat : undefined,
+        lng: usingClientAddress ? c.lng : undefined,
         notes: allocNotes || null,
       });
       toast.success(`Alocado para ${c.customerName}`);
-      setAllocOpen(false); setAllocNotes(''); setAllocCustomerId(''); setAllocSearch('');
+      setAllocOpen(false); setAllocNotes(''); setAllocCustomerId(''); setAllocSearch(''); setAllocAddress('');
       await openDetail(selected.numero);
       load();
     } catch { toast.error('Erro ao alocar'); }
