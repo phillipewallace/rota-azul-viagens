@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Truck, CheckCircle2, AlertTriangle, XCircle, MinusCircle, Loader2 } from 'lucide-react';
-import { CHECKLIST_TEMPLATE, ChecklistStatus, STATUS_LABEL } from '@/data/checklistTemplate';
+import { CHECKLIST_TEMPLATE, ChecklistStatus, STATUS_LABEL, VehicleType, getChecklistFor } from '@/data/checklistTemplate';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SignaturePad, SignaturePadHandle } from '@/components/SignaturePad';
 import { checklistsService } from '@/services/checklists';
 
@@ -27,6 +28,7 @@ export default function PublicChecklist() {
   const [loading, setLoading] = useState(false);
 
   const [items, setItems] = useState<Record<string, ItemState>>({});
+  const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
   const [odometer, setOdometer] = useState('');
   const [fuelLevel, setFuelLevel] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
@@ -36,8 +38,12 @@ export default function PublicChecklist() {
   const [done, setDone] = useState(false);
   const sigRef = useRef<SignaturePadHandle>(null);
 
-  const totalItems = CHECKLIST_TEMPLATE.reduce((s, c) => s + c.items.length, 0);
-  const filledCount = Object.values(items).filter(i => i?.status).length;
+  const activeCategories = getChecklistFor(vehicleType);
+  const totalItems = activeCategories.reduce((s, c) => s + c.items.length, 0);
+  const filledCount = activeCategories.reduce(
+    (s, c) => s + c.items.filter(it => items[it.key]?.status).length,
+    0
+  );
 
   const lookup = async () => {
     if (!plate.trim()) return toast.error('Informe a placa');
@@ -61,6 +67,7 @@ export default function PublicChecklist() {
   };
 
   const submit = async () => {
+    if (!vehicleType) return toast.error('Selecione o tipo do veículo');
     if (filledCount < totalItems) {
       return toast.error(`Faltam ${totalItems - filledCount} itens para avaliar`);
     }
@@ -74,13 +81,14 @@ export default function PublicChecklist() {
       truckPlate: truck!.plate,
       truckName: truck!.name,
       truckModel: truck!.model,
+      vehicleType,
       signerName: signerName.trim(),
       signerDocument: signerDoc.trim(),
       signatureDataUrl: sig,
       odometerKm: odometer || null,
       fuelLevel: fuelLevel || null,
       generalNotes: generalNotes || null,
-      items: CHECKLIST_TEMPLATE.flatMap(cat =>
+      items: activeCategories.flatMap(cat =>
         cat.items.map(it => ({
           category: cat.category,
           itemKey: it.key,
@@ -164,19 +172,37 @@ export default function PublicChecklist() {
       <div className="max-w-3xl mx-auto p-4 space-y-4">
         <Card>
           <CardHeader><CardTitle className="text-base">Informações iniciais</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
+          <CardContent className="space-y-3">
             <div>
-              <Label>Hodômetro (km)</Label>
-              <Input type="number" value={odometer} onChange={e => setOdometer(e.target.value)} />
+              <Label>Tipo de veículo</Label>
+              <Select value={vehicleType ?? ''} onValueChange={(v) => setVehicleType(v as VehicleType)}>
+                <SelectTrigger><SelectValue placeholder="Selecione: Carroceria ou Tanque" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="carroceria">Carroceria</SelectItem>
+                  <SelectItem value="tanque">Tanque</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div>
-              <Label>Nível combustível</Label>
-              <Input value={fuelLevel} onChange={e => setFuelLevel(e.target.value)} placeholder="Ex: 3/4" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Hodômetro (km)</Label>
+                <Input type="number" value={odometer} onChange={e => setOdometer(e.target.value)} />
+              </div>
+              <div>
+                <Label>Nível combustível</Label>
+                <Input value={fuelLevel} onChange={e => setFuelLevel(e.target.value)} placeholder="Ex: 3/4" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {CHECKLIST_TEMPLATE.map(cat => (
+        {!vehicleType && (
+          <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
+            Selecione o tipo de veículo acima para carregar os itens da checklist.
+          </CardContent></Card>
+        )}
+
+        {vehicleType && activeCategories.map(cat => (
           <Card key={cat.category}>
             <CardHeader><CardTitle className="text-base">{cat.category}</CardTitle></CardHeader>
             <CardContent className="space-y-4">

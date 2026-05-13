@@ -2,6 +2,7 @@
 // Usado tanto no formulário público quanto na visualização administrativa.
 
 export type ChecklistStatus = 'ok' | 'attention' | 'critical' | 'na';
+export type VehicleType = 'carroceria' | 'tanque';
 
 export interface ChecklistItemDef {
   key: string;
@@ -11,19 +12,11 @@ export interface ChecklistItemDef {
 export interface ChecklistCategoryDef {
   category: string;
   items: ChecklistItemDef[];
+  /** Se definido, a categoria só aparece para o tipo de veículo correspondente. */
+  vehicleType?: VehicleType;
 }
 
 export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
-  {
-    category: 'Documentação',
-    items: [
-      { key: 'crlv', label: 'CRLV em dia' },
-      { key: 'seguro', label: 'Seguro vigente' },
-      { key: 'antt', label: 'ANTT/RNTRC' },
-      { key: 'tacografo', label: 'Tacógrafo aferido' },
-      { key: 'cnh_motorista', label: 'CNH do motorista válida' },
-    ],
-  },
   {
     category: 'Externo / Lataria',
     items: [
@@ -59,7 +52,6 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
       { key: 'pneu_diant_dir', label: 'Pneu dianteiro direito' },
       { key: 'pneu_tras_esq', label: 'Pneu traseiro esquerdo' },
       { key: 'pneu_tras_dir', label: 'Pneu traseiro direito' },
-      { key: 'estepe', label: 'Estepe em condições' },
       { key: 'calibragem', label: 'Calibragem correta' },
       { key: 'sulcos', label: 'Sulcos dentro do limite legal' },
       { key: 'parafusos_roda', label: 'Parafusos das rodas' },
@@ -71,12 +63,12 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
       { key: 'oleo_motor', label: 'Nível de óleo do motor' },
       { key: 'agua_radiador', label: 'Água do radiador' },
       { key: 'fluido_freio', label: 'Fluido de freio' },
-      { key: 'fluido_direcao', label: 'Fluido de direção' },
       { key: 'arla', label: 'Nível de Arla 32' },
       { key: 'correias', label: 'Correias e mangueiras' },
       { key: 'bateria', label: 'Bateria e terminais' },
       { key: 'filtros', label: 'Filtros (ar/combustível)' },
       { key: 'vazamento_motor', label: 'Sem vazamento no motor' },
+      { key: 'tacografo', label: 'Tacógrafo aferido' },
     ],
   },
   {
@@ -106,19 +98,8 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
     ],
   },
   {
-    category: 'Itens de Segurança',
-    items: [
-      { key: 'triangulo', label: 'Triângulo de sinalização' },
-      { key: 'macaco', label: 'Macaco' },
-      { key: 'chave_roda', label: 'Chave de roda' },
-      { key: 'extintor', label: 'Extintor (validade)' },
-      { key: 'kit_primeiros_socorros', label: 'Kit primeiros socorros' },
-      { key: 'cones', label: 'Cones de sinalização' },
-      { key: 'colete_refletivo', label: 'Colete refletivo' },
-    ],
-  },
-  {
-    category: 'Carroceria / Carreta',
+    category: 'Carroceria',
+    vehicleType: 'carroceria',
     items: [
       { key: 'travas_carroceria', label: 'Travas da carroceria' },
       { key: 'lonas_amarras', label: 'Lonas e amarrações' },
@@ -129,7 +110,8 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
     ],
   },
   {
-    category: 'Equipamentos Sanitários',
+    category: 'Tanque / Equipamentos Sanitários',
+    vehicleType: 'tanque',
     items: [
       { key: 'tanque_dejeto', label: 'Tanque de dejetos' },
       { key: 'tanque_agua_limpa', label: 'Tanque de água limpa' },
@@ -148,6 +130,11 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
     ],
   },
 ];
+
+/** Retorna as categorias aplicáveis ao tipo de veículo selecionado. */
+export function getChecklistFor(vehicleType: VehicleType | null): ChecklistCategoryDef[] {
+  return CHECKLIST_TEMPLATE.filter(c => !c.vehicleType || c.vehicleType === vehicleType);
+}
 
 export const STATUS_LABEL: Record<ChecklistStatus, string> = {
   ok: 'OK',
