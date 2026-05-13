@@ -437,6 +437,13 @@ ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS vehicle_kind TEXT D
 ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS vehicle_type TEXT;
 ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS carretinha_id UUID;
 
+-- Modo de assinatura secundária: 'none' | 'cliente' | 'conferente'
+ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS signature_mode TEXT DEFAULT 'none';
+ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS second_signature_data_url TEXT;
+ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS second_signer_name TEXT;
+ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS second_signer_document TEXT;
+ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS second_signed_at TIMESTAMP;
+
 -- ============================== CARRETINHAS =================================
 CREATE TABLE IF NOT EXISTS public.carretinhas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
