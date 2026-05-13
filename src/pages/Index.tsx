@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Menu, MapPin, Route, Truck, Calendar, BarChart3, Settings, Users, Building2, ClipboardCheck } from 'lucide-react';
+import { Menu, MapPin, Route, Truck, Calendar, BarChart3, Settings, Users, Building2, ClipboardCheck, Container } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -29,6 +29,7 @@ const Index = () => {
     { icon: Route, label: 'Rotas Concluídas', to: '/rotas-concluidas' },
     { icon: Settings, label: 'Sanitários', to: '/sanitarios' },
     { icon: Truck, label: 'Caminhões', to: '/trucks' },
+    { icon: Container, label: 'Carretinhas', to: '/carretinhas' },
     { icon: ClipboardCheck, label: 'Checklists', to: '/checklists' },
     { icon: Users, label: 'Clientes', to: '/customers' },
     { icon: Settings, label: 'Gerenciamento', to: '/management' },

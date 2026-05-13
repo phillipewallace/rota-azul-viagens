@@ -24,6 +24,7 @@ import Sanitarios from "./pages/Sanitarios";
 import InternalManagement from "./pages/InternalManagement";
 import Checklists from "./pages/Checklists";
 import PublicChecklist from "./pages/PublicChecklist";
+import Carretinhas from "./pages/Carretinhas";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -180,6 +181,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Checklists />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/carretinhas"
+              element={
+                <ProtectedRoute>
+                  <Carretinhas />
                 </ProtectedRoute>
               }
             />
