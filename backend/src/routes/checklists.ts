@@ -23,11 +23,14 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
       fuelLevel,
       generalNotes,
       items,
+      signatureMode,  // 'none' | 'cliente' | 'conferente'
     } = req.body;
 
     if (!truckPlate || !signerName || !signerDocument || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
     }
+
+    const mode = ['none', 'cliente', 'conferente'].includes(signatureMode) ? signatureMode : 'none';
 
     const kind = vehicleKind || (vehicleType === 'carretinha' ? 'carretinha' : 'truck');
 
@@ -70,8 +73,9 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
       `INSERT INTO truck_checklists
        (truck_id, truck_plate, truck_name, truck_model, signer_name, signer_document,
         signature_data_url, odometer_km, fuel_level, general_notes, summary_status,
-        critical_count, attention_count, vehicle_kind, vehicle_type, carretinha_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id, created_at`,
+        critical_count, attention_count, vehicle_kind, vehicle_type, carretinha_id,
+        signature_mode)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id, created_at`,
       [
         resolvedTruckId,
         String(truckPlate).toUpperCase(),
@@ -89,6 +93,7 @@ router.post('/', softAuth, async (req: Request, res: Response) => {
         kind,
         vehicleType || null,
         resolvedCarretinhaId,
+        mode,
       ]
     );
     const checklistId = ins.rows[0].id;
@@ -155,6 +160,10 @@ router.get('/', requireAuth, async (req: AuthedRequest, res: Response) => {
         critical_count AS "criticalCount", attention_count AS "attentionCount",
         vehicle_kind AS "vehicleKind", vehicle_type AS "vehicleType",
         carretinha_id AS "carretinhaId",
+        signature_mode AS "signatureMode",
+        second_signer_name AS "secondSignerName",
+        second_signer_document AS "secondSignerDocument",
+        second_signed_at AS "secondSignedAt",
         created_at AS "createdAt"
       FROM truck_checklists
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
@@ -183,6 +192,11 @@ router.get('/:id', requireAuth, async (req: AuthedRequest, res: Response) => {
         critical_count AS "criticalCount", attention_count AS "attentionCount",
         vehicle_kind AS "vehicleKind", vehicle_type AS "vehicleType",
         carretinha_id AS "carretinhaId",
+        signature_mode AS "signatureMode",
+        second_signature_data_url AS "secondSignatureDataUrl",
+        second_signer_name AS "secondSignerName",
+        second_signer_document AS "secondSignerDocument",
+        second_signed_at AS "secondSignedAt",
         created_at AS "createdAt"
        FROM truck_checklists WHERE id=$1`,
       [id]
@@ -237,4 +251,60 @@ router.get('/lookup/truck/:plate', async (req: Request, res: Response) => {
   }
 });
 
+// ============ Pendentes de 2ª assinatura por placa (público) ============
+router.get('/lookup/pending/:plate', async (req: Request, res: Response) => {
+  try {
+    const { plate } = req.params;
+    const r = await pool.query(
+      `SELECT id, truck_plate AS "truckPlate", truck_name AS "truckName",
+              truck_model AS "truckModel", vehicle_kind AS "vehicleKind",
+              signer_name AS "signerName", signature_mode AS "signatureMode",
+              created_at AS "createdAt"
+         FROM truck_checklists
+        WHERE UPPER(REPLACE(truck_plate, '-', '')) = UPPER(REPLACE($1, '-', ''))
+          AND signature_mode IN ('cliente','conferente')
+          AND second_signature_data_url IS NULL
+        ORDER BY created_at DESC
+        LIMIT 50`,
+      [plate]
+    );
+    res.json(r.rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============ Salvar 2ª assinatura (público) ============
+router.post('/:id/second-signature', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { signerName, signerDocument, signatureDataUrl } = req.body || {};
+    if (!signerName || !signerDocument || !signatureDataUrl) {
+      return res.status(400).json({ error: 'Nome, documento e assinatura são obrigatórios' });
+    }
+    const cur = await pool.query(
+      `SELECT signature_mode, second_signature_data_url FROM truck_checklists WHERE id=$1`,
+      [id]
+    );
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Checklist não encontrada' });
+    if (cur.rows[0].signature_mode === 'none') {
+      return res.status(400).json({ error: 'Esta checklist não requer 2ª assinatura' });
+    }
+    if (cur.rows[0].second_signature_data_url) {
+      return res.status(409).json({ error: 'Esta checklist já foi assinada' });
+    }
+    await pool.query(
+      `UPDATE truck_checklists
+          SET second_signer_name=$1, second_signer_document=$2,
+              second_signature_data_url=$3, second_signed_at=NOW()
+        WHERE id=$4`,
+      [String(signerName).trim(), String(signerDocument).trim(), signatureDataUrl, id]
+    );
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
+
