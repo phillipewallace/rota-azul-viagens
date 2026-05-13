@@ -137,11 +137,11 @@ export default function PublicChecklist() {
         <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" /> Checklist de Caminhão
+              <Truck className="h-5 w-5" /> Checklist de Veículo
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Label>Placa do caminhão</Label>
+            <Label>Placa do veículo (caminhão ou carretinha)</Label>
             <Input
               value={plate}
               onChange={e => setPlate(e.target.value.toUpperCase())}
@@ -150,13 +150,15 @@ export default function PublicChecklist() {
               autoFocus
             />
             <Button className="w-full" onClick={lookup} disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar caminhão'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar veículo'}
             </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
+
+  const isCarretinha = truck.kind === 'carretinha';
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
