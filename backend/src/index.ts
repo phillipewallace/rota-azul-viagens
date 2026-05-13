@@ -25,6 +25,7 @@ import trackingRoutes from './routes/tracking';
 import sanitariosRoutes from './routes/sanitarios';
 import erpInventoryRoutes from './routes/erp-inventory';
 import checklistsRoutes from './routes/checklists';
+import carretinhasRoutes from './routes/carretinhas';
 import path from 'path';
 
 const app = express();
@@ -95,6 +96,7 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/sanitarios', sanitariosRoutes);
 app.use('/api/erp', erpInventoryRoutes);
 app.use('/api/checklists', checklistsRoutes);
+app.use('/api/carretinhas', carretinhasRoutes);
 
 // Servir uploads (fotos)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
