@@ -432,6 +432,39 @@ CREATE TABLE IF NOT EXISTS public.truck_checklist_items (
 );
 CREATE INDEX IF NOT EXISTS idx_checklist_items_checklist ON public.truck_checklist_items(checklist_id);
 
+-- Suporte a carretinhas nas checklists
+ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS vehicle_kind TEXT DEFAULT 'truck';
+ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS vehicle_type TEXT;
+ALTER TABLE public.truck_checklists ADD COLUMN IF NOT EXISTS carretinha_id UUID;
+
+-- ============================== CARRETINHAS =================================
+CREATE TABLE IF NOT EXISTS public.carretinhas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  plate TEXT UNIQUE NOT NULL,
+  model TEXT,
+  year INT,
+  status TEXT DEFAULT 'galpao', -- galpao | locada | manutencao
+  current_customer_name TEXT,
+  current_rental_start DATE,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_carretinhas_plate ON public.carretinhas(plate);
+CREATE INDEX IF NOT EXISTS idx_carretinhas_status ON public.carretinhas(status);
+
+CREATE TABLE IF NOT EXISTS public.carretinha_locacoes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  carretinha_id UUID NOT NULL REFERENCES public.carretinhas(id) ON DELETE CASCADE,
+  customer_name TEXT NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_carr_loc_carr ON public.carretinha_locacoes(carretinha_id, start_date DESC);
+
 -- ============================== OWNERSHIP / GRANTS ==========================
 -- Garante que o usuário 'lipe' tenha permissão em tudo, mesmo que as tabelas
 -- tenham sido criadas por outro owner (postgres). Sem isso, ALTER/SELECT podem
