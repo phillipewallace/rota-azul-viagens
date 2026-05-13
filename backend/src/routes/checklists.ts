@@ -213,18 +213,25 @@ router.delete('/:id', requireAuth, async (req: AuthedRequest, res: Response) => 
   }
 });
 
-// Endpoint público para buscar caminhão pela placa (alias do mobile, sem auth)
+// Endpoint público para buscar veículo (caminhão OU carretinha) pela placa, sem auth
 router.get('/lookup/truck/:plate', async (req: Request, res: Response) => {
   try {
     const { plate } = req.params;
-    const r = await pool.query(
-      `SELECT id, name, plate, model, year
+    const t = await pool.query(
+      `SELECT id, name, plate, model, year, 'truck' AS kind
          FROM trucks
         WHERE UPPER(REPLACE(plate, '-', '')) = UPPER(REPLACE($1, '-', '')) LIMIT 1`,
       [plate]
     );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Caminhão não encontrado' });
-    res.json(r.rows[0]);
+    if (t.rows[0]) return res.json(t.rows[0]);
+    const c = await pool.query(
+      `SELECT id, name, plate, model, year, 'carretinha' AS kind
+         FROM carretinhas
+        WHERE UPPER(REPLACE(plate, '-', '')) = UPPER(REPLACE($1, '-', '')) LIMIT 1`,
+      [plate]
+    );
+    if (c.rows[0]) return res.json(c.rows[0]);
+    return res.status(404).json({ error: 'Veículo não encontrado' });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
