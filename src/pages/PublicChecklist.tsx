@@ -67,6 +67,7 @@ export default function PublicChecklist() {
   };
 
   const submit = async () => {
+    if (!vehicleType) return toast.error('Selecione o tipo do veículo');
     if (filledCount < totalItems) {
       return toast.error(`Faltam ${totalItems - filledCount} itens para avaliar`);
     }
@@ -80,13 +81,14 @@ export default function PublicChecklist() {
       truckPlate: truck!.plate,
       truckName: truck!.name,
       truckModel: truck!.model,
+      vehicleType,
       signerName: signerName.trim(),
       signerDocument: signerDoc.trim(),
       signatureDataUrl: sig,
       odometerKm: odometer || null,
       fuelLevel: fuelLevel || null,
       generalNotes: generalNotes || null,
-      items: CHECKLIST_TEMPLATE.flatMap(cat =>
+      items: activeCategories.flatMap(cat =>
         cat.items.map(it => ({
           category: cat.category,
           itemKey: it.key,
