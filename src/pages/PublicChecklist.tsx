@@ -78,8 +78,11 @@ export default function PublicChecklist() {
     const sig = sigRef.current?.toDataURL();
     if (!sig) return toast.error('Capture a assinatura');
 
+    const isCarretinha = truck!.kind === 'carretinha';
     const payload = {
-      truckId: truck!.id,
+      truckId: isCarretinha ? null : truck!.id,
+      carretinhaId: isCarretinha ? truck!.id : null,
+      vehicleKind: truck!.kind,
       truckPlate: truck!.plate,
       truckName: truck!.name,
       truckModel: truck!.model,
@@ -87,8 +90,8 @@ export default function PublicChecklist() {
       signerName: signerName.trim(),
       signerDocument: signerDoc.trim(),
       signatureDataUrl: sig,
-      odometerKm: odometer || null,
-      fuelLevel: fuelLevel || null,
+      odometerKm: isCarretinha ? null : (odometer || null),
+      fuelLevel: isCarretinha ? null : (fuelLevel || null),
       generalNotes: generalNotes || null,
       items: activeCategories.flatMap(cat =>
         cat.items.map(it => ({
