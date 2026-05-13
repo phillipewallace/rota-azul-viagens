@@ -65,8 +65,6 @@ export const CHECKLIST_TEMPLATE: ChecklistCategoryDef[] = [
       { key: 'fluido_freio', label: 'Fluido de freio' },
       { key: 'arla', label: 'Nível de Arla 32' },
       { key: 'correias', label: 'Correias e mangueiras' },
-      { key: 'bateria', label: 'Bateria e terminais' },
-      { key: 'filtros', label: 'Filtros (ar/combustível)' },
       { key: 'vazamento_motor', label: 'Sem vazamento no motor' },
       { key: 'tacografo', label: 'Tacógrafo aferido' },
     ],
