@@ -3,13 +3,16 @@
  * - Lista mestre com filtro por status e busca por número
  * - Detalhe lateral com cliente atual e histórico completo
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen } from 'lucide-react';
+import { useCustomers, Customer } from '@/hooks/useCustomers';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Sanitario {
