@@ -93,4 +93,18 @@ export const checklistsService = {
     if (!r.ok) throw new Error('Erro ao excluir');
     return r.json();
   },
+  async listPending(plate: string) {
+    const r = await fetch(`${API_BASE_URL}/checklists/lookup/pending/${encodeURIComponent(plate)}`);
+    if (!r.ok) throw new Error('Erro ao buscar pendências');
+    return r.json() as Promise<PendingChecklist[]>;
+  },
+  async sendSecondSignature(id: string, body: { signerName: string; signerDocument: string; signatureDataUrl: string }) {
+    const r = await fetch(`${API_BASE_URL}/checklists/${id}/second-signature`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error((await r.text()) || 'Erro ao salvar assinatura');
+    return r.json();
+  },
 };
