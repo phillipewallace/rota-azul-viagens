@@ -270,11 +270,15 @@ export default function Checklists() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><b>Caminhão:</b> {detail.truckName} ({detail.truckPlate})</div>
+                <div><b>{detail.vehicleKind === 'carretinha' ? 'Carretinha' : 'Caminhão'}:</b> {detail.truckName} ({detail.truckPlate})</div>
                 <div><b>Modelo:</b> {detail.truckModel || '-'}</div>
                 <div><b>Data:</b> {new Date(detail.createdAt).toLocaleString('pt-BR')}</div>
-                <div><b>Hodômetro:</b> {detail.odometerKm != null ? `${detail.odometerKm} km` : '-'}</div>
-                <div><b>Combustível:</b> {detail.fuelLevel || '-'}</div>
+                {detail.vehicleKind !== 'carretinha' && (
+                  <>
+                    <div><b>Hodômetro:</b> {detail.odometerKm != null ? `${detail.odometerKm} km` : '-'}</div>
+                    <div><b>Combustível:</b> {detail.fuelLevel || '-'}</div>
+                  </>
+                )}
                 <div><b>Status:</b> <Badge variant="outline" className={SUMMARY_BADGE[detail.summaryStatus]?.cls}>{SUMMARY_BADGE[detail.summaryStatus]?.label}</Badge></div>
               </div>
 
