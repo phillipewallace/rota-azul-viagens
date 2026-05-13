@@ -13,7 +13,7 @@ import { checklistsService } from '@/services/checklists';
 
 type ItemState = { status: ChecklistStatus | null; notes: string };
 
-interface TruckInfo { id: string; name: string; plate: string; model: string; year: number }
+interface TruckInfo { id: string; name: string; plate: string; model: string; year: number; kind: 'truck' | 'carretinha' }
 
 const STATUS_BUTTONS: { value: ChecklistStatus; label: string; icon: any; color: string }[] = [
   { value: 'ok',        label: 'OK',       icon: CheckCircle2, color: 'bg-emerald-500 hover:bg-emerald-600 text-white' },
