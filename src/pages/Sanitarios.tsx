@@ -264,6 +264,23 @@ export default function Sanitarios() {
     } catch { toast.error('Erro ao cadastrar'); }
   };
 
+  const remove = async () => {
+    if (!selected) return;
+    setDeleteBusy(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/sanitarios/${encodeURIComponent(selected.numero)}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (!r.ok) throw new Error();
+      toast.success(`Sanitário ${selected.numero} excluído`);
+      setSelected(null);
+      setDeleteOpen(false);
+      load();
+    } catch { toast.error('Erro ao excluir sanitário'); }
+    finally { setDeleteBusy(false); }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
