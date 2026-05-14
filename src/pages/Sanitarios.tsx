@@ -12,8 +12,18 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut } from 'lucide-react';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Sanitario {
   id: string;
@@ -88,6 +98,8 @@ export default function Sanitarios() {
   const [allocBusy, setAllocBusy] = useState(false);
   const [baixaOpen, setBaixaOpen] = useState(false);
   const [baixaNotes, setBaixaNotes] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const { customers } = useCustomers();
   const filteredCustomers = useMemo(() => {
     const q = allocSearch.trim().toLowerCase();
@@ -250,6 +262,23 @@ export default function Sanitarios() {
       setNewNum('');
       load();
     } catch { toast.error('Erro ao cadastrar'); }
+  };
+
+  const remove = async () => {
+    if (!selected) return;
+    setDeleteBusy(true);
+    try {
+      const r = await fetch(`${API_BASE_URL}/sanitarios/${encodeURIComponent(selected.numero)}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (!r.ok) throw new Error();
+      toast.success(`Sanitário ${selected.numero} excluído`);
+      setSelected(null);
+      setDeleteOpen(false);
+      load();
+    } catch { toast.error('Erro ao excluir sanitário'); }
+    finally { setDeleteBusy(false); }
   };
 
   return (
@@ -466,6 +495,14 @@ export default function Sanitarios() {
                       <Wrench className="h-4 w-4" /> Manutenção
                     </Button>
                   )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDeleteOpen(true)}
+                    className="gap-1 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 ml-auto"
+                  >
+                    <Trash2 className="h-4 w-4" /> Excluir
+                  </Button>
                 </div>
 
                 {selected.status === 'em_cliente' && (
@@ -613,6 +650,28 @@ export default function Sanitarios() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog excluir */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir sanitário {selected?.numero}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. O sanitário e todo o seu histórico serão permanentemente removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteOpen(false)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={remove}
+              disabled={deleteBusy}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteBusy ? 'Excluindo…' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

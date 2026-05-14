@@ -167,6 +167,24 @@ router.get('/:numero', requireAuth, async (req: any, res: any) => {
 });
 
 /**
+ * DELETE /api/sanitarios/:numero — remove sanitário e histórico (CASCADE)
+ */
+router.delete('/:numero', requireAuth, async (req: any, res: any) => {
+  try {
+    const { numero } = req.params;
+    const r = await pool.query(
+      `DELETE FROM sanitarios WHERE numero = $1 RETURNING id, numero`,
+      [numero]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
+    res.json({ ok: true, deleted: r.rows[0] });
+  } catch (e: any) {
+    console.error('[SANITARIOS] delete err:', e);
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
+/**
  * Helper interno (já em transação): registra movimentação e atualiza status.
  */
 async function registrarMovimentacao(client: any, opts: {
