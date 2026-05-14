@@ -650,6 +650,28 @@ export default function Sanitarios() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog excluir */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir sanitário {selected?.numero}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. O sanitário e todo o seu histórico serão permanentemente removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteOpen(false)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={remove}
+              disabled={deleteBusy}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteBusy ? 'Excluindo…' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
