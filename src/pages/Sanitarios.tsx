@@ -98,6 +98,8 @@ export default function Sanitarios() {
   const [allocBusy, setAllocBusy] = useState(false);
   const [baixaOpen, setBaixaOpen] = useState(false);
   const [baixaNotes, setBaixaNotes] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const { customers } = useCustomers();
   const filteredCustomers = useMemo(() => {
     const q = allocSearch.trim().toLowerCase();
