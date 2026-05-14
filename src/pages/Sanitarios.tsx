@@ -495,6 +495,14 @@ export default function Sanitarios() {
                       <Wrench className="h-4 w-4" /> Manutenção
                     </Button>
                   )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDeleteOpen(true)}
+                    className="gap-1 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 ml-auto"
+                  >
+                    <Trash2 className="h-4 w-4" /> Excluir
+                  </Button>
                 </div>
 
                 {selected.status === 'em_cliente' && (
