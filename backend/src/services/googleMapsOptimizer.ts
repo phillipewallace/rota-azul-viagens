@@ -186,7 +186,8 @@ class GoogleMapsOptimizer {
         }
       })),
       travelMode: 'DRIVE',
-      routingPreference: 'TRAFFIC_UNAWARE',
+      routingPreference: 'TRAFFIC_AWARE_OPTIMAL',
+      departureTime: new Date(Date.now() + 60_000).toISOString(),
       optimizeWaypointOrder: true,
       computeAlternativeRoutes: false,
       languageCode: 'pt-BR',
