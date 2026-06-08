@@ -98,30 +98,49 @@ async function buildMatrix(points: Pt[]): Promise<number[][]> {
 
 function nearestNeighbor(M: number[][], originIdx: number, destIdx: number, fixed: Set<number>): number[] {
   const n = M.length;
-  // Pontos fixos intermediários precisam ficar na ordem original
-  const fixedMidOrdered = Array.from(fixed).filter((i) => i !== originIdx && i !== destIdx).sort((a, b) => a - b);
+  // Sequência de "âncoras" fixas em ordem original: [origin, ...fixedMid..., destination]
+  const fixedMidOrdered = Array.from(fixed)
+    .filter((i) => i !== originIdx && i !== destIdx)
+    .sort((a, b) => a - b);
+  const anchors = [originIdx, ...fixedMidOrdered, destIdx];
 
-  const visited = new Set<number>([originIdx, destIdx, ...fixedMidOrdered]);
-  const route: number[] = [originIdx];
-  let cur = originIdx;
-  let nextFixedIdx = 0;
-
-  while (visited.size < n || nextFixedIdx < fixedMidOrdered.length) {
-    // se há próximo fixo "pendente" a inserir, NN escolhe livre mais próximo do fixo atual também
-    let best = -1;
-    let bestVal = Infinity;
-    for (let j = 0; j < n; j++) {
-      if (visited.has(j)) continue;
-      if (M[cur][j] < bestVal) { bestVal = M[cur][j]; best = j; }
-    }
-    if (best === -1) break;
-    route.push(best);
-    visited.add(best);
-    cur = best;
+  // Pontos livres
+  const freePts: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (!fixed.has(i) && i !== originIdx && i !== destIdx) freePts.push(i);
   }
-  // intercalar fixos no fim do tour por simplicidade — depois 2-opt ajusta (mas mantém posição)
-  fixedMidOrdered.forEach((fi) => { if (!route.includes(fi)) route.push(fi); });
-  route.push(destIdx);
+
+  // Atribuir cada ponto livre ao "gap" (segmento entre âncoras consecutivas) cujo midpoint é mais próximo
+  const gaps: number[][] = anchors.slice(0, -1).map(() => []);
+  for (const fp of freePts) {
+    let bestGap = 0;
+    let bestScore = Infinity;
+    for (let g = 0; g < anchors.length - 1; g++) {
+      const a = anchors[g];
+      const b = anchors[g + 1];
+      // custo do desvio: dist(a→fp) + dist(fp→b) - dist(a→b)
+      const detour = M[a][fp] + M[fp][b] - M[a][b];
+      if (detour < bestScore) { bestScore = detour; bestGap = g; }
+    }
+    gaps[bestGap].push(fp);
+  }
+
+  // Em cada gap, ordenar por NN partindo da âncora inicial
+  const route: number[] = [originIdx];
+  for (let g = 0; g < gaps.length; g++) {
+    let cur = anchors[g];
+    const remaining = new Set(gaps[g]);
+    while (remaining.size > 0) {
+      let best = -1; let bestVal = Infinity;
+      for (const j of remaining) {
+        if (M[cur][j] < bestVal) { bestVal = M[cur][j]; best = j; }
+      }
+      route.push(best);
+      remaining.delete(best);
+      cur = best;
+    }
+    route.push(anchors[g + 1]);
+  }
   return route;
 }
 
