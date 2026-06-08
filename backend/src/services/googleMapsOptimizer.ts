@@ -74,7 +74,8 @@ class GoogleMapsOptimizer {
         }
       },
       travelMode: 'DRIVE',
-      routingPreference: 'TRAFFIC_UNAWARE',
+      routingPreference: 'TRAFFIC_AWARE_OPTIMAL',
+      departureTime: new Date(Date.now() + 60_000).toISOString(),
       computeAlternativeRoutes: false,
       languageCode: 'pt-BR',
       units: 'METRIC'
