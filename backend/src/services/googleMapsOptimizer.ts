@@ -283,124 +283,49 @@ class GoogleMapsOptimizer {
   }
 
   private async handleLargeRoute(points: OptimizationPoint[]): Promise<OptimizationResult> {
-    console.log(`📊 [OPTIMIZER V2] Rota grande com ${points.length} pontos - aplicando estratégia de segmentação`);
-    
-    // Identificar origem e destino pelo tipo, não pela posição
-    const origin = points.find(p => p.type === 'origin') || points[0];
-    const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
-    
-    // Filtrar APENAS waypoints verdadeiros, excluindo origem e destino
-    const waypoints = points.filter(p => 
-      p.type === 'waypoint' && p.id !== origin.id && p.id !== destination.id
-    );
+    console.log(`📊 [OPTIMIZER V2] Rota grande (${points.length} pts) → delegando ao HYBRID OPTIMIZER (NN + 2-opt + or-opt)`);
 
     try {
-      // ✅ ESTRATÉGIA MELHORADA: Dividir em segmentos otimizáveis
-      const segments: any[] = [];
-      const segmentSize = this.MAX_WAYPOINTS; // 25 waypoints por segmento
-      
-      // Criar segmentos de waypoints
-      for (let i = 0; i < waypoints.length; i += segmentSize) {
-        const segmentWaypoints = waypoints.slice(i, i + segmentSize);
-        segments.push(segmentWaypoints);
-      }
+      const hybrid = await optimizeLargeRoute(points.map(p => ({
+        id: p.id,
+        address: p.address,
+        lat: p.lat,
+        lng: p.lng,
+        type: p.type,
+      })) as any);
 
-      console.log(`🔧 [OPTIMIZER V2] Dividindo em ${segments.length} segmentos de até ${segmentSize} waypoints`);
-
-      let allOptimizedPoints: any[] = [{ ...origin, order: 0, type: 'origin' as const }];
-      let totalDistance = 0;
-      let totalDuration = 0;
-      let finalPolyline = '';
-
-      // Otimizar cada segmento
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
-        const isLastSegment = i === segments.length - 1;
-        
-        // Determinar origem e destino do segmento
-        const segmentOrigin = i === 0 ? origin : allOptimizedPoints[allOptimizedPoints.length - 1];
-        const segmentDestination = isLastSegment ? destination : segment[segment.length - 1];
-        
-        // Criar lista de pontos para otimizar
-        const segmentPoints = [
-          { ...segmentOrigin, type: 'origin' as const },
-          ...segment.slice(0, -1).map(p => ({ ...p, type: 'waypoint' as const })),
-          { ...segmentDestination, type: 'destination' as const }
-        ];
-
-        console.log(`🎯 [OPTIMIZER V2] Otimizando segmento ${i + 1}/${segments.length} com ${segmentPoints.length} pontos`);
-
-        try {
-          const segmentResult = await this.optimizeWithRoutesAPIv2(segmentPoints);
-          
-          // Adicionar pontos do segmento (exceto o primeiro se não for o primeiro segmento)
-          const pointsToAdd = i === 0 ? segmentResult.optimizedPoints : segmentResult.optimizedPoints.slice(1);
-          
-          pointsToAdd.forEach((point, index) => {
-            allOptimizedPoints.push({
-              ...point,
-              order: allOptimizedPoints.length
-            });
-          });
-
-          totalDistance += segmentResult.totalDistance;
-          totalDuration += segmentResult.totalDuration;
-          
-          if (segmentResult.polyline) {
-            finalPolyline += segmentResult.polyline;
-          }
-
-        } catch (segmentError) {
-          console.error(`❌ [OPTIMIZER V2] Erro no segmento ${i + 1}:`, segmentError);
-          
-          // Fallback: adicionar pontos do segmento sem otimização
-          const fallbackPoints = segment.map((point, index) => ({
-            ...point,
-            order: allOptimizedPoints.length + index,
-            type: 'waypoint' as const
-          }));
-          
-          allOptimizedPoints.push(...fallbackPoints);
-        }
-      }
-
-      // Garantir que o destino seja o último
-      if (allOptimizedPoints[allOptimizedPoints.length - 1].id !== destination.id) {
-        allOptimizedPoints.push({
-          ...destination,
-          order: allOptimizedPoints.length,
-          type: 'destination' as const
-        });
-      }
-
-      console.log(`✅ [OPTIMIZER V2] Rota grande processada: ${allOptimizedPoints.length} pontos, ${totalDistance.toFixed(1)}km`);
+      const optimizedPoints = hybrid.optimizedPoints.map((p: any, i: number) => {
+        const orig = points.find(x => x.id === p.id) || p;
+        return {
+          ...orig,
+          order: i,
+          type: (i === 0 ? 'origin' : i === hybrid.optimizedPoints.length - 1 ? 'destination' : 'waypoint') as any,
+        };
+      });
 
       return {
-        optimizedPoints: allOptimizedPoints,
-        totalDistance,
-        totalDuration,
-        polyline: finalPolyline,
-        optimizedOrder: allOptimizedPoints.map(p => p.id)
+        optimizedPoints,
+        totalDistance: hybrid.totalDistance,
+        totalDuration: hybrid.totalDuration,
+        polyline: hybrid.polyline,
+        optimizedOrder: optimizedPoints.map(p => p.id),
       };
-      
     } catch (error) {
-      console.error('❌ [OPTIMIZER V2] Erro na otimização de rota grande:', error);
-      
-      // Fallback final: retornar pontos na ordem original
-      const fallbackPoints = [origin, ...waypoints, destination].map((point, index) => ({
-        ...point,
-        order: index
-      }));
-      
+      console.error('❌ [OPTIMIZER V2] Hybrid falhou, fallback ordem original:', error);
+      const origin = points.find(p => p.type === 'origin') || points[0];
+      const destination = points.find(p => p.type === 'destination') || points[points.length - 1];
+      const waypoints = points.filter(p => p.type === 'waypoint' && p.id !== origin.id && p.id !== destination.id);
+      const fb = [origin, ...waypoints, destination].map((point, index) => ({ ...point, order: index }));
       return {
-        optimizedPoints: fallbackPoints,
+        optimizedPoints: fb,
         totalDistance: 0,
         totalDuration: 0,
         polyline: '',
-        optimizedOrder: fallbackPoints.map(p => p.id)
+        optimizedOrder: fb.map(p => p.id),
       };
     }
   }
+
 
   async optimizePartialRoute(
     completedPoints: OptimizationPoint[], 
