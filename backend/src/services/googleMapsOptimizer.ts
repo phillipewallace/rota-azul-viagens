@@ -24,8 +24,10 @@ interface GeographicalCluster {
   clusterId: number;
 }
 
+import { optimizeLargeRoute } from './hybridOptimizer';
+
 class GoogleMapsOptimizer {
-  private apiKey = 'AIzaSyAbITueefJWwTTyXO-9Nz9pgzbgKZ5sV9w';
+  private apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '';
   private readonly ROUTES_API_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
   private readonly MAX_WAYPOINTS = 25; // ✅ ATUALIZADO: Routes API v2 suporta 25 waypoints intermediários
 
