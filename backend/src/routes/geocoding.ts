@@ -96,8 +96,10 @@ router.post('/optimize', async (req, res) => {
 
     console.log('🎯 [GEOCODING FALLBACK] Pontos formatados:', formattedPoints.length);
 
-    // Usar Google Maps Optimizer com Routes API v2
-    const optimized = await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
+    // Para rotas grandes (>27 pts = origem + destino + 25 wp), usar HYBRID OPTIMIZER (NN + 2-opt + or-opt + cache)
+    const optimized = formattedPoints.length > 27
+      ? await optimizeLargeRoute(formattedPoints as any)
+      : await googleMapsOptimizer.optimizeRouteWithGoogleAPIs(formattedPoints);
 
     // Calcular tempo estimado em formato legível
     const hours = Math.floor(optimized.totalDuration / 3600);
