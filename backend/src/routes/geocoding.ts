@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { googleMapsOptimizer } from '../services/googleMapsOptimizer';
+import { optimizeLargeRoute } from '../services/hybridOptimizer';
 
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '';
 const router = Router();
 
 interface ViaCepResponse {
