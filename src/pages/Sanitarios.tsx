@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
+import { fetchSanitarioStockSummary, type SanitarioStockSummary } from '@/services/erp';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
 import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -100,6 +101,7 @@ export default function Sanitarios() {
   const [baixaNotes, setBaixaNotes] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [stock, setStock] = useState<SanitarioStockSummary | null>(null);
   const { customers } = useCustomers();
   const filteredCustomers = useMemo(() => {
     const q = allocSearch.trim().toLowerCase();
