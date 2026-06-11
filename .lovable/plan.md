@@ -101,3 +101,28 @@ Reestruturar `src/components/erp/` com tabs:
 4. **Estratégia de entrega**: posso entregar **Fase 1 + 2 + 3 (Sanitários migrados + CNPJs + Orçamentos com PDF)** primeiro num PR grande, depois Fase 4 (OS) e Fase 5 (Financeiro) na sequência? Ou prefere tudo de uma vez (vai demorar mais e ter mais risco de bugs)?
 
 Responda essas 4 e eu começo a implementar.
+
+---
+
+## ✅ Fase 1+2 — Entregue nesta iteração
+
+Implementado:
+- Migration `database/migration-erp-companies.sql` (tabela `erp_companies` + trigger de limite 3).
+- Backend `/api/erp/companies` (GET/POST/PUT/DELETE) com validação de limite e dedupe de CNPJ.
+- Backend `GET /api/sanitarios/stock-summary` (contagem por status).
+- Frontend: serviço `erpService.list/create/update/deleteCompany` + tipo `ErpCompany`.
+- UI: nova seção **Empresas Emissoras (CNPJs)** em Configurações com CRUD inline.
+- UI: 5 cards de resumo de estoque no topo da página `/sanitarios` (Disponíveis, Em cliente, Em OS, Manutenção, Total).
+
+⚠️ **Deploy obrigatório antes de usar:**
+```bash
+psql -U lipe -d alchemyrotas -f database/migration-erp-companies.sql
+sudo ./deploy.sh
+```
+
+## 🟡 Próximas fases (aguardando confirmação das 4 perguntas)
+
+- Fase 3 — Orçamentos com PDF + botão "Converter em OS"
+- Fase 4 — Ordens de Serviço (diária/mensal) com alocação de sanitários por numeração
+- Fase 5 — Módulo Financeiro (receitas de OS + despesas de manutenção)
+- Fase 6 — Integração total roteirização ↔ ERP
