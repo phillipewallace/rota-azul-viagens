@@ -34,6 +34,24 @@ function buildSanitariosQuery(query: any) {
   return { where, params };
 }
 
+/** GET /api/sanitarios/stock-summary — contagem por status (estoque ERP) */
+router.get('/stock-summary', requireAuth, async (_req: any, res: any) => {
+  try {
+    const r = await pool.query(
+      `SELECT status, COUNT(*)::int AS qtd FROM sanitarios GROUP BY status`
+    );
+    const summary: Record<string, number> = {
+      disponivel: 0, em_cliente: 0, manutencao: 0, inativo: 0, em_os: 0,
+    };
+    for (const row of r.rows) summary[row.status] = row.qtd;
+    const total = Object.values(summary).reduce((a, b) => a + b, 0);
+    res.json({ ...summary, total });
+  } catch (e: any) {
+    console.error('[SANITARIOS] stock-summary err:', e);
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
 router.get('/', requireAuth, async (req: any, res: any) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);

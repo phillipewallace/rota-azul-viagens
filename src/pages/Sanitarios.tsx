@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
+import { fetchSanitarioStockSummary, type SanitarioStockSummary } from '@/services/erp';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
 import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -100,6 +101,7 @@ export default function Sanitarios() {
   const [baixaNotes, setBaixaNotes] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [stock, setStock] = useState<SanitarioStockSummary | null>(null);
   const { customers } = useCustomers();
   const filteredCustomers = useMemo(() => {
     const q = allocSearch.trim().toLowerCase();
@@ -172,8 +174,12 @@ export default function Sanitarios() {
     setFilter(''); setStatusFilter(''); setTruckFilter(''); setPage(1);
   };
 
-  useEffect(() => { loadTrucks(); }, []);
-  useEffect(() => { setPage(1); load(1); /* eslint-disable-next-line */ }, [statusFilter, truckFilter, pageSize]);
+  const loadStock = async () => {
+    try { setStock(await fetchSanitarioStockSummary()); } catch { /* silencioso */ }
+  };
+
+  useEffect(() => { loadTrucks(); loadStock(); }, []);
+  useEffect(() => { setPage(1); load(1); loadStock(); /* eslint-disable-next-line */ }, [statusFilter, truckFilter, pageSize]);
 
   const openDetail = async (numero: string) => {
     try {
@@ -303,6 +309,43 @@ export default function Sanitarios() {
         </div>
       </header>
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
+
+      {/* Resumo de estoque ERP */}
+      {stock && (
+        <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-2">
+          <Card className="border-green-200">
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Disponíveis em estoque</div>
+              <div className="text-2xl font-bold text-green-700">{stock.disponivel}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Em cliente</div>
+              <div className="text-2xl font-bold text-blue-700">{stock.em_cliente}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Em OS</div>
+              <div className="text-2xl font-bold text-purple-700">{stock.em_os}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Manutenção</div>
+              <div className="text-2xl font-bold text-orange-700">{stock.manutencao}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase text-muted-foreground">Total cadastrado</div>
+              <div className="text-2xl font-bold">{stock.total}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
 
 
       {/* Cadastro rápido + filtros */}

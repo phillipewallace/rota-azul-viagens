@@ -109,7 +109,47 @@ export const erpService = {
     req<ErpVehicleComment>('PUT', `/vehicles/${vid}/comments/${cid}`, data),
   deleteVehicleComment: (vid: string, cid: string) =>
     req<{ ok: true }>('DELETE', `/vehicles/${vid}/comments/${cid}`),
+  // companies (CNPJs emissores — máx 3)
+  listCompanies: () => req<ErpCompany[]>('GET', '/companies'),
+  createCompany: (data: Partial<ErpCompany>) => req<ErpCompany>('POST', '/companies', data),
+  updateCompany: (id: string, data: Partial<ErpCompany>) => req<ErpCompany>('PUT', `/companies/${id}`, data),
+  deleteCompany: (id: string) => req<{ ok: true }>('DELETE', `/companies/${id}`),
 };
+
+export interface ErpCompany {
+  id: string;
+  razaoSocial: string;
+  nomeFantasia?: string;
+  cnpj: string;
+  inscricaoEstadual?: string;
+  endereco?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  telefone?: string;
+  email?: string;
+  logoUrl?: string;
+  ativo: boolean;
+  createdAt?: string;
+}
+
+export interface SanitarioStockSummary {
+  disponivel: number;
+  em_cliente: number;
+  manutencao: number;
+  inativo: number;
+  em_os: number;
+  total: number;
+}
+
+export async function fetchSanitarioStockSummary(): Promise<SanitarioStockSummary> {
+  const token = localStorage.getItem('auth_token');
+  const res = await fetch(`${API_BASE_URL}/sanitarios/stock-summary`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) throw new Error('Falha ao carregar estoque');
+  return res.json();
+}
 
 export interface ErpVehicle {
   id: string;
