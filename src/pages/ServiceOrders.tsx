@@ -146,6 +146,151 @@ const ServiceOrders: React.FC = () => {
     });
   };
 
+  // Exportação financeira COMPLETA: OS + itens + sanitários + manutenções + breakdowns + totais
+  const exportFinComplete = async (format: 'csv' | 'pdf') => {
+    try {
+      toast.loading('Gerando relatório completo...', { id: 'fincomp' });
+      const data = await serviceOrdersService.financialComplete({
+        from: finFrom || undefined, to: finTo || undefined,
+      });
+      toast.dismiss('fincomp');
+      const stamp = new Date().toISOString().slice(0, 10);
+      const periodo = `${finFrom || 'início'} → ${finTo || 'hoje'}`;
+
+      if (format === 'csv') {
+        // CSV único com múltiplas seções separadas
+        const sec = (title: string, headers: string[], rows: any[][]) => [
+          [`### ${title}`], headers, ...rows, [''],
+        ];
+        const all: any[][] = [
+          [`RELATÓRIO FINANCEIRO COMPLETO — ${periodo}`], [''],
+          ...sec('TOTAIS', ['Métrica', 'Valor'], [
+            ['Receita total (R$)', data.totais.receitaTotal.toFixed(2)],
+            ['Receita fechadas (R$)', data.totais.receitaFechadas.toFixed(2)],
+            ['Receita abertas (R$)', data.totais.receitaAbertas.toFixed(2)],
+            ['Receita em atraso (R$)', data.totais.receitaEmAtraso.toFixed(2)],
+            ['Custo manutenção (R$)', data.totais.custoManutencao.toFixed(2)],
+            ['Resultado líquido (R$)', data.totais.resultadoLiquido.toFixed(2)],
+            ['Qtd OS', data.totais.qtdOs],
+            ['Qtd Manutenções', data.totais.qtdManutencoes],
+          ]),
+          ...sec('POR STATUS', ['Status', 'Qtd', 'Total (R$)'],
+            data.breakdowns.porStatus.map(b => [b.key, b.count, b.total.toFixed(2)])),
+          ...sec('POR MODALIDADE', ['Modalidade', 'Qtd', 'Total (R$)'],
+            data.breakdowns.porModalidade.map(b => [b.key, b.count, b.total.toFixed(2)])),
+          ...sec('POR TIPO LOCAÇÃO', ['Tipo', 'Qtd', 'Total (R$)'],
+            data.breakdowns.porTipoLocacao.map(b => [b.key, b.count, b.total.toFixed(2)])),
+          ...sec('POR EMPRESA', ['Empresa', 'Qtd', 'Total (R$)'],
+            data.breakdowns.porEmpresa.map(b => [b.key, b.count, b.total.toFixed(2)])),
+          ...sec('ORDENS DE SERVIÇO',
+            ['OS', 'Cliente', 'CPF/CNPJ', 'Empresa', 'CNPJ', 'Modalidade', 'Tipo', 'Status',
+             'Início', 'Fim previsto', 'Fechamento', 'Sanitários', 'Valor (R$)', 'Observações'],
+            data.os.map(r => [
+              r.numero, r.customerName || '', r.customerDocument || '',
+              r.companyRazaoSocial || '', r.companyCnpj || '',
+              r.modalidade, r.tipoLocacao || '',
+              r.emAtraso ? 'em_atraso' : r.status,
+              r.dataInicio || '', r.dataFimPrevista || '', r.dataFechamento || '',
+              r.totalSanitarios, Number(r.valorTotal || 0).toFixed(2), r.observacoes || '',
+            ])),
+          ...sec('ITENS POR OS',
+            ['OS', 'Orçamento', 'Produto', 'Descrição', 'Qtd', 'Vlr Unit (R$)', 'Vlr Total (R$)'],
+            data.items.map(i => [
+              i.osNumero || '', i.quoteNumero, i.produto, i.descricao || '',
+              i.quantidade, Number(i.valorUnitario || 0).toFixed(2),
+              Number(i.valorTotal || 0).toFixed(2),
+            ])),
+          ...sec('SANITÁRIOS ALOCADOS',
+            ['OS', 'Sanitário', 'Alocado em', 'Devolvido em'],
+            data.sanitarios.map(s => [s.osNumero, s.sanitarioNumero, s.alocadoEm || '', s.devolvidoEm || ''])),
+          ...sec('MANUTENÇÕES (CUSTOS)',
+            ['Data', 'Caminhão', 'Placa', 'Tipo', 'Descrição', 'Status', 'Responsável', 'Custo (R$)'],
+            data.manutencoes.map(m => [
+              m.maintenanceDate || '', m.truckName || '', m.truckPlate || '',
+              m.tipo || '', m.description || '', m.status || '', m.performedBy || '',
+              Number(m.cost || 0).toFixed(2),
+            ])),
+        ];
+        downloadCsv(`financeiro_completo_${stamp}`, [], all);
+        toast.success('CSV completo gerado');
+      } else {
+        // PDF abrangente com seções
+        const { default: jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(14);
+        doc.text('Relatório Financeiro Completo — Ordens de Serviço', 14, 14);
+        doc.setFontSize(9); doc.setTextColor(100);
+        doc.text(`Período: ${periodo} · Gerado em ${new Date().toLocaleString('pt-BR')}`, 14, 20);
+
+        const T = data.totais;
+        autoTable(doc, {
+          startY: 25,
+          head: [['Métrica', 'Valor']],
+          body: [
+            ['Receita total', BRL(T.receitaTotal)],
+            ['Receita fechadas (realizada)', BRL(T.receitaFechadas)],
+            ['Receita abertas (prevista)', BRL(T.receitaAbertas)],
+            ['Receita em atraso', BRL(T.receitaEmAtraso)],
+            ['Custo manutenção', BRL(T.custoManutencao)],
+            ['Resultado líquido (fechadas − manutenção)', BRL(T.resultadoLiquido)],
+            ['Qtd OS / Manutenções', `${T.qtdOs} / ${T.qtdManutencoes}`],
+          ],
+          styles: { fontSize: 9 }, headStyles: { fillColor: [37, 99, 235] },
+        });
+
+        const addSection = (title: string, head: string[], body: any[][]) => {
+          if (!body.length) return;
+          doc.addPage();
+          doc.setFontSize(12); doc.setTextColor(0); doc.text(title, 14, 14);
+          autoTable(doc, {
+            startY: 18, head: [head], body,
+            styles: { fontSize: 8, cellPadding: 1.5 },
+            headStyles: { fillColor: [37, 99, 235] },
+            alternateRowStyles: { fillColor: [243, 244, 246] },
+          });
+        };
+
+        addSection('Breakdown por Status', ['Status', 'Qtd', 'Total'],
+          data.breakdowns.porStatus.map(b => [b.key, b.count, BRL(b.total)]));
+        addSection('Breakdown por Modalidade', ['Modalidade', 'Qtd', 'Total'],
+          data.breakdowns.porModalidade.map(b => [b.key, b.count, BRL(b.total)]));
+        addSection('Breakdown por Tipo de Locação', ['Tipo', 'Qtd', 'Total'],
+          data.breakdowns.porTipoLocacao.map(b => [b.key, b.count, BRL(b.total)]));
+        addSection('Breakdown por Empresa Emissora', ['Empresa', 'Qtd', 'Total'],
+          data.breakdowns.porEmpresa.map(b => [b.key, b.count, BRL(b.total)]));
+        addSection('Ordens de Serviço',
+          ['OS', 'Cliente', 'Modal.', 'Tipo', 'Status', 'Início', 'Fim', 'San.', 'Valor'],
+          data.os.map(r => [
+            r.numero, r.customerName || '—', r.modalidade, r.tipoLocacao || '—',
+            r.emAtraso ? 'EM ATRASO' : r.status, D(r.dataInicio), D(r.dataFimPrevista),
+            r.totalSanitarios, BRL(Number(r.valorTotal || 0)),
+          ]));
+        addSection('Itens por OS',
+          ['OS', 'Produto', 'Qtd', 'Vlr Unit', 'Vlr Total'],
+          data.items.map(i => [
+            i.osNumero || '—', i.produto, i.quantidade,
+            BRL(Number(i.valorUnitario || 0)), BRL(Number(i.valorTotal || 0)),
+          ]));
+        addSection('Sanitários Alocados',
+          ['OS', 'Sanitário', 'Alocado em', 'Devolvido em'],
+          data.sanitarios.map(s => [s.osNumero, s.sanitarioNumero, D(s.alocadoEm), D(s.devolvidoEm)]));
+        addSection('Manutenções (custos)',
+          ['Data', 'Caminhão', 'Tipo', 'Descrição', 'Status', 'Custo'],
+          data.manutencoes.map(m => [
+            D(m.maintenanceDate), `${m.truckName || ''} ${m.truckPlate || ''}`.trim(),
+            m.tipo || '—', m.description || '', m.status || '—', BRL(Number(m.cost || 0)),
+          ]));
+
+        doc.save(`financeiro_completo_${stamp}.pdf`);
+        toast.success('PDF completo gerado');
+      }
+    } catch (e: any) {
+      toast.dismiss('fincomp');
+      toast.error(e.message || 'Falha ao gerar relatório');
+    }
+  };
+
   const openHistorico = async () => {
     setHistOpen(true);
     await loadHist();
