@@ -1,18 +1,44 @@
 
-import React, { useState } from 'react';
-import { Menu, MapPin, Route, Truck, Settings, Users, ClipboardCheck, Container, FileText, ClipboardList } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Menu, MapPin, Route, Truck, Settings, Users, ClipboardCheck, Container, FileText, ClipboardList, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Map from '@/components/Map';
 import TrackingPanel from '@/components/TrackingPanel';
 import LinkRouteModal from '@/components/LinkRouteModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileOperatorIndex from '@/components/mobile/operator/MobileOperatorIndex';
+import { serviceOrdersService } from '@/services/quotes';
+import { toast } from 'sonner';
 
 const Index = () => {
   const isMobile = useIsMobile();
   const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
+  const [overdueCount, setOverdueCount] = useState(0);
+
+  useEffect(() => {
+    if (isMobile) return;
+    let mounted = true;
+    const check = async () => {
+      try {
+        const r = await serviceOrdersService.overdueCount();
+        if (!mounted) return;
+        if (r.overdue > 0 && r.overdue !== overdueCount) {
+          toast.warning(`${r.overdue} diária(s) em atraso para recolhimento`, {
+            duration: 8000,
+            action: { label: 'Ver OS', onClick: () => { window.location.href = '/erp/ordens-servico'; } },
+          });
+        }
+        setOverdueCount(r.overdue);
+      } catch {}
+    };
+    check();
+    const id = setInterval(check, 5 * 60 * 1000);
+    return () => { mounted = false; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
 
   // Render mobile version for operator
   if (isMobile) {
@@ -80,7 +106,12 @@ const Index = () => {
                     <Button key={index} variant="ghost" className="w-full justify-start text-white hover:bg-gray-800 text-sm" asChild>
                       <Link to={item.to}>
                         <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{item.label}</span>
+                        <span className="truncate flex-1">{item.label}</span>
+                        {item.to === '/erp/ordens-servico' && overdueCount > 0 && (
+                          <Badge className="bg-red-600 text-white text-[10px] h-5 gap-1 ml-auto">
+                            <AlertTriangle className="h-3 w-3" />{overdueCount}
+                          </Badge>
+                        )}
                       </Link>
                     </Button>
                   ))}
