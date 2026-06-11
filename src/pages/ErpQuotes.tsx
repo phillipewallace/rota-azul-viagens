@@ -228,9 +228,32 @@ const ErpQuotes: React.FC = () => {
                     <span>{q.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'}</span>
                     <span>{new Date(q.dataEmissao).toLocaleDateString('pt-BR')}</span>
                   </div>
+                  {q.tipoLocacao && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {q.tipoLocacao === 'obra' ? '🏗️ Obra' :
+                       q.tipoLocacao === 'evento' ? '🎉 Evento' :
+                       q.tipoLocacao === 'industria' ? '🏭 Indústria' : 'Outro'}
+                    </Badge>
+                  )}
                   <div className="text-right font-bold text-lg text-primary">{BRL(q.total)}</div>
                   <div className="flex gap-1 pt-2 border-t">
                     <Button size="sm" variant="ghost" className="flex-1" onClick={() => openEdit(q.id)}>Editar</Button>
+                    {q.status !== 'convertido' && (
+                      <Button size="sm" variant="ghost" className="text-purple-700 hover:bg-purple-50"
+                              title="Converter em Ordem de Serviço"
+                              onClick={async () => {
+                                if (!confirm(`Converter ${q.numero} em OS?`)) return;
+                                const dias = q.modalidade === 'diaria'
+                                  ? parseInt(prompt('Dias de locação?', '1') || '1') || 1 : 30;
+                                try {
+                                  const r = await quotesService.convertToOs(q.id, { dias });
+                                  toast.success(`OS ${r.osNumero} criada · ${r.sanitariosReservados} reservados`);
+                                  load();
+                                } catch (e: any) { toast.error(e.message); }
+                              }}>
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => removeQuote(q.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
