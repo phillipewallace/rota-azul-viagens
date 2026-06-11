@@ -25,6 +25,9 @@ import PublicChecklist from "./pages/PublicChecklist";
 import Carretinhas from "./pages/Carretinhas";
 import ErpQuotes from "./pages/ErpQuotes";
 import ServiceOrders from "./pages/ServiceOrders";
+import ErpLayout from "./pages/erp/ErpLayout";
+import ErpDashboard from "./pages/erp/ErpDashboard";
+import ErpCompanies from "./pages/erp/ErpCompanies";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
