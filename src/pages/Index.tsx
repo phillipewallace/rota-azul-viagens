@@ -58,11 +58,15 @@ const Index = () => {
     { icon: Container, label: 'Carretinhas', to: '/carretinhas' },
     { icon: ClipboardCheck, label: 'Checklists', to: '/checklists' },
     { icon: Users, label: 'Clientes', to: '/customers' },
-    { icon: FileText, label: 'Orçamentos', to: '/erp/orcamentos' },
-    { icon: ClipboardList, label: 'Ordens de Serviço', to: '/erp/ordens-servico' },
     { icon: Settings, label: 'Gerenciamento', to: '/management' },
     { icon: Users, label: 'Motoristas', to: '/drivers' },
     { icon: Settings, label: 'Configurações', to: '/settings' },
+  ];
+
+  const erpItems = [
+    { icon: FileText, label: 'Orçamentos', to: '/erp/orcamentos' },
+    { icon: ClipboardList, label: 'Ordens de Serviço', to: '/erp/ordens-servico' },
+    { icon: Settings, label: 'Gestão Interna (ERP)', to: '/gestao-interna' },
   ];
 
   return (
