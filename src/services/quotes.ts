@@ -17,6 +17,7 @@ async function req<T>(method: string, path: string, body?: any): Promise<T> {
 }
 
 export type Modalidade = 'diaria' | 'mensal';
+export type TipoLocacao = 'obra' | 'evento' | 'industria' | 'outro';
 export type QuoteStatus = 'rascunho' | 'enviado' | 'aprovado' | 'recusado' | 'convertido';
 
 export interface QuoteItem {
@@ -41,6 +42,7 @@ export interface Quote {
   customerSnapshot?: any;
   companySnapshot?: any;
   modalidade: Modalidade;
+  tipoLocacao?: TipoLocacao;
   dataEmissao: string;
   validadeDias: number;
   observacoes?: string;
@@ -79,6 +81,7 @@ export interface ServiceOrder {
   customerName?: string;
   companyRazaoSocial?: string;
   modalidade: Modalidade;
+  tipoLocacao?: TipoLocacao;
   dataInicio: string;
   dataFimPrevista?: string;
   dataFechamento?: string;
@@ -105,4 +108,21 @@ export const serviceOrdersService = {
   close: (id: string) => req<{ ok: true }>('POST', `/erp/service-orders/${id}/close`, {}),
   remove: (id: string) => req<{ ok: true }>('DELETE', `/erp/service-orders/${id}`),
   overdueCount: () => req<{ overdue: number }>('GET', `/erp/service-orders/overdue/count`),
+  financial: (params?: { from?: string; to?: string; status?: string; tipoLocacao?: string }) => {
+    const q = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc: any, [k, v]) => {
+        if (v) acc[k] = String(v); return acc;
+      }, {})
+    ).toString();
+    return req<{ rows: any[]; totals: { total: number; fechadas: number; abertas: number; count: number } }>(
+      'GET', `/erp/service-orders/financial/summary${q ? '?' + q : ''}`);
+  },
+  movements: (params?: { from?: string; to?: string; sanitarioNumero?: string; type?: string; limit?: number }) => {
+    const q = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc: any, [k, v]) => {
+        if (v !== undefined && v !== null && v !== '') acc[k] = String(v); return acc;
+      }, {})
+    ).toString();
+    return req<any[]>('GET', `/erp/service-orders/movements/history${q ? '?' + q : ''}`);
+  },
 };

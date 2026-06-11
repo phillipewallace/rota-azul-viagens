@@ -27,6 +27,7 @@ interface EditorState {
   companyId?: string;
   customerId?: string;
   modalidade: 'diaria' | 'mensal';
+  tipoLocacao?: 'obra' | 'evento' | 'industria' | 'outro';
   validadeDias: number;
   descontoPct: number;
   frete: number;
@@ -37,7 +38,7 @@ interface EditorState {
 }
 
 const emptyEditor = (): EditorState => ({
-  modalidade: 'mensal', validadeDias: 15, descontoPct: 0, frete: 0,
+  modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
   observacoes: '', condicoesPagamento: '50% na contratação, 50% na entrega.',
   status: 'rascunho',
   items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
@@ -97,7 +98,8 @@ const ErpQuotes: React.FC = () => {
       const q = await quotesService.get(id);
       setEditing({
         id: q.id, companyId: q.companyId, customerId: q.customerId,
-        modalidade: q.modalidade, validadeDias: q.validadeDias,
+        modalidade: q.modalidade, tipoLocacao: (q as any).tipoLocacao || undefined,
+        validadeDias: q.validadeDias,
         descontoPct: Number(q.descontoPct), frete: Number(q.frete),
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
         status: q.status,
@@ -132,7 +134,8 @@ const ErpQuotes: React.FC = () => {
       const full = await quotesService.get(id!);
       setEditing({
         id: full.id, companyId: full.companyId, customerId: full.customerId,
-        modalidade: full.modalidade, validadeDias: full.validadeDias,
+        modalidade: full.modalidade, tipoLocacao: (full as any).tipoLocacao || undefined,
+        validadeDias: full.validadeDias,
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
         status: full.status, items: full.items || [],
@@ -225,9 +228,32 @@ const ErpQuotes: React.FC = () => {
                     <span>{q.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'}</span>
                     <span>{new Date(q.dataEmissao).toLocaleDateString('pt-BR')}</span>
                   </div>
+                  {q.tipoLocacao && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {q.tipoLocacao === 'obra' ? '🏗️ Obra' :
+                       q.tipoLocacao === 'evento' ? '🎉 Evento' :
+                       q.tipoLocacao === 'industria' ? '🏭 Indústria' : 'Outro'}
+                    </Badge>
+                  )}
                   <div className="text-right font-bold text-lg text-primary">{BRL(q.total)}</div>
                   <div className="flex gap-1 pt-2 border-t">
                     <Button size="sm" variant="ghost" className="flex-1" onClick={() => openEdit(q.id)}>Editar</Button>
+                    {q.status !== 'convertido' && (
+                      <Button size="sm" variant="ghost" className="text-purple-700 hover:bg-purple-50"
+                              title="Converter em Ordem de Serviço"
+                              onClick={async () => {
+                                if (!confirm(`Converter ${q.numero} em OS?`)) return;
+                                const dias = q.modalidade === 'diaria'
+                                  ? parseInt(prompt('Dias de locação?', '1') || '1') || 1 : 30;
+                                try {
+                                  const r = await quotesService.convertToOs(q.id, { dias });
+                                  toast.success(`OS ${r.osNumero} criada · ${r.sanitariosReservados} reservados`);
+                                  load();
+                                } catch (e: any) { toast.error(e.message); }
+                              }}>
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => removeQuote(q.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -288,6 +314,24 @@ const ErpQuotes: React.FC = () => {
                             size="sm" className="flex-1"
                             onClick={() => setEditing({ ...editing, modalidade: 'mensal' })}>Mensal</Button>
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground">Tipo de locação</label>
+                <div className="flex gap-1 flex-wrap">
+                  {([
+                    { v: 'obra', l: '🏗️ Obra' },
+                    { v: 'evento', l: '🎉 Evento' },
+                    { v: 'industria', l: '🏭 Indústria' },
+                    { v: 'outro', l: 'Outro' },
+                  ] as const).map(o => (
+                    <Button key={o.v} type="button" size="sm"
+                            variant={editing.tipoLocacao === o.v ? 'default' : 'outline'}
+                            onClick={() => setEditing({ ...editing, tipoLocacao: o.v })}>
+                      {o.l}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
