@@ -327,8 +327,16 @@ export default function Sanitarios() {
           </Card>
           <Card>
             <CardContent className="p-3">
-              <div className="text-[11px] uppercase text-muted-foreground">Em OS</div>
+              <div className="text-[11px] uppercase text-muted-foreground flex items-center justify-between">
+                <span>Em OS</span>
+                {!!stock.atrasados && (
+                  <span className="text-[10px] text-red-600 font-bold">{stock.atrasados} atrasada(s)</span>
+                )}
+              </div>
               <div className="text-2xl font-bold text-purple-700">{stock.em_os}</div>
+              {!!stock.reservadosEmOs && (
+                <div className="text-[10px] text-muted-foreground">{stock.reservadosEmOs} reservado(s)</div>
+              )}
             </CardContent>
           </Card>
           <Card>
