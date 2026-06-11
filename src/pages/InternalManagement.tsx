@@ -158,9 +158,8 @@ const InternalManagement: React.FC = () => {
                 />
               </TabsContent>
 
-              <TabsContent value="vehicles" className="mt-6">
-                <VehiclesView />
-              </TabsContent>
+
+
 
               <TabsContent value="categories" className="mt-6">
                 <CategoriesView
