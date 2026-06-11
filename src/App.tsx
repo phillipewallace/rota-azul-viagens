@@ -180,21 +180,20 @@ function App() {
               }
             />
             <Route
-              path="/erp/orcamentos"
+              path="/erp"
               element={
                 <ProtectedRoute>
-                  <ErpQuotes />
+                  <ErpLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="/erp/ordens-servico"
-              element={
-                <ProtectedRoute>
-                  <ServiceOrders />
-                </ProtectedRoute>
-              }
-            />
+            >
+              <Route index element={<ErpDashboard />} />
+              <Route path="orcamentos" element={<ErpQuotes />} />
+              <Route path="ordens-servico" element={<ServiceOrders />} />
+              <Route path="clientes" element={<Customers />} />
+              <Route path="estoque" element={<InternalManagement />} />
+              <Route path="empresas" element={<ErpCompanies />} />
+            </Route>
             <Route
               element={
                 <ProtectedRoute>
