@@ -54,6 +54,74 @@ router.get('/overdue/count', async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// Resumo financeiro: receita por período, status, tipo de locação
+router.get('/financial/summary', async (req, res) => {
+  try {
+    const { from, to, status, tipoLocacao } = req.query as any;
+    const conds: string[] = [];
+    const params: any[] = [];
+    if (from) { params.push(from); conds.push(`o.data_inicio >= $${params.length}`); }
+    if (to)   { params.push(to);   conds.push(`o.data_inicio <= $${params.length}`); }
+    if (status) { params.push(status); conds.push(`o.status = $${params.length}`); }
+    if (tipoLocacao) { params.push(tipoLocacao); conds.push(`o.tipo_locacao = $${params.length}`); }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const rows = await pool.query(
+      `SELECT o.id, o.numero, o.modalidade, o.tipo_locacao AS "tipoLocacao",
+              o.status, o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
+              o.data_fechamento AS "dataFechamento", o.valor_total AS "valorTotal",
+              cu.customer_name AS "customerName", c.razao_social AS "companyRazaoSocial",
+              (o.status='aberta' AND o.modalidade='diaria'
+               AND o.data_fim_prevista IS NOT NULL
+               AND o.data_fim_prevista < CURRENT_DATE) AS "emAtraso"
+         FROM erp_service_orders o
+         LEFT JOIN customers cu ON cu.id = o.customer_id
+         LEFT JOIN erp_companies c ON c.id = o.company_id
+         ${where}
+         ORDER BY o.data_inicio DESC LIMIT 2000`,
+      params
+    );
+    const tot = rows.rows.reduce((a, r) => a + Number(r.valorTotal || 0), 0);
+    const totFechadas = rows.rows.filter(r => r.status === 'fechada').reduce((a, r) => a + Number(r.valorTotal || 0), 0);
+    const totAbertas = rows.rows.filter(r => r.status === 'aberta').reduce((a, r) => a + Number(r.valorTotal || 0), 0);
+    res.json({
+      rows: rows.rows,
+      totals: {
+        total: +tot.toFixed(2),
+        fechadas: +totFechadas.toFixed(2),
+        abertas: +totAbertas.toFixed(2),
+        count: rows.rows.length,
+      },
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// Histórico de movimentação de sanitários (entrega/recolhimento/manutenção)
+router.get('/movements/history', async (req, res) => {
+  try {
+    const { from, to, sanitarioNumero, type, limit } = req.query as any;
+    const conds: string[] = [];
+    const params: any[] = [];
+    if (from) { params.push(from); conds.push(`m.occurred_at >= $${params.length}`); }
+    if (to)   { params.push(to);   conds.push(`m.occurred_at <= ($${params.length}::timestamptz + INTERVAL '1 day')`); }
+    if (sanitarioNumero) { params.push(`%${sanitarioNumero}%`); conds.push(`m.sanitario_numero ILIKE $${params.length}`); }
+    if (type) { params.push(type); conds.push(`m.operation_type = $${params.length}`); }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const lim = Math.min(parseInt(limit) || 500, 2000);
+    const r = await pool.query(
+      `SELECT m.id, m.sanitario_id AS "sanitarioId", m.sanitario_numero AS "sanitarioNumero",
+              m.operation_type AS "operationType", m.customer_name AS "customerName",
+              m.address, m.driver_name AS "driverName", m.occurred_at AS "occurredAt", m.notes,
+              m.route_id AS "routeId"
+         FROM sanitario_movimentacoes m
+         ${where}
+         ORDER BY m.occurred_at DESC LIMIT ${lim}`,
+      params
+    );
+    res.json(r.rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+
 router.get('/:id', async (req, res) => {
   try {
     const o = await pool.query(`SELECT * FROM erp_service_orders WHERE id=$1`, [req.params.id]);
