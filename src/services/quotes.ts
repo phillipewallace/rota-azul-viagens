@@ -125,4 +125,19 @@ export const serviceOrdersService = {
     ).toString();
     return req<any[]>('GET', `/erp/service-orders/movements/history${q ? '?' + q : ''}`);
   },
+  financialComplete: (params?: { from?: string; to?: string }) => {
+    const q = new URLSearchParams(
+      Object.entries(params || {}).reduce((acc: any, [k, v]) => { if (v) acc[k] = String(v); return acc; }, {})
+    ).toString();
+    return req<{
+      periodo: { from: string | null; to: string | null };
+      os: any[]; items: any[]; sanitarios: any[]; manutencoes: any[];
+      breakdowns: { porStatus: any[]; porModalidade: any[]; porTipoLocacao: any[]; porEmpresa: any[] };
+      totais: {
+        receitaTotal: number; receitaFechadas: number; receitaAbertas: number;
+        receitaEmAtraso: number; custoManutencao: number; resultadoLiquido: number;
+        qtdOs: number; qtdManutencoes: number;
+      };
+    }>('GET', `/erp/service-orders/financial/complete${q ? '?' + q : ''}`);
+  },
 };
