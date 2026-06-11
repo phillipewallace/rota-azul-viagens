@@ -294,6 +294,24 @@ const ErpQuotes: React.FC = () => {
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs text-muted-foreground">Tipo de locação</label>
+                <div className="flex gap-1 flex-wrap">
+                  {([
+                    { v: 'obra', l: '🏗️ Obra' },
+                    { v: 'evento', l: '🎉 Evento' },
+                    { v: 'industria', l: '🏭 Indústria' },
+                    { v: 'outro', l: 'Outro' },
+                  ] as const).map(o => (
+                    <Button key={o.v} type="button" size="sm"
+                            variant={editing.tipoLocacao === o.v ? 'default' : 'outline'}
+                            onClick={() => setEditing({ ...editing, tipoLocacao: o.v })}>
+                      {o.l}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
               {/* Tabela de itens */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 bg-gray-100 text-xs font-semibold">
