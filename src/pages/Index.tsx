@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Menu, MapPin, Route, Truck, Settings, Users, ClipboardCheck, Container, FileText, ClipboardList, AlertTriangle } from 'lucide-react';
+import { Menu, MapPin, Route, Truck, Settings, Users, ClipboardCheck, Container, FileText, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
