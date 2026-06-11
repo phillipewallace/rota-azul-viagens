@@ -139,6 +139,8 @@ export interface SanitarioStockSummary {
   manutencao: number;
   inativo: number;
   em_os: number;
+  reservadosEmOs?: number;
+  atrasados?: number;
   total: number;
 }
 
