@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const r = await pool.query(`
       SELECT o.id, o.numero, o.quote_id AS "quoteId", o.company_id AS "companyId",
-             o.customer_id AS "customerId", o.modalidade,
+             o.customer_id AS "customerId", o.modalidade, o.tipo_locacao AS "tipoLocacao",
              o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
              o.data_fechamento AS "dataFechamento", o.status,
              o.valor_total AS "valorTotal", o.observacoes,
@@ -84,10 +84,10 @@ router.post('/', async (req, res) => {
     const r = await client.query(
       `INSERT INTO erp_service_orders
          (numero, company_id, customer_id, customer_snapshot,
-          modalidade, data_inicio, data_fim_prevista, status, valor_total, observacoes)
-       VALUES ($1,$2,$3,$4,$5,COALESCE($6,CURRENT_DATE),$7,'aberta',$8,$9) RETURNING id`,
+          modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes)
+       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,'aberta',$9,$10) RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, snap,
-       c.modalidade || 'diaria', c.dataInicio || null, c.dataFimPrevista || null,
+       c.modalidade || 'diaria', c.tipoLocacao || null, c.dataInicio || null, c.dataFimPrevista || null,
        c.valorTotal || 0, c.observacoes || null]
     );
     const osId = r.rows[0].id;
