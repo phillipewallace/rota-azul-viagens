@@ -27,6 +27,7 @@ interface EditorState {
   companyId?: string;
   customerId?: string;
   modalidade: 'diaria' | 'mensal';
+  tipoLocacao?: 'obra' | 'evento' | 'industria' | 'outro';
   validadeDias: number;
   descontoPct: number;
   frete: number;
@@ -37,7 +38,7 @@ interface EditorState {
 }
 
 const emptyEditor = (): EditorState => ({
-  modalidade: 'mensal', validadeDias: 15, descontoPct: 0, frete: 0,
+  modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
   observacoes: '', condicoesPagamento: '50% na contratação, 50% na entrega.',
   status: 'rascunho',
   items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
@@ -97,7 +98,8 @@ const ErpQuotes: React.FC = () => {
       const q = await quotesService.get(id);
       setEditing({
         id: q.id, companyId: q.companyId, customerId: q.customerId,
-        modalidade: q.modalidade, validadeDias: q.validadeDias,
+        modalidade: q.modalidade, tipoLocacao: (q as any).tipoLocacao || undefined,
+        validadeDias: q.validadeDias,
         descontoPct: Number(q.descontoPct), frete: Number(q.frete),
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
         status: q.status,
@@ -132,7 +134,8 @@ const ErpQuotes: React.FC = () => {
       const full = await quotesService.get(id!);
       setEditing({
         id: full.id, companyId: full.companyId, customerId: full.customerId,
-        modalidade: full.modalidade, validadeDias: full.validadeDias,
+        modalidade: full.modalidade, tipoLocacao: (full as any).tipoLocacao || undefined,
+        validadeDias: full.validadeDias,
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
         status: full.status, items: full.items || [],
