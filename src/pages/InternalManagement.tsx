@@ -29,7 +29,7 @@ import {
   ErpCategory, ErpItem, ErpEmployee, ErpMovement, ErpDashboard,
 } from '@/services/erp';
 import { useAuth } from '@/hooks/useAuth';
-import VehiclesView from '@/components/erp/VehiclesView';
+
 
 const movementLabel: Record<string, string> = {
   in: 'Entrada', out: 'Retirada', adjust: 'Ajuste', discard: 'Descarte',
