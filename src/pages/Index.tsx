@@ -63,11 +63,8 @@ const Index = () => {
     { icon: Settings, label: 'Configurações', to: '/settings' },
   ];
 
-  const erpItems = [
-    { icon: FileText, label: 'Orçamentos', to: '/erp/orcamentos' },
-    { icon: ClipboardList, label: 'Ordens de Serviço', to: '/erp/ordens-servico' },
-    { icon: Settings, label: 'Gestão Interna (ERP)', to: '/gestao-interna' },
-  ];
+  // ERP é um módulo separado e abre em nova aba — compartilha dados com o sistema principal
+
 
   return (
     <div className="min-h-screen bg-background flex">
