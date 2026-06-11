@@ -95,6 +95,137 @@ router.get('/financial/summary', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// Relatório financeiro COMPLETO: OS + itens (via quote) + sanitários + manutenções + breakdowns
+router.get('/financial/complete', async (req, res) => {
+  try {
+    const { from, to } = req.query as any;
+    const conds: string[] = [];
+    const params: any[] = [];
+    if (from) { params.push(from); conds.push(`o.data_inicio >= $${params.length}`); }
+    if (to)   { params.push(to);   conds.push(`o.data_inicio <= $${params.length}`); }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+
+    const os = await pool.query(
+      `SELECT o.id, o.numero, o.modalidade, o.tipo_locacao AS "tipoLocacao",
+              o.status, o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
+              o.data_fechamento AS "dataFechamento", o.valor_total AS "valorTotal",
+              o.observacoes, o.quote_id AS "quoteId",
+              cu.customer_name AS "customerName", cu.document AS "customerDocument",
+              c.razao_social AS "companyRazaoSocial", c.cnpj AS "companyCnpj",
+              (o.status='aberta' AND o.modalidade='diaria'
+               AND o.data_fim_prevista IS NOT NULL
+               AND o.data_fim_prevista < CURRENT_DATE) AS "emAtraso",
+              COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s WHERE s.os_id=o.id),0)::int AS "totalSanitarios",
+              COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s WHERE s.os_id=o.id AND s.devolvido_em IS NULL),0)::int AS "sanitariosAtivos"
+         FROM erp_service_orders o
+         LEFT JOIN customers cu ON cu.id = o.customer_id
+         LEFT JOIN erp_companies c ON c.id = o.company_id
+         ${where}
+         ORDER BY o.data_inicio DESC LIMIT 5000`,
+      params
+    );
+
+    // Itens dos orçamentos vinculados
+    const quoteIds = os.rows.map(r => r.quoteId).filter(Boolean);
+    let items: any[] = [];
+    if (quoteIds.length) {
+      const it = await pool.query(
+        `SELECT qi.quote_id AS "quoteId", q.numero AS "quoteNumero",
+                o.numero AS "osNumero",
+                qi.produto, qi.descricao, qi.quantidade,
+                qi.valor_unitario AS "valorUnitario", qi.valor_total AS "valorTotal"
+           FROM erp_quote_items qi
+           JOIN erp_quotes q ON q.id = qi.quote_id
+           LEFT JOIN erp_service_orders o ON o.quote_id = q.id
+          WHERE qi.quote_id = ANY($1::uuid[])
+          ORDER BY o.numero, qi.ordem`,
+        [quoteIds]
+      );
+      items = it.rows;
+    }
+
+    // Sanitários alocados por OS
+    const osIds = os.rows.map(r => r.id);
+    let sanitarios: any[] = [];
+    if (osIds.length) {
+      const sn = await pool.query(
+        `SELECT o.numero AS "osNumero", s.numero AS "sanitarioNumero",
+                eos.alocado_em AS "alocadoEm", eos.devolvido_em AS "devolvidoEm"
+           FROM erp_os_sanitarios eos
+           JOIN erp_service_orders o ON o.id = eos.os_id
+           JOIN sanitarios s ON s.id = eos.sanitario_id
+          WHERE eos.os_id = ANY($1::uuid[])
+          ORDER BY o.numero, s.numero`,
+        [osIds]
+      );
+      sanitarios = sn.rows;
+    }
+
+    // Manutenções no mesmo período (impacto financeiro)
+    const maintConds: string[] = [];
+    const maintParams: any[] = [];
+    if (from) { maintParams.push(from); maintConds.push(`m.maintenance_date >= $${maintParams.length}`); }
+    if (to)   { maintParams.push(to);   maintConds.push(`m.maintenance_date <= $${maintParams.length}`); }
+    const mwhere = maintConds.length ? `WHERE ${maintConds.join(' AND ')}` : '';
+    const maint = await pool.query(
+      `SELECT m.id, m.maintenance_date AS "maintenanceDate",
+              COALESCE(m.maintenance_type, m.type) AS "tipo",
+              m.description, m.cost, m.status, m.performed_by AS "performedBy",
+              t.name AS "truckName", t.plate AS "truckPlate"
+         FROM maintenance_records m
+         LEFT JOIN trucks t ON t.id = m.truck_id
+         ${mwhere}
+         ORDER BY m.maintenance_date DESC LIMIT 5000`,
+      maintParams
+    );
+
+    // Breakdowns
+    const bd = (key: string) => {
+      const m: Record<string, { count: number; total: number }> = {};
+      for (const r of os.rows) {
+        const k = (r[key] || '—') as string;
+        if (!m[k]) m[k] = { count: 0, total: 0 };
+        m[k].count++;
+        m[k].total += Number(r.valorTotal || 0);
+      }
+      return Object.entries(m).map(([k, v]) => ({ key: k, count: v.count, total: +v.total.toFixed(2) }));
+    };
+
+    const totReceita = os.rows.reduce((a, r) => a + Number(r.valorTotal || 0), 0);
+    const totFechadas = os.rows.filter(r => r.status === 'fechada').reduce((a, r) => a + Number(r.valorTotal || 0), 0);
+    const totAbertas = os.rows.filter(r => r.status === 'aberta').reduce((a, r) => a + Number(r.valorTotal || 0), 0);
+    const totAtraso = os.rows.filter(r => r.emAtraso).reduce((a, r) => a + Number(r.valorTotal || 0), 0);
+    const totManutencao = maint.rows.reduce((a, r) => a + Number(r.cost || 0), 0);
+
+    res.json({
+      periodo: { from: from || null, to: to || null },
+      os: os.rows,
+      items,
+      sanitarios,
+      manutencoes: maint.rows,
+      breakdowns: {
+        porStatus: bd('status'),
+        porModalidade: bd('modalidade'),
+        porTipoLocacao: bd('tipoLocacao'),
+        porEmpresa: bd('companyRazaoSocial'),
+      },
+      totais: {
+        receitaTotal: +totReceita.toFixed(2),
+        receitaFechadas: +totFechadas.toFixed(2),
+        receitaAbertas: +totAbertas.toFixed(2),
+        receitaEmAtraso: +totAtraso.toFixed(2),
+        custoManutencao: +totManutencao.toFixed(2),
+        resultadoLiquido: +(totFechadas - totManutencao).toFixed(2),
+        qtdOs: os.rows.length,
+        qtdManutencoes: maint.rows.length,
+      },
+    });
+  } catch (e: any) {
+    console.error('[financial/complete]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Histórico de movimentação de sanitários (entrega/recolhimento/manutenção)
 router.get('/movements/history', async (req, res) => {
   try {
