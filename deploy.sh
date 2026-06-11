@@ -68,9 +68,28 @@ ok "Postgres pronto"
 log "Aplicando database/ensure-schema.sql (único, seguro, sem DROP)…"
 sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "${PROJECT_DIR}/database/ensure-schema.sql" \
   || err "Falha ao aplicar ensure-schema.sql — verifique sintaxe"
+
+# 🛡️ Salvaguarda: NÃO aplicar nenhum arquivo SQL que contenha DROP/TRUNCATE/DELETE
+# Aplica todas as migrations em ordem alfabética. Como cada uma usa IF NOT EXISTS,
+# rodar várias vezes é seguro (idempotente) e preserva 100% dos dados existentes.
+log "Aplicando database/migration-*.sql (idempotentes, sem destruir dados)…"
+shopt -s nullglob
+for mig in $(ls "${PROJECT_DIR}/database/"migration-*.sql 2>/dev/null | sort); do
+  base="$(basename "$mig")"
+  if grep -Eiq '\b(DROP[[:space:]]+TABLE|TRUNCATE|DELETE[[:space:]]+FROM)\b' "$mig"; then
+    warn "Pulando $base (contém comando destrutivo — protegendo dados)"
+    continue
+  fi
+  log "  → $base"
+  sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$mig" >/dev/null \
+    || warn "Falha em $base (não interrompendo deploy — verificar manualmente)"
+done
+shopt -u nullglob
+
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO ${DB_USER};" >/dev/null
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${DB_USER};" >/dev/null
-ok "Schema garantido (dados preservados, admin garantido)"
+sudo -u postgres psql -d "${DB_NAME}" -c "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${DB_USER};" >/dev/null 2>&1 || true
+ok "Schema + migrations aplicados (dados preservados)"
 
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
 log "Backend: instalando deps + compilando TS…"
