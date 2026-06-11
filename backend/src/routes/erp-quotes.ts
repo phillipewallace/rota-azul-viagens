@@ -8,7 +8,8 @@ router.use(requireAuth);
 const QUOTE_SELECT = `
   q.id, q.numero, q.company_id AS "companyId", q.customer_id AS "customerId",
   q.customer_snapshot AS "customerSnapshot", q.company_snapshot AS "companySnapshot",
-  q.modalidade, q.data_emissao AS "dataEmissao", q.validade_dias AS "validadeDias",
+  q.modalidade, q.tipo_locacao AS "tipoLocacao",
+  q.data_emissao AS "dataEmissao", q.validade_dias AS "validadeDias",
   q.observacoes, q.condicoes_pagamento AS "condicoesPagamento",
   q.desconto_pct AS "descontoPct", q.frete, q.subtotal, q.total,
   q.status, q.pdf_gerado_em AS "pdfGeradoEm",
@@ -100,12 +101,12 @@ router.post('/', async (req, res) => {
     const ins = await client.query(
       `INSERT INTO erp_quotes
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
-          modalidade, data_emissao, validade_dias, observacoes, condicoes_pagamento,
+          modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
           desconto_pct, frete, subtotal, total, status)
-       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,$9,$10,$11,$12,$13,$14,COALESCE($15,'rascunho'))
+       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'))
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
-       c.modalidade || 'mensal', c.dataEmissao || null, c.validadeDias || 15,
+       c.modalidade || 'mensal', c.tipoLocacao || null, c.dataEmissao || null, c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct || 0, c.frete || 0, subtotal, total, c.status]
     );
@@ -151,6 +152,7 @@ router.put('/:id', async (req, res) => {
          company_id = COALESCE($2, company_id),
          customer_id = COALESCE($3, customer_id),
          modalidade = COALESCE($4, modalidade),
+         tipo_locacao = COALESCE($14, tipo_locacao),
          data_emissao = COALESCE($5, data_emissao),
          validade_dias = COALESCE($6, validade_dias),
          observacoes = $7,
@@ -164,7 +166,7 @@ router.put('/:id', async (req, res) => {
       [req.params.id, c.companyId || null, c.customerId || null,
        c.modalidade || null, c.dataEmissao || null, c.validadeDias || null,
        c.observacoes || null, c.condicoesPagamento || null,
-       c.descontoPct, c.frete, subtotal, total, c.status || null]
+       c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null]
     );
 
     if (items) {
@@ -223,11 +225,11 @@ router.post('/:id/convert-to-os', async (req, res) => {
     const osIns = await client.query(
       `INSERT INTO erp_service_orders
          (numero, quote_id, company_id, customer_id, customer_snapshot,
-          modalidade, data_inicio, data_fim_prevista, status, valor_total, observacoes)
-       VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE, ${fimPrevista}, 'aberta', $7, $8)
+          modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9)
        RETURNING id, numero`,
       [numero, quote.id, quote.company_id, quote.customer_id, quote.customer_snapshot,
-       quote.modalidade, quote.total, quote.observacoes]
+       quote.modalidade, quote.tipo_locacao, quote.total, quote.observacoes]
     );
     const osId = osIns.rows[0].id;
 
