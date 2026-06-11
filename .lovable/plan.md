@@ -1,128 +1,147 @@
-# Refatoração Completa do Módulo ERP
+# Plano — Clientes, Orçamentos (PDF), Estoque automático e Atraso de diárias
 
-Escopo grande — vou organizar em fases para entregar com qualidade. Antes de começar preciso confirmar alguns pontos chave (no fim do plano).
-
-## Visão Geral
-
-Transformar o ERP atual (que hoje só tem itens/categorias/funcionários/veículos) num ERP operacional completo, integrado ao módulo de roteirização e com módulo financeiro próprio.
-
-## Fase 1 — Sanitários como item de estoque do ERP
-
-- Migrar os sanitários da aba de roteirização para dentro do ERP, mas mantendo a visualização atual em "Sanitários" da roteirização (passa a ler do ERP).
-- Cada sanitário continua tendo **numeração única** (não é só quantidade — é estoque serializado).
-- Status por unidade: `disponivel`, `em_os` (alocado a uma OS), `manutencao`, `inativo`.
-- Na aba "Sanitários" da roteirização: mostrar **quantidade máxima disponível em estoque** (contagem dos que estão `disponivel`) + lista atual já existente.
-
-## Fase 2 — Configurações: até 3 CNPJs (Empresas Emissoras)
-
-- Nova seção em **Configurações → Empresas Emissoras**: cadastrar até 3 CNPJs (razão social, CNPJ, IE, endereço, telefone, e-mail, logo opcional).
-- Esses CNPJs aparecem como seletor obrigatório ao gerar Orçamento ou OS.
-
-## Fase 3 — Orçamentos
-
-- Nova aba **Orçamentos** no ERP.
-- Campos: cliente (da aba clientes), CNPJ emissor, modalidade (diária/mensal), quantidade de sanitários, valor, prazo, observações, itens extras.
-- **Geração de PDF** com layout profissional (logo + dados do CNPJ emissor + cliente + itens + valores + assinatura).
-- Botão **"Converter em OS"** dentro do orçamento — gera a OS automaticamente herdando todos os dados e já reservando os sanitários no estoque.
-
-## Fase 4 — Ordens de Serviço (OS)
-
-- Nova aba **Ordens de Serviço** no ERP.
-- Ao abrir OS: selecionar quantos sanitários e **quais numerações** (ou auto-alocar dos disponíveis). Cada sanitário alocado fica `em_os`.
-- Modalidades:
-  - **Diária**: data início + data fim prevista. Quando passa do prazo sem fechamento → notificação + flag "atrasado" no painel. Ao fechar manualmente → contabiliza pagamento único no financeiro.
-  - **Mensal**: gera lançamento financeiro recorrente automático todo mês enquanto a OS estiver aberta. Cada mês tem botão "Pago/Não pago"; ao marcar como pago contabiliza no financeiro.
-- **Notificação ao gerar OS**: "Ordem de serviço Nº X foi gerada. Sanitários: 0123, 0124, 0125."
-- **PDF da OS** com mesmo padrão visual do orçamento.
-- Ao fechar OS: sanitários voltam para `disponivel` (e idealmente entram numa rota de recolhimento — mas isso pode ficar pra depois).
-
-## Fase 5 — Módulo Financeiro
-
-Nova aba **Financeiro** no ERP, agregando:
-- **Receitas**: pagamentos de OS (diárias fechadas + mensais marcadas como pagas), com data, cliente, OS de origem, CNPJ emissor, valor.
-- **Despesas**: manutenções (já existentes em `/maintenance`) — exibir valor, descrição do serviço e caminhão.
-- Filtros por período, por CNPJ, por tipo.
-- Totalizadores: receita do mês, despesa do mês, saldo.
-- Painel com cards: OSs em atraso (diárias), mensalidades em aberto, próximos vencimentos.
-
-## Fase 6 — Integração Roteirização ↔ ERP
-
-- Aba "Sanitários" da roteirização: badge "X disponíveis em estoque" lendo do ERP.
-- Quando uma rota faz `entrega` de um sanitário → automaticamente vincula à OS correspondente (se existir) ou cria movimentação avulsa.
-- Quando faz `recolhimento` → libera o sanitário no ERP.
+Entrega focada nos 4 pedidos. Tudo integrado ao ERP já iniciado (Fases 1+2 prontas: CNPJs emissores + resumo de estoque).
 
 ---
 
-## Detalhes Técnicos
+## 1. Aba Clientes (cadastro completo)
 
-### Backend (novas tabelas + endpoints)
+Expandir a tabela `customers` existente — sem quebrar o que já usa (rotas, sanitários, histórico).
+
+**Novos campos** (migration aditiva, todos opcionais):
+- `person_type` ('PF' | 'PJ', default 'PJ')
+- `document` (CPF ou CNPJ, único quando preenchido)
+- `ie` (inscrição estadual), `im` (inscrição municipal)
+- `email`
+- `numero`, `complemento`, `bairro`, `cidade`, `estado`
+- `responsavel_nome`, `responsavel_cpf`
+- `tipo_cliente` ('eventos' | 'obra' | 'industria' | 'outro')
+
+**UI** em `src/pages/Customers.tsx`:
+- Modal de edição com abas: **Dados Cadastrais | Endereço | Contato | Observações**.
+- Toggle PF/PJ que troca a máscara (CPF 000.000.000-00 / CNPJ 00.000.000/0000-00) e os campos exibidos.
+- Validação de CPF/CNPJ (dígitos verificadores) com `zod`.
+- Auto-preenchimento via CEP (ViaCEP) já existente — estender para preencher cidade/estado/bairro.
+- Card do cliente passa a mostrar documento + cidade/UF.
+
+## 2. Aba Orçamentos no ERP
+
+Novas tabelas:
+```text
+erp_quotes (
+  id uuid pk, numero text unique,            -- ORC-AAAA-NNNN
+  company_id uuid fk erp_companies,           -- CNPJ emissor
+  customer_id uuid fk customers,
+  modalidade text ('diaria'|'mensal'),
+  data_emissao date, validade_dias int,
+  observacoes text, condicoes_pagamento text,
+  desconto_pct numeric, frete numeric,
+  subtotal numeric, total numeric,
+  status text ('rascunho'|'enviado'|'aprovado'|'recusado'|'convertido'),
+  pdf_gerado_em timestamptz, created_at, updated_at
+)
+erp_quote_items (
+  id uuid pk, quote_id uuid fk,
+  produto text, descricao text,
+  quantidade numeric, valor_unitario numeric, valor_total numeric,
+  ordem int
+)
+```
+
+**Backend** `/api/erp/quotes`:
+- CRUD completo
+- `POST /:id/duplicate`
+- `POST /:id/convert-to-os` (cria OS e reserva sanitários se produto = sanitário)
+- Numeração automática `ORC-{ano}-{seq}` por ano
+
+**Frontend** nova página/aba `Orçamentos`:
+- Lista com filtros (status, cliente, período, CNPJ emissor)
+- Editor com:
+  - Seleção do **CNPJ emissor** (dropdown dos cadastrados em Configurações)
+  - Seleção do **cliente** (com busca, mostra documento)
+  - Modalidade **Diária** ou **Mensal** (toggle)
+  - Tabela de itens dinâmica: produto + descrição + qtd + valor unitário → calcula total da linha automaticamente
+  - Possibilidade de adicionar/remover múltiplas linhas (1..N produtos diferentes)
+  - Desconto (%) e frete (R$) opcionais
+  - Subtotal + Total recalculados em tempo real
+  - Validade (dias), condições de pagamento, observações
+- Botão **Gerar PDF** profissional (template novo):
+  - Cabeçalho com logo (se cadastrada) + razão social, CNPJ, IE, endereço, telefone, e-mail da empresa emissora
+  - Bloco do cliente com nome, documento, endereço completo, contato
+  - Identificação do orçamento (número, data, validade, modalidade)
+  - Tabela de itens com qtd, descrição, valor unitário, valor total por linha
+  - Resumo financeiro (subtotal, desconto, frete, **total**)
+  - Condições de pagamento e observações
+  - Rodapé com assinaturas e contato
+
+## 3. Estoque automático (sanitários)
+
+Regras já parcialmente prontas (status `disponivel|em_cliente|em_os|manutencao|inativo`). Adicionar automação:
+
+- **Reserva ao converter orçamento → OS** (ou ao criar OS direto): seleciona N sanitários `disponivel` e move para `em_os`, registra `erp_os_sanitarios` (os_id, sanitario_id, alocado_em).
+- **Entrega via rota** (`entrega` em `sanitario_movimentacoes`) já move o sanitário para `em_cliente` e vincula ao customer — manter, mas adicionar gatilho: se houver OS aberta do mesmo cliente, vincular a OS.
+- **Recolhimento via rota** (`recolhimento`) já libera para `disponivel`. Adicionar: se o sanitário estava em uma OS aberta, marcar `devolvido_em` em `erp_os_sanitarios`.
+- **Aba Sanitários (roteirização)**: badge "X disponíveis" já entregue na fase anterior — adicionar contagem "Y reservados em OS".
+
+## 4. Atraso de diárias (recolhimento)
+
+Tabela mínima de OS para suportar diárias agora (sem fechar a Fase 4 inteira):
 
 ```text
-erp_companies            (id, razao_social, cnpj, ie, endereco, telefone, email, logo_url, ativo)
-erp_quotes               (id, numero, company_id, customer_id, modalidade, qtd, valor_unit,
-                          valor_total, prazo_dias, status, observacoes, pdf_url, created_at)
-erp_quote_items          (id, quote_id, descricao, qtd, valor_unit, valor_total)
-erp_service_orders       (id, numero, quote_id?, company_id, customer_id, modalidade,
-                          data_inicio, data_fim_prevista, data_fechamento, status,
-                          valor, observacoes, pdf_url, created_at)
-erp_os_sanitarios        (os_id, sanitario_id, alocado_em, devolvido_em)
-erp_financial_entries    (id, tipo[receita|despesa], origem[os|manutencao|manual],
-                          referencia_id, company_id, customer_id?, descricao,
-                          valor, data_competencia, data_pagamento, status[pago|pendente|atrasado])
-erp_os_monthly_billings  (id, os_id, mes_referencia, valor, pago, pago_em, financial_entry_id)
+erp_service_orders (
+  id uuid pk, numero text unique,             -- OS-AAAA-NNNN
+  quote_id uuid fk null, company_id, customer_id,
+  modalidade ('diaria'|'mensal'),
+  data_inicio date, data_fim_prevista date,   -- diária usa fim_prevista p/ vencimento
+  data_fechamento date null,
+  status ('aberta'|'em_atraso'|'fechada'),
+  valor_total numeric, observacoes,
+  created_at, updated_at
+)
+erp_os_sanitarios (os_id, sanitario_id, alocado_em, devolvido_em)
 ```
 
-Endpoints novos sob `/api/erp/`:
-- `companies` (CRUD, limite 3)
-- `quotes` (CRUD, `POST /:id/pdf`, `POST /:id/convert-to-os`)
-- `service-orders` (CRUD, `POST /:id/close`, `POST /:id/pdf`, `POST /:id/billing/:mes/pay`)
-- `financial` (listagem com filtros, totalizadores)
-- Job/cron: gera billings mensais + marca diárias atrasadas
-
-### Frontend
-
-Reestruturar `src/components/erp/` com tabs:
-`Dashboard | Estoque | Sanitários | Funcionários | Veículos | Orçamentos | Ordens de Serviço | Financeiro`
-
-- PDFs: usar `jspdf + jspdf-autotable` (já está no projeto via `PDFGenerator.tsx`) com template novo para Orçamento e OS.
-- Notificações: usar o `toast` existente + criar tabela `notifications` simples para persistir as relevantes (OS criada, OS atrasada, mensalidade vencida).
-
-### Sanitarios — Roteirização
-- `src/pages/Sanitarios.tsx`: adicionar badge "Disponíveis em estoque: N" no topo.
-- Bloquear alocação em rota se sanitário estiver `em_os` em OS aberta (com aviso, não erro fatal).
+**Regra de atraso (diária)**:
+- Query computada (não cron): `status = 'aberta' AND modalidade = 'diaria' AND data_fim_prevista < CURRENT_DATE AND data_fechamento IS NULL` → exibido como **EM ATRASO**.
+- Endpoint `/api/erp/service-orders/overdue` retorna a lista para painel.
+- Card de alerta no Dashboard do ERP: "X diárias em atraso para recolhimento".
+- Na aba Sanitários (roteirização), badge vermelho nos sanitários alocados a OS atrasada — facilita criar rota de recolhimento.
+- Ao fechar a OS (botão **Fechar e contabilizar**) → status `fechada`, sanitários voltam para `disponivel`, lança receita no financeiro (módulo financeiro virá na próxima fase).
 
 ---
 
-## Perguntas antes de começar
+## Arquivos a criar/editar
 
-1. **Numeração de OS/Orçamento**: prefere sequencial simples (`OS-0001`, `ORC-0001`) reiniciando por ano, ou contínuo?
-2. **PDF**: tem um modelo/layout de referência (logo, cores, campos obrigatórios fiscais)? Posso usar layout padrão limpo com a logo do CNPJ emissor por enquanto?
-3. **Mensal — dia de cobrança**: a mensalidade vence sempre no dia que a OS foi aberta (ex.: OS aberta dia 10 → vence todo dia 10), ou dia fixo configurável (ex.: todo dia 5)?
-4. **Estratégia de entrega**: posso entregar **Fase 1 + 2 + 3 (Sanitários migrados + CNPJs + Orçamentos com PDF)** primeiro num PR grande, depois Fase 4 (OS) e Fase 5 (Financeiro) na sequência? Ou prefere tudo de uma vez (vai demorar mais e ter mais risco de bugs)?
+**Backend (novos)**
+- `database/migration-customers-erp.sql` — campos novos em `customers` + tabelas `erp_quotes`, `erp_quote_items`, `erp_service_orders`, `erp_os_sanitarios` + GRANTs + índices
+- `backend/src/routes/erp-quotes.ts`
+- `backend/src/routes/erp-service-orders.ts`
 
-Responda essas 4 e eu começo a implementar.
+**Backend (editar)**
+- `backend/src/routes/customers.ts` — incluir novos campos em GET/PUT
+- `backend/src/routes/sanitarios.ts` — adicionar `reservados_em_os` ao stock-summary e gatilhos em entrega/recolhimento
+- `backend/src/index.ts` — registrar novas rotas
+
+**Frontend (novos)**
+- `src/pages/ErpQuotes.tsx` (lista + editor)
+- `src/components/erp/QuoteEditor.tsx`
+- `src/components/erp/QuotePdf.ts` (geração via jspdf + autotable, layout profissional)
+- `src/services/quotes.ts`
+
+**Frontend (editar)**
+- `src/hooks/useCustomers.ts` + `src/pages/Customers.tsx` — novos campos + PF/PJ + validação
+- `src/services/erp.ts` — endpoints de quotes e service-orders
+- `src/App.tsx` — rota `/erp/orcamentos`
+- `src/pages/Sanitarios.tsx` — card "reservados em OS" e badge de atraso
+- Menu/navegação do ERP — adicionar item **Orçamentos**
 
 ---
 
-## ✅ Fase 1+2 — Entregue nesta iteração
+## Decisões assumidas (avise se quiser mudar)
 
-Implementado:
-- Migration `database/migration-erp-companies.sql` (tabela `erp_companies` + trigger de limite 3).
-- Backend `/api/erp/companies` (GET/POST/PUT/DELETE) com validação de limite e dedupe de CNPJ.
-- Backend `GET /api/sanitarios/stock-summary` (contagem por status).
-- Frontend: serviço `erpService.list/create/update/deleteCompany` + tipo `ErpCompany`.
-- UI: nova seção **Empresas Emissoras (CNPJs)** em Configurações com CRUD inline.
-- UI: 5 cards de resumo de estoque no topo da página `/sanitarios` (Disponíveis, Em cliente, Em OS, Manutenção, Total).
+1. **Numeração**: `ORC-2026-0001`, `OS-2026-0001` (sequencial por ano).
+2. **PDF**: template limpo e profissional com a logo do CNPJ emissor (se cadastrada), cores neutras (cinza/azul). Sem necessidade de modelo de referência.
+3. **OS mínima** entra junto agora (necessária pra suportar "atraso de diária" e fechar o loop estoque); fluxo completo de OS (mensal recorrente, financeiro) fica para a próxima fase.
+4. **Cron**: não vou adicionar cron — o "atraso" é derivado por query, simples e sempre correto.
 
-⚠️ **Deploy obrigatório antes de usar:**
-```bash
-psql -U lipe -d alchemyrotas -f database/migration-erp-companies.sql
-sudo ./deploy.sh
-```
-
-## 🟡 Próximas fases (aguardando confirmação das 4 perguntas)
-
-- Fase 3 — Orçamentos com PDF + botão "Converter em OS"
-- Fase 4 — Ordens de Serviço (diária/mensal) com alocação de sanitários por numeração
-- Fase 5 — Módulo Financeiro (receitas de OS + despesas de manutenção)
-- Fase 6 — Integração total roteirização ↔ ERP
+Posso seguir e implementar tudo isso?
