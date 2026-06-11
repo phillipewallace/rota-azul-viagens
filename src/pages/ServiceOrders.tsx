@@ -448,6 +448,12 @@ const ServiceOrders: React.FC = () => {
             <Button size="sm" variant="outline" onClick={exportFinPdf}>
               <FileDown className="h-4 w-4 mr-1" />PDF
             </Button>
+            <Button size="sm" onClick={() => exportFinComplete('csv')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <FileDown className="h-4 w-4 mr-1" />Completo CSV
+            </Button>
+            <Button size="sm" onClick={() => exportFinComplete('pdf')} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+              <FileDown className="h-4 w-4 mr-1" />Completo PDF
+            </Button>
           </div>
           {finData && (
             <div className="grid grid-cols-3 gap-2 mt-3">
