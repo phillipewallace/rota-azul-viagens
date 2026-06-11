@@ -37,15 +37,32 @@ function buildSanitariosQuery(query: any) {
 /** GET /api/sanitarios/stock-summary — contagem por status (estoque ERP) */
 router.get('/stock-summary', requireAuth, async (_req: any, res: any) => {
   try {
-    const r = await pool.query(
-      `SELECT status, COUNT(*)::int AS qtd FROM sanitarios GROUP BY status`
-    );
+    const r = await pool.query(`SELECT status, COUNT(*)::int AS qtd FROM sanitarios GROUP BY status`);
     const summary: Record<string, number> = {
       disponivel: 0, em_cliente: 0, manutencao: 0, inativo: 0, em_os: 0,
     };
     for (const row of r.rows) summary[row.status] = row.qtd;
+    // Reservados em OS aberta (sub-contagem, já incluída em em_os normalmente)
+    let reservadosEmOs = 0, atrasados = 0;
+    try {
+      const rr = await pool.query(
+        `SELECT COUNT(DISTINCT eos.sanitario_id)::int AS qtd
+           FROM erp_os_sanitarios eos
+           JOIN erp_service_orders so ON so.id = eos.os_id
+          WHERE eos.devolvido_em IS NULL AND so.status = 'aberta'`);
+      reservadosEmOs = rr.rows[0]?.qtd || 0;
+      const ra = await pool.query(
+        `SELECT COUNT(DISTINCT eos.sanitario_id)::int AS qtd
+           FROM erp_os_sanitarios eos
+           JOIN erp_service_orders so ON so.id = eos.os_id
+          WHERE eos.devolvido_em IS NULL
+            AND so.status='aberta' AND so.modalidade='diaria'
+            AND so.data_fim_prevista IS NOT NULL
+            AND so.data_fim_prevista < CURRENT_DATE`);
+      atrasados = ra.rows[0]?.qtd || 0;
+    } catch { /* tabelas ERP podem ainda não existir */ }
     const total = Object.values(summary).reduce((a, b) => a + b, 0);
-    res.json({ ...summary, total });
+    res.json({ ...summary, reservadosEmOs, atrasados, total });
   } catch (e: any) {
     console.error('[SANITARIOS] stock-summary err:', e);
     res.status(500).json({ error: e?.message || 'erro' });

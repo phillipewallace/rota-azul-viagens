@@ -3,7 +3,26 @@ import { pool } from '../config/database';
 
 const router = Router();
 
-// GET /customers/:id/history - Histórico do cliente (sanitários atualmente alocados + movimentações)
+const CUSTOMER_SELECT = `
+  id,
+  customer_name as "customerName",
+  address, cep, lat, lng,
+  restrooms_qty as "restroomsQty",
+  cleanings_qty as "cleaningsQty",
+  contact_name as "contactName",
+  contact_phone as "contactPhone",
+  notes,
+  person_type as "personType",
+  document, ie, im, email,
+  numero, complemento, bairro, cidade, estado,
+  responsavel_nome as "responsavelNome",
+  responsavel_cpf as "responsavelCpf",
+  tipo_cliente as "tipoCliente",
+  created_at as "createdAt",
+  updated_at as "updatedAt"
+`;
+
+// GET /customers/:id/history
 router.get('/:id/history', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -16,17 +35,13 @@ router.get('/:id/history', async (req: Request, res: Response) => {
       `SELECT id, numero, status, current_address, installed_at
          FROM sanitarios
         WHERE status = 'em_cliente' AND lower(current_customer_name) = lower($1)
-        ORDER BY installed_at DESC NULLS LAST`,
-      [name]
-    );
+        ORDER BY installed_at DESC NULLS LAST`, [name]);
     const history = await pool.query(
       `SELECT id, sanitario_numero, operation_type, address, driver_name, occurred_at, notes
          FROM sanitario_movimentacoes
         WHERE lower(customer_name) = lower($1)
         ORDER BY occurred_at DESC
-        LIMIT 200`,
-      [name]
-    );
+        LIMIT 200`, [name]);
     res.json({ current: current.rows, history: history.rows });
   } catch (e: any) {
     console.error('[customers/:id/history]', e);
@@ -34,29 +49,9 @@ router.get('/:id/history', async (req: Request, res: Response) => {
   }
 });
 
-// GET /customers - Listar todos os clientes
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    const result = await pool.query(`
-      SELECT 
-        id,
-        customer_name as "customerName",
-        address,
-        cep,
-        lat,
-        lng,
-        restrooms_qty as "restroomsQty",
-        cleanings_qty as "cleaningsQty",
-        contact_name as "contactName",
-        contact_phone as "contactPhone",
-        notes,
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM customers
-      ORDER BY customer_name ASC
-    `);
-
-    console.log(`[GET /customers] Retornando ${result.rows.length} clientes`);
+    const result = await pool.query(`SELECT ${CUSTOMER_SELECT} FROM customers ORDER BY customer_name ASC`);
     res.json(result.rows);
   } catch (error) {
     console.error('[GET /customers] Erro:', error);
@@ -64,96 +59,60 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// PUT /customers - Salvar todos os clientes (upsert)
 router.put('/', async (req: Request, res: Response) => {
   const { customers } = req.body;
-
-  if (!Array.isArray(customers)) {
-    res.status(400).json({ error: 'Lista de clientes inválida' });
-    return;
-  }
+  if (!Array.isArray(customers)) { res.status(400).json({ error: 'Lista de clientes inválida' }); return; }
 
   const client = await pool.connect();
-
   try {
     await client.query('BEGIN');
-
-    // Obter IDs dos clientes enviados
     const sentIds = customers.map(c => c.id).filter(Boolean);
-
-    // Deletar clientes que não estão na lista (foram removidos no frontend)
     if (sentIds.length > 0) {
       await client.query(
         `DELETE FROM customers WHERE id NOT IN (${sentIds.map((_, i) => `$${i + 1}`).join(',')})`,
-        sentIds
-      );
+        sentIds);
     } else {
-      // Se não há clientes, deletar todos
       await client.query('DELETE FROM customers');
     }
-
-    // Upsert para cada cliente
-    for (const customer of customers) {
+    for (const c of customers) {
+      const doc = c.document ? String(c.document).replace(/\D/g, '') : null;
       await client.query(`
         INSERT INTO customers (
           id, customer_name, address, cep, lat, lng,
-          restrooms_qty, cleanings_qty, contact_name, contact_phone, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          restrooms_qty, cleanings_qty, contact_name, contact_phone, notes,
+          person_type, document, ie, im, email,
+          numero, complemento, bairro, cidade, estado,
+          responsavel_nome, responsavel_cpf, tipo_cliente
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
         ON CONFLICT (id) DO UPDATE SET
-          customer_name = EXCLUDED.customer_name,
-          address = EXCLUDED.address,
-          cep = EXCLUDED.cep,
-          lat = EXCLUDED.lat,
-          lng = EXCLUDED.lng,
-          restrooms_qty = EXCLUDED.restrooms_qty,
-          cleanings_qty = EXCLUDED.cleanings_qty,
-          contact_name = EXCLUDED.contact_name,
-          contact_phone = EXCLUDED.contact_phone,
-          notes = EXCLUDED.notes,
-          updated_at = NOW()
+          customer_name=EXCLUDED.customer_name, address=EXCLUDED.address, cep=EXCLUDED.cep,
+          lat=EXCLUDED.lat, lng=EXCLUDED.lng,
+          restrooms_qty=EXCLUDED.restrooms_qty, cleanings_qty=EXCLUDED.cleanings_qty,
+          contact_name=EXCLUDED.contact_name, contact_phone=EXCLUDED.contact_phone, notes=EXCLUDED.notes,
+          person_type=EXCLUDED.person_type, document=EXCLUDED.document, ie=EXCLUDED.ie, im=EXCLUDED.im,
+          email=EXCLUDED.email, numero=EXCLUDED.numero, complemento=EXCLUDED.complemento,
+          bairro=EXCLUDED.bairro, cidade=EXCLUDED.cidade, estado=EXCLUDED.estado,
+          responsavel_nome=EXCLUDED.responsavel_nome, responsavel_cpf=EXCLUDED.responsavel_cpf,
+          tipo_cliente=EXCLUDED.tipo_cliente,
+          updated_at=NOW()
       `, [
-        customer.id,
-        customer.customerName || null,
-        customer.address || null,
-        customer.cep || null,
-        customer.lat || null,
-        customer.lng || null,
-        customer.restroomsQty || null,
-        customer.cleaningsQty || null,
-        customer.contactName || null,
-        customer.contactPhone || null,
-        customer.notes || null
+        c.id, c.customerName || null, c.address || null, c.cep || null,
+        c.lat || null, c.lng || null,
+        c.restroomsQty || null, c.cleaningsQty || null,
+        c.contactName || null, c.contactPhone || null, c.notes || null,
+        c.personType || 'PJ', doc, c.ie || null, c.im || null, c.email || null,
+        c.numero || null, c.complemento || null, c.bairro || null,
+        c.cidade || null, c.estado || null,
+        c.responsavelNome || null, c.responsavelCpf || null, c.tipoCliente || null,
       ]);
     }
-
     await client.query('COMMIT');
-
-    // Retornar lista atualizada
-    const result = await pool.query(`
-      SELECT 
-        id,
-        customer_name as "customerName",
-        address,
-        cep,
-        lat,
-        lng,
-        restrooms_qty as "restroomsQty",
-        cleanings_qty as "cleaningsQty",
-        contact_name as "contactName",
-        contact_phone as "contactPhone",
-        notes,
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM customers
-      ORDER BY customer_name ASC
-    `);
-
-    console.log(`[PUT /customers] Salvos ${result.rows.length} clientes`);
+    const result = await pool.query(`SELECT ${CUSTOMER_SELECT} FROM customers ORDER BY customer_name ASC`);
     res.json({ success: true, customers: result.rows });
-  } catch (error) {
+  } catch (error: any) {
     await client.query('ROLLBACK');
     console.error('[PUT /customers] Erro:', error);
-    res.status(500).json({ error: 'Erro ao salvar clientes' });
+    res.status(500).json({ error: error?.message || 'Erro ao salvar clientes' });
   } finally {
     client.release();
   }
