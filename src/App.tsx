@@ -23,6 +23,8 @@ import InternalManagement from "./pages/InternalManagement";
 import Checklists from "./pages/Checklists";
 import PublicChecklist from "./pages/PublicChecklist";
 import Carretinhas from "./pages/Carretinhas";
+import ErpQuotes from "./pages/ErpQuotes";
+import ServiceOrders from "./pages/ServiceOrders";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -171,6 +173,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Carretinhas />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/erp/orcamentos"
+              element={
+                <ProtectedRoute>
+                  <ErpQuotes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/erp/ordens-servico"
+              element={
+                <ProtectedRoute>
+                  <ServiceOrders />
                 </ProtectedRoute>
               }
             />

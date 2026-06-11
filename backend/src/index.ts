@@ -25,6 +25,8 @@ import trackingRoutes from './routes/tracking';
 import sanitariosRoutes from './routes/sanitarios';
 import erpInventoryRoutes from './routes/erp-inventory';
 import erpCompaniesRoutes from './routes/erp-companies';
+import erpQuotesRoutes from './routes/erp-quotes';
+import erpServiceOrdersRoutes from './routes/erp-service-orders';
 import checklistsRoutes from './routes/checklists';
 import carretinhasRoutes from './routes/carretinhas';
 import path from 'path';
@@ -97,6 +99,8 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/sanitarios', sanitariosRoutes);
 app.use('/api/erp', erpInventoryRoutes);
 app.use('/api/erp/companies', erpCompaniesRoutes);
+app.use('/api/erp/quotes', erpQuotesRoutes);
+app.use('/api/erp/service-orders', erpServiceOrdersRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
 
