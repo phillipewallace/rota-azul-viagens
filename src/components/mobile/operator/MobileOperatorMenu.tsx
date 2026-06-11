@@ -2,7 +2,8 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   MapPin, Route, Truck, Users, 
-  Settings, Wrench, Building2, LogOut 
+  Settings, Wrench, Building2, LogOut,
+  FileText, ClipboardList
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -22,6 +23,8 @@ const MobileOperatorMenu = () => {
   const secondaryItems = [
     { icon: Building2, label: 'Clientes', to: '/customers' },
     { icon: Wrench, label: 'Manutenção', to: '/maintenance' },
+    { icon: FileText, label: 'Orçamentos', to: '/erp/orcamentos' },
+    { icon: ClipboardList, label: 'Ordens de Serviço', to: '/erp/ordens-servico' },
     { icon: Building2, label: 'Gestão Interna (ERP)', to: '/gestao-interna' },
     { icon: Settings, label: 'Configurações', to: '/settings' },
   ];
@@ -58,7 +61,7 @@ const MobileOperatorMenu = () => {
         <Separator className="my-4 bg-gray-700" />
 
         <p className="text-xs text-gray-500 uppercase tracking-wider mb-2 px-4">
-          Mais opções
+          ERP
         </p>
         
         <div className="space-y-1">
