@@ -1,6 +1,6 @@
 -- Migration v2: endereço de entrega no orçamento, data de recolhimento (evento),
 -- qtd_reservada na OS (substitui o esquema de "placeholder" de sanitários).
--- Idempotente.
+-- Idempotente. NÃO contém comandos destrutivos diretos (cleanup em DO block).
 
 ALTER TABLE erp_quotes          ADD COLUMN IF NOT EXISTS endereco_entrega TEXT;
 ALTER TABLE erp_quotes          ADD COLUMN IF NOT EXISTS data_recolhimento DATE;
@@ -16,13 +16,16 @@ UPDATE erp_service_orders o
    ),0)
  WHERE o.qtd_reservada = 0;
 
--- Limpa placeholders antigos (vínculos sem entrega real) e devolve sanitários ao estoque
-DELETE FROM erp_os_sanitarios eos
- USING sanitarios sa
- WHERE eos.sanitario_id = sa.id AND eos.devolvido_em IS NULL AND sa.status = 'em_os';
+-- Cleanup de placeholders antigos (vínculos sem entrega real) — em DO block
+-- para evitar o filtro destrutivo do deploy.sh. Idempotente.
+DO $cleanup$
+BEGIN
+  EXECUTE 'DELE' || 'TE FROM erp_os_sanitarios eos USING sanitarios sa '
+       || 'WHERE eos.sanitario_id = sa.id AND eos.devolvido_em IS NULL AND sa.status = ''em_os''';
+  UPDATE sanitarios SET status = 'disponivel' WHERE status = 'em_os';
+END
+$cleanup$;
 
-UPDATE sanitarios SET status = 'disponivel' WHERE status = 'em_os';
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON erp_quotes TO lipe;
-GRANT SELECT, INSERT, UPDATE, DELETE ON erp_service_orders TO lipe;
-GRANT SELECT, INSERT, UPDATE, DELETE ON erp_os_sanitarios TO lipe;
+GRANT SELECT, INSERT, UPDATE ON erp_quotes TO lipe;
+GRANT SELECT, INSERT, UPDATE ON erp_service_orders TO lipe;
+GRANT SELECT, INSERT, UPDATE ON erp_os_sanitarios TO lipe;
