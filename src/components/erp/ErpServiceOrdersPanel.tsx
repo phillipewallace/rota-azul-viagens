@@ -105,30 +105,8 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const gerarContrato = async (os: ServiceOrder) => {
-    try {
-      const full: any = await serviceOrdersService.get(os.id);
-      generateContractPdf({
-        numero: os.numero,
-        tipo: 'os',
-        modalidade: os.modalidade,
-        dataInicio: full.data_inicio || os.dataInicio,
-        dataEntrega: full.data_entrega || os.dataEntrega,
-        dataFimPrevista: full.data_fim_prevista || os.dataFimPrevista,
-        limpezasSemanais: full.limpezas_semanais ?? os.limpezasSemanais,
-        enderecoEntrega: full.endereco_entrega || os.enderecoEntrega || os.customerAddress,
-        observacoes: full.observacoes,
-        total: Number(full.valor_total || os.valorTotal),
-        companySnapshot: full.companySnapshot,
-        customerSnapshot: full.customer_snapshot,
-        companyRazaoSocial: os.companyRazaoSocial,
-        customerName: os.customerName,
-        customerAddress: os.customerAddress,
-        items: full.items || [],
-      });
-      toast.success('Contrato gerado');
-    } catch (e: any) { toast.error('Erro ao gerar contrato: ' + e.message); }
-  };
+
+
 
 
   return (
