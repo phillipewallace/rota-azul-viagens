@@ -314,7 +314,7 @@ router.get('/:id', async (req, res) => {
     if (!companySnapshot && row.razao_social) {
       companySnapshot = {
         razao_social: row.razao_social, cnpj: row.cnpj,
-        inscricao_estadual: row.inscricao_estadual, inscricao_municipal: row.inscricao_municipal,
+        inscricao_estadual: row.inscricao_estadual,
         endereco: row.company_endereco, cidade: row.company_cidade, estado: row.company_estado,
         telefone: row.company_telefone, email: row.company_email,
       };
