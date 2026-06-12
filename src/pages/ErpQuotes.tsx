@@ -399,6 +399,25 @@ const ErpQuotes: React.FC = () => {
                 )}
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs text-muted-foreground">Endereço de entrega</label>
+                  <Textarea rows={2} value={editing.enderecoEntrega || ''}
+                            onChange={e => setEditing({ ...editing, enderecoEntrega: e.target.value })}
+                            placeholder="Endereço onde os sanitários serão instalados (usado no contrato e ao vincular sanitários)" />
+                </div>
+                {editing.tipoLocacao === 'evento' && (
+                  <div>
+                    <label className="text-xs text-muted-foreground">Data de recolhimento</label>
+                    <Input type="date" value={editing.dataRecolhimento || ''}
+                           onChange={e => setEditing({ ...editing, dataRecolhimento: e.target.value })} />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Em eventos, o fechamento da OS dispara o recolhimento automático.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Tabela de itens */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 bg-gray-100 text-xs font-semibold">
