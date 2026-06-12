@@ -45,6 +45,8 @@ export interface Quote {
   tipoLocacao?: TipoLocacao;
   dataEmissao: string;
   validadeDias: number;
+  dataEntrega?: string | null;
+  limpezasSemanais?: number | null;
   observacoes?: string;
   condicoesPagamento?: string;
   descontoPct: number;
