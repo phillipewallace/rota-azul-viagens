@@ -321,17 +321,22 @@ export function generateContractPdf(src: ContractSource) {
   });
 
   // --- Cláusula IV — Pagamento ---
-  const fretePart = (src.frete && Number(src.frete) > 0)
-    ? `§2º – O valor do frete, referente à entrega e recolhimento dos equipamentos, será cobrado na primeira nota fiscal ` +
-      `no importe de ${BRL(Number(src.frete))} (${valorPorExtenso(Number(src.frete))}).`
-    : '';
+  const freteVal = Number(src.frete) || 0;
+  const totalContrato = Number(src.total) || 0;
+  // Quando há frete cadastrado, o valor de locação corresponde ao total MENOS o frete
+  // (o frete é cobrado uma única vez, então não compõe o valor mensal nem o valor diário recorrente).
+  const valorLocacao = freteVal > 0 && totalContrato > freteVal ? totalContrato - freteVal : totalContrato;
+  const valorUnitFinal = freteVal > 0 && valorUnitario > 0 && itens.length === 1 && qtdSanit > 0
+    ? Math.max(0, (totalContrato - freteVal) / qtdSanit)
+    : valorUnitario;
 
   writeClause('CLÁUSULA IV – DO PAGAMENTO', () => {
     if (src.modalidade === 'diaria') {
       writeParagraph(
-        `IV.1. A locação será cobrada de forma integral pelo período contratado, totalizando ${BRL(Number(src.total))} ` +
-        `(${valorPorExtenso(Number(src.total))}), referente a ${qtdSanit} unidade${qtdSanit > 1 ? 's' : ''} pelo período ` +
-        `de ${fmtDateBr(src.dataInicio || src.dataEntrega)} a ${fmtDateBr(src.dataFimPrevista)}.`
+        `IV.1. A locação será cobrada de forma integral pelo período contratado, no valor de ${BRL(valorLocacao)} ` +
+        `(${valorPorExtenso(valorLocacao)}), referente a ${qtdSanit} unidade${qtdSanit > 1 ? 's' : ''} pelo período ` +
+        `de ${fmtDateBr(src.dataInicio || src.dataEntrega)} a ${fmtDateBr(src.dataFimPrevista)}` +
+        `${freteVal > 0 ? ', sendo este valor exclusivo de frete' : ''}.`
       );
     } else {
       writeParagraph(
@@ -339,9 +344,10 @@ export function generateContractPdf(src: ContractSource) {
         `refere sempre ao mês integral, independentemente do número de dias de uso, não havendo cobrança proporcional.`
       );
       writeParagraph(
-        `IV.3. O valor mensal por unidade será de ${BRL(valorUnitario)} (${valorPorExtenso(valorUnitario)}), perfazendo ` +
-        `o total mensal de ${BRL(Number(src.total))} (${valorPorExtenso(Number(src.total))}) para ${qtdSanit} ` +
-        `unidade${qtdSanit > 1 ? 's' : ''} contratada${qtdSanit > 1 ? 's' : ''}.`
+        `IV.3. O valor mensal por unidade será de ${BRL(valorUnitFinal)} (${valorPorExtenso(valorUnitFinal)}), perfazendo ` +
+        `o valor mensal de locação de ${BRL(valorLocacao)} (${valorPorExtenso(valorLocacao)}) para ${qtdSanit} ` +
+        `unidade${qtdSanit > 1 ? 's' : ''} contratada${qtdSanit > 1 ? 's' : ''}` +
+        `${freteVal > 0 ? ', valor este que NÃO inclui o frete previsto na Cláusula IV.4 abaixo' : ''}.`
       );
     }
 
@@ -363,7 +369,15 @@ export function generateContractPdf(src: ContractSource) {
       `IV.2. Os boletos bancários serão enviados para o e-mail informado pela LOCATÁRIA no momento da contratação, ` +
       `acompanhados das respectivas notas fiscais e faturas.`
     );
-    if (fretePart) writeParagraph(fretePart);
+    if (freteVal > 0) {
+      writeParagraph(
+        `IV.4. DO FRETE (cobrança única) – O valor referente ao frete de entrega e recolhimento dos equipamentos será ` +
+        `cobrado UMA ÚNICA VEZ, no importe de ${BRL(freteVal)} (${valorPorExtenso(freteVal)}), lançado integralmente ` +
+        `na primeira nota fiscal emitida em favor da LOCATÁRIA, não se repetindo nas faturas subsequentes ` +
+        `${src.modalidade === 'mensal' ? 'mensais' : 'do período'} e não compondo, portanto, o valor recorrente da locação ` +
+        `previsto nas cláusulas anteriores.`
+      );
+    }
   });
 
   // --- Cláusula V — Foro ---
