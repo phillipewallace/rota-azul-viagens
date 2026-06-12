@@ -81,18 +81,25 @@ export interface ServiceOrder {
   companyId?: string;
   customerId?: string;
   customerName?: string;
+  customerAddress?: string;
+  customerLat?: number;
+  customerLng?: number;
   companyRazaoSocial?: string;
   modalidade: Modalidade;
   tipoLocacao?: TipoLocacao;
   dataInicio: string;
   dataFimPrevista?: string;
   dataFechamento?: string;
+  dataEntrega?: string | null;
+  limpezasSemanais?: number | null;
+  enderecoEntrega?: string | null;
   status: 'aberta' | 'fechada' | 'cancelada';
   valorTotal: number;
   observacoes?: string;
   createdAt: string;
   emAtraso?: boolean;
   sanitariosAlocados?: number;
+  sanitariosEntregues?: number;
 }
 
 export const serviceOrdersService = {
