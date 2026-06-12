@@ -305,7 +305,7 @@ export default function Sanitarios() {
               </p>
             </div>
           </div>
-          <Button onClick={() => load()} variant="outline" size="sm" disabled={loading} className="gap-2">
+          <Button onClick={() => { load(); loadStock(); loadTrucks(); setOsRefreshKey(k => k + 1); }} variant="outline" size="sm" disabled={loading} className="gap-2">
             <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Atualizar</span>
           </Button>
