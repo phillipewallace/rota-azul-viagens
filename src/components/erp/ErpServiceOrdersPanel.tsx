@@ -15,8 +15,9 @@ import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import { toast } from 'sonner';
 import {
   RefreshCcw, Truck, MapPin, User, CalendarClock, AlertTriangle,
-  PackageOpen, CheckCircle2, Loader2, FileText,
+  PackageOpen, CheckCircle2, Loader2, FileText, FileSignature,
 } from 'lucide-react';
+import { generateContractPdf } from '@/utils/contractPdf';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
