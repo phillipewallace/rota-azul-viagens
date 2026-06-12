@@ -21,9 +21,11 @@ router.get('/', async (req, res) => {
              o.customer_id AS "customerId", o.modalidade, o.tipo_locacao AS "tipoLocacao",
              o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
              o.data_fechamento AS "dataFechamento", o.status,
-             o.data_entrega AS "dataEntrega", o.limpezas_semanais AS "limpezasSemanais",
+             o.data_entrega AS "dataEntrega", o.data_recolhimento AS "dataRecolhimento",
+             o.limpezas_semanais AS "limpezasSemanais",
              o.endereco_entrega AS "enderecoEntrega",
              o.valor_total AS "valorTotal", o.observacoes,
+             COALESCE(o.qtd_reservada,0) AS "qtdReservada",
              o.created_at AS "createdAt",
              cu.customer_name AS "customerName", cu.address AS "customerAddress",
              cu.lat AS "customerLat", cu.lng AS "customerLng",
@@ -31,8 +33,7 @@ router.get('/', async (req, res) => {
              (o.status='aberta' AND o.modalidade='diaria'
               AND o.data_fim_prevista IS NOT NULL
               AND o.data_fim_prevista < CURRENT_DATE) AS "emAtraso",
-             COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s
-                        WHERE s.os_id=o.id AND s.devolvido_em IS NULL),0)::int AS "sanitariosAlocados",
+             COALESCE(o.qtd_reservada,0)::int AS "sanitariosAlocados",
              COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s
                         JOIN sanitarios sa ON sa.id=s.sanitario_id
                         WHERE s.os_id=o.id AND s.devolvido_em IS NULL AND sa.status='em_cliente'),0)::int AS "sanitariosEntregues"
@@ -46,6 +47,27 @@ router.get('/', async (req, res) => {
     console.error('[erp-service-orders GET]', e);
     res.status(500).json({ error: e.message });
   }
+});
+
+// OS com entrega próxima (hoje ou amanhã) ainda em aberto — para notificações
+router.get('/notifications/upcoming', async (_req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT o.id, o.numero, o.data_entrega AS "dataEntrega", o.tipo_locacao AS "tipoLocacao",
+             o.endereco_entrega AS "enderecoEntrega", cu.customer_name AS "customerName",
+             (o.data_entrega = CURRENT_DATE) AS "hoje",
+             (o.data_entrega = CURRENT_DATE + 1) AS "amanha"
+        FROM erp_service_orders o
+        LEFT JOIN customers cu ON cu.id = o.customer_id
+       WHERE o.status='aberta'
+         AND o.data_entrega IS NOT NULL
+         AND o.data_entrega BETWEEN CURRENT_DATE AND CURRENT_DATE + 1
+         AND COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s
+                        JOIN sanitarios sa ON sa.id=s.sanitario_id
+                       WHERE s.os_id=o.id AND s.devolvido_em IS NULL AND sa.status='em_cliente'),0) = 0
+       ORDER BY o.data_entrega ASC`);
+    res.json(r.rows);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 router.get('/overdue/count', async (_req, res) => {
@@ -344,28 +366,65 @@ router.post('/', async (req, res) => {
   } finally { client.release(); }
 });
 
-// Fecha a OS (libera sanitários)
-router.post('/:id/close', async (req, res) => {
+// Fecha a OS.
+// - tipo_locacao='evento': fechamento implica recolhimento automático
+//   dos sanitários ainda 'em_cliente' (libera estoque + registra movimentação).
+//   Requer body.descricao para a baixa.
+// - Demais modalidades: apenas marca como fechada;
+//   a baixa dos sanitários continua sendo feita manualmente em /sanitarios.
+router.post('/:id/close', async (req: any, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const o = await client.query(`SELECT id, status FROM erp_service_orders WHERE id=$1 FOR UPDATE`, [req.params.id]);
+    const o = await client.query(
+      `SELECT id, status, tipo_locacao, numero
+         FROM erp_service_orders WHERE id=$1 FOR UPDATE`, [req.params.id]);
     if (!o.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'não encontrado' }); }
     if (o.rows[0].status === 'fechada') { await client.query('ROLLBACK'); return res.json({ ok: true, already: true }); }
-    // libera sanitários alocados
-    const sans = await client.query(
-      `SELECT sanitario_id FROM erp_os_sanitarios WHERE os_id=$1 AND devolvido_em IS NULL`,
-      [req.params.id]
-    );
-    for (const row of sans.rows) {
-      await client.query(`UPDATE sanitarios SET status='disponivel' WHERE id=$1 AND status='em_os'`, [row.sanitario_id]);
+    const osRow = o.rows[0];
+    const isEvento = (osRow.tipo_locacao || '').toLowerCase() === 'evento';
+    const descricao = String(req.body?.descricao || '').trim();
+
+    if (isEvento) {
+      if (!descricao) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'descricao obrigatória para fechar OS de evento (recolhimento)' });
+      }
+      const sans = await client.query(
+        `SELECT eos.id AS link_id, s.id AS san_id, s.numero,
+                s.current_address, s.current_lat, s.current_lng
+           FROM erp_os_sanitarios eos
+           JOIN sanitarios s ON s.id = eos.sanitario_id
+          WHERE eos.os_id=$1 AND eos.devolvido_em IS NULL AND s.status='em_cliente'`,
+        [req.params.id]
+      );
+      for (const row of sans.rows) {
+        await client.query(
+          `UPDATE sanitarios SET status='disponivel',
+              current_customer_name=NULL, current_address=NULL,
+              current_lat=NULL, current_lng=NULL, updated_at=NOW()
+            WHERE id=$1`, [row.san_id]);
+        await client.query(
+          `INSERT INTO sanitario_movimentacoes
+            (sanitario_id, sanitario_numero, operation_type, address, lat, lng, notes)
+           VALUES ($1,$2,'recolhimento',$3,$4,$5,$6)`,
+          [row.san_id, row.numero, row.current_address || null,
+           row.current_lat ?? null, row.current_lng ?? null,
+           `Recolhimento automático no fechamento da OS ${osRow.numero}: ${descricao}`]);
+        await client.query(
+          `UPDATE erp_os_sanitarios SET devolvido_em=NOW() WHERE id=$1`, [row.link_id]);
+      }
     }
-    await client.query(`UPDATE erp_os_sanitarios SET devolvido_em=NOW() WHERE os_id=$1 AND devolvido_em IS NULL`, [req.params.id]);
-    await client.query(`UPDATE erp_service_orders SET status='fechada', data_fechamento=CURRENT_DATE, updated_at=NOW() WHERE id=$1`, [req.params.id]);
+
+    await client.query(
+      `UPDATE erp_service_orders
+          SET status='fechada', data_fechamento=CURRENT_DATE, updated_at=NOW()
+        WHERE id=$1`, [req.params.id]);
     await client.query('COMMIT');
-    res.json({ ok: true });
+    res.json({ ok: true, recolhidos: isEvento });
   } catch (e: any) {
     await client.query('ROLLBACK');
+    console.error('[erp-service-orders close]', e);
     res.status(500).json({ error: e.message });
   } finally { client.release(); }
 });
@@ -391,8 +450,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Vincular números reais de sanitários a uma OS (entrega).
-// Substitui placeholders reservados pelos sanitários informados (por número)
-// e marca como em_cliente, registrando movimentação.
+// Insere o vínculo, marca o sanitário como em_cliente e registra movimentação.
 router.post('/:id/deliver', async (req: any, res) => {
   const client = await pool.connect();
   try {
@@ -402,7 +460,8 @@ router.post('/:id/deliver', async (req: any, res) => {
     }
     await client.query('BEGIN');
     const osR = await client.query(
-      `SELECT o.*, cu.customer_name, cu.address AS customer_address, cu.lat AS customer_lat, cu.lng AS customer_lng
+      `SELECT o.*, cu.customer_name, cu.address AS customer_address,
+              cu.lat AS customer_lat, cu.lng AS customer_lng
          FROM erp_service_orders o
          LEFT JOIN customers cu ON cu.id=o.customer_id
         WHERE o.id=$1 FOR UPDATE OF o`, [req.params.id]);
@@ -414,7 +473,6 @@ router.post('/:id/deliver', async (req: any, res) => {
     const delivered: string[] = [];
 
     for (const numero of nums) {
-      // garante o sanitário
       let s = await client.query(`SELECT id, status FROM sanitarios WHERE numero=$1 FOR UPDATE`, [numero]);
       if (!s.rows[0]) {
         s = await client.query(`INSERT INTO sanitarios (numero, status) VALUES ($1,'em_cliente') RETURNING id, status`, [numero]);
@@ -424,18 +482,6 @@ router.post('/:id/deliver', async (req: any, res) => {
         `SELECT 1 FROM erp_os_sanitarios WHERE os_id=$1 AND sanitario_id=$2 AND devolvido_em IS NULL`,
         [req.params.id, sanId]);
       if (!alreadyInOs.rows[0]) {
-        // libera um placeholder reservado se existir
-        const ph = await client.query(
-          `SELECT eos.id AS link_id, eos.sanitario_id
-             FROM erp_os_sanitarios eos
-             JOIN sanitarios sa ON sa.id=eos.sanitario_id
-            WHERE eos.os_id=$1 AND eos.devolvido_em IS NULL AND sa.status='em_os'
-            ORDER BY eos.alocado_em ASC LIMIT 1 FOR UPDATE`,
-          [req.params.id]);
-        if (ph.rows[0]) {
-          await client.query(`DELETE FROM erp_os_sanitarios WHERE id=$1`, [ph.rows[0].link_id]);
-          await client.query(`UPDATE sanitarios SET status='disponivel' WHERE id=$1 AND status='em_os'`, [ph.rows[0].sanitario_id]);
-        }
         await client.query(
           `INSERT INTO erp_os_sanitarios (os_id, sanitario_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
           [req.params.id, sanId]);

@@ -31,8 +31,10 @@ interface EditorState {
   modalidade: 'diaria' | 'mensal';
   tipoLocacao?: 'obra' | 'evento' | 'industria' | 'outro';
   validadeDias: number;
-  dataEntrega?: string;            // YYYY-MM-DD, opcional
-  limpezasSemanais?: number;       // só mensal
+  dataEntrega?: string;
+  dataRecolhimento?: string;
+  enderecoEntrega?: string;
+  limpezasSemanais?: number;
   descontoPct: number;
   frete: number;
   observacoes: string;
@@ -43,7 +45,7 @@ interface EditorState {
 
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
-  dataEntrega: '', limpezasSemanais: 1,
+  dataEntrega: '', dataRecolhimento: '', enderecoEntrega: '', limpezasSemanais: 1,
   observacoes: '', condicoesPagamento: '50% na contratação, 50% na entrega.',
   status: 'rascunho',
   items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
@@ -106,6 +108,8 @@ const ErpQuotes: React.FC = () => {
         modalidade: q.modalidade, tipoLocacao: (q as any).tipoLocacao || undefined,
         validadeDias: q.validadeDias,
         dataEntrega: q.dataEntrega ? String(q.dataEntrega).slice(0, 10) : '',
+        dataRecolhimento: q.dataRecolhimento ? String(q.dataRecolhimento).slice(0, 10) : '',
+        enderecoEntrega: q.enderecoEntrega || '',
         limpezasSemanais: q.limpezasSemanais ?? undefined,
         descontoPct: Number(q.descontoPct), frete: Number(q.frete),
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
@@ -144,6 +148,8 @@ const ErpQuotes: React.FC = () => {
         modalidade: full.modalidade, tipoLocacao: (full as any).tipoLocacao || undefined,
         validadeDias: full.validadeDias,
         dataEntrega: full.dataEntrega ? String(full.dataEntrega).slice(0, 10) : '',
+        dataRecolhimento: full.dataRecolhimento ? String(full.dataRecolhimento).slice(0, 10) : '',
+        enderecoEntrega: full.enderecoEntrega || '',
         limpezasSemanais: full.limpezasSemanais ?? undefined,
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
@@ -173,6 +179,7 @@ const ErpQuotes: React.FC = () => {
         dataEntrega: q.dataEntrega,
         validadeDias: q.validadeDias,
         limpezasSemanais: q.limpezasSemanais,
+        enderecoEntrega: q.enderecoEntrega,
         observacoes: q.observacoes,
         condicoesPagamento: q.condicoesPagamento,
         frete: q.frete,
@@ -387,6 +394,25 @@ const ErpQuotes: React.FC = () => {
                            onChange={e => setEditing({ ...editing, limpezasSemanais: e.target.value === '' ? undefined : parseInt(e.target.value) || 0 })} />
                     <p className="text-[10px] text-muted-foreground mt-1">
                       Quantidade de manutenções/limpezas previstas por semana.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs text-muted-foreground">Endereço de entrega</label>
+                  <Textarea rows={2} value={editing.enderecoEntrega || ''}
+                            onChange={e => setEditing({ ...editing, enderecoEntrega: e.target.value })}
+                            placeholder="Endereço onde os sanitários serão instalados (usado no contrato e ao vincular sanitários)" />
+                </div>
+                {editing.tipoLocacao === 'evento' && (
+                  <div>
+                    <label className="text-xs text-muted-foreground">Data de recolhimento</label>
+                    <Input type="date" value={editing.dataRecolhimento || ''}
+                           onChange={e => setEditing({ ...editing, dataRecolhimento: e.target.value })} />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Em eventos, o fechamento da OS dispara o recolhimento automático.
                     </p>
                   </div>
                 )}
