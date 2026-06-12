@@ -630,6 +630,12 @@ export default function Sanitarios() {
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        <TabsContent value="os" className="mt-0">
+          <ErpServiceOrdersPanel onChanged={() => { load(); loadStock(); }} />
+        </TabsContent>
+      </Tabs>
       </div>
 
       {/* Modal alocar a cliente */}
