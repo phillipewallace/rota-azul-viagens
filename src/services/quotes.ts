@@ -46,6 +46,8 @@ export interface Quote {
   dataEmissao: string;
   validadeDias: number;
   dataEntrega?: string | null;
+  dataRecolhimento?: string | null;
+  enderecoEntrega?: string | null;
   limpezasSemanais?: number | null;
   observacoes?: string;
   condicoesPagamento?: string;
@@ -91,8 +93,10 @@ export interface ServiceOrder {
   dataFimPrevista?: string;
   dataFechamento?: string;
   dataEntrega?: string | null;
+  dataRecolhimento?: string | null;
   limpezasSemanais?: number | null;
   enderecoEntrega?: string | null;
+  qtdReservada?: number;
   status: 'aberta' | 'fechada' | 'cancelada';
   valorTotal: number;
   observacoes?: string;
