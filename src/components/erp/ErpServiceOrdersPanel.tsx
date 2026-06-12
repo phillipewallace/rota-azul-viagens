@@ -223,10 +223,6 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                             disabled={reservados === 0 && (os.sanitariosEntregues || 0) === 0}>
                       <Truck className="h-4 w-4 mr-1" /> Entregar / vincular
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => gerarContrato(os)}
-                            className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
-                      <FileSignature className="h-4 w-4 mr-1" /> Contrato
-                    </Button>
                     <Button size="sm" variant="outline" onClick={() => closeOs(os)}>
                       <CheckCircle2 className="h-4 w-4 mr-1" /> Fechar
                     </Button>
