@@ -15,8 +15,9 @@ import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import { toast } from 'sonner';
 import {
   RefreshCcw, Truck, MapPin, User, CalendarClock, AlertTriangle,
-  PackageOpen, CheckCircle2, Loader2, FileText,
+  PackageOpen, CheckCircle2, Loader2, FileText, FileSignature,
 } from 'lucide-react';
+import { generateContractPdf } from '@/utils/contractPdf';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
@@ -106,6 +107,32 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
       onChanged?.();
     } catch (e: any) { toast.error(e.message); }
   };
+
+  const gerarContrato = async (os: ServiceOrder) => {
+    try {
+      const full: any = await serviceOrdersService.get(os.id);
+      generateContractPdf({
+        numero: os.numero,
+        tipo: 'os',
+        modalidade: os.modalidade,
+        dataInicio: full.data_inicio || os.dataInicio,
+        dataEntrega: full.data_entrega || os.dataEntrega,
+        dataFimPrevista: full.data_fim_prevista || os.dataFimPrevista,
+        limpezasSemanais: full.limpezas_semanais ?? os.limpezasSemanais,
+        enderecoEntrega: full.endereco_entrega || os.enderecoEntrega || os.customerAddress,
+        observacoes: full.observacoes,
+        total: Number(full.valor_total || os.valorTotal),
+        companySnapshot: full.companySnapshot,
+        customerSnapshot: full.customer_snapshot,
+        companyRazaoSocial: os.companyRazaoSocial,
+        customerName: os.customerName,
+        customerAddress: os.customerAddress,
+        items: full.items || [],
+      });
+      toast.success('Contrato gerado');
+    } catch (e: any) { toast.error('Erro ao gerar contrato: ' + e.message); }
+  };
+
 
   return (
     <div className="space-y-4">
@@ -216,13 +243,17 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                     </div>
                   )}
 
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button size="sm" className="flex-1" onClick={() => openDeliver(os)}
+                  <div className="flex gap-2 pt-2 border-t flex-wrap">
+                    <Button size="sm" className="flex-1 min-w-[140px]" onClick={() => openDeliver(os)}
                             disabled={reservados === 0 && (os.sanitariosEntregues || 0) === 0}>
-                      <Truck className="h-4 w-4 mr-1" /> Entregar / vincular números
+                      <Truck className="h-4 w-4 mr-1" /> Entregar / vincular
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => gerarContrato(os)}
+                            className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+                      <FileSignature className="h-4 w-4 mr-1" /> Contrato
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => closeOs(os)}>
-                      <CheckCircle2 className="h-4 w-4 mr-1" /> Fechar OS
+                      <CheckCircle2 className="h-4 w-4 mr-1" /> Fechar
                     </Button>
                   </div>
                 </CardContent>

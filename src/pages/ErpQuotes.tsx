@@ -19,6 +19,8 @@ import { quotesService, Quote, QuoteItem } from '@/services/quotes';
 import { erpService, ErpCompany } from '@/services/erp';
 import { useCustomers } from '@/hooks/useCustomers';
 import { generateQuotePdf } from '@/utils/quotePdf';
+import { generateContractPdf } from '@/utils/contractPdf';
+import { FileSignature } from 'lucide-react';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -157,6 +159,33 @@ const ErpQuotes: React.FC = () => {
     if (!q) return;
     try { generateQuotePdf(q); toast.success('PDF gerado'); }
     catch (e: any) { toast.error('Erro ao gerar PDF: ' + e.message); }
+  };
+
+  const exportContract = async () => {
+    const q = await save();
+    if (!q) return;
+    try {
+      generateContractPdf({
+        numero: q.numero,
+        tipo: 'orcamento',
+        modalidade: q.modalidade,
+        dataEmissao: q.dataEmissao,
+        dataEntrega: q.dataEntrega,
+        validadeDias: q.validadeDias,
+        limpezasSemanais: q.limpezasSemanais,
+        observacoes: q.observacoes,
+        condicoesPagamento: q.condicoesPagamento,
+        frete: q.frete,
+        total: q.total,
+        companySnapshot: q.companySnapshot,
+        customerSnapshot: q.customerSnapshot,
+        companyRazaoSocial: q.companyRazaoSocial,
+        companyCnpj: q.companyCnpj,
+        customerName: q.customerName,
+        items: q.items,
+      });
+      toast.success('Contrato gerado');
+    } catch (e: any) { toast.error('Erro ao gerar contrato: ' + e.message); }
   };
 
   const convertToOs = async () => {
@@ -461,6 +490,9 @@ const ErpQuotes: React.FC = () => {
             <Button variant="ghost" onClick={() => setEditing(null)}>Fechar</Button>
             <Button variant="outline" onClick={exportPdf} disabled={saving}>
               <FileDown className="h-4 w-4 mr-1" />Salvar e gerar PDF
+            </Button>
+            <Button variant="outline" onClick={exportContract} disabled={saving} className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+              <FileSignature className="h-4 w-4 mr-1" />Gerar contrato
             </Button>
             <Button variant="outline" onClick={convertToOs} disabled={!editing?.id}>
               <CheckCircle2 className="h-4 w-4 mr-1" />Converter em OS
