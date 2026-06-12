@@ -19,6 +19,8 @@ import { quotesService, Quote, QuoteItem } from '@/services/quotes';
 import { erpService, ErpCompany } from '@/services/erp';
 import { useCustomers } from '@/hooks/useCustomers';
 import { generateQuotePdf } from '@/utils/quotePdf';
+import { generateContractPdf } from '@/utils/contractPdf';
+import { FileSignature } from 'lucide-react';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
