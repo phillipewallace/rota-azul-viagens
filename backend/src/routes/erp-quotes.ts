@@ -103,13 +103,14 @@ router.post('/', async (req, res) => {
       `INSERT INTO erp_quotes
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
           modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
-          desconto_pct, frete, subtotal, total, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'))
+          desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18)
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, c.dataEmissao || null, c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
-       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status]
+       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
+       c.dataEntrega || null, c.limpezasSemanais ?? null]
     );
     const quoteId = ins.rows[0].id;
 
