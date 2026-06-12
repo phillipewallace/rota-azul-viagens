@@ -104,6 +104,7 @@ export default function Sanitarios() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [stock, setStock] = useState<SanitarioStockSummary | null>(null);
+  const [osRefreshKey, setOsRefreshKey] = useState(0);
   const { customers } = useCustomers();
   const filteredCustomers = useMemo(() => {
     const q = allocSearch.trim().toLowerCase();
@@ -304,7 +305,7 @@ export default function Sanitarios() {
               </p>
             </div>
           </div>
-          <Button onClick={() => load()} variant="outline" size="sm" disabled={loading} className="gap-2">
+          <Button onClick={() => { load(); loadStock(); loadTrucks(); setOsRefreshKey(k => k + 1); }} variant="outline" size="sm" disabled={loading} className="gap-2">
             <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Atualizar</span>
           </Button>
@@ -633,7 +634,7 @@ export default function Sanitarios() {
         </TabsContent>
 
         <TabsContent value="os" className="mt-0">
-          <ErpServiceOrdersPanel onChanged={() => { load(); loadStock(); }} />
+          <ErpServiceOrdersPanel refreshKey={osRefreshKey} onChanged={() => { load(); loadStock(); }} />
         </TabsContent>
       </Tabs>
       </div>

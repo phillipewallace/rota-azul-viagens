@@ -14,10 +14,11 @@ import {
 import { serviceOrdersService, quotesService, ServiceOrder } from '@/services/quotes';
 import { generateQuotePdf } from '@/utils/quotePdf';
 import { generateContractPdf } from '@/utils/contractPdf';
+import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
 import { toast } from 'sonner';
 import {
   RefreshCcw, Truck, MapPin, User, CalendarClock, AlertTriangle,
-  PackageOpen, CheckCircle2, Loader2, FileText, FileDown, FileSignature,
+  PackageOpen, CheckCircle2, Loader2, FileText, FileDown, FileSignature, ClipboardList,
 } from 'lucide-react';
 import SanitarioMultiCombobox from './SanitarioMultiCombobox';
 
@@ -36,7 +37,7 @@ interface CloseState {
   descricao: string;
 }
 
-export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () => void }) {
+export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onChanged?: () => void; refreshKey?: number }) {
   const [list, setList] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -53,6 +54,7 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (refreshKey !== undefined) load(); }, [refreshKey]);
 
   // Notificações de entregas próximas (hoje / amanhã)
   useEffect(() => {
@@ -187,6 +189,33 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
       toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message); }
   };
+  const downloadServiceOrderPdf = async (os: ServiceOrder) => {
+    try {
+      const detail = await serviceOrdersService.get(os.id) as any;
+      generateServiceOrderPdf({
+        numero: detail.numero || os.numero,
+        modalidade: detail.modalidade || os.modalidade,
+        tipoLocacao: detail.tipo_locacao || os.tipoLocacao,
+        dataInicio: detail.data_inicio,
+        dataEntrega: detail.data_entrega || os.dataEntrega,
+        dataRecolhimento: detail.data_recolhimento || os.dataRecolhimento,
+        dataFimPrevista: detail.data_fim_prevista || os.dataFimPrevista,
+        limpezasSemanais: detail.limpezas_semanais ?? os.limpezasSemanais,
+        enderecoEntrega: detail.endereco_entrega || os.enderecoEntrega,
+        observacoes: detail.observacoes,
+        qtdReservada: detail.qtd_reservada ?? os.qtdReservada,
+        customerName: os.customerName,
+        customerAddress: os.customerAddress,
+        customerSnapshot: detail.customer_snapshot,
+        companySnapshot: detail.companySnapshot,
+        companyRazaoSocial: os.companyRazaoSocial,
+        items: detail.items || [],
+        sanitariosNumeros: (detail.sanitarios || []).map((s: any) => s.numero).filter(Boolean),
+      });
+      toast.success('OS para entrega gerada');
+    } catch (e: any) { toast.error(e.message); }
+  };
+
 
   return (
     <div className="space-y-4">
@@ -310,6 +339,12 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => closeOs(os)}>
                       <CheckCircle2 className="h-4 w-4 mr-1" /> Fechar
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="default" className="flex-1 bg-green-700 hover:bg-green-800"
+                            onClick={() => downloadServiceOrderPdf(os)}>
+                      <ClipboardList className="h-3.5 w-3.5 mr-1" /> Gerar OS (entrega)
                     </Button>
                   </div>
                   <div className="flex gap-2 flex-wrap">
