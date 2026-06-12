@@ -85,16 +85,18 @@ export function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
   doc.text('ENDERECO DE ENTREGA', M + 2, y + 1.5);
   y += 10;
-  doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
   doc.text('Endereço:', M, y);
-  doc.setFont('helvetica', 'normal');
+  y += 5;
+  doc.setFontSize(11); doc.setFont('helvetica', 'bold');
   const enderecoFinal = os.enderecoEntrega
     || os.customerAddress
     || [customer.address, customer.numero, customer.bairro, customer.cidade, customer.estado].filter(Boolean).join(', ')
-    || '— ENDEREÇO NÃO INFORMADO —';
+    || '— ENDERECO NAO INFORMADO —';
   const endLines = doc.splitTextToSize(enderecoFinal, W - 2 * M);
   doc.text(endLines, M, y);
   y += endLines.length * 5.5 + 2;
+
 
   // Datas operacionais
   doc.setFontSize(10); doc.setFont('helvetica', 'normal');
