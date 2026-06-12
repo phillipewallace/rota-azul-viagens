@@ -87,6 +87,37 @@ export function generateQuotePdf(quote: Quote) {
   ].filter(Boolean).join('  |  ');
   if (cCont) { doc.text(cCont, M, y); y += 5; }
 
+  // Dados da locação / entrega
+  y += 4;
+  doc.setFillColor(243, 244, 246);
+  doc.rect(M, y - 4, W - 2 * M, 7, 'F');
+  doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+  doc.text('DADOS DA LOCAÇÃO', M + 2, y + 1);
+  y += 9;
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+
+  const locInfo: string[] = [];
+  if (quote.tipoLocacao) {
+    const tipos: Record<string, string> = { obra: 'Obra', evento: 'Evento', industria: 'Indústria', outro: 'Outro' };
+    locInfo.push(`Tipo: ${tipos[quote.tipoLocacao] || quote.tipoLocacao}`);
+  }
+  if (quote.dataEntrega) locInfo.push(`Data de entrega: ${D(quote.dataEntrega)}`);
+  if (quote.dataRecolhimento) locInfo.push(`Data de recolhimento: ${D(quote.dataRecolhimento)}`);
+  if (quote.modalidade === 'mensal' && quote.limpezasSemanais != null && quote.tipoLocacao !== 'evento') {
+    locInfo.push(`Limpezas semanais: ${quote.limpezasSemanais}`);
+  }
+  if (locInfo.length) {
+    const linha = locInfo.join('  |  ');
+    const wrapped = doc.splitTextToSize(linha, W - 2 * M);
+    doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 1;
+  }
+  if (quote.enderecoEntrega) {
+    doc.setFont('helvetica', 'bold'); doc.text('Endereço de entrega:', M, y); y += 4.5;
+    doc.setFont('helvetica', 'normal');
+    const wrapped = doc.splitTextToSize(quote.enderecoEntrega, W - 2 * M);
+    doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 1;
+  }
+
   // Tabela de itens
   y += 4;
   const rows = (quote.items || []).map((it, i) => [
