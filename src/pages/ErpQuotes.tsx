@@ -29,6 +29,8 @@ interface EditorState {
   modalidade: 'diaria' | 'mensal';
   tipoLocacao?: 'obra' | 'evento' | 'industria' | 'outro';
   validadeDias: number;
+  dataEntrega?: string;            // YYYY-MM-DD, opcional
+  limpezasSemanais?: number;       // só mensal
   descontoPct: number;
   frete: number;
   observacoes: string;
@@ -39,6 +41,7 @@ interface EditorState {
 
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
+  dataEntrega: '', limpezasSemanais: 1,
   observacoes: '', condicoesPagamento: '50% na contratação, 50% na entrega.',
   status: 'rascunho',
   items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
@@ -100,6 +103,8 @@ const ErpQuotes: React.FC = () => {
         id: q.id, companyId: q.companyId, customerId: q.customerId,
         modalidade: q.modalidade, tipoLocacao: (q as any).tipoLocacao || undefined,
         validadeDias: q.validadeDias,
+        dataEntrega: q.dataEntrega ? String(q.dataEntrega).slice(0, 10) : '',
+        limpezasSemanais: q.limpezasSemanais ?? undefined,
         descontoPct: Number(q.descontoPct), frete: Number(q.frete),
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
         status: q.status,
@@ -136,6 +141,8 @@ const ErpQuotes: React.FC = () => {
         id: full.id, companyId: full.companyId, customerId: full.customerId,
         modalidade: full.modalidade, tipoLocacao: (full as any).tipoLocacao || undefined,
         validadeDias: full.validadeDias,
+        dataEntrega: full.dataEntrega ? String(full.dataEntrega).slice(0, 10) : '',
+        limpezasSemanais: full.limpezasSemanais ?? undefined,
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
         status: full.status, items: full.items || [],
@@ -317,22 +324,43 @@ const ErpQuotes: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs text-muted-foreground">Tipo de locação</label>
-                <div className="flex gap-1 flex-wrap">
-                  {([
-                    { v: 'obra', l: '🏗️ Obra' },
-                    { v: 'evento', l: '🎉 Evento' },
-                    { v: 'industria', l: '🏭 Indústria' },
-                    { v: 'outro', l: 'Outro' },
-                  ] as const).map(o => (
-                    <Button key={o.v} type="button" size="sm"
-                            variant={editing.tipoLocacao === o.v ? 'default' : 'outline'}
-                            onClick={() => setEditing({ ...editing, tipoLocacao: o.v })}>
-                      {o.l}
-                    </Button>
-                  ))}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Tipo de locação</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { v: 'obra', l: '🏗️ Obra' },
+                      { v: 'evento', l: '🎉 Evento' },
+                      { v: 'industria', l: '🏭 Indústria' },
+                      { v: 'outro', l: 'Outro' },
+                    ] as const).map(o => (
+                      <Button key={o.v} type="button" size="sm"
+                              variant={editing.tipoLocacao === o.v ? 'default' : 'outline'}
+                              onClick={() => setEditing({ ...editing, tipoLocacao: o.v })}>
+                        {o.l}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Data de entrega (opcional)</label>
+                  <Input type="date" value={editing.dataEntrega || ''}
+                         onChange={e => setEditing({ ...editing, dataEntrega: e.target.value })} />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Pode ficar em branco e ser preenchida depois.
+                  </p>
+                </div>
+                {editing.modalidade === 'mensal' && (
+                  <div>
+                    <label className="text-xs text-muted-foreground">Limpezas por semana</label>
+                    <Input type="number" min={0} max={7} step={1}
+                           value={editing.limpezasSemanais ?? ''}
+                           onChange={e => setEditing({ ...editing, limpezasSemanais: e.target.value === '' ? undefined : parseInt(e.target.value) || 0 })} />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Quantidade de manutenções/limpezas previstas por semana.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Tabela de itens */}

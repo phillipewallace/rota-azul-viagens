@@ -10,6 +10,7 @@ const QUOTE_SELECT = `
   q.customer_snapshot AS "customerSnapshot", q.company_snapshot AS "companySnapshot",
   q.modalidade, q.tipo_locacao AS "tipoLocacao",
   q.data_emissao AS "dataEmissao", q.validade_dias AS "validadeDias",
+  q.data_entrega AS "dataEntrega", q.limpezas_semanais AS "limpezasSemanais",
   q.observacoes, q.condicoes_pagamento AS "condicoesPagamento",
   q.desconto_pct AS "descontoPct", q.frete, q.subtotal, q.total,
   q.status, q.pdf_gerado_em AS "pdfGeradoEm",
@@ -102,13 +103,14 @@ router.post('/', async (req, res) => {
       `INSERT INTO erp_quotes
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
           modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
-          desconto_pct, frete, subtotal, total, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'))
+          desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18)
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, c.dataEmissao || null, c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
-       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status]
+       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
+       c.dataEntrega || null, c.limpezasSemanais ?? null]
     );
     const quoteId = ins.rows[0].id;
 
@@ -161,12 +163,15 @@ router.put('/:id', async (req, res) => {
          frete = COALESCE($10, frete),
          subtotal = $11, total = $12,
          status = COALESCE($13, status),
+         data_entrega = $15,
+         limpezas_semanais = $16,
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
        c.modalidade || null, c.dataEmissao || null, c.validadeDias || null,
        c.observacoes || null, c.condicoesPagamento || null,
-       c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null]
+       c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null,
+       c.dataEntrega || null, c.limpezasSemanais ?? null]
     );
 
     if (items) {
@@ -225,11 +230,13 @@ router.post('/:id/convert-to-os', async (req, res) => {
     const osIns = await client.query(
       `INSERT INTO erp_service_orders
          (numero, quote_id, company_id, customer_id, customer_snapshot,
-          modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9)
+          modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
+          data_entrega, limpezas_semanais)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9, $10, $11)
        RETURNING id, numero`,
       [numero, quote.id, quote.company_id, quote.customer_id, quote.customer_snapshot,
-       quote.modalidade, quote.tipo_locacao, quote.total, quote.observacoes]
+       quote.modalidade, quote.tipo_locacao, quote.total, quote.observacoes,
+       quote.data_entrega || null, quote.limpezas_semanais ?? null]
     );
     const osId = osIns.rows[0].id;
 

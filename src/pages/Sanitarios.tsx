@@ -13,8 +13,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
 import { fetchSanitarioStockSummary, type SanitarioStockSummary } from '@/services/erp';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2 } from 'lucide-react';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes } from 'lucide-react';
 import { toast } from 'sonner';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -309,6 +311,18 @@ export default function Sanitarios() {
         </div>
       </header>
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
+
+      <Tabs defaultValue="estoque" className="space-y-4">
+        <TabsList className="grid w-full md:w-auto grid-cols-2 md:inline-grid">
+          <TabsTrigger value="estoque" className="gap-1.5">
+            <Boxes className="h-4 w-4" /> Estoque e movimentação
+          </TabsTrigger>
+          <TabsTrigger value="os" className="gap-1.5">
+            <FileText className="h-4 w-4" /> Ordens de Serviço
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="estoque" className="space-y-4 mt-0">
 
       {/* Resumo de estoque ERP */}
       {stock && (
@@ -616,6 +630,12 @@ export default function Sanitarios() {
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        <TabsContent value="os" className="mt-0">
+          <ErpServiceOrdersPanel onChanged={() => { load(); loadStock(); }} />
+        </TabsContent>
+      </Tabs>
       </div>
 
       {/* Modal alocar a cliente */}

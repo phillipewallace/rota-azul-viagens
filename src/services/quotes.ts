@@ -45,6 +45,8 @@ export interface Quote {
   tipoLocacao?: TipoLocacao;
   dataEmissao: string;
   validadeDias: number;
+  dataEntrega?: string | null;
+  limpezasSemanais?: number | null;
   observacoes?: string;
   condicoesPagamento?: string;
   descontoPct: number;
@@ -79,18 +81,25 @@ export interface ServiceOrder {
   companyId?: string;
   customerId?: string;
   customerName?: string;
+  customerAddress?: string;
+  customerLat?: number;
+  customerLng?: number;
   companyRazaoSocial?: string;
   modalidade: Modalidade;
   tipoLocacao?: TipoLocacao;
   dataInicio: string;
   dataFimPrevista?: string;
   dataFechamento?: string;
+  dataEntrega?: string | null;
+  limpezasSemanais?: number | null;
+  enderecoEntrega?: string | null;
   status: 'aberta' | 'fechada' | 'cancelada';
   valorTotal: number;
   observacoes?: string;
   createdAt: string;
   emAtraso?: boolean;
   sanitariosAlocados?: number;
+  sanitariosEntregues?: number;
 }
 
 export const serviceOrdersService = {
@@ -106,6 +115,8 @@ export const serviceOrdersService = {
   get: (id: string) => req<ServiceOrder & { sanitarios: any[] }>('GET', `/erp/service-orders/${id}`),
   create: (data: any) => req<{ id: string; numero: string }>('POST', '/erp/service-orders', data),
   close: (id: string) => req<{ ok: true }>('POST', `/erp/service-orders/${id}/close`, {}),
+  deliver: (id: string, body: { sanitarioNumeros: string[]; address?: string; notes?: string }) =>
+    req<{ ok: true; delivered: string[] }>('POST', `/erp/service-orders/${id}/deliver`, body),
   remove: (id: string) => req<{ ok: true }>('DELETE', `/erp/service-orders/${id}`),
   overdueCount: () => req<{ overdue: number }>('GET', `/erp/service-orders/overdue/count`),
   financial: (params?: { from?: string; to?: string; status?: string; tipoLocacao?: string }) => {
