@@ -116,9 +116,10 @@ export const serviceOrdersService = {
     ).toString();
     return req<ServiceOrder[]>('GET', `/erp/service-orders${q ? '?' + q : ''}`);
   },
-  get: (id: string) => req<ServiceOrder & { sanitarios: any[] }>('GET', `/erp/service-orders/${id}`),
+  get: (id: string) => req<ServiceOrder & { sanitarios: any[]; items: any[]; companySnapshot: any; customer_snapshot?: any; quote_id?: string }>('GET', `/erp/service-orders/${id}`),
   create: (data: any) => req<{ id: string; numero: string }>('POST', '/erp/service-orders', data),
-  close: (id: string) => req<{ ok: true }>('POST', `/erp/service-orders/${id}/close`, {}),
+  close: (id: string, body?: { descricao?: string }) => req<{ ok: true; recolhidos?: boolean }>('POST', `/erp/service-orders/${id}/close`, body || {}),
+  upcoming: () => req<Array<{ id: string; numero: string; dataEntrega: string; tipoLocacao?: string; enderecoEntrega?: string; customerName?: string; hoje: boolean; amanha: boolean }>>('GET', `/erp/service-orders/notifications/upcoming`),
   deliver: (id: string, body: { sanitarioNumeros: string[]; address?: string; notes?: string }) =>
     req<{ ok: true; delivered: string[] }>('POST', `/erp/service-orders/${id}/deliver`, body),
   remove: (id: string) => req<{ ok: true }>('DELETE', `/erp/service-orders/${id}`),
