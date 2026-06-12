@@ -161,15 +161,20 @@ export function generateContractPdf(src: ContractSource) {
   const writeParagraph = (text: string, opts?: { bold?: boolean; size?: number; lineGap?: number; align?: 'left' | 'justify' }) => {
     const size = opts?.size ?? 10;
     const gap = opts?.lineGap ?? 1.6;
-    doc.setFont('helvetica', opts?.bold ? 'bold' : 'normal');
-    doc.setFontSize(size);
+    const applyStyle = () => {
+      doc.setFont('helvetica', opts?.bold ? 'bold' : 'normal');
+      doc.setFontSize(size);
+    };
+    applyStyle();
     const lines = doc.splitTextToSize(text, maxW);
     for (const line of lines) {
       ensure(size * 0.45 + gap);
+      applyStyle(); // re-aplica após eventual quebra de página (drawHeader reseta a fonte)
       doc.text(line, M, y);
       y += size * 0.45 + gap;
     }
   };
+
 
   const writeClause = (title: string, body: () => void) => {
     ensure(16);
