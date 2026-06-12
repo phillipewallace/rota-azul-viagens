@@ -10,6 +10,7 @@ const QUOTE_SELECT = `
   q.customer_snapshot AS "customerSnapshot", q.company_snapshot AS "companySnapshot",
   q.modalidade, q.tipo_locacao AS "tipoLocacao",
   q.data_emissao AS "dataEmissao", q.validade_dias AS "validadeDias",
+  q.data_entrega AS "dataEntrega", q.limpezas_semanais AS "limpezasSemanais",
   q.observacoes, q.condicoes_pagamento AS "condicoesPagamento",
   q.desconto_pct AS "descontoPct", q.frete, q.subtotal, q.total,
   q.status, q.pdf_gerado_em AS "pdfGeradoEm",
