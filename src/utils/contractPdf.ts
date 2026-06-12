@@ -244,7 +244,7 @@ export function generateContractPdf(src: ContractSource) {
 
   writeClause('CLÁUSULA I – DO OBJETO', () => {
     writeParagraph(
-      `1.1. O presente contrato tem por objeto a locação de ${qtdSanit} (${valorPorExtenso(qtdSanit).replace(/ reais.*/, '')}) ` +
+      `1.1. O presente contrato tem por objeto a locação de ${qtdSanit} (${valorPorExtenso(qtdSanit).replace(/ rea(?:l|is).*/, '')}) ` +
       `banheiro${qtdSanit > 1 ? 's' : ''} químico${qtdSanit > 1 ? 's' : ''} móve${qtdSanit > 1 ? 'is' : 'l'}, ` +
       `de propriedade da LOCADORA, à LOCATÁRIA, para uso temporário em atividades operacionais, canteiros de obras ou ` +
       `quaisquer outras situações que exijam a disponibilização de instalações sanitárias móveis, exclusivamente no local ` +
