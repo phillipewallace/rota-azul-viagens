@@ -312,6 +312,18 @@ export default function Sanitarios() {
       </header>
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
 
+      <Tabs defaultValue="estoque" className="space-y-4">
+        <TabsList className="grid w-full md:w-auto grid-cols-2 md:inline-grid">
+          <TabsTrigger value="estoque" className="gap-1.5">
+            <Boxes className="h-4 w-4" /> Estoque e movimentação
+          </TabsTrigger>
+          <TabsTrigger value="os" className="gap-1.5">
+            <FileText className="h-4 w-4" /> Ordens de Serviço
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="estoque" className="space-y-4 mt-0">
+
       {/* Resumo de estoque ERP */}
       {stock && (
         <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-2">
