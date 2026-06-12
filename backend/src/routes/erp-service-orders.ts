@@ -21,15 +21,21 @@ router.get('/', async (req, res) => {
              o.customer_id AS "customerId", o.modalidade, o.tipo_locacao AS "tipoLocacao",
              o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
              o.data_fechamento AS "dataFechamento", o.status,
+             o.data_entrega AS "dataEntrega", o.limpezas_semanais AS "limpezasSemanais",
+             o.endereco_entrega AS "enderecoEntrega",
              o.valor_total AS "valorTotal", o.observacoes,
              o.created_at AS "createdAt",
-             cu.customer_name AS "customerName",
+             cu.customer_name AS "customerName", cu.address AS "customerAddress",
+             cu.lat AS "customerLat", cu.lng AS "customerLng",
              c.razao_social AS "companyRazaoSocial",
              (o.status='aberta' AND o.modalidade='diaria'
               AND o.data_fim_prevista IS NOT NULL
               AND o.data_fim_prevista < CURRENT_DATE) AS "emAtraso",
              COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s
-                        WHERE s.os_id=o.id AND s.devolvido_em IS NULL),0)::int AS "sanitariosAlocados"
+                        WHERE s.os_id=o.id AND s.devolvido_em IS NULL),0)::int AS "sanitariosAlocados",
+             COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s
+                        JOIN sanitarios sa ON sa.id=s.sanitario_id
+                        WHERE s.os_id=o.id AND s.devolvido_em IS NULL AND sa.status='em_cliente'),0)::int AS "sanitariosEntregues"
         FROM erp_service_orders o
         LEFT JOIN customers cu ON cu.id = o.customer_id
         LEFT JOIN erp_companies c ON c.id = o.company_id
