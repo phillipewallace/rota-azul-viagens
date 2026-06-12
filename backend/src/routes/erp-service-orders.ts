@@ -285,7 +285,7 @@ router.get('/:id', async (req, res) => {
   try {
     const o = await pool.query(`
       SELECT o.*, cu.customer_name AS customer_name_join, cu.address AS customer_address_join,
-             c.razao_social, c.cnpj, c.inscricao_estadual, c.inscricao_municipal,
+             c.razao_social, c.cnpj, c.inscricao_estadual,
              c.endereco AS company_endereco, c.cidade AS company_cidade, c.estado AS company_estado,
              c.telefone AS company_telefone, c.email AS company_email
         FROM erp_service_orders o
@@ -314,7 +314,7 @@ router.get('/:id', async (req, res) => {
     if (!companySnapshot && row.razao_social) {
       companySnapshot = {
         razao_social: row.razao_social, cnpj: row.cnpj,
-        inscricao_estadual: row.inscricao_estadual, inscricao_municipal: row.inscricao_municipal,
+        inscricao_estadual: row.inscricao_estadual,
         endereco: row.company_endereco, cidade: row.company_cidade, estado: row.company_estado,
         telefone: row.company_telefone, email: row.company_email,
       };
