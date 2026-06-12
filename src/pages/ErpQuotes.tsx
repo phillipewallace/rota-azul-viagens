@@ -324,22 +324,43 @@ const ErpQuotes: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs text-muted-foreground">Tipo de locação</label>
-                <div className="flex gap-1 flex-wrap">
-                  {([
-                    { v: 'obra', l: '🏗️ Obra' },
-                    { v: 'evento', l: '🎉 Evento' },
-                    { v: 'industria', l: '🏭 Indústria' },
-                    { v: 'outro', l: 'Outro' },
-                  ] as const).map(o => (
-                    <Button key={o.v} type="button" size="sm"
-                            variant={editing.tipoLocacao === o.v ? 'default' : 'outline'}
-                            onClick={() => setEditing({ ...editing, tipoLocacao: o.v })}>
-                      {o.l}
-                    </Button>
-                  ))}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Tipo de locação</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { v: 'obra', l: '🏗️ Obra' },
+                      { v: 'evento', l: '🎉 Evento' },
+                      { v: 'industria', l: '🏭 Indústria' },
+                      { v: 'outro', l: 'Outro' },
+                    ] as const).map(o => (
+                      <Button key={o.v} type="button" size="sm"
+                              variant={editing.tipoLocacao === o.v ? 'default' : 'outline'}
+                              onClick={() => setEditing({ ...editing, tipoLocacao: o.v })}>
+                        {o.l}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Data de entrega (opcional)</label>
+                  <Input type="date" value={editing.dataEntrega || ''}
+                         onChange={e => setEditing({ ...editing, dataEntrega: e.target.value })} />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Pode ficar em branco e ser preenchida depois.
+                  </p>
+                </div>
+                {editing.modalidade === 'mensal' && (
+                  <div>
+                    <label className="text-xs text-muted-foreground">Limpezas por semana</label>
+                    <Input type="number" min={0} max={7} step={1}
+                           value={editing.limpezasSemanais ?? ''}
+                           onChange={e => setEditing({ ...editing, limpezasSemanais: e.target.value === '' ? undefined : parseInt(e.target.value) || 0 })} />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Quantidade de manutenções/limpezas previstas por semana.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Tabela de itens */}
