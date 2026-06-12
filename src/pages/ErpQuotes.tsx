@@ -31,8 +31,10 @@ interface EditorState {
   modalidade: 'diaria' | 'mensal';
   tipoLocacao?: 'obra' | 'evento' | 'industria' | 'outro';
   validadeDias: number;
-  dataEntrega?: string;            // YYYY-MM-DD, opcional
-  limpezasSemanais?: number;       // só mensal
+  dataEntrega?: string;
+  dataRecolhimento?: string;
+  enderecoEntrega?: string;
+  limpezasSemanais?: number;
   descontoPct: number;
   frete: number;
   observacoes: string;
@@ -43,7 +45,7 @@ interface EditorState {
 
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
-  dataEntrega: '', limpezasSemanais: 1,
+  dataEntrega: '', dataRecolhimento: '', enderecoEntrega: '', limpezasSemanais: 1,
   observacoes: '', condicoesPagamento: '50% na contratação, 50% na entrega.',
   status: 'rascunho',
   items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
@@ -106,6 +108,8 @@ const ErpQuotes: React.FC = () => {
         modalidade: q.modalidade, tipoLocacao: (q as any).tipoLocacao || undefined,
         validadeDias: q.validadeDias,
         dataEntrega: q.dataEntrega ? String(q.dataEntrega).slice(0, 10) : '',
+        dataRecolhimento: q.dataRecolhimento ? String(q.dataRecolhimento).slice(0, 10) : '',
+        enderecoEntrega: q.enderecoEntrega || '',
         limpezasSemanais: q.limpezasSemanais ?? undefined,
         descontoPct: Number(q.descontoPct), frete: Number(q.frete),
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
@@ -144,6 +148,8 @@ const ErpQuotes: React.FC = () => {
         modalidade: full.modalidade, tipoLocacao: (full as any).tipoLocacao || undefined,
         validadeDias: full.validadeDias,
         dataEntrega: full.dataEntrega ? String(full.dataEntrega).slice(0, 10) : '',
+        dataRecolhimento: full.dataRecolhimento ? String(full.dataRecolhimento).slice(0, 10) : '',
+        enderecoEntrega: full.enderecoEntrega || '',
         limpezasSemanais: full.limpezasSemanais ?? undefined,
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
