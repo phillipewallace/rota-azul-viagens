@@ -37,7 +37,7 @@ interface CloseState {
   descricao: string;
 }
 
-export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () => void }) {
+export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onChanged?: () => void; refreshKey?: number }) {
   const [list, setList] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -54,6 +54,7 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (refreshKey !== undefined) load(); }, [refreshKey]);
 
   // Notificações de entregas próximas (hoje / amanhã)
   useEffect(() => {
