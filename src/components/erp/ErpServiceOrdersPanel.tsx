@@ -54,6 +54,25 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
   };
   useEffect(() => { load(); }, []);
 
+  // Notificações de entregas próximas (hoje / amanhã)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const ups = await serviceOrdersService.upcoming();
+        if (cancelled || !ups.length) return;
+        for (const u of ups) {
+          const when = u.hoje ? 'HOJE' : u.amanha ? 'AMANHÃ' : '';
+          toast.warning(
+            `Entrega ${when} · OS ${u.numero}${u.customerName ? ` — ${u.customerName}` : ''}`,
+            { duration: 8000, description: u.enderecoEntrega || undefined }
+          );
+        }
+      } catch { /* silencioso */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     if (!s) return list;
