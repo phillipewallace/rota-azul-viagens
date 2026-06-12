@@ -15,16 +15,16 @@ import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import { toast } from 'sonner';
 import {
   RefreshCcw, Truck, MapPin, User, CalendarClock, AlertTriangle,
-  PackageOpen, CheckCircle2, Loader2, FileText, FileSignature,
+  PackageOpen, CheckCircle2, Loader2, FileText,
 } from 'lucide-react';
-import { generateContractPdf } from '@/utils/contractPdf';
+import SanitarioMultiCombobox from './SanitarioMultiCombobox';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
 
 interface DeliverState {
   os: ServiceOrder;
-  numerosStr: string;
+  numeros: string[];
   address: string;
   notes: string;
 }
