@@ -141,6 +141,8 @@ const ErpQuotes: React.FC = () => {
         id: full.id, companyId: full.companyId, customerId: full.customerId,
         modalidade: full.modalidade, tipoLocacao: (full as any).tipoLocacao || undefined,
         validadeDias: full.validadeDias,
+        dataEntrega: full.dataEntrega ? String(full.dataEntrega).slice(0, 10) : '',
+        limpezasSemanais: full.limpezasSemanais ?? undefined,
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
         status: full.status, items: full.items || [],
