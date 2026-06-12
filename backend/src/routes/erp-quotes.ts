@@ -10,7 +10,9 @@ const QUOTE_SELECT = `
   q.customer_snapshot AS "customerSnapshot", q.company_snapshot AS "companySnapshot",
   q.modalidade, q.tipo_locacao AS "tipoLocacao",
   q.data_emissao AS "dataEmissao", q.validade_dias AS "validadeDias",
-  q.data_entrega AS "dataEntrega", q.limpezas_semanais AS "limpezasSemanais",
+  q.data_entrega AS "dataEntrega", q.data_recolhimento AS "dataRecolhimento",
+  q.endereco_entrega AS "enderecoEntrega",
+  q.limpezas_semanais AS "limpezasSemanais",
   q.observacoes, q.condicoes_pagamento AS "condicoesPagamento",
   q.desconto_pct AS "descontoPct", q.frete, q.subtotal, q.total,
   q.status, q.pdf_gerado_em AS "pdfGeradoEm",
@@ -38,10 +40,14 @@ async function loadItems(quoteId: string) {
 
 router.get('/', async (req, res) => {
   try {
-    const { status, customerId } = req.query as any;
+    const { status, customerId, includeConvertido } = req.query as any;
     const conds: string[] = [];
     const params: any[] = [];
     if (status) { params.push(status); conds.push(`q.status = $${params.length}`); }
+    else if (includeConvertido !== 'true') {
+      // por padrão oculta orçamentos já convertidos em OS
+      conds.push(`q.status <> 'convertido'`);
+    }
     if (customerId) { params.push(customerId); conds.push(`q.customer_id = $${params.length}`); }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const r = await pool.query(
@@ -88,7 +94,6 @@ router.post('/', async (req, res) => {
     const numero = numRes.rows[0].num;
     const { subtotal, total } = calcTotals(items, c.descontoPct, c.frete);
 
-    // snapshots
     let companySnap: any = null, customerSnap: any = null;
     if (c.companyId) {
       const cc = await client.query('SELECT * FROM erp_companies WHERE id=$1', [c.companyId]);
@@ -103,14 +108,16 @@ router.post('/', async (req, res) => {
       `INSERT INTO erp_quotes
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
           modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
-          desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18)
+          desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais,
+          endereco_entrega, data_recolhimento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20)
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, c.dataEmissao || null, c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
-       c.dataEntrega || null, c.limpezasSemanais ?? null]
+       c.dataEntrega || null, c.limpezasSemanais ?? null,
+       c.enderecoEntrega || null, c.dataRecolhimento || null]
     );
     const quoteId = ins.rows[0].id;
 
@@ -165,13 +172,16 @@ router.put('/:id', async (req, res) => {
          status = COALESCE($13, status),
          data_entrega = $15,
          limpezas_semanais = $16,
+         endereco_entrega = $17,
+         data_recolhimento = $18,
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
        c.modalidade || null, c.dataEmissao || null, c.validadeDias || null,
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null,
-       c.dataEntrega || null, c.limpezasSemanais ?? null]
+       c.dataEntrega || null, c.limpezasSemanais ?? null,
+       c.enderecoEntrega || null, c.dataRecolhimento || null]
     );
 
     if (items) {
@@ -204,7 +214,11 @@ router.delete('/:id', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// converter orçamento em OS — reserva sanitários "disponivel" se modalidade diária e produto = sanitario
+/**
+ * Converte orçamento em OS.
+ * Não consome sanitários reais — apenas registra qtd_reservada na OS.
+ * Os números reais são vinculados depois, no fluxo "Entregar / vincular".
+ */
 router.post('/:id/convert-to-os', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -214,7 +228,6 @@ router.post('/:id/convert-to-os', async (req, res) => {
     const quote = q.rows[0];
     const items = await loadItems(req.params.id);
 
-    // calcula quantidade de sanitários referenciados nos itens
     const qtdSanit = items
       .filter((it: any) => /sanit/i.test(it.produto || '') || /sanit/i.test(it.descricao || ''))
       .reduce((acc: number, it: any) => acc + Math.ceil(Number(it.quantidade || 0)), 0);
@@ -231,29 +244,15 @@ router.post('/:id/convert-to-os', async (req, res) => {
       `INSERT INTO erp_service_orders
          (numero, quote_id, company_id, customer_id, customer_snapshot,
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
-          data_entrega, limpezas_semanais)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9, $10, $11)
+          data_entrega, limpezas_semanais, endereco_entrega, data_recolhimento, qtd_reservada)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9, $10, $11, $12, $13, $14)
        RETURNING id, numero`,
       [numero, quote.id, quote.company_id, quote.customer_id, quote.customer_snapshot,
        quote.modalidade, quote.tipo_locacao, quote.total, quote.observacoes,
-       quote.data_entrega || null, quote.limpezas_semanais ?? null]
+       quote.data_entrega || null, quote.limpezas_semanais ?? null,
+       quote.endereco_entrega || null, quote.data_recolhimento || null, qtdSanit]
     );
     const osId = osIns.rows[0].id;
-
-    // reservar sanitários disponíveis
-    if (qtdSanit > 0) {
-      const av = await client.query(
-        `SELECT id FROM sanitarios WHERE status='disponivel' ORDER BY numero::text ASC LIMIT $1 FOR UPDATE`,
-        [qtdSanit]
-      );
-      for (const row of av.rows) {
-        await client.query(
-          `INSERT INTO erp_os_sanitarios (os_id, sanitario_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-          [osId, row.id]
-        );
-        await client.query(`UPDATE sanitarios SET status='em_os' WHERE id=$1`, [row.id]);
-      }
-    }
 
     await client.query(`UPDATE erp_quotes SET status='convertido', updated_at=NOW() WHERE id=$1`, [quote.id]);
     await client.query('COMMIT');
