@@ -13,8 +13,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
 import { fetchSanitarioStockSummary, type SanitarioStockSummary } from '@/services/erp';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2 } from 'lucide-react';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes } from 'lucide-react';
 import { toast } from 'sonner';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
 import {
   AlertDialog,
   AlertDialogAction,
