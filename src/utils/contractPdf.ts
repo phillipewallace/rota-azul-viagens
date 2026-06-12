@@ -161,15 +161,20 @@ export function generateContractPdf(src: ContractSource) {
   const writeParagraph = (text: string, opts?: { bold?: boolean; size?: number; lineGap?: number; align?: 'left' | 'justify' }) => {
     const size = opts?.size ?? 10;
     const gap = opts?.lineGap ?? 1.6;
-    doc.setFont('helvetica', opts?.bold ? 'bold' : 'normal');
-    doc.setFontSize(size);
+    const applyStyle = () => {
+      doc.setFont('helvetica', opts?.bold ? 'bold' : 'normal');
+      doc.setFontSize(size);
+    };
+    applyStyle();
     const lines = doc.splitTextToSize(text, maxW);
     for (const line of lines) {
       ensure(size * 0.45 + gap);
+      applyStyle(); // re-aplica após eventual quebra de página (drawHeader reseta a fonte)
       doc.text(line, M, y);
       y += size * 0.45 + gap;
     }
   };
+
 
   const writeClause = (title: string, body: () => void) => {
     ensure(16);
@@ -234,12 +239,12 @@ export function generateContractPdf(src: ContractSource) {
 
   const limp = src.limpezasSemanais ?? (src.modalidade === 'mensal' ? 1 : null);
   const limpTxt = limp != null && limp > 0
-    ? `${limp} (${valorPorExtenso(limp).replace(/ reais.*/, '')}) vez${limp > 1 ? 'es' : ''} por semana`
+    ? `${limp} (${valorPorExtenso(limp).replace(/ rea(?:l|is).*/, '')}) vez${limp > 1 ? 'es' : ''} por semana`
     : 'conforme cronograma acordado entre as partes';
 
   writeClause('CLÁUSULA I – DO OBJETO', () => {
     writeParagraph(
-      `1.1. O presente contrato tem por objeto a locação de ${qtdSanit} (${valorPorExtenso(qtdSanit).replace(/ reais.*/, '')}) ` +
+      `1.1. O presente contrato tem por objeto a locação de ${qtdSanit} (${valorPorExtenso(qtdSanit).replace(/ rea(?:l|is).*/, '')}) ` +
       `banheiro${qtdSanit > 1 ? 's' : ''} químico${qtdSanit > 1 ? 's' : ''} móve${qtdSanit > 1 ? 'is' : 'l'}, ` +
       `de propriedade da LOCADORA, à LOCATÁRIA, para uso temporário em atividades operacionais, canteiros de obras ou ` +
       `quaisquer outras situações que exijam a disponibilização de instalações sanitárias móveis, exclusivamente no local ` +
