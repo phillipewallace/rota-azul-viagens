@@ -634,7 +634,7 @@ export default function Sanitarios() {
         </TabsContent>
 
         <TabsContent value="os" className="mt-0">
-          <ErpServiceOrdersPanel onChanged={() => { load(); loadStock(); }} />
+          <ErpServiceOrdersPanel refreshKey={osRefreshKey} onChanged={() => { load(); loadStock(); }} />
         </TabsContent>
       </Tabs>
       </div>
