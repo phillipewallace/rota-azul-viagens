@@ -179,6 +179,7 @@ const ErpQuotes: React.FC = () => {
         dataEntrega: q.dataEntrega,
         validadeDias: q.validadeDias,
         limpezasSemanais: q.limpezasSemanais,
+        enderecoEntrega: q.enderecoEntrega,
         observacoes: q.observacoes,
         condicoesPagamento: q.condicoesPagamento,
         frete: q.frete,
