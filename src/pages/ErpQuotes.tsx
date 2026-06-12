@@ -135,6 +135,7 @@ const ErpQuotes: React.FC = () => {
     try {
       let id = editing.id;
       const payload = { ...editing };
+      if (payload.tipoLocacao === 'evento') payload.limpezasSemanais = undefined;
       if (id) await quotesService.update(id, payload);
       else {
         const r = await quotesService.create(payload);
