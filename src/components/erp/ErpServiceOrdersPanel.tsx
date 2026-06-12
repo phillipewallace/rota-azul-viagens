@@ -9,13 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
+import { serviceOrdersService, quotesService, ServiceOrder } from '@/services/quotes';
+import { generateQuotePdf } from '@/utils/quotePdf';
+import { generateContractPdf } from '@/utils/contractPdf';
 import { toast } from 'sonner';
 import {
   RefreshCcw, Truck, MapPin, User, CalendarClock, AlertTriangle,
-  PackageOpen, CheckCircle2, Loader2, FileText,
+  PackageOpen, CheckCircle2, Loader2, FileText, FileDown, FileSignature,
 } from 'lucide-react';
 import SanitarioMultiCombobox from './SanitarioMultiCombobox';
 
@@ -29,11 +31,17 @@ interface DeliverState {
   notes: string;
 }
 
+interface CloseState {
+  os: ServiceOrder;
+  descricao: string;
+}
+
 export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () => void }) {
   const [list, setList] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [deliver, setDeliver] = useState<DeliverState | null>(null);
+  const [closing, setClosing] = useState<CloseState | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
@@ -95,19 +103,71 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
     finally { setBusy(false); }
   };
 
-  const closeOs = async (os: ServiceOrder) => {
-    if (!confirm(`Fechar a OS ${os.numero}? Os sanitários ainda alocados voltarão para o estoque.`)) return;
+  const closeOs = (os: ServiceOrder) => {
+    if ((os.tipoLocacao || '').toLowerCase() === 'evento') {
+      setClosing({ os, descricao: '' });
+    } else {
+      if (!confirm(`Fechar a OS ${os.numero}? Os sanitários permanecerão em cliente até a baixa manual em /sanitarios.`)) return;
+      doClose(os);
+    }
+  };
+
+  const doClose = async (os: ServiceOrder, descricao?: string) => {
+    setBusy(true);
     try {
-      await serviceOrdersService.close(os.id);
-      toast.success(`OS ${os.numero} fechada`);
+      const r = await serviceOrdersService.close(os.id, descricao ? { descricao } : undefined);
+      toast.success(r.recolhidos
+        ? `OS ${os.numero} fechada e sanitários recolhidos automaticamente`
+        : `OS ${os.numero} fechada`);
+      setClosing(null);
       await load();
       onChanged?.();
     } catch (e: any) { toast.error(e.message); }
+    finally { setBusy(false); }
   };
 
+  const submitClose = async () => {
+    if (!closing) return;
+    if (!closing.descricao.trim()) { toast.error('Descrição obrigatória para fechar OS de evento'); return; }
+    await doClose(closing.os, closing.descricao.trim());
+  };
 
+  const downloadQuotePdf = async (os: ServiceOrder) => {
+    try {
+      const detail = await serviceOrdersService.get(os.id) as any;
+      const quoteId = detail.quote_id || detail.quoteId;
+      if (!quoteId) { toast.error('OS sem orçamento vinculado'); return; }
+      const q = await quotesService.get(quoteId);
+      generateQuotePdf(q);
+      toast.success('PDF do orçamento gerado');
+    } catch (e: any) { toast.error(e.message); }
+  };
 
-
+  const downloadContractPdf = async (os: ServiceOrder) => {
+    try {
+      const detail = await serviceOrdersService.get(os.id) as any;
+      generateContractPdf({
+        numero: detail.numero || os.numero,
+        tipo: 'os',
+        modalidade: detail.modalidade || os.modalidade,
+        dataEmissao: detail.data_inicio,
+        dataInicio: detail.data_inicio,
+        dataEntrega: detail.data_entrega,
+        dataFimPrevista: detail.data_fim_prevista,
+        limpezasSemanais: detail.limpezas_semanais,
+        enderecoEntrega: detail.endereco_entrega || os.enderecoEntrega,
+        observacoes: detail.observacoes,
+        frete: detail.frete,
+        total: Number(detail.valor_total || os.valorTotal || 0),
+        companySnapshot: detail.companySnapshot,
+        customerSnapshot: detail.customer_snapshot,
+        customerName: os.customerName,
+        customerAddress: os.customerAddress,
+        items: detail.items || [],
+      });
+      toast.success('Contrato gerado');
+    } catch (e: any) { toast.error(e.message); }
+  };
 
   return (
     <div className="space-y-4">
@@ -159,6 +219,7 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {filtered.map(os => {
             const reservados = Math.max(0, (os.sanitariosAlocados || 0) - (os.sanitariosEntregues || 0));
+            const isEvento = (os.tipoLocacao || '').toLowerCase() === 'evento';
             return (
               <Card key={os.id} className={os.emAtraso ? 'border-red-300' : ''}>
                 <CardContent className="p-4 space-y-3">
@@ -169,6 +230,7 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                         <Badge variant={os.modalidade === 'diaria' ? 'default' : 'secondary'} className="text-[10px]">
                           {os.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'}
                         </Badge>
+                        {isEvento && <Badge className="bg-pink-100 text-pink-700 text-[10px]">🎉 Evento</Badge>}
                         {os.emAtraso && (
                           <Badge className="bg-red-100 text-red-700 text-[10px]">
                             <AlertTriangle className="h-3 w-3 mr-1" /> EM ATRASO
@@ -212,19 +274,33 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                       🧽 {os.limpezasSemanais} limpeza(s) por semana
                     </div>
                   )}
-                  {os.modalidade === 'diaria' && os.dataFimPrevista && (
+                  {isEvento && os.dataRecolhimento && (
+                    <div className="text-[11px] text-muted-foreground">
+                      🎯 Recolhimento previsto: {fmtDate(os.dataRecolhimento)}
+                    </div>
+                  )}
+                  {!isEvento && os.modalidade === 'diaria' && os.dataFimPrevista && (
                     <div className="text-[11px] text-muted-foreground">
                       Recolhimento previsto: {fmtDate(os.dataFimPrevista)}
                     </div>
                   )}
 
                   <div className="flex gap-2 pt-2 border-t flex-wrap">
-                    <Button size="sm" className="flex-1 min-w-[140px]" onClick={() => openDeliver(os)}
-                            disabled={reservados === 0 && (os.sanitariosEntregues || 0) === 0}>
+                    <Button size="sm" className="flex-1 min-w-[140px]" onClick={() => openDeliver(os)}>
                       <Truck className="h-4 w-4 mr-1" /> Entregar / vincular
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => closeOs(os)}>
                       <CheckCircle2 className="h-4 w-4 mr-1" /> Fechar
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="ghost" className="flex-1 text-indigo-700 hover:bg-indigo-50"
+                            onClick={() => downloadQuotePdf(os)}>
+                      <FileDown className="h-3.5 w-3.5 mr-1" /> PDF Orçamento
+                    </Button>
+                    <Button size="sm" variant="ghost" className="flex-1 text-purple-700 hover:bg-purple-50"
+                            onClick={() => downloadContractPdf(os)}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Contrato
                     </Button>
                   </div>
                 </CardContent>
@@ -234,12 +310,11 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
         </div>
       )}
 
+      {/* Modal de entrega */}
       <Dialog open={!!deliver} onOpenChange={(o) => !o && setDeliver(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              Entregar sanitários · OS {deliver?.os.numero}
-            </DialogTitle>
+            <DialogTitle>Entregar sanitários · OS {deliver?.os.numero}</DialogTitle>
           </DialogHeader>
           {deliver && (
             <div className="space-y-3">
@@ -251,15 +326,13 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">
-                  Números dos sanitários *
-                </label>
+                <label className="text-xs text-muted-foreground">Números dos sanitários *</label>
                 <SanitarioMultiCombobox
                   value={deliver.numeros}
                   onChange={(v) => setDeliver({ ...deliver, numeros: v })}
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Selecione na lista de disponíveis (ou digite e tecle Enter para adicionar manualmente). Eles sairão de "reservado" e serão registrados como entregues.
+                  Selecione na lista de disponíveis (ou digite e tecle Enter para adicionar manualmente).
                 </p>
               </div>
               <div>
@@ -281,6 +354,36 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
             <Button onClick={submitDeliver} disabled={busy} className="bg-blue-600 hover:bg-blue-700">
               {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <PackageOpen className="h-4 w-4 mr-1" />}
               Confirmar entrega
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal fechar OS de evento */}
+      <Dialog open={!!closing} onOpenChange={(o) => !o && setClosing(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fechar OS de Evento · {closing?.os.numero}</DialogTitle>
+            <DialogDescription>
+              Ao fechar, todos os sanitários ainda em cliente serão recolhidos automaticamente
+              (baixa equivalente à manual em /sanitarios).
+            </DialogDescription>
+          </DialogHeader>
+          {closing && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Descrição do recolhimento *</label>
+                <Textarea rows={3} value={closing.descricao}
+                          onChange={e => setClosing({ ...closing, descricao: e.target.value })}
+                          placeholder="Ex.: Equipe recolheu os 5 sanitários após o término do evento. Condições gerais boas." />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setClosing(null)}>Cancelar</Button>
+            <Button onClick={submitClose} disabled={busy} className="bg-green-600 hover:bg-green-700">
+              {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
+              Fechar e recolher
             </Button>
           </DialogFooter>
         </DialogContent>
