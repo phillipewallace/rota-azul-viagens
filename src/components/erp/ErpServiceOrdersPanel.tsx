@@ -189,6 +189,33 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
       toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message); }
   };
+  const downloadServiceOrderPdf = async (os: ServiceOrder) => {
+    try {
+      const detail = await serviceOrdersService.get(os.id) as any;
+      generateServiceOrderPdf({
+        numero: detail.numero || os.numero,
+        modalidade: detail.modalidade || os.modalidade,
+        tipoLocacao: detail.tipo_locacao || os.tipoLocacao,
+        dataInicio: detail.data_inicio,
+        dataEntrega: detail.data_entrega || os.dataEntrega,
+        dataRecolhimento: detail.data_recolhimento || os.dataRecolhimento,
+        dataFimPrevista: detail.data_fim_prevista || os.dataFimPrevista,
+        limpezasSemanais: detail.limpezas_semanais ?? os.limpezasSemanais,
+        enderecoEntrega: detail.endereco_entrega || os.enderecoEntrega,
+        observacoes: detail.observacoes,
+        qtdReservada: detail.qtd_reservada ?? os.qtdReservada,
+        customerName: os.customerName,
+        customerAddress: os.customerAddress,
+        customerSnapshot: detail.customer_snapshot,
+        companySnapshot: detail.companySnapshot,
+        companyRazaoSocial: os.companyRazaoSocial,
+        items: detail.items || [],
+        sanitariosNumeros: (detail.sanitarios || []).map((s: any) => s.numero).filter(Boolean),
+      });
+      toast.success('OS para entrega gerada');
+    } catch (e: any) { toast.error(e.message); }
+  };
+
 
   return (
     <div className="space-y-4">
