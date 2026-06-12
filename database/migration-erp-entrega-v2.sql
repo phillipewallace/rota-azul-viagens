@@ -26,6 +26,6 @@ BEGIN
 END
 $cleanup$;
 
-GRANT SELECT, INSERT, UPDATE ON erp_quotes TO lipe;
-GRANT SELECT, INSERT, UPDATE ON erp_service_orders TO lipe;
-GRANT SELECT, INSERT, UPDATE ON erp_os_sanitarios TO lipe;
+GRANT SELECT, INSERT, UPDATE, DELETE ON erp_quotes TO lipe;
+GRANT SELECT, INSERT, UPDATE, DELETE ON erp_service_orders TO lipe;
+GRANT SELECT, INSERT, UPDATE, DELETE ON erp_os_sanitarios TO lipe;
