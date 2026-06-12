@@ -450,8 +450,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Vincular números reais de sanitários a uma OS (entrega).
-// Substitui placeholders reservados pelos sanitários informados (por número)
-// e marca como em_cliente, registrando movimentação.
+// Insere o vínculo, marca o sanitário como em_cliente e registra movimentação.
 router.post('/:id/deliver', async (req: any, res) => {
   const client = await pool.connect();
   try {
@@ -461,7 +460,8 @@ router.post('/:id/deliver', async (req: any, res) => {
     }
     await client.query('BEGIN');
     const osR = await client.query(
-      `SELECT o.*, cu.customer_name, cu.address AS customer_address, cu.lat AS customer_lat, cu.lng AS customer_lng
+      `SELECT o.*, cu.customer_name, cu.address AS customer_address,
+              cu.lat AS customer_lat, cu.lng AS customer_lng
          FROM erp_service_orders o
          LEFT JOIN customers cu ON cu.id=o.customer_id
         WHERE o.id=$1 FOR UPDATE OF o`, [req.params.id]);
@@ -473,7 +473,6 @@ router.post('/:id/deliver', async (req: any, res) => {
     const delivered: string[] = [];
 
     for (const numero of nums) {
-      // garante o sanitário
       let s = await client.query(`SELECT id, status FROM sanitarios WHERE numero=$1 FOR UPDATE`, [numero]);
       if (!s.rows[0]) {
         s = await client.query(`INSERT INTO sanitarios (numero, status) VALUES ($1,'em_cliente') RETURNING id, status`, [numero]);
@@ -483,18 +482,6 @@ router.post('/:id/deliver', async (req: any, res) => {
         `SELECT 1 FROM erp_os_sanitarios WHERE os_id=$1 AND sanitario_id=$2 AND devolvido_em IS NULL`,
         [req.params.id, sanId]);
       if (!alreadyInOs.rows[0]) {
-        // libera um placeholder reservado se existir
-        const ph = await client.query(
-          `SELECT eos.id AS link_id, eos.sanitario_id
-             FROM erp_os_sanitarios eos
-             JOIN sanitarios sa ON sa.id=eos.sanitario_id
-            WHERE eos.os_id=$1 AND eos.devolvido_em IS NULL AND sa.status='em_os'
-            ORDER BY eos.alocado_em ASC LIMIT 1 FOR UPDATE`,
-          [req.params.id]);
-        if (ph.rows[0]) {
-          await client.query(`DELETE FROM erp_os_sanitarios WHERE id=$1`, [ph.rows[0].link_id]);
-          await client.query(`UPDATE sanitarios SET status='disponivel' WHERE id=$1 AND status='em_os'`, [ph.rows[0].sanitario_id]);
-        }
         await client.query(
           `INSERT INTO erp_os_sanitarios (os_id, sanitario_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
           [req.params.id, sanId]);
