@@ -352,10 +352,6 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
                             onClick={() => downloadQuotePdf(os)}>
                       <FileDown className="h-3.5 w-3.5 mr-1" /> PDF Orçamento
                     </Button>
-                    <Button size="sm" variant="ghost" className="flex-1 text-purple-700 hover:bg-purple-50"
-                            onClick={() => downloadContractPdf(os)}>
-                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Contrato
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
