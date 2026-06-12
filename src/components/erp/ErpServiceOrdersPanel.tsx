@@ -254,11 +254,12 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                 <label className="text-xs text-muted-foreground">
                   Números dos sanitários *
                 </label>
-                <Textarea rows={3} value={deliver.numerosStr}
-                          onChange={e => setDeliver({ ...deliver, numerosStr: e.target.value })}
-                          placeholder="Ex.: 1024, 1025, 1030  (separe por vírgula, espaço ou quebra de linha)" />
+                <SanitarioMultiCombobox
+                  value={deliver.numeros}
+                  onChange={(v) => setDeliver({ ...deliver, numeros: v })}
+                />
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Os números informados sairão de "reservado" e serão registrados como entregues ao cliente.
+                  Selecione na lista de disponíveis (ou digite e tecle Enter para adicionar manualmente). Eles sairão de "reservado" e serão registrados como entregues.
                 </p>
               </div>
               <div>
