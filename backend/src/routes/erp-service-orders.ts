@@ -261,7 +261,15 @@ router.get('/movements/history', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const o = await pool.query(`SELECT * FROM erp_service_orders WHERE id=$1`, [req.params.id]);
+    const o = await pool.query(`
+      SELECT o.*, cu.customer_name AS customer_name_join, cu.address AS customer_address_join,
+             c.razao_social, c.cnpj, c.inscricao_estadual, c.inscricao_municipal,
+             c.endereco AS company_endereco, c.cidade AS company_cidade, c.estado AS company_estado,
+             c.telefone AS company_telefone, c.email AS company_email
+        FROM erp_service_orders o
+        LEFT JOIN customers cu ON cu.id = o.customer_id
+        LEFT JOIN erp_companies c ON c.id = o.company_id
+       WHERE o.id=$1`, [req.params.id]);
     if (!o.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     const sans = await pool.query(`
       SELECT s.id, s.numero, s.status, eos.alocado_em AS "alocadoEm", eos.devolvido_em AS "devolvidoEm"
@@ -269,7 +277,27 @@ router.get('/:id', async (req, res) => {
         JOIN sanitarios s ON s.id = eos.sanitario_id
        WHERE eos.os_id=$1
        ORDER BY s.numero ASC`, [req.params.id]);
-    res.json({ ...o.rows[0], sanitarios: sans.rows });
+    // itens vindos do orçamento vinculado
+    let items: any[] = [];
+    let companySnapshot: any = null;
+    const row = o.rows[0];
+    if (row.quote_id) {
+      const it = await pool.query(
+        `SELECT produto, descricao, quantidade, valor_unitario AS "valorUnitario", valor_total AS "valorTotal", ordem
+           FROM erp_quote_items WHERE quote_id=$1 ORDER BY ordem ASC, id ASC`, [row.quote_id]);
+      items = it.rows;
+      const qs = await pool.query(`SELECT company_snapshot FROM erp_quotes WHERE id=$1`, [row.quote_id]);
+      companySnapshot = qs.rows[0]?.company_snapshot || null;
+    }
+    if (!companySnapshot && row.razao_social) {
+      companySnapshot = {
+        razao_social: row.razao_social, cnpj: row.cnpj,
+        inscricao_estadual: row.inscricao_estadual, inscricao_municipal: row.inscricao_municipal,
+        endereco: row.company_endereco, cidade: row.company_cidade, estado: row.company_estado,
+        telefone: row.company_telefone, email: row.company_email,
+      };
+    }
+    res.json({ ...row, sanitarios: sans.rows, items, companySnapshot });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
