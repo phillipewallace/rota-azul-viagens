@@ -239,7 +239,7 @@ export function generateContractPdf(src: ContractSource) {
 
   const limp = src.limpezasSemanais ?? (src.modalidade === 'mensal' ? 1 : null);
   const limpTxt = limp != null && limp > 0
-    ? `${limp} (${valorPorExtenso(limp).replace(/ reais.*/, '')}) vez${limp > 1 ? 'es' : ''} por semana`
+    ? `${limp} (${valorPorExtenso(limp).replace(/ rea(?:l|is).*/, '')}) vez${limp > 1 ? 'es' : ''} por semana`
     : 'conforme cronograma acordado entre as partes';
 
   writeClause('CLÁUSULA I – DO OBJETO', () => {
