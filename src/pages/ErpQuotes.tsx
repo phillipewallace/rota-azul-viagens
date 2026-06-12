@@ -161,6 +161,33 @@ const ErpQuotes: React.FC = () => {
     catch (e: any) { toast.error('Erro ao gerar PDF: ' + e.message); }
   };
 
+  const exportContract = async () => {
+    const q = await save();
+    if (!q) return;
+    try {
+      generateContractPdf({
+        numero: q.numero,
+        tipo: 'orcamento',
+        modalidade: q.modalidade,
+        dataEmissao: q.dataEmissao,
+        dataEntrega: q.dataEntrega,
+        validadeDias: q.validadeDias,
+        limpezasSemanais: q.limpezasSemanais,
+        observacoes: q.observacoes,
+        condicoesPagamento: q.condicoesPagamento,
+        frete: q.frete,
+        total: q.total,
+        companySnapshot: q.companySnapshot,
+        customerSnapshot: q.customerSnapshot,
+        companyRazaoSocial: q.companyRazaoSocial,
+        companyCnpj: q.companyCnpj,
+        customerName: q.customerName,
+        items: q.items,
+      });
+      toast.success('Contrato gerado');
+    } catch (e: any) { toast.error('Erro ao gerar contrato: ' + e.message); }
+  };
+
   const convertToOs = async () => {
     if (!editing?.id) { toast.error('Salve o orçamento antes'); return; }
     const dias = editing.modalidade === 'diaria'
