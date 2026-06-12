@@ -70,7 +70,7 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
   const openDeliver = (os: ServiceOrder) => {
     setDeliver({
       os,
-      numerosStr: '',
+      numeros: [],
       address: os.enderecoEntrega || os.customerAddress || '',
       notes: '',
     });
@@ -78,10 +78,7 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
 
   const submitDeliver = async () => {
     if (!deliver) return;
-    const nums = deliver.numerosStr
-      .split(/[\s,;\n]+/g)
-      .map(s => s.trim().toUpperCase())
-      .filter(Boolean);
+    const nums = deliver.numeros.map(s => s.trim().toUpperCase()).filter(Boolean);
     if (!nums.length) { toast.error('Informe pelo menos um número de sanitário'); return; }
     setBusy(true);
     try {
