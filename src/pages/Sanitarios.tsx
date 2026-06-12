@@ -104,6 +104,7 @@ export default function Sanitarios() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [stock, setStock] = useState<SanitarioStockSummary | null>(null);
+  const [osRefreshKey, setOsRefreshKey] = useState(0);
   const { customers } = useCustomers();
   const filteredCustomers = useMemo(() => {
     const q = allocSearch.trim().toLowerCase();
