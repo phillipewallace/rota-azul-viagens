@@ -405,7 +405,7 @@ router.post('/:id/deliver', async (req: any, res) => {
       `SELECT o.*, cu.customer_name, cu.address AS customer_address, cu.lat AS customer_lat, cu.lng AS customer_lng
          FROM erp_service_orders o
          LEFT JOIN customers cu ON cu.id=o.customer_id
-        WHERE o.id=$1 FOR UPDATE`, [req.params.id]);
+        WHERE o.id=$1 FOR UPDATE OF o`, [req.params.id]);
     if (!osR.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'OS não encontrada' }); }
     const os = osR.rows[0];
     const finalAddress = (address || os.endereco_entrega || os.customer_address || '').trim();

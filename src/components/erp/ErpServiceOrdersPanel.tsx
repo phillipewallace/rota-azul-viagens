@@ -15,16 +15,16 @@ import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import { toast } from 'sonner';
 import {
   RefreshCcw, Truck, MapPin, User, CalendarClock, AlertTriangle,
-  PackageOpen, CheckCircle2, Loader2, FileText, FileSignature,
+  PackageOpen, CheckCircle2, Loader2, FileText,
 } from 'lucide-react';
-import { generateContractPdf } from '@/utils/contractPdf';
+import SanitarioMultiCombobox from './SanitarioMultiCombobox';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
 
 interface DeliverState {
   os: ServiceOrder;
-  numerosStr: string;
+  numeros: string[];
   address: string;
   notes: string;
 }
@@ -70,7 +70,7 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
   const openDeliver = (os: ServiceOrder) => {
     setDeliver({
       os,
-      numerosStr: '',
+      numeros: [],
       address: os.enderecoEntrega || os.customerAddress || '',
       notes: '',
     });
@@ -78,10 +78,7 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
 
   const submitDeliver = async () => {
     if (!deliver) return;
-    const nums = deliver.numerosStr
-      .split(/[\s,;\n]+/g)
-      .map(s => s.trim().toUpperCase())
-      .filter(Boolean);
+    const nums = deliver.numeros.map(s => s.trim().toUpperCase()).filter(Boolean);
     if (!nums.length) { toast.error('Informe pelo menos um número de sanitário'); return; }
     setBusy(true);
     try {
@@ -108,30 +105,8 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const gerarContrato = async (os: ServiceOrder) => {
-    try {
-      const full: any = await serviceOrdersService.get(os.id);
-      generateContractPdf({
-        numero: os.numero,
-        tipo: 'os',
-        modalidade: os.modalidade,
-        dataInicio: full.data_inicio || os.dataInicio,
-        dataEntrega: full.data_entrega || os.dataEntrega,
-        dataFimPrevista: full.data_fim_prevista || os.dataFimPrevista,
-        limpezasSemanais: full.limpezas_semanais ?? os.limpezasSemanais,
-        enderecoEntrega: full.endereco_entrega || os.enderecoEntrega || os.customerAddress,
-        observacoes: full.observacoes,
-        total: Number(full.valor_total || os.valorTotal),
-        companySnapshot: full.companySnapshot,
-        customerSnapshot: full.customer_snapshot,
-        companyRazaoSocial: os.companyRazaoSocial,
-        customerName: os.customerName,
-        customerAddress: os.customerAddress,
-        items: full.items || [],
-      });
-      toast.success('Contrato gerado');
-    } catch (e: any) { toast.error('Erro ao gerar contrato: ' + e.message); }
-  };
+
+
 
 
   return (
@@ -248,10 +223,6 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                             disabled={reservados === 0 && (os.sanitariosEntregues || 0) === 0}>
                       <Truck className="h-4 w-4 mr-1" /> Entregar / vincular
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => gerarContrato(os)}
-                            className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
-                      <FileSignature className="h-4 w-4 mr-1" /> Contrato
-                    </Button>
                     <Button size="sm" variant="outline" onClick={() => closeOs(os)}>
                       <CheckCircle2 className="h-4 w-4 mr-1" /> Fechar
                     </Button>
@@ -283,11 +254,12 @@ export default function ErpServiceOrdersPanel({ onChanged }: { onChanged?: () =>
                 <label className="text-xs text-muted-foreground">
                   Números dos sanitários *
                 </label>
-                <Textarea rows={3} value={deliver.numerosStr}
-                          onChange={e => setDeliver({ ...deliver, numerosStr: e.target.value })}
-                          placeholder="Ex.: 1024, 1025, 1030  (separe por vírgula, espaço ou quebra de linha)" />
+                <SanitarioMultiCombobox
+                  value={deliver.numeros}
+                  onChange={(v) => setDeliver({ ...deliver, numeros: v })}
+                />
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Os números informados sairão de "reservado" e serão registrados como entregues ao cliente.
+                  Selecione na lista de disponíveis (ou digite e tecle Enter para adicionar manualmente). Eles sairão de "reservado" e serão registrados como entregues.
                 </p>
               </div>
               <div>
