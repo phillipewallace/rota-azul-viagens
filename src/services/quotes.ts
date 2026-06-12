@@ -115,6 +115,8 @@ export const serviceOrdersService = {
   get: (id: string) => req<ServiceOrder & { sanitarios: any[] }>('GET', `/erp/service-orders/${id}`),
   create: (data: any) => req<{ id: string; numero: string }>('POST', '/erp/service-orders', data),
   close: (id: string) => req<{ ok: true }>('POST', `/erp/service-orders/${id}/close`, {}),
+  deliver: (id: string, body: { sanitarioNumeros: string[]; address?: string; notes?: string }) =>
+    req<{ ok: true; delivered: string[] }>('POST', `/erp/service-orders/${id}/deliver`, body),
   remove: (id: string) => req<{ ok: true }>('DELETE', `/erp/service-orders/${id}`),
   overdueCount: () => req<{ overdue: number }>('GET', `/erp/service-orders/overdue/count`),
   financial: (params?: { from?: string; to?: string; status?: string; tipoLocacao?: string }) => {
