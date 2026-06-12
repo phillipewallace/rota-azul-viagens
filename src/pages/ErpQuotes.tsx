@@ -490,6 +490,7 @@ const ErpQuotes: React.FC = () => {
             <Button variant="ghost" onClick={() => setEditing(null)}>Fechar</Button>
             <Button variant="outline" onClick={exportPdf} disabled={saving}>
               <FileDown className="h-4 w-4 mr-1" />Salvar e gerar PDF
+            </Button>
             <Button variant="outline" onClick={exportContract} disabled={saving} className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
               <FileSignature className="h-4 w-4 mr-1" />Gerar contrato
             </Button>
