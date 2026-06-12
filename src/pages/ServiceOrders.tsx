@@ -31,6 +31,21 @@ const ServiceOrders: React.FC = () => {
   const [tab, setTab] = useState<'todas' | 'abertas' | 'atrasadas' | 'fechadas'>('todas');
   const [tipoFilter, setTipoFilter] = useState<string>('');
   const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<Record<string, any>>({});
+  const [loadingDetail, setLoadingDetail] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = async (o: ServiceOrder) => {
+    if (expanded[o.id]) {
+      setExpanded(prev => { const c = { ...prev }; delete c[o.id]; return c; });
+      return;
+    }
+    setLoadingDetail(prev => ({ ...prev, [o.id]: true }));
+    try {
+      const det = await serviceOrdersService.get(o.id);
+      setExpanded(prev => ({ ...prev, [o.id]: det }));
+    } catch (e: any) { toast.error(e.message); }
+    finally { setLoadingDetail(prev => { const c = { ...prev }; delete c[o.id]; return c; }); }
+  };
 
   // Financeiro modal
   const [finOpen, setFinOpen] = useState(false);
