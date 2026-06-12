@@ -163,12 +163,15 @@ router.put('/:id', async (req, res) => {
          frete = COALESCE($10, frete),
          subtotal = $11, total = $12,
          status = COALESCE($13, status),
+         data_entrega = $15,
+         limpezas_semanais = $16,
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
        c.modalidade || null, c.dataEmissao || null, c.validadeDias || null,
        c.observacoes || null, c.condicoesPagamento || null,
-       c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null]
+       c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null,
+       c.dataEntrega || null, c.limpezasSemanais ?? null]
     );
 
     if (items) {
