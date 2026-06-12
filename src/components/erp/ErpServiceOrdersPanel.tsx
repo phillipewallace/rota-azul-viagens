@@ -14,10 +14,11 @@ import {
 import { serviceOrdersService, quotesService, ServiceOrder } from '@/services/quotes';
 import { generateQuotePdf } from '@/utils/quotePdf';
 import { generateContractPdf } from '@/utils/contractPdf';
+import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
 import { toast } from 'sonner';
 import {
   RefreshCcw, Truck, MapPin, User, CalendarClock, AlertTriangle,
-  PackageOpen, CheckCircle2, Loader2, FileText, FileDown, FileSignature,
+  PackageOpen, CheckCircle2, Loader2, FileText, FileDown, FileSignature, ClipboardList,
 } from 'lucide-react';
 import SanitarioMultiCombobox from './SanitarioMultiCombobox';
 
