@@ -74,18 +74,20 @@ export function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
   doc.setFontSize(9); doc.setFont('helvetica', 'normal');
   const cCont = [
     customer.contact_name ? `Responsável: ${customer.contact_name}` : null,
-    customer.contact_phone ? `Telefone: ${customer.contact_phone}` : null,
+    customer.contact_phone ? `Contato: ${customer.contact_phone}` : null,
   ].filter(Boolean).join('   |   ');
   if (cCont) { doc.text(cCont, M, y); y += 5; }
 
-  // Endereço de entrega — bloco grande
+  // Endereço de entrega — bloco grande (sem emoji: jsPDF padrão não renderiza)
   y += 2;
   doc.setFillColor(254, 240, 138);
   doc.rect(M, y - 4, W - 2 * M, 8, 'F');
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-  doc.text('📍 ENDEREÇO DE ENTREGA', M + 2, y + 1.5);
+  doc.text('ENDERECO DE ENTREGA', M + 2, y + 1.5);
   y += 10;
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+  doc.text('Endereço:', M, y);
+  doc.setFont('helvetica', 'normal');
   const enderecoFinal = os.enderecoEntrega
     || os.customerAddress
     || [customer.address, customer.numero, customer.bairro, customer.cidade, customer.estado].filter(Boolean).join(', ')
