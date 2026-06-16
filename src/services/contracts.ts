@@ -35,8 +35,14 @@ export interface Contract {
   osId?: string;
   origem: 'manual' | 'sistema';
   descricao?: string;
+  tipoContrato?: 'locacao' | 'evento';
   dataInicio: string;
   dataFim?: string | null;
+  dataEvento?: string | null;
+  dataRecolhimento?: string | null;
+  localEvento?: string | null;
+  horaEntrega?: string | null;
+  valorTotalEvento?: number | null;
   diaVencimento: number;
   valorMensal: number;
   renovacaoAutomatica: boolean;
@@ -50,6 +56,7 @@ export interface Contract {
   createdAt: string;
   companyRazaoSocial?: string;
   companyCnpj?: string;
+  companyLogoUrl?: string;
   customerName?: string;
   customerDocument?: string;
   osNumero?: string;
@@ -120,4 +127,45 @@ export const receiptsService = {
   generate: (body: { contractId: string; competencia?: string; valor?: number; pago?: boolean; regerar?: boolean }) =>
     req<{ ok: true; id: string; numero: string; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
   remove: (id: string) => req<{ ok: true }>('DELETE', `/erp/receipts/${id}`),
+};
+
+// ===== Gastos
+export interface Expense {
+  id: string;
+  categoria: string;
+  descricao: string;
+  valor: number;
+  data: string;
+  fornecedor?: string;
+  notaFiscal?: string;
+  anexoUrl?: string;
+  observacoes?: string;
+  origem?: 'manual' | 'manutencao';
+  createdAt?: string;
+}
+export const expensesService = {
+  list: (params?: { from?: string; to?: string; categoria?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set('from', params.from);
+    if (params?.to)   q.set('to', params.to);
+    if (params?.categoria) q.set('categoria', params.categoria);
+    const s = q.toString();
+    return req<Expense[]>('GET', `/erp/expenses${s ? '?' + s : ''}`);
+  },
+  create: (data: Partial<Expense>) => req<Expense>('POST', '/erp/expenses', data),
+  update: (id: string, data: Partial<Expense>) => req<{ ok: true }>('PUT', `/erp/expenses/${id}`, data),
+  remove: (id: string) => req<{ ok: true }>('DELETE', `/erp/expenses/${id}`),
+};
+
+// ===== Mark receipt paid / unpaid (without regenerating PDF)
+export const receiptsExtraService = {
+  markPaid: async (contractId: string, competencia: string, valor?: number) =>
+    receiptsService.generate({ contractId, competencia, valor, pago: true }),
+  togglePaid: async (receiptId: string, pago: boolean) => {
+    const r = await fetch(`${API_BASE_URL}/erp/receipts/${receiptId}/pago`, {
+      method: 'PATCH', headers: headers(), body: JSON.stringify({ pago }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Erro');
+    return r.json();
+  },
 };

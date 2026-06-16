@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FileSignature, Plus, Search, Upload, FileDown, Power, PowerOff,
-  Calendar, Loader2, Trash2, ExternalLink,
+  Calendar, Loader2, Trash2, ExternalLink, FileText,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,9 +31,11 @@ import { contractsService, type Contract } from '@/services/contracts';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { serviceOrdersService } from '@/services/quotes';
 import { API_BASE_URL } from '@/services/config';
+import { toAbsoluteUrl } from '@/utils/absoluteUrl';
+import { generateContractPdf } from '@/utils/contractPdf';
 
-// Customers service is in '@/services/customers'? It's in '@/services/customers'. Let's import generic.
-type Customer = { id: string; customer_name: string; document?: string };
+// Cliente vem do endpoint /customers que retorna camelCase (customerName)
+type Customer = { id: string; customerName: string; document?: string };
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
@@ -108,6 +110,36 @@ const ErpContracts: React.FC = () => {
       setDeleting(null);
       await load();
     } catch (e: any) { toast.error(e.message); }
+  };
+
+  const downloadContractPdf = async (c: Contract) => {
+    try {
+      const full = await contractsService.get(c.id);
+      generateContractPdf({
+        numero: full.numero,
+        tipo: 'os',
+        tipoContrato: (full.tipoContrato as any) || 'locacao',
+        modalidade: 'mensal',
+        dataEmissao: full.dataInicio,
+        dataInicio: full.dataInicio,
+        dataEntrega: full.dataEvento || full.dataInicio,
+        dataFimPrevista: full.dataRecolhimento || full.dataFim || null,
+        dataRecolhimento: full.dataRecolhimento || null,
+        horaEntrega: full.horaEntrega || null,
+        localEvento: full.localEvento || null,
+        enderecoEntrega: full.localEvento || (full.customerSnapshot?.address ?? null),
+        observacoes: full.observacoes || null,
+        total: Number(full.valorTotalEvento ?? full.valorMensal ?? 0),
+        frete: 0,
+        companySnapshot: full.companySnapshot,
+        customerSnapshot: full.customerSnapshot,
+        companyRazaoSocial: full.companyRazaoSocial,
+        companyCnpj: full.companyCnpj,
+        customerName: full.customerName,
+        items: [],
+      });
+      toast.success('Contrato gerado');
+    } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
   };
 
   return (
@@ -201,9 +233,14 @@ const ErpContracts: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-xs">{c.osNumero || '—'}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
+                      <Button variant="ghost" size="sm" title="Baixar PDF do contrato"
+                        onClick={() => downloadContractPdf(c)}>
+                        <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                      </Button>
                       {c.pdfUrl && (
-                        <Button variant="ghost" size="sm" onClick={() => window.open(c.pdfUrl!, '_blank')}>
-                          <FileDown className="h-3.5 w-3.5" />
+                        <Button variant="ghost" size="sm" title="Abrir PDF assinado anexado"
+                          onClick={() => window.open(toAbsoluteUrl(c.pdfUrl!), '_blank')}>
+                          <FileDown className="h-3.5 w-3.5 text-emerald-600" />
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" onClick={() => { setEditing(c); setOpenForm(true); }}>
@@ -267,10 +304,13 @@ function ContractFormDialog({
 }) {
   const empty = {
     companyId: '', customerId: '', osId: '',
+    tipoContrato: 'locacao' as 'locacao' | 'evento',
     descricao: '', dataInicio: new Date().toISOString().slice(0, 10),
     diaVencimento: 10, valorMensal: 0,
     renovacaoAutomatica: true, ativo: true,
     pdfUrl: '', observacoes: '',
+    dataEvento: '', dataRecolhimento: '', localEvento: '', horaEntrega: '',
+    valorTotalEvento: 0,
   };
   const [form, setForm] = useState<any>(empty);
   const [saving, setSaving] = useState(false);
@@ -282,6 +322,7 @@ function ContractFormDialog({
         companyId: editing.companyId || '',
         customerId: editing.customerId || '',
         osId: editing.osId || '',
+        tipoContrato: (editing.tipoContrato as any) || 'locacao',
         descricao: editing.descricao || '',
         dataInicio: (editing.dataInicio || '').slice(0, 10),
         diaVencimento: editing.diaVencimento,
@@ -290,6 +331,11 @@ function ContractFormDialog({
         ativo: editing.ativo,
         pdfUrl: editing.pdfUrl || '',
         observacoes: editing.observacoes || '',
+        dataEvento: (editing.dataEvento || '').slice(0, 10),
+        dataRecolhimento: (editing.dataRecolhimento || '').slice(0, 10),
+        localEvento: editing.localEvento || '',
+        horaEntrega: editing.horaEntrega || '',
+        valorTotalEvento: Number(editing.valorTotalEvento || 0),
       });
     } else setForm(empty);
     // eslint-disable-next-line
@@ -351,8 +397,18 @@ function ContractFormDialog({
               <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
               <SelectContent className="max-h-64">
                 {customers.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.customer_name}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>{c.customerName}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Tipo de contrato *</Label>
+            <Select value={form.tipoContrato} onValueChange={(v) => setForm({ ...form, tipoContrato: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="locacao">Locação mensal (obra/recorrente)</SelectItem>
+                <SelectItem value="evento">Evento (curta duração)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -375,20 +431,55 @@ function ContractFormDialog({
             <Input type="date" value={form.dataInicio}
               onChange={(e) => setForm({ ...form, dataInicio: e.target.value })} />
           </div>
-          <div>
-            <Label className="text-xs">Dia de vencimento do boleto (1-28)</Label>
-            <Input type="number" min={1} max={28} value={form.diaVencimento}
-              onChange={(e) => setForm({ ...form, diaVencimento: e.target.value })} />
-          </div>
-          <div>
-            <Label className="text-xs">Valor mensal (R$)</Label>
-            <Input type="number" step="0.01" value={form.valorMensal}
-              onChange={(e) => setForm({ ...form, valorMensal: e.target.value })} />
-          </div>
+          {form.tipoContrato === 'locacao' ? (
+            <>
+              <div>
+                <Label className="text-xs">Dia de vencimento do boleto (1-28)</Label>
+                <Input type="number" min={1} max={28} value={form.diaVencimento}
+                  onChange={(e) => setForm({ ...form, diaVencimento: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Valor mensal (R$)</Label>
+                <Input type="number" step="0.01" value={form.valorMensal}
+                  onChange={(e) => setForm({ ...form, valorMensal: e.target.value })} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <Label className="text-xs">Data do evento</Label>
+                <Input type="date" value={form.dataEvento}
+                  onChange={(e) => setForm({ ...form, dataEvento: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Hora de entrega</Label>
+                <Input type="time" value={form.horaEntrega}
+                  onChange={(e) => setForm({ ...form, horaEntrega: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Data de recolhimento</Label>
+                <Input type="date" value={form.dataRecolhimento}
+                  onChange={(e) => setForm({ ...form, dataRecolhimento: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Valor total do evento (R$)</Label>
+                <Input type="number" step="0.01" value={form.valorTotalEvento}
+                  onChange={(e) => setForm({ ...form, valorTotalEvento: e.target.value })} />
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs">Local do evento (endereço de entrega)</Label>
+                <Input value={form.localEvento}
+                  onChange={(e) => setForm({ ...form, localEvento: e.target.value })}
+                  placeholder="Rua, número, bairro, cidade/UF" />
+              </div>
+            </>
+          )}
           <div className="md:col-span-2">
             <Label className="text-xs">Descrição / objeto do contrato</Label>
             <Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-              placeholder="Ex.: Locação mensal de 2 sanitários — Obra Castelo Branco" />
+              placeholder={form.tipoContrato === 'evento'
+                ? 'Ex.: 3 banheiros químicos + 1 PNE para evento corporativo'
+                : 'Ex.: Locação mensal de 2 sanitários — Obra Castelo Branco'} />
           </div>
 
           <div className="flex items-center justify-between border rounded-lg p-3 md:col-span-2">
