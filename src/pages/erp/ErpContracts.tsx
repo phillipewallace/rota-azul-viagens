@@ -305,7 +305,7 @@ function ContractFormDialog({
 }) {
   const empty = {
     companyId: '', customerId: '', osId: '',
-    tipoContrato: 'locacao' as 'locacao' | 'evento',
+    tipoContrato: 'locacao' as 'locacao' | 'evento' | 'obra',
     descricao: '', dataInicio: new Date().toISOString().slice(0, 10),
     diaVencimento: 10, valorMensal: 0,
     frete: 0,
