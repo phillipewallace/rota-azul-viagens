@@ -58,7 +58,7 @@ router.post('/', (req: any, res: any, next: any) => {
         filename: file.filename,
         size: file.size,
         mimetype: file.mimetype,
-        url: `/api/files/${file.filename}`
+        url: `/uploads/${file.filename}`
       };
 
       res.json(fileInfo);

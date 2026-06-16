@@ -8,7 +8,11 @@ router.use(requireAuth);
 const SELECT = `
   c.id, c.numero, c.company_id AS "companyId", c.customer_id AS "customerId",
   c.os_id AS "osId", c.origem, c.descricao,
+  c.tipo_contrato AS "tipoContrato",
   c.data_inicio AS "dataInicio", c.data_fim AS "dataFim",
+  c.data_evento AS "dataEvento", c.data_recolhimento AS "dataRecolhimento",
+  c.local_evento AS "localEvento", c.hora_entrega AS "horaEntrega",
+  c.valor_total_evento AS "valorTotalEvento",
   c.dia_vencimento AS "diaVencimento",
   c.valor_mensal AS "valorMensal",
   c.renovacao_automatica AS "renovacaoAutomatica",
@@ -17,6 +21,7 @@ const SELECT = `
   c.company_snapshot AS "companySnapshot", c.customer_snapshot AS "customerSnapshot",
   c.created_at AS "createdAt",
   emp.razao_social AS "companyRazaoSocial", emp.cnpj AS "companyCnpj",
+  emp.logo_url AS "companyLogoUrl",
   cu.customer_name AS "customerName", cu.document AS "customerDocument",
   os.numero AS "osNumero"
 `;
@@ -80,16 +85,24 @@ router.post('/', async (req, res) => {
     const ins = await client.query(
       `INSERT INTO erp_contracts
         (numero, company_id, customer_id, os_id, origem, descricao,
-         data_inicio, data_fim, dia_vencimento, valor_mensal,
+         tipo_contrato, data_inicio, data_fim,
+         data_evento, data_recolhimento, local_evento, hora_entrega, valor_total_evento,
+         dia_vencimento, valor_mensal,
          renovacao_automatica, ativo, pdf_url, observacoes,
          company_snapshot, customer_snapshot)
        VALUES ($1,$2,$3,$4,COALESCE($5,'manual'),$6,
-               $7,$8,COALESCE($9,10),COALESCE($10,0),
-               COALESCE($11,TRUE),COALESCE($12,TRUE),$13,$14,$15,$16)
+               COALESCE($7,'locacao'),$8,$9,
+               $10,$11,$12,$13,$14,
+               COALESCE($15,10),COALESCE($16,0),
+               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22)
        RETURNING id, numero`,
       [numero, c.companyId || null, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
-       c.dataInicio, c.dataFim || null, c.diaVencimento ?? 10, c.valorMensal ?? 0,
+       c.tipoContrato || null,
+       c.dataInicio, c.dataFim || null,
+       c.dataEvento || null, c.dataRecolhimento || null, c.localEvento || null,
+       c.horaEntrega || null, c.valorTotalEvento != null ? Number(c.valorTotalEvento) : null,
+       c.diaVencimento ?? 10, c.valorMensal ?? 0,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null, c.observacoes || null,
        companySnap, customerSnap]
     );
@@ -111,21 +124,30 @@ router.put('/:id', async (req, res) => {
          customer_id = COALESCE($3, customer_id),
          os_id = $4,
          descricao = $5,
-         data_inicio = COALESCE($6, data_inicio),
-         data_fim = $7,
-         dia_vencimento = COALESCE($8, dia_vencimento),
-         valor_mensal = COALESCE($9, valor_mensal),
-         renovacao_automatica = COALESCE($10, renovacao_automatica),
-         ativo = COALESCE($11, ativo),
-         pdf_url = COALESCE($12, pdf_url),
-         observacoes = $13,
-         motivo_encerramento = $14,
-         encerrado_em = CASE WHEN $11 = FALSE AND ativo = TRUE THEN NOW()
-                             WHEN $11 = TRUE THEN NULL ELSE encerrado_em END,
+         tipo_contrato = COALESCE($6, tipo_contrato),
+         data_inicio = COALESCE($7, data_inicio),
+         data_fim = $8,
+         data_evento = $9,
+         data_recolhimento = $10,
+         local_evento = $11,
+         hora_entrega = $12,
+         valor_total_evento = $13,
+         dia_vencimento = COALESCE($14, dia_vencimento),
+         valor_mensal = COALESCE($15, valor_mensal),
+         renovacao_automatica = COALESCE($16, renovacao_automatica),
+         ativo = COALESCE($17, ativo),
+         pdf_url = COALESCE($18, pdf_url),
+         observacoes = $19,
+         motivo_encerramento = $20,
+         encerrado_em = CASE WHEN $17 = FALSE AND ativo = TRUE THEN NOW()
+                             WHEN $17 = TRUE THEN NULL ELSE encerrado_em END,
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null, c.osId || null,
-       c.descricao ?? null, c.dataInicio || null, c.dataFim || null,
+       c.descricao ?? null, c.tipoContrato || null,
+       c.dataInicio || null, c.dataFim || null,
+       c.dataEvento || null, c.dataRecolhimento || null, c.localEvento || null,
+       c.horaEntrega || null, c.valorTotalEvento != null ? Number(c.valorTotalEvento) : null,
        c.diaVencimento ?? null, c.valorMensal ?? null,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null,
        c.observacoes ?? null, c.motivoEncerramento ?? null]
