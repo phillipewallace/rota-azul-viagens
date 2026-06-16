@@ -54,7 +54,7 @@ export async function generateQuotePdf(quote: Quote) {
 
   // Empresa emissora
   doc.setTextColor(0, 0, 0);
-  let y = 40;
+  let y = 44;
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
   doc.text('EMPRESA EMISSORA', M, y);
   y += 5;
