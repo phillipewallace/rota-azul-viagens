@@ -450,8 +450,18 @@ function ContractFormDialog({
                 <Input type="number" step="0.01" value={form.valorMensal}
                   onChange={(e) => setForm({ ...form, valorMensal: e.target.value })} />
               </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs">Frete (R$) — cobrado UMA ÚNICA VEZ no primeiro recibo</Label>
+                <Input type="number" step="0.01" min={0} value={form.frete}
+                  onChange={(e) => setForm({ ...form, frete: e.target.value })}
+                  placeholder="0,00" />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Se preenchido, o valor do frete será somado ao 1º recibo gerado e aparecerá como item separado na nota. Os recibos seguintes cobrarão apenas o valor mensal.
+                </p>
+              </div>
             </>
           ) : (
+
             <>
               <div>
                 <Label className="text-xs">Data do evento</Label>
