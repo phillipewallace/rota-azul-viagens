@@ -112,6 +112,36 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  const downloadContractPdf = async (c: Contract) => {
+    try {
+      const full = await contractsService.get(c.id);
+      generateContractPdf({
+        numero: full.numero,
+        tipo: 'os',
+        tipoContrato: (full.tipoContrato as any) || 'locacao',
+        modalidade: 'mensal',
+        dataEmissao: full.dataInicio,
+        dataInicio: full.dataInicio,
+        dataEntrega: full.dataEvento || full.dataInicio,
+        dataFimPrevista: full.dataRecolhimento || full.dataFim || null,
+        dataRecolhimento: full.dataRecolhimento || null,
+        horaEntrega: full.horaEntrega || null,
+        localEvento: full.localEvento || null,
+        enderecoEntrega: full.localEvento || (full.customerSnapshot?.address ?? null),
+        observacoes: full.observacoes || null,
+        total: Number(full.valorTotalEvento ?? full.valorMensal ?? 0),
+        frete: 0,
+        companySnapshot: full.companySnapshot,
+        customerSnapshot: full.customerSnapshot,
+        companyRazaoSocial: full.companyRazaoSocial,
+        companyCnpj: full.companyCnpj,
+        customerName: full.customerName,
+        items: [],
+      });
+      toast.success('Contrato gerado');
+    } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -274,13 +304,42 @@ function ContractFormDialog({
 }) {
   const empty = {
     companyId: '', customerId: '', osId: '',
+    tipoContrato: 'locacao' as 'locacao' | 'evento',
     descricao: '', dataInicio: new Date().toISOString().slice(0, 10),
     diaVencimento: 10, valorMensal: 0,
     renovacaoAutomatica: true, ativo: true,
     pdfUrl: '', observacoes: '',
+    dataEvento: '', dataRecolhimento: '', localEvento: '', horaEntrega: '',
+    valorTotalEvento: 0,
   };
   const [form, setForm] = useState<any>(empty);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (editing) {
+      setForm({
+        companyId: editing.companyId || '',
+        customerId: editing.customerId || '',
+        osId: editing.osId || '',
+        tipoContrato: (editing.tipoContrato as any) || 'locacao',
+        descricao: editing.descricao || '',
+        dataInicio: (editing.dataInicio || '').slice(0, 10),
+        diaVencimento: editing.diaVencimento,
+        valorMensal: Number(editing.valorMensal),
+        renovacaoAutomatica: editing.renovacaoAutomatica,
+        ativo: editing.ativo,
+        pdfUrl: editing.pdfUrl || '',
+        observacoes: editing.observacoes || '',
+        dataEvento: (editing.dataEvento || '').slice(0, 10),
+        dataRecolhimento: (editing.dataRecolhimento || '').slice(0, 10),
+        localEvento: editing.localEvento || '',
+        horaEntrega: editing.horaEntrega || '',
+        valorTotalEvento: Number(editing.valorTotalEvento || 0),
+      });
+    } else setForm(empty);
+    // eslint-disable-next-line
+  }, [editing, open]);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
