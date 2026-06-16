@@ -172,6 +172,14 @@ router.post('/generate', async (req, res) => {
   } finally { client.release(); }
 });
 
+router.patch('/:id/pago', async (req, res) => {
+  try {
+    const { pago } = req.body || {};
+    await pool.query(`UPDATE erp_receipts SET pago=$2 WHERE id=$1`, [req.params.id, !!pago]);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM erp_receipts WHERE id=$1', [req.params.id]);
