@@ -340,26 +340,6 @@ function ContractFormDialog({
     } else setForm(empty);
     // eslint-disable-next-line
   }, [editing, open]);
-  const [uploading, setUploading] = useState(false);
-
-  useEffect(() => {
-    if (editing) {
-      setForm({
-        companyId: editing.companyId || '',
-        customerId: editing.customerId || '',
-        osId: editing.osId || '',
-        descricao: editing.descricao || '',
-        dataInicio: (editing.dataInicio || '').slice(0, 10),
-        diaVencimento: editing.diaVencimento,
-        valorMensal: Number(editing.valorMensal),
-        renovacaoAutomatica: editing.renovacaoAutomatica,
-        ativo: editing.ativo,
-        pdfUrl: editing.pdfUrl || '',
-        observacoes: editing.observacoes || '',
-      });
-    } else setForm(empty);
-    // eslint-disable-next-line
-  }, [editing, open]);
 
   const handleUpload = async (file: File) => {
     setUploading(true);
