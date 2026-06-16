@@ -8,6 +8,7 @@ import { useTheme } from 'next-themes';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import CompaniesSettings from '@/components/settings/CompaniesSettings';
+import ContractTemplatesSettings from '@/components/settings/ContractTemplatesSettings';
 
 interface Settings {
   theme: string;
@@ -124,8 +125,10 @@ const Settings = () => {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid gap-6 max-w-3xl">
+        <div className="grid gap-6 max-w-5xl">
           <CompaniesSettings />
+          <ContractTemplatesSettings />
+
 
           <Card>
             <CardHeader>
