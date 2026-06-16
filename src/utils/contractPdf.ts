@@ -251,11 +251,27 @@ function generateRentalContractPdf(src: ContractSource, opts?: { construcao?: bo
   // --- Cláusula I — Do Objeto ---
   const itens = src.items || [];
   const sanitItens = itens.filter(it => /sanit|banheiro/i.test(String(it.produto || '')) || /sanit|banheiro/i.test(String(it.descricao || '')));
-  const qtdSanit = (sanitItens.length ? sanitItens : itens)
-    .reduce((acc, it) => acc + (parseInt(String(it.quantidade || 0)) || 0), 0) || 1;
+  const isPneItem = (it: any) => /pne|acess[íi]vel|cadeirante/i.test(`${it?.produto || ''} ${it?.descricao || ''}`);
+  const qtdPne = itens.filter(isPneItem).reduce((a, it) => a + (parseInt(String(it.quantidade || 0)) || 0), 0);
+  const qtdComuns = itens.filter(it => !isPneItem(it)).reduce((a, it) => a + (parseInt(String(it.quantidade || 0)) || 0), 0);
+  const qtdSanit = (qtdComuns + qtdPne)
+    || (sanitItens.length ? sanitItens : itens).reduce((acc, it) => acc + (parseInt(String(it.quantidade || 0)) || 0), 0)
+    || 1;
   const valorUnitario = sanitItens[0]
     ? Number(sanitItens[0].valorUnitario || 0)
     : (itens[0] ? Number(itens[0].valorUnitario || 0) : Number(src.total || 0));
+
+  const partesObjeto: string[] = [];
+  if (qtdComuns > 0) {
+    partesObjeto.push(`${String(qtdComuns).padStart(2, '0')} (${valorPorExtenso(qtdComuns).replace(/ rea(?:l|is).*/, '')}) banheiro${qtdComuns > 1 ? 's' : ''} químico${qtdComuns > 1 ? 's' : ''} comu${qtdComuns > 1 ? 'ns' : 'm'}`);
+  }
+  if (qtdPne > 0) {
+    partesObjeto.push(`${qtdPne === 1 ? '01 (um)' : String(qtdPne).padStart(2, '0') + ' (' + valorPorExtenso(qtdPne).replace(/ rea(?:l|is).*/, '') + ')'} banheiro${qtdPne > 1 ? 's' : ''} químico${qtdPne > 1 ? 's' : ''} modelo PNE (acessível)`);
+  }
+  if (partesObjeto.length === 0) {
+    partesObjeto.push(`${String(qtdSanit).padStart(2, '0')} (${valorPorExtenso(qtdSanit).replace(/ rea(?:l|is).*/, '')}) banheiro${qtdSanit > 1 ? 's' : ''} químico${qtdSanit > 1 ? 's' : ''} móve${qtdSanit > 1 ? 'is' : 'l'}`);
+  }
+  const objetoDescObra = partesObjeto.length === 2 ? `${partesObjeto[0]}, e ${partesObjeto[1]}` : partesObjeto.join(', ');
 
   const limp = src.limpezasSemanais ?? (src.modalidade === 'mensal' ? 1 : null);
   const limpTxt = limp != null && limp > 0
@@ -264,8 +280,7 @@ function generateRentalContractPdf(src: ContractSource, opts?: { construcao?: bo
 
   writeClause('CLÁUSULA I – DO OBJETO', () => {
     writeParagraph(
-      `1.1. O presente contrato tem por objeto a locação de ${qtdSanit} (${valorPorExtenso(qtdSanit).replace(/ rea(?:l|is).*/, '')}) ` +
-      `banheiro${qtdSanit > 1 ? 's' : ''} químico${qtdSanit > 1 ? 's' : ''} móve${qtdSanit > 1 ? 'is' : 'l'}, ` +
+      `1.1. O presente contrato tem por objeto a locação de ${objetoDescObra}, ` +
       `de propriedade da LOCADORA, à LOCATÁRIA, para uso temporário em atividades operacionais, canteiros de obras ou ` +
       `quaisquer outras situações que exijam a disponibilização de instalações sanitárias móveis, exclusivamente no local ` +
       `situado em ${src.enderecoEntrega || enderecoCliente || '___________________________'}.`

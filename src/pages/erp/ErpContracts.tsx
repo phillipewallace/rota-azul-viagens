@@ -115,11 +115,17 @@ const ErpContracts: React.FC = () => {
   const downloadContractPdf = async (c: Contract) => {
     try {
       const full = await contractsService.get(c.id);
+      const tipoCtr = (full.tipoContrato as any) || 'locacao';
+      const isEvento = tipoCtr === 'evento';
+      // Tenta extrair items do snapshot da OS vinculada (se houver) para alimentar a Cláusula do Objeto
+      const itemsFromOs: any[] = Array.isArray((full as any).osSnapshot?.items)
+        ? (full as any).osSnapshot.items
+        : (Array.isArray((full as any).items) ? (full as any).items : []);
       generateContractPdf({
         numero: full.numero,
         tipo: 'os',
-        tipoContrato: (full.tipoContrato as any) || 'locacao',
-        modalidade: 'mensal',
+        tipoContrato: tipoCtr,
+        modalidade: isEvento ? 'diaria' : 'mensal',
         dataEmissao: full.dataInicio,
         dataInicio: full.dataInicio,
         dataEntrega: full.dataEvento || full.dataInicio,
@@ -136,7 +142,7 @@ const ErpContracts: React.FC = () => {
         companyRazaoSocial: full.companyRazaoSocial,
         companyCnpj: full.companyCnpj,
         customerName: full.customerName,
-        items: [],
+        items: itemsFromOs,
       });
       toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
