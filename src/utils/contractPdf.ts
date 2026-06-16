@@ -91,7 +91,9 @@ export interface ContractSource {
   enderecoEntrega?: string | null;
   observacoes?: string | null;
   condicoesPagamento?: string | null;
+  dataVencimento?: string | null;
   frete?: number | null;
+
   total: number;
   // snapshots ou objetos relacionais
   companySnapshot?: any;
