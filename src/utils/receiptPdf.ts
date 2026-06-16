@@ -33,58 +33,83 @@ export async function generateReceiptPdf(rec: Receipt) {
   const ct = snap.contract || {};
 
   // ---------- Cabeçalho com faixa azul + acento dourado ----------
+  const HEADER_H = 42;
   doc.setFillColor(...PRIMARY);
-  doc.rect(0, 0, W, 38, 'F');
+  doc.rect(0, 0, W, HEADER_H, 'F');
   doc.setFillColor(...ACCENT);
-  doc.rect(0, 38, W, 1.5, 'F');
+  doc.rect(0, HEADER_H, W, 1.5, 'F');
 
-  // logo
+  // Caixa Nº/data à direita — definida antes para calcular espaço do texto
+  const boxW = 58, boxH = 30, boxX = W - M - boxW, boxY = 6;
+
+  // logo — caixa branca com aspect ratio preservado
   let textX = M;
   const logo = co.logoDataUrl || co.logoUrl;
   if (logo) {
     try {
-      const dataUrl = await toDataUrl(logo);
-      // fundo branco arredondado p/ logo
+      const img = await loadPdfImage(logo);
+      const cardX = M, cardY = 6, cardW = 30, cardH = 30;
       doc.setFillColor(255, 255, 255);
-      doc.roundedRect(M, 6, 28, 28, 2, 2, 'F');
-      doc.addImage(dataUrl, 'PNG', M + 2, 8, 24, 24, undefined, 'FAST');
-      textX = M + 32;
+      doc.roundedRect(cardX, cardY, cardW, cardH, 2, 2, 'F');
+      const fit = fitContain(img, cardX, cardY, cardW, cardH, 2);
+      doc.addImage(img.dataUrl, img.format, fit.x, fit.y, fit.w, fit.h, undefined, 'FAST');
+      textX = cardX + cardW + 5;
     } catch { /* ignore */ }
   }
 
-  // empresa
+  // ---- empresa (com largura limitada para não invadir a caixa da direita) ----
+  const textMaxW = boxX - textX - 4;
   doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-  doc.text(String(co.razaoSocial || '').toUpperCase() || '—', textX, 14);
+
+  // Nome — auto-ajuste de fonte para caber em 1 linha quando possível
+  const rawName = String(co.razaoSocial || '—').toUpperCase();
+  doc.setFont('helvetica', 'bold');
+  let nameSize = 13;
+  doc.setFontSize(nameSize);
+  while (nameSize > 8 && doc.getTextWidth(rawName) > textMaxW) {
+    nameSize -= 0.5;
+    doc.setFontSize(nameSize);
+  }
+  let lineY = 13;
+  if (doc.getTextWidth(rawName) <= textMaxW) {
+    doc.text(rawName, textX, lineY); lineY += 6;
+  } else {
+    const wrapped = doc.splitTextToSize(rawName, textMaxW).slice(0, 2);
+    for (const w of wrapped) { doc.text(w, textX, lineY); lineY += 5; }
+    lineY += 1;
+  }
+
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
   const lin = [
     co.cnpj ? `CNPJ ${maskCnpj(co.cnpj)}` : null,
     co.inscricaoEstadual ? `IE ${co.inscricaoEstadual}` : null,
   ].filter(Boolean).join('  ·  ');
-  if (lin) doc.text(lin, textX, 20);
+  if (lin) { doc.text(lin, textX, lineY, { maxWidth: textMaxW }); lineY += 5; }
   const end = [co.endereco, co.cidade && `${co.cidade}/${co.estado || ''}`, co.cep && `CEP ${co.cep}`]
     .filter(Boolean).join(' · ');
-  if (end) doc.text(end, textX, 25);
+  if (end) {
+    const wEnd = doc.splitTextToSize(end, textMaxW).slice(0, 2);
+    for (const w of wEnd) { doc.text(w, textX, lineY); lineY += 4.5; }
+  }
   const cont = [co.telefone, co.email].filter(Boolean).join('  ·  ');
-  if (cont) doc.text(cont, textX, 30);
+  if (cont) doc.text(cont, textX, lineY, { maxWidth: textMaxW });
 
   // Caixa Nº/data à direita
-  const boxW = 58, boxX = W - M - boxW;
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(boxX, 6, boxW, 28, 2, 2, 'F');
+  doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'F');
   doc.setTextColor(...PRIMARY);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-  doc.text('RECIBO Nº', boxX + 3, 12);
+  doc.text('RECIBO Nº', boxX + 3, boxY + 6);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-  doc.text(rec.numero, boxX + boxW - 3, 20, { align: 'right' });
+  doc.text(rec.numero, boxX + boxW - 3, boxY + 14, { align: 'right' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-  doc.text('Emissão', boxX + 3, 26);
+  doc.text('Emissão', boxX + 3, boxY + 20);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-  doc.text(D(rec.dataEmissao), boxX + boxW - 3, 26, { align: 'right' });
+  doc.text(D(rec.dataEmissao), boxX + boxW - 3, boxY + 20, { align: 'right' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-  doc.text('Vencimento', boxX + 3, 32);
+  doc.text('Vencimento', boxX + 3, boxY + 27);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-  doc.text(D(rec.dataVencimento), boxX + boxW - 3, 32, { align: 'right' });
+  doc.text(D(rec.dataVencimento), boxX + boxW - 3, boxY + 27, { align: 'right' });
 
   // ---------- Título ----------
   doc.setTextColor(...PRIMARY);
