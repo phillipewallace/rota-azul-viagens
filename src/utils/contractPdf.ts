@@ -313,6 +313,18 @@ function generateRentalContractPdf(src: ContractSource, opts?: { construcao?: bo
         `dos equipamentos locados até o último dia de vigência, o presente contrato será automaticamente renovado por igual ` +
         `período, com emissão de nova fatura.`
       );
+      writeParagraph(
+        `§1º – O valor da locação para o novo período será aquele constante na tabela vigente à época do início da renovação.`
+      );
+      writeParagraph(
+        `§2º – A LOCADORA reserva-se o direito de não efetivar a renovação automática, ainda que verificados os pressupostos acima, ` +
+        `caso haja descumprimento de qualquer cláusula contratual, especialmente a inadimplência, hipótese em que poderá exigir a ` +
+        `devolução imediata dos bens locados.`
+      );
+      writeParagraph(
+        `§3º – Havendo interesse das partes na renovação por período diverso, a LOCADORA informará à LOCATÁRIA os novos valores ` +
+        `correspondentes ao prazo pretendido.`
+      );
     }
     writeParagraph(
       `II.3. O término do contrato somente será considerado efetivado após a entrega de todos os bens locados, em ` +
@@ -322,26 +334,34 @@ function generateRentalContractPdf(src: ContractSource, opts?: { construcao?: bo
       `Parágrafo único – Caso os equipamentos apresentem defeitos ou avarias, a LOCADORA apresentará orçamento de reparo ` +
       `à LOCATÁRIA para ciência, realizando posteriormente o faturamento dos custos correspondentes.`
     );
+    writeParagraph(
+      `II.4. Em caso de extravio, furto, roubo, perda ou qualquer outro evento que impossibilite a devolução dos bens locados, ` +
+      `a LOCATÁRIA compromete-se a pagar à LOCADORA o valor de mercado dos bens faltantes, permanecendo vigente a cobrança da ` +
+      `locação até a efetiva quitação do referido valor.`
+    );
   });
 
-  // --- Cláusula III — Obrigações ---
-  writeClause('CLÁUSULA III – DAS OBRIGAÇÕES DAS PARTES', () => {
+  // --- Cláusula III — Responsabilidades da LOCATÁRIA (modelo OBRA) ---
+  writeClause('CLÁUSULA III – DAS RESPONSABILIDADES DA LOCATÁRIA', () => {
     writeParagraph(
-      `III.1. Compete à LOCADORA: (a) entregar os equipamentos higienizados e em pleno funcionamento; (b) realizar a ` +
-      `manutenção e a limpeza conforme cronograma acordado; (c) retirar os equipamentos ao término da vigência.`
+      `III.1. A LOCATÁRIA compromete-se a utilizar os banheiros locados exclusivamente para os fins previstos, zelando por sua ` +
+      `conservação, funcionamento e guarda até a retirada pela LOCADORA.`
     );
     writeParagraph(
-      `III.2. Compete à LOCATÁRIA: (a) zelar pela integridade dos equipamentos, respondendo por danos decorrentes de uso ` +
-      `indevido; (b) garantir o acesso da equipe técnica da LOCADORA para entrega, manutenção e recolhimento; ` +
-      `(c) comunicar previamente qualquer alteração de endereço, prazo ou quantidade contratada.`
+      `§2º – O não pagamento sujeitará a LOCATÁRIA ao envio do débito a protesto extrajudicial, sem necessidade de aviso prévio ou notificação.`
     );
     writeParagraph(
-      `§1º – A LOCADORA se exime de qualquer responsabilidade por atrasos ou falhas na prestação dos serviços caso ` +
-      `informações de acesso, endereço ou contato não sejam previamente repassadas.`
+      `III.2. A LOCATÁRIA se obriga a fornecer todas as informações necessárias ao acesso ao local da obra, incluindo: ` +
+      `(a) horários de funcionamento; (b) nome do responsável pela obra; (c) treinamentos exigidos; (d) protocolos de entrada; ` +
+      `(e) documentações específicas exigidas pelo local.`
     );
     writeParagraph(
-      `§2º – Caso haja necessidade de apresentação de documentos como PCMSO, PPRA, ASO, treinamentos obrigatórios (NRs) ` +
-      `ou similares, os custos serão integralmente arcados pela LOCATÁRIA.`
+      `§1º – A LOCADORA se exime de qualquer responsabilidade por atrasos ou falhas na prestação dos serviços caso essas ` +
+      `informações não sejam previamente repassadas.`
+    );
+    writeParagraph(
+      `§2º – Caso haja necessidade de apresentação de documentos como PCMSO, PPRA, ASO, treinamentos obrigatórios (NRs) ou ` +
+      `similares, os custos serão arcados pela LOCATÁRIA.`
     );
   });
 
