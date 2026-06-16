@@ -414,7 +414,8 @@ function ContractFormDialog({
             <Select value={form.tipoContrato} onValueChange={(v) => setForm({ ...form, tipoContrato: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="locacao">Locação mensal (obra/recorrente)</SelectItem>
+                <SelectItem value="obra">Obra (construção / canteiro)</SelectItem>
+                <SelectItem value="locacao">Locação mensal recorrente</SelectItem>
                 <SelectItem value="evento">Evento (curta duração)</SelectItem>
               </SelectContent>
             </Select>
