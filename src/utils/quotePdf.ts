@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Quote } from '@/services/quotes';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
-import { toDataUrl } from '@/utils/receiptPdf';
+import { loadPdfImage, fitContain } from '@/utils/pdfImage';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '';
@@ -23,24 +23,30 @@ export async function generateQuotePdf(quote: Quote) {
   const customer = quote.customerSnapshot || {};
 
   // Faixa superior
+  const HEADER_H = 34;
   doc.setFillColor(30, 58, 138);
-  doc.rect(0, 0, W, 30, 'F');
+  doc.rect(0, 0, W, HEADER_H, 'F');
 
   const logo = company.logo_dataurl || company.logo_url || company.logoUrl;
   let titleX = M;
   if (logo) {
     try {
-      const dataUrl = await toDataUrl(logo);
-      doc.addImage(dataUrl, 'JPEG', M, 4, 22, 22, undefined, 'FAST');
-      titleX = M + 26;
+      const img = await loadPdfImage(logo);
+      // Caixa branca para o logo, mantendo aspect ratio
+      const cardX = M, cardY = 4, cardW = 26, cardH = 26;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(cardX, cardY, cardW, cardH, 2, 2, 'F');
+      const fit = fitContain(img, cardX, cardY, cardW, cardH, 2);
+      doc.addImage(img.dataUrl, img.format, fit.x, fit.y, fit.w, fit.h, undefined, 'FAST');
+      titleX = cardX + cardW + 6;
     } catch {}
   }
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18); doc.setFont('helvetica', 'bold');
-  doc.text('ORÇAMENTO', titleX, 13);
-  doc.setFontSize(11); doc.setFont('helvetica', 'normal');
-  doc.text(`Nº ${quote.numero}`, titleX, 21);
+  doc.text('ORÇAMENTO', titleX, 14);
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+  doc.text(`Nº ${quote.numero}`, titleX, 22);
   doc.setFontSize(9);
   doc.text(`Emissão: ${D(quote.dataEmissao)}`, W - M, 13, { align: 'right' });
   doc.text(`Validade: ${quote.validadeDias} dias`, W - M, 19, { align: 'right' });
@@ -48,7 +54,7 @@ export async function generateQuotePdf(quote: Quote) {
 
   // Empresa emissora
   doc.setTextColor(0, 0, 0);
-  let y = 40;
+  let y = 44;
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
   doc.text('EMPRESA EMISSORA', M, y);
   y += 5;
