@@ -15,6 +15,8 @@ const SELECT = `
   c.valor_total_evento AS "valorTotalEvento",
   c.dia_vencimento AS "diaVencimento",
   c.valor_mensal AS "valorMensal",
+  c.frete AS "frete",
+
   c.renovacao_automatica AS "renovacaoAutomatica",
   c.ativo, c.encerrado_em AS "encerradoEm", c.motivo_encerramento AS "motivoEncerramento",
   c.pdf_url AS "pdfUrl", c.observacoes,
@@ -89,12 +91,12 @@ router.post('/', async (req, res) => {
          data_evento, data_recolhimento, local_evento, hora_entrega, valor_total_evento,
          dia_vencimento, valor_mensal,
          renovacao_automatica, ativo, pdf_url, observacoes,
-         company_snapshot, customer_snapshot)
+         company_snapshot, customer_snapshot, frete)
        VALUES ($1,$2,$3,$4,COALESCE($5,'manual'),$6,
                COALESCE($7,'locacao'),$8,$9,
                $10,$11,$12,$13,$14,
                COALESCE($15,10),COALESCE($16,0),
-               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22)
+               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0))
        RETURNING id, numero`,
       [numero, c.companyId || null, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
@@ -104,8 +106,9 @@ router.post('/', async (req, res) => {
        c.horaEntrega || null, c.valorTotalEvento != null ? Number(c.valorTotalEvento) : null,
        c.diaVencimento ?? 10, c.valorMensal ?? 0,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null, c.observacoes || null,
-       companySnap, customerSnap]
+       companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0]
     );
+
     await client.query('COMMIT');
     res.json(ins.rows[0]);
   } catch (e: any) {
@@ -139,6 +142,7 @@ router.put('/:id', async (req, res) => {
          pdf_url = COALESCE($18, pdf_url),
          observacoes = $19,
          motivo_encerramento = $20,
+         frete = COALESCE($21, frete),
          encerrado_em = CASE WHEN $17 = FALSE AND ativo = TRUE THEN NOW()
                              WHEN $17 = TRUE THEN NULL ELSE encerrado_em END,
          updated_at = NOW()
@@ -150,11 +154,13 @@ router.put('/:id', async (req, res) => {
        c.horaEntrega || null, c.valorTotalEvento != null ? Number(c.valorTotalEvento) : null,
        c.diaVencimento ?? null, c.valorMensal ?? null,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null,
-       c.observacoes ?? null, c.motivoEncerramento ?? null]
+       c.observacoes ?? null, c.motivoEncerramento ?? null,
+       c.frete != null ? Number(c.frete) : null]
     );
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
+
 
 router.delete('/:id', async (req, res) => {
   try {

@@ -130,7 +130,7 @@ const ErpContracts: React.FC = () => {
         enderecoEntrega: full.localEvento || (full.customerSnapshot?.address ?? null),
         observacoes: full.observacoes || null,
         total: Number(full.valorTotalEvento ?? full.valorMensal ?? 0),
-        frete: 0,
+        frete: Number(full.frete || 0),
         companySnapshot: full.companySnapshot,
         customerSnapshot: full.customerSnapshot,
         companyRazaoSocial: full.companyRazaoSocial,
@@ -141,6 +141,7 @@ const ErpContracts: React.FC = () => {
       toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
   };
+
 
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
@@ -307,11 +308,13 @@ function ContractFormDialog({
     tipoContrato: 'locacao' as 'locacao' | 'evento',
     descricao: '', dataInicio: new Date().toISOString().slice(0, 10),
     diaVencimento: 10, valorMensal: 0,
+    frete: 0,
     renovacaoAutomatica: true, ativo: true,
     pdfUrl: '', observacoes: '',
     dataEvento: '', dataRecolhimento: '', localEvento: '', horaEntrega: '',
     valorTotalEvento: 0,
   };
+
   const [form, setForm] = useState<any>(empty);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -327,6 +330,7 @@ function ContractFormDialog({
         dataInicio: (editing.dataInicio || '').slice(0, 10),
         diaVencimento: editing.diaVencimento,
         valorMensal: Number(editing.valorMensal),
+        frete: Number(editing.frete || 0),
         renovacaoAutomatica: editing.renovacaoAutomatica,
         ativo: editing.ativo,
         pdfUrl: editing.pdfUrl || '',
@@ -337,6 +341,7 @@ function ContractFormDialog({
         horaEntrega: editing.horaEntrega || '',
         valorTotalEvento: Number(editing.valorTotalEvento || 0),
       });
+
     } else setForm(empty);
     // eslint-disable-next-line
   }, [editing, open]);
@@ -363,9 +368,11 @@ function ContractFormDialog({
         osId: form.osId || null,
         diaVencimento: Number(form.diaVencimento) || 10,
         valorMensal: Number(form.valorMensal) || 0,
+        frete: Number(form.frete) || 0,
       };
       if (editing) await contractsService.update(editing.id, payload);
       else await contractsService.create({ ...payload, origem: 'manual' } as any);
+
       toast.success(editing ? 'Contrato atualizado' : 'Contrato criado');
       onSaved();
     } catch (e: any) { toast.error(e.message); }
@@ -443,8 +450,18 @@ function ContractFormDialog({
                 <Input type="number" step="0.01" value={form.valorMensal}
                   onChange={(e) => setForm({ ...form, valorMensal: e.target.value })} />
               </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs">Frete (R$) — cobrado UMA ÚNICA VEZ no primeiro recibo</Label>
+                <Input type="number" step="0.01" min={0} value={form.frete}
+                  onChange={(e) => setForm({ ...form, frete: e.target.value })}
+                  placeholder="0,00" />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Se preenchido, o valor do frete será somado ao 1º recibo gerado e aparecerá como item separado na nota. Os recibos seguintes cobrarão apenas o valor mensal.
+                </p>
+              </div>
             </>
           ) : (
+
             <>
               <div>
                 <Label className="text-xs">Data do evento</Label>

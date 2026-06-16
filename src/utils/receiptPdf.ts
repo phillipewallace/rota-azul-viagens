@@ -163,11 +163,25 @@ export async function generateReceiptPdf(rec: Receipt) {
 
   // ---------- Tabela de itens ----------
   y += 4;
+  const freteIncluso = Number(snap.freteIncluso || 0);
+  const valorLocacao = Number(snap.valorLocacao ?? (valor - freteIncluso));
   const descLocacao = ct.descricao || `Locação mensal — Contrato ${ct.numero || ''}`.trim();
+
+  const body: any[] = [
+    ['1', 'MÊS', descLocacao, BRL(valorLocacao), BRL(valorLocacao)],
+  ];
+  if (freteIncluso > 0) {
+    body.push([
+      '1', 'UN',
+      'Frete de entrega/recolhimento (cobrança única no 1º recibo — não se repete nas próximas competências)',
+      BRL(freteIncluso), BRL(freteIncluso),
+    ]);
+  }
+
   autoTable(doc, {
     startY: y,
-    head: [['Qtd', 'Unid', 'Descrição da Locação', 'Valor Unitário', 'Total']],
-    body: [['1', 'MÊS', descLocacao, BRL(valor), BRL(valor)]],
+    head: [['Qtd', 'Unid', 'Descrição', 'Valor Unitário', 'Total']],
+    body,
     styles: { fontSize: 9, cellPadding: 3, lineColor: [220, 224, 230] },
     headStyles: { fillColor: PRIMARY, textColor: 255, halign: 'center', fontStyle: 'bold' },
     columnStyles: {
@@ -182,7 +196,7 @@ export async function generateReceiptPdf(rec: Receipt) {
 
   autoTable(doc, {
     startY: afterY,
-    head: [['Competência', 'Vencimento', 'Total da Locação']],
+    head: [['Competência', 'Vencimento', 'Total da Cobrança']],
     body: [[formatComp(rec.competencia), D(rec.dataVencimento), BRL(valor)]],
     styles: { fontSize: 9.5, cellPadding: 3 },
     headStyles: { fillColor: [240, 242, 247], textColor: PRIMARY, fontStyle: 'bold' },
@@ -190,6 +204,7 @@ export async function generateReceiptPdf(rec: Receipt) {
     margin: { left: M, right: M },
   });
   afterY = (doc as any).lastAutoTable.finalY + 8;
+
 
   // ---------- Nota legal ----------
   doc.setFillColor(252, 248, 232);

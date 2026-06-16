@@ -45,6 +45,8 @@ export interface Contract {
   valorTotalEvento?: number | null;
   diaVencimento: number;
   valorMensal: number;
+  frete?: number | null;
+
   renovacaoAutomatica: boolean;
   ativo: boolean;
   encerradoEm?: string | null;

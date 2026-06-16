@@ -109,7 +109,17 @@ router.post('/generate', async (req, res) => {
       [contractId, competencia]
     );
 
-    const valorFinal = Number(valor ?? ct.valor_mensal ?? 0);
+    // É o 1º recibo do contrato (em qualquer competência)? Se sim, e existe frete, cobra UMA ÚNICA VEZ.
+    const totalRecibos = await client.query(
+      `SELECT COUNT(*)::int AS n FROM erp_receipts WHERE contract_id=$1${existing.rows[0] ? ' AND id <> $2' : ''}`,
+      existing.rows[0] ? [contractId, existing.rows[0].id] : [contractId]
+    );
+    const isPrimeiro = (totalRecibos.rows[0]?.n || 0) === 0;
+    const freteCt = Number(ct.frete || 0);
+    const freteAplicado = (isPrimeiro && freteCt > 0) ? freteCt : 0;
+
+    const baseValor = Number(valor ?? ct.valor_mensal ?? 0);
+    const valorFinal = baseValor + freteAplicado;
 
     // Vencimento da competência
     const [ano, mes] = competencia.split('-').map(Number);
@@ -137,6 +147,9 @@ router.post('/generate', async (req, res) => {
         estado: ct.customer_estado, cep: ct.customer_cep,
       },
       os: ct.os_id ? { id: ct.os_id } : null,
+      valorLocacao: baseValor,
+      freteIncluso: freteAplicado,
+      primeiroRecibo: isPrimeiro,
     };
 
     if (existing.rows[0]) {
@@ -163,6 +176,7 @@ router.post('/generate', async (req, res) => {
        RETURNING id, numero`,
       [numero, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot]
     );
+
     await client.query('COMMIT');
     res.json({ ok: true, ...ins.rows[0] });
   } catch (e: any) {
