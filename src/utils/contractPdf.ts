@@ -210,7 +210,7 @@ function generateRentalContractPdf(src: ContractSource, opts?: { construcao?: bo
   y = 28;
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-  doc.text('CONTRATO DE LOCAÇÃO E PRESTAÇÃO DE SERVIÇOS', W / 2, y, { align: 'center' });
+  doc.text(isObra ? 'CONTRATO DE LOCAÇÃO PARA OBRA — BANHEIROS QUÍMICOS' : 'CONTRATO DE LOCAÇÃO E PRESTAÇÃO DE SERVIÇOS', W / 2, y, { align: 'center' });
   y += 6;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   doc.setTextColor(100);
