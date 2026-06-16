@@ -5,6 +5,7 @@
  */
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { toDataUrl } from '@/utils/receiptPdf';
 
 const D = (s?: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
 
@@ -29,7 +30,7 @@ export interface ServiceOrderPdfInput {
   sanitariosNumeros?: string[];
 }
 
-export function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
+export async function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -37,16 +38,26 @@ export function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
   const company = os.companySnapshot || {};
   const customer = os.customerSnapshot || {};
 
-  // Cabeçalho
-  doc.setFillColor(21, 128, 61); // verde operacional
+  doc.setFillColor(21, 128, 61);
   doc.rect(0, 0, W, 30, 'F');
+
+  const logo = company.logo_dataurl || company.logo_url || company.logoUrl;
+  let titleX = M;
+  if (logo) {
+    try {
+      const dataUrl = await toDataUrl(logo);
+      doc.addImage(dataUrl, 'JPEG', M, 4, 22, 22, undefined, 'FAST');
+      titleX = M + 26;
+    } catch {}
+  }
+
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18); doc.setFont('helvetica', 'bold');
-  doc.text('ORDEM DE SERVIÇO', M, 13);
+  doc.text('ORDEM DE SERVIÇO', titleX, 13);
   doc.setFontSize(11); doc.setFont('helvetica', 'normal');
-  doc.text(`Nº ${os.numero}`, M, 21);
+  doc.text(`Nº ${os.numero}`, titleX, 21);
   doc.setFontSize(9);
-  doc.text('VIA OPERACIONAL — ENTREGA', W - M, 13, { align: 'right' });
+  doc.text('VIA OPERACIONAL - ENTREGA', W - M, 13, { align: 'right' });
   doc.text(`Emitida em ${new Date().toLocaleDateString('pt-BR')}`, W - M, 19, { align: 'right' });
   if (os.modalidade) {
     doc.text(`Modalidade: ${os.modalidade === 'diaria' ? 'Diária' : 'Mensal'}`, W - M, 25, { align: 'right' });

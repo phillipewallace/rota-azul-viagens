@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Quote } from '@/services/quotes';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
+import { toDataUrl } from '@/utils/receiptPdf';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '';
@@ -14,7 +15,7 @@ function maskDoc(doc?: string) {
   return doc;
 }
 
-export function generateQuotePdf(quote: Quote) {
+export async function generateQuotePdf(quote: Quote) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
@@ -22,14 +23,24 @@ export function generateQuotePdf(quote: Quote) {
   const customer = quote.customerSnapshot || {};
 
   // Faixa superior
-  doc.setFillColor(30, 58, 138); // azul corporativo
+  doc.setFillColor(30, 58, 138);
   doc.rect(0, 0, W, 30, 'F');
+
+  const logo = company.logo_dataurl || company.logo_url || company.logoUrl;
+  let titleX = M;
+  if (logo) {
+    try {
+      const dataUrl = await toDataUrl(logo);
+      doc.addImage(dataUrl, 'JPEG', M, 4, 22, 22, undefined, 'FAST');
+      titleX = M + 26;
+    } catch {}
+  }
+
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18); doc.setFont('helvetica', 'bold');
-  doc.text('ORÇAMENTO', M, 13);
+  doc.text('ORÇAMENTO', titleX, 13);
   doc.setFontSize(11); doc.setFont('helvetica', 'normal');
-  doc.text(`Nº ${quote.numero}`, M, 21);
-  // Data
+  doc.text(`Nº ${quote.numero}`, titleX, 21);
   doc.setFontSize(9);
   doc.text(`Emissão: ${D(quote.dataEmissao)}`, W - M, 13, { align: 'right' });
   doc.text(`Validade: ${quote.validadeDias} dias`, W - M, 19, { align: 'right' });
