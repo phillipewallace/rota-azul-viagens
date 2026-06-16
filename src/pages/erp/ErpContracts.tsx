@@ -29,8 +29,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { contractsService, type Contract } from '@/services/contracts';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
-import { customersService } from '@/services/erp';
 import { serviceOrdersService } from '@/services/quotes';
+import { API_BASE_URL } from '@/services/config';
 
 // Customers service is in '@/services/customers'? It's in '@/services/customers'. Let's import generic.
 type Customer = { id: string; customer_name: string; document?: string };
@@ -449,14 +449,13 @@ function ContractFormDialog({
 async function fetchCustomers(): Promise<Customer[]> {
   try {
     const t = localStorage.getItem('auth_token');
-    const r = await fetch(`${(window as any).API_BASE_URL || ''}/api/customers`, {
+    const r = await fetch(`${API_BASE_URL}/customers`, {
       headers: t ? { Authorization: `Bearer ${t}` } : undefined,
     });
-    if (r.ok) return await r.json();
-  } catch {}
-  try {
-    const mod = await import('@/services/api');
-    if ((mod as any).customersService?.list) return await (mod as any).customersService.list();
+    if (r.ok) {
+      const data = await r.json();
+      return Array.isArray(data) ? data : (data?.customers || []);
+    }
   } catch {}
   return [];
 }
