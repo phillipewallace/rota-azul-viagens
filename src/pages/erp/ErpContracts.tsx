@@ -403,6 +403,16 @@ function ContractFormDialog({
             </Select>
           </div>
           <div>
+            <Label className="text-xs">Tipo de contrato *</Label>
+            <Select value={form.tipoContrato} onValueChange={(v) => setForm({ ...form, tipoContrato: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="locacao">Locação mensal (obra/recorrente)</SelectItem>
+                <SelectItem value="evento">Evento (curta duração)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label className="text-xs">OS vinculada (opcional)</Label>
             <Select value={form.osId || '__none__'} onValueChange={(v) => setForm({ ...form, osId: v === '__none__' ? '' : v })}>
               <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
@@ -421,20 +431,55 @@ function ContractFormDialog({
             <Input type="date" value={form.dataInicio}
               onChange={(e) => setForm({ ...form, dataInicio: e.target.value })} />
           </div>
-          <div>
-            <Label className="text-xs">Dia de vencimento do boleto (1-28)</Label>
-            <Input type="number" min={1} max={28} value={form.diaVencimento}
-              onChange={(e) => setForm({ ...form, diaVencimento: e.target.value })} />
-          </div>
-          <div>
-            <Label className="text-xs">Valor mensal (R$)</Label>
-            <Input type="number" step="0.01" value={form.valorMensal}
-              onChange={(e) => setForm({ ...form, valorMensal: e.target.value })} />
-          </div>
+          {form.tipoContrato === 'locacao' ? (
+            <>
+              <div>
+                <Label className="text-xs">Dia de vencimento do boleto (1-28)</Label>
+                <Input type="number" min={1} max={28} value={form.diaVencimento}
+                  onChange={(e) => setForm({ ...form, diaVencimento: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Valor mensal (R$)</Label>
+                <Input type="number" step="0.01" value={form.valorMensal}
+                  onChange={(e) => setForm({ ...form, valorMensal: e.target.value })} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <Label className="text-xs">Data do evento</Label>
+                <Input type="date" value={form.dataEvento}
+                  onChange={(e) => setForm({ ...form, dataEvento: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Hora de entrega</Label>
+                <Input type="time" value={form.horaEntrega}
+                  onChange={(e) => setForm({ ...form, horaEntrega: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Data de recolhimento</Label>
+                <Input type="date" value={form.dataRecolhimento}
+                  onChange={(e) => setForm({ ...form, dataRecolhimento: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Valor total do evento (R$)</Label>
+                <Input type="number" step="0.01" value={form.valorTotalEvento}
+                  onChange={(e) => setForm({ ...form, valorTotalEvento: e.target.value })} />
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs">Local do evento (endereço de entrega)</Label>
+                <Input value={form.localEvento}
+                  onChange={(e) => setForm({ ...form, localEvento: e.target.value })}
+                  placeholder="Rua, número, bairro, cidade/UF" />
+              </div>
+            </>
+          )}
           <div className="md:col-span-2">
             <Label className="text-xs">Descrição / objeto do contrato</Label>
             <Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-              placeholder="Ex.: Locação mensal de 2 sanitários — Obra Castelo Branco" />
+              placeholder={form.tipoContrato === 'evento'
+                ? 'Ex.: 3 banheiros químicos + 1 PNE para evento corporativo'
+                : 'Ex.: Locação mensal de 2 sanitários — Obra Castelo Branco'} />
           </div>
 
           <div className="flex items-center justify-between border rounded-lg p-3 md:col-span-2">
