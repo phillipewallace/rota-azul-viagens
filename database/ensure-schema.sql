@@ -481,6 +481,16 @@ CREATE TABLE IF NOT EXISTS public.carretinha_locacoes (
 );
 CREATE INDEX IF NOT EXISTS idx_carr_loc_carr ON public.carretinha_locacoes(carretinha_id, start_date DESC);
 
+-- Modelos editáveis de contrato (globais)
+CREATE TABLE IF NOT EXISTS public.erp_contract_templates (
+  tipo            TEXT PRIMARY KEY CHECK (tipo IN ('obra', 'evento')),
+  titulo          TEXT NOT NULL,
+  corpo_html      TEXT NOT NULL,
+  atualizado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+
 -- ============================== OWNERSHIP / GRANTS ==========================
 -- Garante que o usuário 'lipe' tenha permissão em tudo, mesmo que as tabelas
 -- tenham sido criadas por outro owner (postgres). Sem isso, ALTER/SELECT podem
