@@ -76,11 +76,15 @@ function valorPorExtenso(n: number): string {
 export interface ContractSource {
   numero: string;                       // ORC-... ou OS-...
   tipo: 'orcamento' | 'os';
+  tipoContrato?: 'locacao' | 'evento';
   modalidade?: 'diaria' | 'mensal';
   dataEmissao?: string | null;
   dataInicio?: string | null;
   dataEntrega?: string | null;
   dataFimPrevista?: string | null;
+  dataRecolhimento?: string | null;
+  horaEntrega?: string | null;
+  localEvento?: string | null;
   validadeDias?: number | null;
   limpezasSemanais?: number | null;
   enderecoEntrega?: string | null;
@@ -106,6 +110,11 @@ export interface ContractSource {
 }
 
 export function generateContractPdf(src: ContractSource) {
+  if (src.tipoContrato === 'evento') return generateEventContractPdf(src);
+  return generateRentalContractPdf(src);
+}
+
+function generateRentalContractPdf(src: ContractSource) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
