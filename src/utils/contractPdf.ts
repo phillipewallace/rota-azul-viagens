@@ -77,7 +77,7 @@ function valorPorExtenso(n: number): string {
 export interface ContractSource {
   numero: string;                       // ORC-... ou OS-...
   tipo: 'orcamento' | 'os';
-  tipoContrato?: 'locacao' | 'evento';
+  tipoContrato?: 'locacao' | 'evento' | 'obra';
   modalidade?: 'diaria' | 'mensal';
   dataEmissao?: string | null;
   dataInicio?: string | null;
