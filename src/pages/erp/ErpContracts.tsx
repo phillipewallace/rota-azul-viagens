@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FileSignature, Plus, Search, Upload, FileDown, Power, PowerOff,
-  Calendar, Loader2, Trash2, ExternalLink,
+  Calendar, Loader2, Trash2, ExternalLink, FileText,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,8 @@ import { contractsService, type Contract } from '@/services/contracts';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { serviceOrdersService } from '@/services/quotes';
 import { API_BASE_URL } from '@/services/config';
+import { toAbsoluteUrl } from '@/utils/absoluteUrl';
+import { generateContractPdf } from '@/utils/contractPdf';
 
 // Cliente vem do endpoint /customers que retorna camelCase (customerName)
 type Customer = { id: string; customerName: string; document?: string };
@@ -201,9 +203,14 @@ const ErpContracts: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-xs">{c.osNumero || '—'}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
+                      <Button variant="ghost" size="sm" title="Baixar PDF do contrato"
+                        onClick={() => downloadContractPdf(c)}>
+                        <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                      </Button>
                       {c.pdfUrl && (
-                        <Button variant="ghost" size="sm" onClick={() => window.open(c.pdfUrl!, '_blank')}>
-                          <FileDown className="h-3.5 w-3.5" />
+                        <Button variant="ghost" size="sm" title="Abrir PDF assinado anexado"
+                          onClick={() => window.open(toAbsoluteUrl(c.pdfUrl!), '_blank')}>
+                          <FileDown className="h-3.5 w-3.5 text-emerald-600" />
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" onClick={() => { setEditing(c); setOpenForm(true); }}>
