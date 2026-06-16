@@ -170,7 +170,12 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
       generateContractPdf({
         numero: detail.numero || os.numero,
         tipo: 'os',
-        tipoContrato: ((detail.tipo_locacao || os.tipoLocacao || '').toLowerCase() === 'evento') ? 'evento' : 'locacao',
+        tipoContrato: (() => {
+          const t = (detail.tipo_locacao || os.tipoLocacao || '').toLowerCase();
+          if (t === 'evento') return 'evento';
+          if (t === 'obra') return 'obra';
+          return 'locacao';
+        })(),
         modalidade: detail.modalidade || os.modalidade,
         dataEmissao: detail.data_inicio,
         dataInicio: detail.data_inicio,
