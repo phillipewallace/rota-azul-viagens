@@ -439,7 +439,7 @@ function ContractFormDialog({
             <Input type="date" value={form.dataInicio}
               onChange={(e) => setForm({ ...form, dataInicio: e.target.value })} />
           </div>
-          {form.tipoContrato === 'locacao' ? (
+          {form.tipoContrato !== 'evento' ? (
             <>
               <div>
                 <Label className="text-xs">Dia de vencimento do boleto (1-28)</Label>
