@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Quote } from '@/services/quotes';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
-import { toDataUrl } from '@/utils/receiptPdf';
+import { loadPdfImage, fitContain } from '@/utils/pdfImage';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '';
