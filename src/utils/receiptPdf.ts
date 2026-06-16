@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
+import { loadPdfImage, fitContain } from '@/utils/pdfImage';
 import type { Receipt } from '@/services/contracts';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
