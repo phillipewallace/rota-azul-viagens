@@ -1,10 +1,11 @@
 /**
- * Recibo de Locação — PDF estilo "MICBAN" (modelo enviado pelo usuário).
- * Cabeçalho com logo da empresa emissora + dados de cliente, itens e total.
+ * Recibo de Locação — PDF premium, alinhado ao modelo "MICBAN".
+ * Cabeçalho com gradiente da empresa, dados completos e área de assinatura elegante.
  */
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
+import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import type { Receipt } from '@/services/contracts';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -17,130 +18,195 @@ const maskDoc = (d?: string) => {
   return d;
 };
 
+const PRIMARY: [number, number, number] = [16, 42, 96];     // azul corporativo
+const ACCENT:  [number, number, number] = [212, 175, 55];   // dourado
+
 export async function generateReceiptPdf(rec: Receipt) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
-  const M = 12;
+  const H = doc.internal.pageSize.getHeight();
+  const M = 14;
   const snap = rec.snapshot || {};
   const co = snap.company || {};
   const cu = snap.customer || {};
   const ct = snap.contract || {};
 
-  // Logo (se disponível)
-  let logoEnd = M;
+  // ---------- Cabeçalho com faixa azul + acento dourado ----------
+  doc.setFillColor(...PRIMARY);
+  doc.rect(0, 0, W, 38, 'F');
+  doc.setFillColor(...ACCENT);
+  doc.rect(0, 38, W, 1.5, 'F');
+
+  // logo
+  let textX = M;
   const logo = co.logoDataUrl || co.logoUrl;
   if (logo) {
     try {
       const dataUrl = await toDataUrl(logo);
-      doc.addImage(dataUrl, 'JPEG', M, 10, 26, 26, undefined, 'FAST');
-      logoEnd = M + 30;
-    } catch { /* ignora se falhar */ }
+      // fundo branco arredondado p/ logo
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(M, 6, 28, 28, 2, 2, 'F');
+      doc.addImage(dataUrl, 'PNG', M + 2, 8, 24, 24, undefined, 'FAST');
+      textX = M + 32;
+    } catch { /* ignore */ }
   }
 
-  // Cabeçalho empresa
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-  doc.text(co.razaoSocial || '—', logoEnd, 15);
+  // empresa
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+  doc.text(String(co.razaoSocial || '').toUpperCase() || '—', textX, 14);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-  const lin1 = [co.telefone].filter(Boolean).join(' • ');
-  if (lin1) doc.text(lin1, logoEnd, 20);
-  const lin2 = [co.endereco, co.cidade, co.estado].filter(Boolean).join(', ');
-  if (lin2) doc.text(lin2, logoEnd, 24);
-  const lin3 = [
-    co.cnpj ? `CNPJ: ${maskCnpj(co.cnpj)}` : null,
-    co.inscricaoEstadual ? `Insc. Est.: ${co.inscricaoEstadual}` : null,
-    co.cep ? `CEP ${co.cep}` : null,
-  ].filter(Boolean).join(' • ');
-  if (lin3) doc.text(lin3, logoEnd, 28);
+  const lin = [
+    co.cnpj ? `CNPJ ${maskCnpj(co.cnpj)}` : null,
+    co.inscricaoEstadual ? `IE ${co.inscricaoEstadual}` : null,
+  ].filter(Boolean).join('  ·  ');
+  if (lin) doc.text(lin, textX, 20);
+  const end = [co.endereco, co.cidade && `${co.cidade}/${co.estado || ''}`, co.cep && `CEP ${co.cep}`]
+    .filter(Boolean).join(' · ');
+  if (end) doc.text(end, textX, 25);
+  const cont = [co.telefone, co.email].filter(Boolean).join('  ·  ');
+  if (cont) doc.text(cont, textX, 30);
 
-  // Título
-  doc.setDrawColor(0); doc.setLineWidth(0.3);
-  doc.line(M, 40, W - M, 40);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-  doc.text('RECIBO DE LOCAÇÃO', W / 2, 47, { align: 'center' });
-  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-  doc.text('DE BENS MÓVEIS', W / 2, 52, { align: 'center' });
-
-  // Caixa Nº / Data
-  const numero = rec.numero;
-  const boxX = W - M - 60;
-  doc.rect(boxX, 56, 60, 14);
-  doc.setFontSize(8); doc.text('Nº', boxX + 2, 60);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-  doc.text(numero, boxX + 30, 62, { align: 'center' });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.text('Data de emissão', boxX + 2, 67);
-  doc.setFont('helvetica', 'bold'); doc.text(D(rec.dataEmissao), boxX + 58, 67, { align: 'right' });
-
-  // Dados do cliente
-  let y = 56;
+  // Caixa Nº/data à direita
+  const boxW = 58, boxX = W - M - boxW;
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(boxX, 6, boxW, 28, 2, 2, 'F');
+  doc.setTextColor(...PRIMARY);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+  doc.text('RECIBO Nº', boxX + 3, 12);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+  doc.text(rec.numero, boxX + boxW - 3, 20, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+  doc.text('Emissão', boxX + 3, 26);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-  doc.text('DADOS DO CLIENTE / DESTINATÁRIO', M, y);
-  y += 4;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-  doc.text(`Destinatário: ${cu.name || '—'}`, M, y); y += 4.5;
-  const end = [cu.address, cu.numero, cu.bairro].filter(Boolean).join(', ');
-  if (end) { doc.text(`Endereço: ${end}`, M, y, { maxWidth: boxX - M - 4 }); y += 4.5; }
-  const muni = [cu.cidade && `Município: ${cu.cidade}`, cu.estado && `UF: ${cu.estado}`, cu.cep && `CEP: ${cu.cep}`]
-    .filter(Boolean).join(' | ');
-  if (muni) { doc.text(muni, M, y); y += 4.5; }
-  if (cu.document) { doc.text(`${cu.document.replace(/\D/g, '').length === 14 ? 'CNPJ' : 'CPF'}: ${maskDoc(cu.document)}`, M, y); y += 4.5; }
-  doc.text('Natureza: Locação de bens móveis (sem incidência de ISSQN)', M, y); y += 6;
+  doc.text(D(rec.dataEmissao), boxX + boxW - 3, 26, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+  doc.text('Vencimento', boxX + 3, 32);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+  doc.text(D(rec.dataVencimento), boxX + boxW - 3, 32, { align: 'right' });
 
-  // Tabela itens (linha única com base no contrato)
+  // ---------- Título ----------
+  doc.setTextColor(...PRIMARY);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text('RECIBO DE LOCAÇÃO DE BENS MÓVEIS', W / 2, 50, { align: 'center' });
+
+  // ---------- Valor em destaque ----------
+  const valor = Number(rec.valor || 0);
+  doc.setFillColor(245, 247, 252);
+  doc.roundedRect(M, 56, W - 2 * M, 18, 2, 2, 'F');
+  doc.setDrawColor(...PRIMARY); doc.setLineWidth(0.4);
+  doc.line(M, 56, M, 74); // barra lateral
+  doc.setFillColor(...PRIMARY);
+  doc.rect(M, 56, 1.5, 18, 'F');
+  doc.setTextColor(100, 110, 130); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.text('VALOR RECEBIDO', M + 6, 62);
+  doc.setTextColor(...PRIMARY); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
+  doc.text(BRL(valor), M + 6, 71);
+  // Tag pago
+  if (rec.pago) {
+    doc.setFillColor(16, 130, 80);
+    doc.roundedRect(W - M - 30, 60, 26, 10, 5, 5, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.text('PAGO', W - M - 17, 67, { align: 'center' });
+  }
+
+  // ---------- Cliente ----------
+  let y = 84;
+  doc.setTextColor(...PRIMARY);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  doc.text('DADOS DO LOCATÁRIO', M, y);
+  doc.setDrawColor(...ACCENT); doc.setLineWidth(0.6);
+  doc.line(M, y + 1, M + 50, y + 1);
+  y += 6;
+
+  doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+  const linhas: string[] = [];
+  linhas.push(`Nome / Razão Social:  ${cu.name || '—'}`);
+  if (cu.document) linhas.push(
+    `${cu.document.replace(/\D/g, '').length === 14 ? 'CNPJ' : 'CPF'}:  ${maskDoc(cu.document)}`
+  );
+  const endCli = [cu.address, cu.numero, cu.bairro].filter(Boolean).join(', ');
+  if (endCli) linhas.push(`Endereço:  ${endCli}`);
+  const muni = [cu.cidade && `${cu.cidade}/${cu.estado || ''}`, cu.cep && `CEP ${cu.cep}`]
+    .filter(Boolean).join(' · ');
+  if (muni) linhas.push(`Município:  ${muni}`);
+  for (const l of linhas) {
+    const wrap = doc.splitTextToSize(l, W - 2 * M);
+    for (const w of wrap) { doc.text(w, M, y); y += 5; }
+  }
+
+  // ---------- Tabela de itens ----------
+  y += 4;
   const descLocacao = ct.descricao || `Locação mensal — Contrato ${ct.numero || ''}`.trim();
   autoTable(doc, {
     startY: y,
-    head: [['Qtd', 'Unid', 'Descrição da Locação', 'Valor Unitário (R$)', 'Total (R$)']],
-    body: [['1', 'MÊS', descLocacao, BRL(Number(rec.valor)), BRL(Number(rec.valor))]],
-    styles: { fontSize: 9, cellPadding: 2.5 },
-    headStyles: { fillColor: [230, 230, 230], textColor: 0, halign: 'center' },
+    head: [['Qtd', 'Unid', 'Descrição da Locação', 'Valor Unitário', 'Total']],
+    body: [['1', 'MÊS', descLocacao, BRL(valor), BRL(valor)]],
+    styles: { fontSize: 9, cellPadding: 3, lineColor: [220, 224, 230] },
+    headStyles: { fillColor: PRIMARY, textColor: 255, halign: 'center', fontStyle: 'bold' },
     columnStyles: {
       0: { halign: 'center', cellWidth: 14 },
       1: { halign: 'center', cellWidth: 16 },
-      3: { halign: 'right', cellWidth: 35 },
-      4: { halign: 'right', cellWidth: 32 },
+      3: { halign: 'right',  cellWidth: 30 },
+      4: { halign: 'right',  cellWidth: 30, fontStyle: 'bold' },
     },
     margin: { left: M, right: M },
   });
   let afterY = (doc as any).lastAutoTable.finalY + 4;
 
-  // Período / total
   autoTable(doc, {
     startY: afterY,
-    head: [['DATA / PERÍODO DA LOCAÇÃO', 'VALOR TOTAL DA LOCAÇÃO (R$)']],
-    body: [[`Competência: ${formatComp(rec.competencia)}${rec.dataVencimento ? ` | Vencimento: ${D(rec.dataVencimento)}` : ''}`, BRL(Number(rec.valor))]],
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [230, 230, 230], textColor: 0 },
-    columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+    head: [['Competência', 'Vencimento', 'Total da Locação']],
+    body: [[formatComp(rec.competencia), D(rec.dataVencimento), BRL(valor)]],
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    headStyles: { fillColor: [240, 242, 247], textColor: PRIMARY, fontStyle: 'bold' },
+    columnStyles: { 2: { halign: 'right', fontStyle: 'bold', textColor: PRIMARY } },
     margin: { left: M, right: M },
   });
-  afterY = (doc as any).lastAutoTable.finalY + 6;
+  afterY = (doc as any).lastAutoTable.finalY + 8;
 
-  doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-  doc.text('NÃO INCIDÊNCIA DE ISSQN CONFORME LEI COMPLEMENTAR 116/2003 DE 31/07/2003', M, afterY);
-  afterY += 6;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-  const txt = `Recebi(emos) de ${co.razaoSocial || ''} os serviços deste Recibo de Locação de Bens Móveis.`;
-  const wrap = doc.splitTextToSize(txt, W - 2 * M);
-  doc.text(wrap, M, afterY); afterY += wrap.length * 4.5 + 14;
-
-  // Assinatura
-  doc.text(`${co.cidade || 'Belo Horizonte'}, _____/_____/__________`, M, afterY); afterY += 14;
-  doc.line(M, afterY, M + 70, afterY);
-  doc.line(M + 80, afterY, M + 130, afterY);
-  doc.line(M + 140, afterY, W - M, afterY);
-  doc.setFontSize(8);
-  doc.text('Assinatura', M, afterY + 4);
-  doc.text('Nome', M + 80, afterY + 4);
-  doc.text('CPF', M + 140, afterY + 4);
-
-  doc.setFontSize(7); doc.setTextColor(120);
+  // ---------- Nota legal ----------
+  doc.setFillColor(252, 248, 232);
+  doc.roundedRect(M, afterY, W - 2 * M, 14, 1.5, 1.5, 'F');
+  doc.setTextColor(120, 90, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+  doc.text('NÃO INCIDÊNCIA DE ISSQN', M + 3, afterY + 5);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
   doc.text(
-    `Gerado em ${new Date().toLocaleString('pt-BR')} · ${co.razaoSocial || ''}`,
-    W / 2, doc.internal.pageSize.getHeight() - 6, { align: 'center' }
+    'Conforme Lei Complementar nº 116/2003 de 31/07/2003 — locação de bens móveis não está sujeita à incidência de ISSQN.',
+    M + 3, afterY + 10, { maxWidth: W - 2 * M - 6 }
+  );
+  afterY += 22;
+
+  // ---------- Frase de quitação ----------
+  doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+  const txt =
+    `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(valor)} ` +
+    `referente à locação mensal de bens móveis na competência ${formatComp(rec.competencia)}, ` +
+    `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
+  const wrap = doc.splitTextToSize(txt, W - 2 * M);
+  doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
+
+  // ---------- Assinatura ----------
+  if (afterY > H - 50) { doc.addPage(); afterY = 30; }
+  doc.text(`${co.cidade || 'Belo Horizonte'}, ${D(rec.dataEmissao)}.`, M, afterY);
+  afterY += 22;
+
+  doc.setDrawColor(60, 60, 60); doc.setLineWidth(0.3);
+  doc.line(M + 25, afterY, W - M - 25, afterY);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...PRIMARY);
+  doc.text(String(co.razaoSocial || '—').toUpperCase(), W / 2, afterY + 5, { align: 'center' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(80, 80, 80);
+  if (co.cnpj) doc.text(`CNPJ ${maskCnpj(co.cnpj)}`, W / 2, afterY + 10, { align: 'center' });
+  doc.text('LOCADORA', W / 2, afterY + 15, { align: 'center' });
+
+  // rodapé
+  doc.setFontSize(7); doc.setTextColor(140, 140, 140);
+  doc.text(
+    `Documento gerado eletronicamente em ${new Date().toLocaleString('pt-BR')}`,
+    W / 2, H - 6, { align: 'center' }
   );
 
-  doc.save(`Recibo-${numero}.pdf`);
+  doc.save(`Recibo-${rec.numero}.pdf`);
 }
 
 function formatComp(c: string) {
@@ -150,11 +216,12 @@ function formatComp(c: string) {
   return m ? `${meses[Number(m)] || m}/${a}` : c;
 }
 
-/** Aceita data URL ou URL pública; devolve dataURL JPEG/PNG. */
+/** Aceita data URL ou URL pública/relativa; devolve dataURL. */
 export async function toDataUrl(src: string): Promise<string> {
+  if (!src) throw new Error('empty');
   if (src.startsWith('data:')) return src;
-  const url = src.startsWith('/') ? src : src;
-  const r = await fetch(url, { credentials: 'omit' });
+  const url = toAbsoluteUrl(src);
+  const r = await fetch(url, { credentials: 'omit', mode: 'cors' });
   if (!r.ok) throw new Error('logo fetch failed');
   const blob = await r.blob();
   return new Promise((resolve, reject) => {
