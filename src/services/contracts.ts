@@ -35,7 +35,7 @@ export interface Contract {
   osId?: string;
   origem: 'manual' | 'sistema';
   descricao?: string;
-  tipoContrato?: 'locacao' | 'evento';
+  tipoContrato?: 'locacao' | 'evento' | 'obra';
   dataInicio: string;
   dataFim?: string | null;
   dataEvento?: string | null;

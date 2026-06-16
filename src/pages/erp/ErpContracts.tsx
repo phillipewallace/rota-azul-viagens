@@ -305,7 +305,7 @@ function ContractFormDialog({
 }) {
   const empty = {
     companyId: '', customerId: '', osId: '',
-    tipoContrato: 'locacao' as 'locacao' | 'evento',
+    tipoContrato: 'locacao' as 'locacao' | 'evento' | 'obra',
     descricao: '', dataInicio: new Date().toISOString().slice(0, 10),
     diaVencimento: 10, valorMensal: 0,
     frete: 0,
@@ -414,7 +414,8 @@ function ContractFormDialog({
             <Select value={form.tipoContrato} onValueChange={(v) => setForm({ ...form, tipoContrato: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="locacao">Locação mensal (obra/recorrente)</SelectItem>
+                <SelectItem value="obra">Obra (construção / canteiro)</SelectItem>
+                <SelectItem value="locacao">Locação mensal recorrente</SelectItem>
                 <SelectItem value="evento">Evento (curta duração)</SelectItem>
               </SelectContent>
             </Select>
@@ -438,7 +439,7 @@ function ContractFormDialog({
             <Input type="date" value={form.dataInicio}
               onChange={(e) => setForm({ ...form, dataInicio: e.target.value })} />
           </div>
-          {form.tipoContrato === 'locacao' ? (
+          {form.tipoContrato !== 'evento' ? (
             <>
               <div>
                 <Label className="text-xs">Dia de vencimento do boleto (1-28)</Label>

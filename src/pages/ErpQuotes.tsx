@@ -175,7 +175,12 @@ const ErpQuotes: React.FC = () => {
       generateContractPdf({
         numero: q.numero,
         tipo: 'orcamento',
-        tipoContrato: ((q as any).tipoLocacao || '').toLowerCase() === 'evento' ? 'evento' : 'locacao',
+        tipoContrato: (() => {
+          const t = ((q as any).tipoLocacao || '').toLowerCase();
+          if (t === 'evento') return 'evento';
+          if (t === 'obra') return 'obra';
+          return 'locacao';
+        })(),
         modalidade: q.modalidade,
         dataEmissao: q.dataEmissao,
         dataEntrega: q.dataEntrega,
