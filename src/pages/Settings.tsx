@@ -8,6 +8,7 @@ import { useTheme } from 'next-themes';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import CompaniesSettings from '@/components/settings/CompaniesSettings';
+import ContractTemplatesSettings from '@/components/settings/ContractTemplatesSettings';
 
 interface Settings {
   theme: string;
