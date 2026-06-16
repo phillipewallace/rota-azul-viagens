@@ -423,6 +423,17 @@ function generateRentalContractPdf(src: ContractSource, opts?: { construcao?: bo
         `previsto nas cláusulas anteriores.`
       );
     }
+    if (src.dataVencimento) {
+      writeParagraph(
+        `IV.5. O vencimento dos boletos será conforme a data acordada entre as partes, sendo o primeiro vencimento em ` +
+        `${fmtDateBr(src.dataVencimento)}.`
+      );
+    } else if (src.dataEntrega) {
+      writeParagraph(
+        `IV.5. O vencimento dos boletos será 28 (vinte e oito) dias após a entrega dos equipamentos, sendo o primeiro ` +
+        `vencimento previsto para 28 dias após ${fmtDateBr(src.dataEntrega)}.`
+      );
+    }
   });
 
   // --- Cláusula V — Foro ---
