@@ -148,7 +148,7 @@ function generateRentalContractPdf(src: ContractSource, opts?: { construcao?: bo
     doc.text(head, M, 8);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text('LOCAÇÃO DE BANHEIROS QUÍMICOS E SERVIÇOS DE TRANSPORTE', M, 13);
+    doc.text(isObra ? 'CONTRATO DE LOCAÇÃO PARA OBRA — BANHEIROS QUÍMICOS' : 'LOCAÇÃO DE BANHEIROS QUÍMICOS E SERVIÇOS DE TRANSPORTE', M, 13);
     doc.setTextColor(0, 0, 0);
   };
 
