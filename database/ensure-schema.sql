@@ -209,6 +209,15 @@ ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS type TEXT;
 ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS cost NUMERIC DEFAULT 0;
 ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS truck_id UUID;
 ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS maintenance_type TEXT;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS completed_date DATE;
+ALTER TABLE public.maintenance_records ADD COLUMN IF NOT EXISTS performed_by TEXT;
+-- Backfill: se já existem registros antigos só com 'type', copia para 'maintenance_type'
+UPDATE public.maintenance_records
+   SET maintenance_type = type
+ WHERE maintenance_type IS NULL AND type IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_maintenance_records_type ON public.maintenance_records(maintenance_type);
+CREATE INDEX IF NOT EXISTS idx_maintenance_records_completed ON public.maintenance_records(completed_date);
 
 -- ============================== SANITARIOS ==================================
 CREATE TABLE IF NOT EXISTS public.sanitarios (
