@@ -175,9 +175,13 @@ const ErpQuotes: React.FC = () => {
       generateContractPdf({
         numero: q.numero,
         tipo: 'orcamento',
+        tipoContrato: ((q as any).tipoLocacao || '').toLowerCase() === 'evento' ? 'evento' : 'locacao',
         modalidade: q.modalidade,
         dataEmissao: q.dataEmissao,
         dataEntrega: q.dataEntrega,
+        dataRecolhimento: (q as any).dataRecolhimento || null,
+        horaEntrega: (q as any).horaEntrega || null,
+        localEvento: (q as any).localEvento || null,
         validadeDias: q.validadeDias,
         limpezasSemanais: q.limpezasSemanais,
         enderecoEntrega: q.enderecoEntrega,
@@ -192,6 +196,7 @@ const ErpQuotes: React.FC = () => {
         customerName: q.customerName,
         items: q.items,
       });
+
       toast.success('Contrato gerado');
     } catch (e: any) { toast.error('Erro ao gerar contrato: ' + e.message); }
   };

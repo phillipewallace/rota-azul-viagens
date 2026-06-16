@@ -8,7 +8,7 @@
  */
 import jsPDF from 'jspdf';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
-import { getCompanyLogoDataUrl } from '@/utils/companyLogo';
+
 
 const BRL = (n: number) =>
   (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -91,7 +91,9 @@ export interface ContractSource {
   enderecoEntrega?: string | null;
   observacoes?: string | null;
   condicoesPagamento?: string | null;
+  dataVencimento?: string | null;
   frete?: number | null;
+
   total: number;
   // snapshots ou objetos relacionais
   companySnapshot?: any;
@@ -111,12 +113,12 @@ export interface ContractSource {
 }
 
 export async function generateContractPdf(src: ContractSource) {
-  const logo = await getCompanyLogoDataUrl();
-  if (src.tipoContrato === 'evento') return generateEventContractPdf(src, logo);
-  return generateRentalContractPdf(src, logo);
+  if (src.tipoContrato === 'evento') return generateEventContractPdf(src);
+  return generateRentalContractPdf(src);
 }
 
-function generateRentalContractPdf(src: ContractSource, logoDataUrl: string | null = null) {
+function generateRentalContractPdf(src: ContractSource) {
+
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -133,9 +135,6 @@ function generateRentalContractPdf(src: ContractSource, logoDataUrl: string | nu
   const drawHeader = () => {
     doc.setFillColor(20, 38, 84);
     doc.rect(0, 0, W, 18, 'F');
-    if (logoDataUrl) {
-      try { doc.addImage(logoDataUrl, 'PNG', W - M - 16, 1, 16, 16, undefined, 'FAST'); } catch {}
-    }
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -146,6 +145,7 @@ function generateRentalContractPdf(src: ContractSource, logoDataUrl: string | nu
     doc.text('LOCAÇÃO DE BANHEIROS QUÍMICOS E SERVIÇOS DE TRANSPORTE', M, 13);
     doc.setTextColor(0, 0, 0);
   };
+
 
   const drawFooter = () => {
     doc.setDrawColor(200);
@@ -469,9 +469,9 @@ function generateRentalContractPdf(src: ContractSource, logoDataUrl: string | nu
 }
 
 // ============================================================
-// Contrato de EVENTO — modelo curto, baseado em MI Montreal
+// Contrato de EVENTO — modelo fiel ao template MI Montreal
 // ============================================================
-function generateEventContractPdf(src: ContractSource, logoDataUrl: string | null = null) {
+function generateEventContractPdf(src: ContractSource) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -484,14 +484,11 @@ function generateEventContractPdf(src: ContractSource, logoDataUrl: string | nul
   const drawHeader = () => {
     doc.setFillColor(20, 38, 84);
     doc.rect(0, 0, W, 18, 'F');
-    if (logoDataUrl) {
-      try { doc.addImage(logoDataUrl, 'PNG', W - M - 16, 1, 16, 16, undefined, 'FAST'); } catch {}
-    }
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text(String(company.razao_social || src.companyRazaoSocial || 'LOCADORA').toUpperCase(), M, 8);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-    doc.text('CONTRATO DE LOCAÇÃO PARA EVENTOS', M, 13);
+    doc.text('CONTRATO DE PRESTAÇÃO DE LOCAÇÃO E SERVIÇOS — EVENTO', M, 13);
     doc.setTextColor(0, 0, 0);
   };
   const drawFooter = () => {
@@ -509,7 +506,7 @@ function generateEventContractPdf(src: ContractSource, logoDataUrl: string | nul
     const apply = () => { doc.setFont('helvetica', opts?.bold ? 'bold' : 'normal'); doc.setFontSize(size); };
     apply();
     const lines = doc.splitTextToSize(text, maxW);
-    for (const line of lines) { ensure(size * 0.45 + 1.6); apply(); doc.text(line, M, y); y += size * 0.45 + 1.6; }
+    for (const line of lines) { ensure(size * 0.45 + 1.8); apply(); doc.text(line, M, y); y += size * 0.45 + 1.8; }
   };
   const clause = (title: string, body: () => void) => {
     ensure(16); y += 3;
@@ -545,32 +542,50 @@ function generateEventContractPdf(src: ContractSource, logoDataUrl: string | nul
   const docCliLabel = (docCli.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ');
 
   para(
-    `Contrato de Prestação de Locação e prestação de serviços, que entre si firmam, de um lado, a empresa ` +
+    `Contrato de Prestação de Alocação e prestação de serviços, que entre si firmam, de um lado, a empresa ` +
     `${String(company.razao_social || src.companyRazaoSocial || '____________')}, ` +
     `inscrita no CNPJ sob o nº ${docLoc}${ie}${im}, com sede ${enderecoEmpresa ? 'na ' + enderecoEmpresa : '____________'}, ` +
-    `doravante denominada LOCADORA; e, de outro lado, ${String(customer.customer_name || src.customerName || '____________')}, ` +
+    `doravante denominada LOCADORA; e, de outro lado, a empresa ${String(customer.customer_name || src.customerName || '____________')}, ` +
     `inscrito no ${docCliLabel} sob o nº ${docCli}${enderecoCliente ? ', com sede ' + enderecoCliente : ''}, ` +
     `doravante denominado CONTRATANTE.`
   );
 
-  // Cláusula I – Objeto
-  const qtd = (src.items || []).reduce((a, it) => a + (parseInt(String(it.quantidade || 0)) || 0), 0) || 1;
+  // Cláusula I – Objeto (com separação PNE x comuns quando detectável)
+  const items = src.items || [];
+  const isPne = (it: any) => /pne|acess[íi]vel|cadeirante/i.test(`${it?.produto || ''} ${it?.descricao || ''}`);
+  const qtdPne = items.filter(isPne).reduce((a, it) => a + (parseInt(String(it.quantidade || 0)) || 0), 0);
+  const qtdComuns = items.filter(it => !isPne(it)).reduce((a, it) => a + (parseInt(String(it.quantidade || 0)) || 0), 0);
+  const qtdTotal = (qtdComuns + qtdPne) || 1;
+
+  const partesObjeto: string[] = [];
+  if (qtdComuns > 0) {
+    partesObjeto.push(`${String(qtdComuns).padStart(2, '0')} (${valorPorExtenso(qtdComuns).replace(/ rea(?:l|is).*/, '')}) sanitário${qtdComuns > 1 ? 's' : ''} químico${qtdComuns > 1 ? 's' : ''} comu${qtdComuns > 1 ? 'ns' : 'm'}`);
+  }
+  if (qtdPne > 0) {
+    partesObjeto.push(`${qtdPne === 1 ? 'um' : String(qtdPne).padStart(2, '0') + ' (' + valorPorExtenso(qtdPne).replace(/ rea(?:l|is).*/, '') + ')'} sanitário${qtdPne > 1 ? 's' : ''} modelo PNE`);
+  }
+  if (partesObjeto.length === 0) {
+    partesObjeto.push(`${String(qtdTotal).padStart(2, '0')} (${valorPorExtenso(qtdTotal).replace(/ rea(?:l|is).*/, '')}) sanitário${qtdTotal > 1 ? 's' : ''} químico${qtdTotal > 1 ? 's' : ''}`);
+  }
+  const objetoDesc = partesObjeto.length === 2 ? `${partesObjeto[0]}, e ${partesObjeto[1]}` : partesObjeto.join(', ');
+
   const local = src.localEvento || src.enderecoEntrega || enderecoCliente || '____________';
-  const hora  = src.horaEntrega ? ` A entrega deverá ser feita até as ${src.horaEntrega} horas.` : '';
+  const horaTxt = src.horaEntrega ? ` A entrega deverá ser feita até as ${src.horaEntrega} horas.` : '';
+
   clause('CLÁUSULA I – DO OBJETO', () => {
     para(
-      `I.1 – O presente contrato tem por objeto a locação de ${qtd} (${valorPorExtenso(qtd).replace(/ rea(?:l|is).*/, '')}) ` +
-      `sanitário${qtd > 1 ? 's' : ''} químico${qtd > 1 ? 's' : ''}, de propriedade da CONTRATADA (doravante denominada LOCADORA), ` +
-      `à CONTRATANTE (doravante denominada LOCATÁRIA), para uso temporário em atividades de evento.`
+      `I.1 – O presente contrato tem por objeto a locação de ${objetoDesc}, de propriedade da CONTRATADA ` +
+      `(doravante denominada LOCADORA), à CONTRATANTE (doravante denominada LOCATÁRIA), para uso temporário em ` +
+      `atividades operacionais.`
     );
     para(`O contratado deverá entregar os sanitários em: ${local}.`);
-    para(`Data da entrega: ${fmtDateBr(src.dataEntrega || src.dataInicio)}.${hora}`);
+    para(`Data da entrega: ${fmtDateBr(src.dataEntrega || src.dataInicio)}.${horaTxt}`);
     if (src.dataRecolhimento) {
-      para(`Recolhimento: ${fmtDateBr(src.dataRecolhimento)}, o recolhimento será realizado no período acordado entre as partes.`);
+      para(`Recolhimento: ${fmtDateBr(src.dataRecolhimento)}. O recolhimento será realizado no período da manhã.`);
     }
   });
 
-  // Cláusula II – Responsabilidades
+  // Cláusula II – Responsabilidades da LOCATÁRIA
   clause('CLÁUSULA II – DAS RESPONSABILIDADES DA LOCATÁRIA', () => {
     para(
       `II.1 – O término do contrato somente será considerado efetivado após a entrega de todos os bens locados, em perfeitas ` +
@@ -613,6 +628,9 @@ function generateEventContractPdf(src: ContractSource, logoDataUrl: string | nul
       `das respectivas notas fiscais e faturas.`
     );
     para(`IV.3 – Valor total da locação: ${BRL(total)} (${valorPorExtenso(total)}).`);
+    if (src.dataVencimento) {
+      para(`O vencimento do boleto será no dia ${fmtDateLong(src.dataVencimento)}.`);
+    }
   });
 
   // Cláusula V – Foro
@@ -620,7 +638,7 @@ function generateEventContractPdf(src: ContractSource, logoDataUrl: string | nul
     para(
       `V.1 – Fica eleito o foro da comarca de ${company.cidade || '____________'} para dirimir quaisquer dúvidas referentes ` +
       `a este contrato. E por estarem justos e contratados, os representantes das partes assinam o presente instrumento na ` +
-      `presença das testemunhas abaixo, em duas vias de igual teor e forma para um só efeito.`
+      `presença da testemunha abaixo, em duas vias de igual teor e forma para um só efeito.`
     );
   });
 
@@ -654,11 +672,12 @@ function generateEventContractPdf(src: ContractSource, logoDataUrl: string | nul
 
   y += 28; ensure(20);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-  doc.text('Testemunhas:', M, y); y += 10;
+  doc.text('Testemunha:', M, y); y += 10;
   doc.line(M, y, M + colW, y); doc.text('Nome:', M, y + 4); doc.text('CPF:', M, y + 9);
   doc.line(x2, y, x2 + colW, y); doc.text('Nome:', x2, y + 4); doc.text('CPF:', x2, y + 9);
 
   drawFooter();
   doc.save(`contrato-evento-${src.numero}.pdf`);
 }
+
 
