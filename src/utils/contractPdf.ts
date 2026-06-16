@@ -8,6 +8,7 @@
  */
 import jsPDF from 'jspdf';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
+import { getCompanyLogoDataUrl } from '@/utils/companyLogo';
 
 const BRL = (n: number) =>
   (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -109,12 +110,13 @@ export interface ContractSource {
   }>;
 }
 
-export function generateContractPdf(src: ContractSource) {
-  if (src.tipoContrato === 'evento') return generateEventContractPdf(src);
-  return generateRentalContractPdf(src);
+export async function generateContractPdf(src: ContractSource) {
+  const logo = await getCompanyLogoDataUrl();
+  if (src.tipoContrato === 'evento') return generateEventContractPdf(src, logo);
+  return generateRentalContractPdf(src, logo);
 }
 
-function generateRentalContractPdf(src: ContractSource) {
+function generateRentalContractPdf(src: ContractSource, logoDataUrl: string | null = null) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -131,6 +133,9 @@ function generateRentalContractPdf(src: ContractSource) {
   const drawHeader = () => {
     doc.setFillColor(20, 38, 84);
     doc.rect(0, 0, W, 18, 'F');
+    if (logoDataUrl) {
+      try { doc.addImage(logoDataUrl, 'PNG', W - M - 16, 1, 16, 16, undefined, 'FAST'); } catch {}
+    }
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -466,7 +471,7 @@ function generateRentalContractPdf(src: ContractSource) {
 // ============================================================
 // Contrato de EVENTO — modelo curto, baseado em MI Montreal
 // ============================================================
-function generateEventContractPdf(src: ContractSource) {
+function generateEventContractPdf(src: ContractSource, logoDataUrl: string | null = null) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -479,6 +484,9 @@ function generateEventContractPdf(src: ContractSource) {
   const drawHeader = () => {
     doc.setFillColor(20, 38, 84);
     doc.rect(0, 0, W, 18, 'F');
+    if (logoDataUrl) {
+      try { doc.addImage(logoDataUrl, 'PNG', W - M - 16, 1, 16, 16, undefined, 'FAST'); } catch {}
+    }
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text(String(company.razao_social || src.companyRazaoSocial || 'LOCADORA').toUpperCase(), M, 8);

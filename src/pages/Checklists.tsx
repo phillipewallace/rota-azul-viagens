@@ -13,6 +13,7 @@ import { checklistsService, ChecklistDetail, ChecklistSummary } from '@/services
 import { STATUS_LABEL } from '@/data/checklistTemplate';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { getCompanyLogoDataUrl } from '@/utils/companyLogo';
 
 const SUMMARY_BADGE: Record<string, { label: string; cls: string }> = {
   ok:        { label: 'OK',       cls: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
@@ -20,11 +21,17 @@ const SUMMARY_BADGE: Record<string, { label: string; cls: string }> = {
   critical:  { label: 'Crítico',  cls: 'bg-red-100 text-red-700 border-red-300' },
 };
 
-function exportChecklistPdf(d: ChecklistDetail) {
+async function exportChecklistPdf(d: ChecklistDetail) {
   const doc = new jsPDF();
   const isCarretinha = d.vehicleKind === 'carretinha';
   const vehicleLabel = isCarretinha ? 'Carretinha' : 'Caminhão';
   const mode = (d.signatureMode || 'none') as 'none' | 'cliente' | 'conferente';
+
+  // Logo da empresa (topo direito)
+  const logo = await getCompanyLogoDataUrl();
+  if (logo) {
+    try { doc.addImage(logo, 'PNG', doc.internal.pageSize.getWidth() - 14 - 22, 8, 22, 22, undefined, 'FAST'); } catch {}
+  }
 
   doc.setFontSize(16);
   doc.text(`Checklist de Inspeção — ${vehicleLabel}`, 14, 16);

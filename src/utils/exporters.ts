@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { getCompanyLogoDataUrl } from '@/utils/companyLogo';
 
 export function downloadCsv(filename: string, headers: string[], rows: (string | number | null | undefined)[][]) {
   const escape = (v: any) => {
@@ -19,7 +20,7 @@ export function downloadCsv(filename: string, headers: string[], rows: (string |
   URL.revokeObjectURL(url);
 }
 
-export function downloadPdf(opts: {
+export async function downloadPdf(opts: {
   filename: string;
   title: string;
   subtitle?: string;
@@ -28,6 +29,16 @@ export function downloadPdf(opts: {
   orientation?: 'portrait' | 'landscape';
 }) {
   const doc = new jsPDF({ orientation: opts.orientation || 'portrait' });
+
+  // Logo da empresa (canto superior direito) — silencioso se indisponível
+  const logo = await getCompanyLogoDataUrl();
+  if (logo) {
+    try {
+      const W = doc.internal.pageSize.getWidth();
+      doc.addImage(logo, 'PNG', W - 10 - 18, 6, 18, 18, undefined, 'FAST');
+    } catch { /* ignora falha de render */ }
+  }
+
   doc.setFontSize(14);
   doc.text(opts.title, 14, 15);
   doc.setFontSize(10);
@@ -37,7 +48,7 @@ export function downloadPdf(opts: {
     14, 21
   );
   autoTable(doc, {
-    startY: 26,
+    startY: 28,
     head: [opts.headers],
     body: opts.rows.map(r => r.map(c => (c == null ? '' : String(c)))),
     styles: { fontSize: 9, cellPadding: 2 },
