@@ -170,11 +170,15 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
       generateContractPdf({
         numero: detail.numero || os.numero,
         tipo: 'os',
+        tipoContrato: ((detail.tipo_locacao || os.tipoLocacao || '').toLowerCase() === 'evento') ? 'evento' : 'locacao',
         modalidade: detail.modalidade || os.modalidade,
         dataEmissao: detail.data_inicio,
         dataInicio: detail.data_inicio,
         dataEntrega: detail.data_entrega,
         dataFimPrevista: detail.data_fim_prevista,
+        dataRecolhimento: detail.data_recolhimento || os.dataRecolhimento,
+        horaEntrega: detail.hora_entrega || null,
+        localEvento: detail.local_evento || null,
         limpezasSemanais: detail.limpezas_semanais,
         enderecoEntrega: detail.endereco_entrega || os.enderecoEntrega,
         observacoes: detail.observacoes,
@@ -186,6 +190,7 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
         customerAddress: os.customerAddress,
         items: detail.items || [],
       });
+
       toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message); }
   };
