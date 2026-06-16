@@ -29,6 +29,7 @@ import ErpLayout from "./pages/erp/ErpLayout";
 import ErpDashboard from "./pages/erp/ErpDashboard";
 import ErpCompanies from "./pages/erp/ErpCompanies";
 import ErpFinanceiro from "./pages/erp/ErpFinanceiro";
+import ErpContracts from "./pages/erp/ErpContracts";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -192,6 +193,7 @@ function App() {
               <Route path="orcamentos" element={<ErpQuotes />} />
               <Route path="ordens-servico" element={<ServiceOrders />} />
               <Route path="financeiro" element={<ErpFinanceiro />} />
+              <Route path="contratos" element={<ErpContracts />} />
               <Route path="clientes" element={<Customers />} />
               <Route path="estoque" element={<InternalManagement />} />
               <Route path="empresas" element={<ErpCompanies />} />
