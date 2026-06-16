@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Building2, Plus, Trash2, Save, Upload, Hash, Loader2, ImageIcon } from 'lucide-react';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { docSettingsService, type DocSetting } from '@/services/contracts';
+import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -161,7 +162,7 @@ export default function CompaniesSettings() {
                           onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }}
                           disabled={uploadingNew} />
                         {uploadingNew && <Loader2 className="h-4 w-4 animate-spin" />}
-                        {form.logoUrl && <img src={form.logoUrl} alt="logo" className="h-10 border rounded" />}
+                        {form.logoUrl && <img src={toAbsoluteUrl(form.logoUrl)} alt="logo" className="h-10 border rounded" />}
                       </div>
                     </div>
                   </div>
@@ -229,7 +230,7 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
     <div className="border rounded-lg p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
-          {local.logoUrl && <img src={local.logoUrl} alt="logo" className="h-12 w-12 object-contain border rounded bg-white" />}
+          {local.logoUrl && <img src={toAbsoluteUrl(local.logoUrl)} alt="logo" className="h-12 w-12 object-contain border rounded bg-white" />}
           <div>
             <div className="font-semibold">{company.razaoSocial}</div>
             <div className="text-xs text-muted-foreground">{formatCnpj(company.cnpj)}</div>
