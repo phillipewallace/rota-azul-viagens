@@ -114,10 +114,16 @@ export interface ContractSource {
 
 export async function generateContractPdf(src: ContractSource) {
   if (src.tipoContrato === 'evento') return generateEventContractPdf(src);
+  if (src.tipoContrato === 'obra') return generateConstructionContractPdf(src);
   return generateRentalContractPdf(src);
 }
 
-function generateRentalContractPdf(src: ContractSource) {
+function generateConstructionContractPdf(src: ContractSource) {
+  return generateRentalContractPdf(src, { construcao: true });
+}
+
+function generateRentalContractPdf(src: ContractSource, opts?: { construcao?: boolean }) {
+  const isObra = !!opts?.construcao;
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
