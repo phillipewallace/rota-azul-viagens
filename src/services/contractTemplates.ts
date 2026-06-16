@@ -2,20 +2,24 @@
  * Serviço de modelos de contrato (Obra / Evento).
  * Os modelos são globais e editáveis pela página de Configurações.
  */
-const API = (import.meta as any).env?.VITE_API_URL || '/api';
+import { API_BASE_URL } from './config';
 
-function token() { return localStorage.getItem('token') || ''; }
+const headers = () => {
+  const t = localStorage.getItem('auth_token');
+  return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
+};
+
 async function req<T>(method: string, path: string, body?: any): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
+  const r = await fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
-    },
+    headers: headers(),
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
-  return res.json() as Promise<T>;
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({ error: r.statusText }));
+    throw new Error(e.error || 'Erro na requisição');
+  }
+  return r.json();
 }
 
 export type ContractTemplateTipo = 'obra' | 'evento';
