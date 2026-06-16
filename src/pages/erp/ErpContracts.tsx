@@ -32,8 +32,8 @@ import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { serviceOrdersService } from '@/services/quotes';
 import { API_BASE_URL } from '@/services/config';
 
-// Customers service is in '@/services/customers'? It's in '@/services/customers'. Let's import generic.
-type Customer = { id: string; customer_name: string; document?: string };
+// Cliente vem do endpoint /customers que retorna camelCase (customerName)
+type Customer = { id: string; customerName: string; document?: string };
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
@@ -351,7 +351,7 @@ function ContractFormDialog({
               <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
               <SelectContent className="max-h-64">
                 {customers.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.customer_name}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>{c.customerName}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
