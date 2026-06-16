@@ -108,6 +108,7 @@ app.use('/api/erp/quotes', erpQuotesRoutes);
 app.use('/api/erp/service-orders', erpServiceOrdersRoutes);
 app.use('/api/erp/doc-settings', erpDocSettingsRoutes);
 app.use('/api/erp/contracts', erpContractsRoutes);
+app.use('/api/erp/contract-templates', erpContractTemplatesRoutes);
 app.use('/api/erp/receipts', erpReceiptsRoutes);
 app.use('/api/erp/expenses', erpExpensesRoutes);
 app.use('/api/checklists', checklistsRoutes);
