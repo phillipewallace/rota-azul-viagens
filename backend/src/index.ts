@@ -29,6 +29,7 @@ import erpQuotesRoutes from './routes/erp-quotes';
 import erpServiceOrdersRoutes from './routes/erp-service-orders';
 import erpDocSettingsRoutes from './routes/erp-doc-settings';
 import erpContractsRoutes from './routes/erp-contracts';
+import erpContractTemplatesRoutes from './routes/erp-contract-templates';
 import erpReceiptsRoutes from './routes/erp-receipts';
 import erpExpensesRoutes from './routes/erp-expenses';
 import checklistsRoutes from './routes/checklists';
