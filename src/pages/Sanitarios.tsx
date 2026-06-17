@@ -385,11 +385,14 @@ export default function Sanitarios() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold leading-tight">Gerenciamento de Sanitários</h1>
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="icon" asChild title="Voltar ao sistema">
+              <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold leading-tight truncate">Gerenciamento de Sanitários</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
-                Localização atual e histórico de cada banheiro químico.
+                Estoque por categoria, localização atual e histórico de cada banheiro químico.
               </p>
             </div>
           </div>
