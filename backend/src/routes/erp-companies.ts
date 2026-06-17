@@ -13,6 +13,7 @@ router.get('/', async (_req, res) => {
       SELECT id, razao_social AS "razaoSocial", nome_fantasia AS "nomeFantasia",
              cnpj, inscricao_estadual AS "inscricaoEstadual",
              endereco, cidade, estado, cep, telefone, email, logo_url AS "logoUrl",
+             assinatura_url AS "assinaturaUrl",
              ativo, created_at AS "createdAt"
         FROM erp_companies
        ORDER BY created_at ASC`);
@@ -36,13 +37,13 @@ router.post('/', async (req, res) => {
     const r = await pool.query(
       `INSERT INTO erp_companies
         (razao_social, nome_fantasia, cnpj, inscricao_estadual,
-         endereco, cidade, estado, cep, telefone, email, logo_url, ativo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,COALESCE($12,TRUE))
+         endereco, cidade, estado, cep, telefone, email, logo_url, assinatura_url, ativo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13,TRUE))
        RETURNING *`,
       [c.razaoSocial, c.nomeFantasia || null, String(c.cnpj).replace(/\D/g, ''),
        c.inscricaoEstadual || null, c.endereco || null, c.cidade || null,
        c.estado || null, c.cep || null, c.telefone || null, c.email || null,
-       c.logoUrl || null, c.ativo]
+       c.logoUrl || null, c.assinaturaUrl || null, c.ativo]
     );
     res.json(r.rows[0]);
   } catch (e: any) {
@@ -65,14 +66,15 @@ router.put('/:id', async (req, res) => {
          inscricao_estadual = $5,
          endereco = $6, cidade = $7, estado = $8, cep = $9,
          telefone = $10, email = $11, logo_url = $12,
-         ativo = COALESCE($13, ativo),
+         assinatura_url = $13,
+         ativo = COALESCE($14, ativo),
          updated_at = NOW()
        WHERE id = $1 RETURNING *`,
       [req.params.id, c.razaoSocial, c.nomeFantasia || null,
        c.cnpj ? String(c.cnpj).replace(/\D/g, '') : null,
        c.inscricaoEstadual || null, c.endereco || null, c.cidade || null,
        c.estado || null, c.cep || null, c.telefone || null, c.email || null,
-       c.logoUrl || null, c.ativo]
+       c.logoUrl || null, c.assinaturaUrl || null, c.ativo]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     res.json(r.rows[0]);
