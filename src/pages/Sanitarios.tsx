@@ -37,6 +37,7 @@ interface Sanitario {
   id: string;
   numero: string;
   modelo?: string;
+  categoria?: SanitarioCategoria;
   status: 'disponivel' | 'em_cliente' | 'manutencao' | 'inativo';
   current_customer_name?: string;
   current_address?: string;
