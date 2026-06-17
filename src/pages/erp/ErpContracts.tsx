@@ -253,11 +253,11 @@ const ErpContracts: React.FC = () => {
                     <TableCell className="text-xs">{c.osNumero || '—'}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       <Button variant="ghost" size="sm" title="Visualizar PDF (preview)"
-                        onClick={() => downloadContractPdf(c, true)}>
+                        onClick={() => { setVencPreview(true); setVencTarget(c); }}>
                         <Eye className="h-3.5 w-3.5 text-slate-600" />
                       </Button>
                       <Button variant="ghost" size="sm" title="Baixar PDF do contrato"
-                        onClick={() => downloadContractPdf(c, false)}>
+                        onClick={() => { setVencPreview(false); setVencTarget(c); }}>
                         <FileText className="h-3.5 w-3.5 text-indigo-600" />
                       </Button>
                       {c.pdfUrl && (
