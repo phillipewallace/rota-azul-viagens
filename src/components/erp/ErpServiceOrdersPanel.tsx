@@ -455,6 +455,17 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BoletoVencimentoDialog
+        open={!!contractTarget}
+        contractLabel={contractTarget ? `contrato da OS ${contractTarget.numero}` : undefined}
+        onClose={() => setContractTarget(null)}
+        onConfirm={async ({ dataVencimento, preview }) => {
+          const os = contractTarget;
+          setContractTarget(null);
+          if (os) await downloadContractPdf(os, dataVencimento, preview);
+        }}
+      />
     </div>
   );
 }
