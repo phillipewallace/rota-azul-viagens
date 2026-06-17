@@ -39,9 +39,8 @@ function TemplateEditor({ tipo }: { tipo: ContractTemplateTipo }) {
     try {
       setLoading(true);
       const t = await contractTemplatesService.get(tipo);
-      setTpl(t);
       setTitulo(t.titulo);
-      if (editorRef.current) editorRef.current.innerHTML = t.corpoHtml;
+      setTpl(t);
     } catch (e: any) {
       toast({ title: 'Erro ao carregar template', description: e.message, variant: 'destructive' });
     } finally {
@@ -50,6 +49,14 @@ function TemplateEditor({ tipo }: { tipo: ContractTemplateTipo }) {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [tipo]);
+
+  // Injeta o HTML no editor sempre que o template carregado mudar,
+  // garantindo que o ref já está montado (evita race com o early return de loading).
+  useEffect(() => {
+    if (tpl && editorRef.current) {
+      editorRef.current.innerHTML = tpl.corpoHtml || '';
+    }
+  }, [tpl]);
 
   const insertVariable = (key: string) => {
     if (!editorRef.current) return;
@@ -66,9 +73,10 @@ function TemplateEditor({ tipo }: { tipo: ContractTemplateTipo }) {
     }
     try {
       setSaving(true);
-      await contractTemplatesService.save(tipo, { titulo: titulo.trim() || tpl?.titulo || '', corpoHtml });
+      const saved = await contractTemplatesService.save(tipo, { titulo: titulo.trim() || tpl?.titulo || '', corpoHtml });
       toast({ title: 'Modelo salvo com sucesso' });
-      await load();
+      setTitulo(saved.titulo);
+      setTpl(saved);
     } catch (e: any) {
       toast({ title: 'Erro ao salvar', description: e.message, variant: 'destructive' });
     } finally {
@@ -80,17 +88,18 @@ function TemplateEditor({ tipo }: { tipo: ContractTemplateTipo }) {
     if (!confirm(`Restaurar o modelo de ${tipo.toUpperCase()} para o padrão original? Suas edições atuais serão perdidas.`)) return;
     try {
       setSaving(true);
-      await contractTemplatesService.reset(tipo);
+      const restored = await contractTemplatesService.reset(tipo);
+      setTitulo(restored.titulo);
+      // força re-injeção mesmo se o conteúdo for idêntico ao tpl anterior
+      setTpl(null);
+      setTimeout(() => setTpl(restored), 0);
       toast({ title: 'Modelo restaurado para o padrão' });
-      await load();
     } catch (e: any) {
       toast({ title: 'Erro ao restaurar', description: e.message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   };
-
-  if (loading) return <div className="text-sm text-slate-500 py-10 text-center">Carregando modelo…</div>;
 
   return (
     <div className="grid gap-4 md:grid-cols-[1fr_260px]">
