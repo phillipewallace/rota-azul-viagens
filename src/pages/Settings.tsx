@@ -9,6 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/PageHeader';
 import CompaniesSettings from '@/components/settings/CompaniesSettings';
 import ContractTemplatesSettings from '@/components/settings/ContractTemplatesSettings';
+import UsersSettings from '@/components/settings/UsersSettings';
+import { useAuth } from '@/hooks/useAuth';
+
+const SUPER_ADMIN_USERNAME = 'phillipe.sodre';
 
 interface Settings {
   theme: string;
@@ -31,6 +35,8 @@ interface Settings {
 }
 
 const Settings = () => {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.username === SUPER_ADMIN_USERNAME;
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -126,6 +132,7 @@ const Settings = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid gap-6 max-w-5xl">
+          {isSuperAdmin && <UsersSettings />}
           <CompaniesSettings />
           <ContractTemplatesSettings />
 
