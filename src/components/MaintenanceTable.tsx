@@ -95,6 +95,7 @@ export const MaintenanceTable: React.FC<MaintenanceTableProps> = ({
                 <TableHead>Descrição</TableHead>
                 <TableHead>Data Agendada</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Km</TableHead>
                 <TableHead className="text-right">Custo</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -125,9 +126,15 @@ export const MaintenanceTable: React.FC<MaintenanceTableProps> = ({
                   <TableCell>
                     {getStatusBadge(record.status || 'pending')}
                   </TableCell>
+                  <TableCell className="text-right text-sm">
+                    {record.mileage != null
+                      ? `${Number(record.mileage).toLocaleString('pt-BR')} km`
+                      : '—'}
+                  </TableCell>
                   <TableCell className="text-right font-medium">
                     R$ {formatCost(record.cost)}
                   </TableCell>
+
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
                       <Button

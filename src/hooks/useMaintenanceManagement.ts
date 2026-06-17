@@ -32,11 +32,13 @@ export interface MaintenanceRecord {
   description: string;
   scheduled_date: string;
   cost: number;
+  mileage?: number | null;
   status: 'pending' | 'in_progress' | 'completed';
   created_at: string;
   updated_at: string;
   files?: FileAttachment[];
 }
+
 
 export interface FileAttachment {
   id: string;

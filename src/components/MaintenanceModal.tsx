@@ -32,6 +32,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     description: '',
     scheduled_date: '',
     cost: '',
+    mileage: '',
     status: 'scheduled'
   });
 
@@ -59,6 +60,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         description: editingRecord.description,
         scheduled_date: editingRecord.scheduled_date ? editingRecord.scheduled_date.split('T')[0] : '',
         cost: editingRecord.cost.toString(),
+        mileage: editingRecord.mileage != null ? String(editingRecord.mileage) : '',
         status: editingRecord.status
       });
       setAttachedFiles(editingRecord.files || []);
@@ -69,6 +71,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         description: '',
         scheduled_date: '',
         cost: '',
+        mileage: '',
         status: 'scheduled'
       });
       setAttachedFiles([]);
@@ -80,6 +83,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     onSave({
       ...formData,
       cost: parseFloat(formData.cost) || 0,
+      mileage: formData.mileage === '' ? null : parseInt(formData.mileage),
       files: attachedFiles
     });
   };
@@ -92,10 +96,12 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
       description: '',
       scheduled_date: '',
       cost: '',
+      mileage: '',
       status: 'scheduled'
     });
     setAttachedFiles([]);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -184,6 +190,23 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
               />
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mileage">Quilometragem no momento (km)</Label>
+            <Input
+              id="mileage"
+              type="number"
+              min="0"
+              step="1"
+              value={formData.mileage}
+              onChange={(e) => setFormData(prev => ({ ...prev, mileage: e.target.value }))}
+              placeholder="Ex.: 125000"
+            />
+            <p className="text-xs text-muted-foreground">
+              Km do veículo na hora em que a manutenção foi realizada.
+            </p>
+          </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
