@@ -155,6 +155,7 @@ router.get('/maintenance', async (req, res) => {
     
     const result = await pool.query(query, params);
     
+    const parseJson = (v: any) => { try { if (v == null) return null; if (typeof v !== 'string') return v; return JSON.parse(v); } catch { return null; } };
     const maintenanceRecords = result.rows.map(record => ({
       id: record.id,
       truck_id: record.truck_id,
@@ -166,11 +167,16 @@ router.get('/maintenance', async (req, res) => {
       maintenance_date: record.maintenance_date,
       cost: parseFloat(record.cost) || 0,
       mileage: record.mileage != null ? parseInt(record.mileage) : null,
+      next_maintenance_km: record.next_maintenance_km != null ? parseInt(record.next_maintenance_km) : null,
+      supplier: record.supplier || null,
+      invoice_number: record.invoice_number || null,
+      items: parseJson(record.items) || [],
       status: record.status,
-      files: (() => { try { if (!record.files) return []; if (typeof record.files !== 'string') return record.files; return JSON.parse(record.files); } catch { return []; } })(),
+      files: parseJson(record.files) || [],
       created_at: record.created_at,
       updated_at: record.updated_at
     }));
+
 
 
     console.log(`✅ Found ${maintenanceRecords.length} maintenance records`);
@@ -193,6 +199,10 @@ router.post('/maintenance', async (req, res) => {
       scheduled_date, 
       cost, 
       mileage,
+      next_maintenance_km,
+      supplier,
+      invoice_number,
+      items,
       status,
       files 
     } = req.body;
@@ -215,19 +225,28 @@ router.post('/maintenance', async (req, res) => {
     // Map frontend status to database status
     const validStatus = status === 'pending' ? 'scheduled' : status || 'scheduled';
     
-    // Ensure mileage column exists (idempotent)
-    await pool.query(`ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS mileage INTEGER`).catch(() => {});
+    // Ensure extra columns exist (idempotent)
+    await pool.query(`
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS mileage INTEGER;
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS next_maintenance_km INTEGER;
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS supplier TEXT;
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS invoice_number TEXT;
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS items JSONB;
+    `).catch(() => {});
 
     // Insert maintenance record
     const query = `
       INSERT INTO maintenance_records (
-        truck_id, type, description, scheduled_date, maintenance_date, cost, mileage, status, files
+        truck_id, type, description, scheduled_date, maintenance_date,
+        cost, mileage, next_maintenance_km, supplier, invoice_number,
+        items, status, files
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id, truck_id, type as maintenance_type, description, scheduled_date, maintenance_date, cost, mileage, status, files, created_at, updated_at
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *
     `;
     
     const parsedMileage = mileage === '' || mileage == null || isNaN(parseInt(mileage)) ? null : parseInt(mileage);
+    const parsedNextKm = next_maintenance_km === '' || next_maintenance_km == null || isNaN(parseInt(next_maintenance_km)) ? null : parseInt(next_maintenance_km);
 
     const result = await pool.query(query, [
       truck_id,
@@ -237,9 +256,14 @@ router.post('/maintenance', async (req, res) => {
       scheduled_date,
       parseFloat(cost) || 0,
       parsedMileage,
+      parsedNextKm,
+      supplier || null,
+      invoice_number || null,
+      items ? JSON.stringify(items) : null,
       validStatus,
       files ? JSON.stringify(files) : null
     ]);
+
 
     
     console.log('✅ Maintenance record created:', result.rows[0].id);
