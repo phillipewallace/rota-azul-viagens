@@ -10,7 +10,7 @@ import Trucks from "./pages/Trucks";
 import Drivers from "./pages/Drivers";
 import RoutesPage from "./pages/Routes";
 import Settings from "./pages/Settings";
-import Management from "./pages/Management";
+// import Management from "./pages/Management"; // substituído por Maintenance refatorado
 import Maintenance from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
