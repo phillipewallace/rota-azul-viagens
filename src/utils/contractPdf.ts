@@ -9,6 +9,8 @@ import jsPDF from 'jspdf';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
 import { contractTemplatesService, type ContractTemplate, type ContractTemplateTipo } from '@/services/contractTemplates';
 import { renderHtmlToPdf } from '@/utils/htmlToPdf';
+import { loadPdfImage, fitContain } from '@/utils/pdfImage';
+import { erpService } from '@/services/erp';
 
 const BRL = (n: number) =>
   (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
