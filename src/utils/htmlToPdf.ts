@@ -87,10 +87,15 @@ function renderInline(
   const ensureLine = () => {
     const needed = lineH + 2;
     if (ctx.onBeforeWrite) {
+      // Sincroniza ctx.y com o y local para que o callback decida com base
+      // na posição REAL atual (e não na posição inicial do parágrafo).
+      const before = y;
+      ctx.y = y;
       const newY = ctx.onBeforeWrite(needed);
-      if (newY !== y) {
+      // Só considera "page break" se o callback realmente mudou a posição.
+      if (newY !== before) {
         y = newY;
-        cursorX = x; // reseta para nova página
+        cursorX = x;
       }
     }
   };
