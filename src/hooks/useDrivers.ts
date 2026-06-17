@@ -27,37 +27,15 @@ const driversService = new DriversService();
 export const useDrivers = () => {
   const { data: drivers = [], isLoading: loading, refetch: loadDrivers } = useQuery({
     queryKey: ['drivers'],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       try {
-        console.log('🚛 Fetching drivers from API...');
         const data = await driversService.getDrivers();
-        console.log('✅ Drivers loaded:', data.length);
         return data;
       } catch (error) {
         console.error('❌ Error loading drivers:', error);
-        // Mock data for development - properly typed
-        return [
-          { 
-            id: '1', 
-            name: 'João Silva', 
-            license: 'CNH123456', 
-            phone: '(11) 99999-9999', 
-            email: 'joao@email.com', 
-            status: 'active' as const,
-            truckCount: 2,
-            totalTrips: 15
-          },
-          { 
-            id: '2', 
-            name: 'Maria Santos', 
-            license: 'CNH654321', 
-            phone: '(11) 88888-8888', 
-            email: 'maria@email.com', 
-            status: 'active' as const,
-            truckCount: 1,
-            totalTrips: 8
-          }
-        ] as Driver[];
+        return [] as Driver[];
       }
     },
   });
