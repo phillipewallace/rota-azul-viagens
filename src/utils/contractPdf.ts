@@ -240,7 +240,18 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
   const H = doc.internal.pageSize.getHeight();
   const M = 18;
   const maxW = W - M * 2;
-  const company = src.companySnapshot || {};
+  const company: any = { ...(src.companySnapshot || {}) };
+
+  // Busca informações frescas da empresa (assinatura/logo) caso o snapshot
+  // do contrato seja antigo e não tenha o campo de assinatura digital.
+  if (company.id && !company.assinatura_url) {
+    try {
+      const all = await erpService.listCompanies();
+      const found = all.find((c) => c.id === company.id);
+      if (found?.assinaturaUrl) company.assinatura_url = found.assinaturaUrl;
+      if (found?.logoUrl && !company.logo_url) company.logo_url = found.logoUrl;
+    } catch { /* silencioso */ }
+  }
 
   let pageNum = 1;
 
