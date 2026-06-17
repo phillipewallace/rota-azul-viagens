@@ -135,7 +135,7 @@ const ErpQuotes: React.FC = () => {
     try {
       let id = editing.id;
       const payload = { ...editing };
-      if (payload.tipoLocacao === 'evento') payload.limpezasSemanais = undefined;
+      if (payload.tipoLocacao === 'evento' || payload.tipoLocacao === 'outro') payload.limpezasSemanais = undefined;
       if (id) await quotesService.update(id, payload);
       else {
         const r = await quotesService.create(payload);
@@ -397,7 +397,7 @@ const ErpQuotes: React.FC = () => {
                     Pode ficar em branco e ser preenchida depois.
                   </p>
                 </div>
-                {editing.modalidade === 'mensal' && editing.tipoLocacao !== 'evento' && (
+                {editing.modalidade === 'mensal' && editing.tipoLocacao !== 'evento' && editing.tipoLocacao !== 'outro' && (
                   <div>
                     <label className="text-xs text-muted-foreground">Limpezas por semana</label>
                     <Input type="number" min={0} max={7} step={1}
