@@ -656,6 +656,7 @@ export default function Sanitarios() {
               <thead className="bg-muted/40 sticky top-0">
                 <tr className="text-left">
                   <th className="p-2">Número</th>
+                  <th className="p-2">Categoria</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">Cliente atual</th>
                   <th className="p-2">Endereço</th>
@@ -664,9 +665,32 @@ export default function Sanitarios() {
                 </tr>
               </thead>
               <tbody>
-                {list.map((s) => (
+                {list.map((s) => {
+                  const catMeta = SANITARIO_CATEGORIAS.find(c => c.value === (s.categoria || 'comum'));
+                  return (
                   <tr key={s.id} className="border-t hover:bg-muted/20">
                     <td className="p-2 font-mono font-bold">{s.numero}</td>
+                    <td className="p-2">
+                      {editingCatRow === s.numero ? (
+                        <select
+                          autoFocus
+                          className="border rounded h-8 px-1 bg-background text-xs"
+                          defaultValue={s.categoria || 'comum'}
+                          onBlur={() => setEditingCatRow(null)}
+                          onChange={(e) => changeRowCategoria(s.numero, e.target.value as SanitarioCategoria)}
+                        >
+                          {SANITARIO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+                      ) : (
+                        <button
+                          onClick={() => setEditingCatRow(s.numero)}
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border ${catMeta?.color || ''} hover:ring-2 hover:ring-indigo-200`}
+                          title="Clique para alterar categoria"
+                        >
+                          {catMeta?.label || 'Comum'} <Pencil className="h-3 w-3 opacity-60" />
+                        </button>
+                      )}
+                    </td>
                     <td className="p-2">{statusBadge(s.status)}</td>
                     <td className="p-2">{s.current_customer_name || '–'}</td>
                     <td className="p-2 truncate max-w-[260px]">{s.current_address || '–'}</td>
@@ -681,9 +705,10 @@ export default function Sanitarios() {
                       </Button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {!list.length && !loading && (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">
                     Nenhum sanitário cadastrado.
                   </td></tr>
                 )}
