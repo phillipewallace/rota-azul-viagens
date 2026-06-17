@@ -309,6 +309,17 @@ const ErpContracts: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BoletoVencimentoDialog
+        open={!!vencTarget}
+        contractLabel={vencTarget ? `contrato ${vencTarget.numero}` : undefined}
+        onClose={() => setVencTarget(null)}
+        onConfirm={async ({ dataVencimento, preview }) => {
+          const c = vencTarget;
+          setVencTarget(null);
+          if (c) await downloadContractPdf(c, { preview, dataVencimento });
+        }}
+      />
     </div>
   );
 };
