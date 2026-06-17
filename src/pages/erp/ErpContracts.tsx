@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FileSignature, Plus, Search, Upload, FileDown, Power, PowerOff,
-  Calendar, Loader2, Trash2, ExternalLink, FileText,
+  Calendar, Loader2, Trash2, ExternalLink, FileText, Eye,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -112,39 +112,42 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const downloadContractPdf = async (c: Contract) => {
+  const buildPdfSource = (full: Contract) => {
+    const tipoCtr = (full.tipoContrato as any) || 'locacao';
+    const isEvento = tipoCtr === 'evento';
+    const itemsFromOs: any[] = Array.isArray((full as any).osSnapshot?.items)
+      ? (full as any).osSnapshot.items
+      : (Array.isArray((full as any).items) ? (full as any).items : []);
+    return {
+      numero: full.numero,
+      tipo: 'os' as const,
+      tipoContrato: tipoCtr,
+      modalidade: (isEvento ? 'diaria' : 'mensal') as 'diaria' | 'mensal',
+      dataEmissao: full.dataInicio,
+      dataInicio: full.dataInicio,
+      dataEntrega: full.dataEvento || full.dataInicio,
+      dataFimPrevista: full.dataRecolhimento || full.dataFim || null,
+      dataRecolhimento: full.dataRecolhimento || null,
+      horaEntrega: full.horaEntrega || null,
+      localEvento: full.localEvento || null,
+      enderecoEntrega: full.localEvento || (full.customerSnapshot?.address ?? null),
+      observacoes: full.observacoes || null,
+      total: Number(full.valorTotalEvento ?? full.valorMensal ?? 0),
+      frete: Number(full.frete || 0),
+      companySnapshot: full.companySnapshot,
+      customerSnapshot: full.customerSnapshot,
+      companyRazaoSocial: full.companyRazaoSocial,
+      companyCnpj: full.companyCnpj,
+      customerName: full.customerName,
+      items: itemsFromOs,
+    };
+  };
+
+  const downloadContractPdf = async (c: Contract, preview = false) => {
     try {
       const full = await contractsService.get(c.id);
-      const tipoCtr = (full.tipoContrato as any) || 'locacao';
-      const isEvento = tipoCtr === 'evento';
-      // Tenta extrair items do snapshot da OS vinculada (se houver) para alimentar a Cláusula do Objeto
-      const itemsFromOs: any[] = Array.isArray((full as any).osSnapshot?.items)
-        ? (full as any).osSnapshot.items
-        : (Array.isArray((full as any).items) ? (full as any).items : []);
-      generateContractPdf({
-        numero: full.numero,
-        tipo: 'os',
-        tipoContrato: tipoCtr,
-        modalidade: isEvento ? 'diaria' : 'mensal',
-        dataEmissao: full.dataInicio,
-        dataInicio: full.dataInicio,
-        dataEntrega: full.dataEvento || full.dataInicio,
-        dataFimPrevista: full.dataRecolhimento || full.dataFim || null,
-        dataRecolhimento: full.dataRecolhimento || null,
-        horaEntrega: full.horaEntrega || null,
-        localEvento: full.localEvento || null,
-        enderecoEntrega: full.localEvento || (full.customerSnapshot?.address ?? null),
-        observacoes: full.observacoes || null,
-        total: Number(full.valorTotalEvento ?? full.valorMensal ?? 0),
-        frete: Number(full.frete || 0),
-        companySnapshot: full.companySnapshot,
-        customerSnapshot: full.customerSnapshot,
-        companyRazaoSocial: full.companyRazaoSocial,
-        companyCnpj: full.companyCnpj,
-        customerName: full.customerName,
-        items: itemsFromOs,
-      });
-      toast.success('Contrato gerado');
+      await generateContractPdf(buildPdfSource(full), { preview });
+      if (!preview) toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
   };
 
@@ -240,8 +243,12 @@ const ErpContracts: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-xs">{c.osNumero || '—'}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
+                      <Button variant="ghost" size="sm" title="Visualizar PDF (preview)"
+                        onClick={() => downloadContractPdf(c, true)}>
+                        <Eye className="h-3.5 w-3.5 text-slate-600" />
+                      </Button>
                       <Button variant="ghost" size="sm" title="Baixar PDF do contrato"
-                        onClick={() => downloadContractPdf(c)}>
+                        onClick={() => downloadContractPdf(c, false)}>
                         <FileText className="h-3.5 w-3.5 text-indigo-600" />
                       </Button>
                       {c.pdfUrl && (
