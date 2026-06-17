@@ -148,14 +148,15 @@ const Customers: React.FC = () => {
       const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
       if (!r.ok) throw new Error('CNPJ não encontrado');
       const d = await r.json();
-      // Atualiza tudo de uma vez para evitar race condition do setField
+      const formatCep = (c: any) => c
+        ? String(c).replace(/\D/g, '').replace(/^(\d{5})(\d{3}).*/, '$1-$2')
+        : '';
       const updates: Partial<Customer> = {
         customerName: d.razao_social || editing.customerName,
         contactName: d.nome_fantasia || editing.contactName,
-        cep: d.cep ? String(d.cep).replace(/\D/g, '').replace(/^(\d{5})(\d{3}).*/, '$1-$2') : editing.cep,
-        address: [d.logradouro, d.numero ? `nº ${d.numero}` : null, d.complemento]
-          .filter(Boolean).join(', ') || editing.address,
-        numero: d.numero || editing.numero,
+        cep: d.cep ? formatCep(d.cep) : editing.cep,
+        address: d.logradouro || editing.address,
+        numero: d.numero ? String(d.numero) : editing.numero,
         complemento: d.complemento || editing.complemento,
         bairro: d.bairro || editing.bairro,
         cidade: d.municipio || editing.cidade,
@@ -163,9 +164,26 @@ const Customers: React.FC = () => {
         contactPhone: d.ddd_telefone_1 || editing.contactPhone,
         email: d.email || editing.email,
       };
+      // Batch: atualiza o estado local de uma vez (evita race do closure)
+      // e propaga cada campo ao hook pai.
+      const merged = { ...editing, ...updates } as Customer;
+      setEditing(merged);
       Object.entries(updates).forEach(([k, v]) => {
-        if (v !== undefined && v !== '') setField(k as keyof Customer, v);
+        if (v !== undefined && v !== '') updateCustomer(editing.id, k as keyof Customer, v);
       });
+      // Tenta geocodificar automaticamente
+      try {
+        const full = [merged.address, merged.numero, merged.bairro, merged.cidade, merged.estado]
+          .filter(Boolean).join(', ');
+        if (full.length > 5) {
+          const g = await geocodingService.getCoordinatesFromAddress(full);
+          if (g) {
+            setEditing(prev => prev ? { ...prev, lat: g.lat, lng: g.lng } : prev);
+            updateCustomer(editing.id, 'lat', g.lat);
+            updateCustomer(editing.id, 'lng', g.lng);
+          }
+        }
+      } catch {}
       toast.success('Dados do CNPJ preenchidos automaticamente');
     } catch (e: any) {
       toast.error(e.message || 'Falha ao consultar CNPJ');
