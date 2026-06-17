@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
-import { fetchSanitarioStockSummary, type SanitarioStockSummary } from '@/services/erp';
+import { fetchSanitarioStockSummary, updateSanitarioTotalFisico, type SanitarioStockSummary } from '@/services/erp';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes } from 'lucide-react';
+import { usePolling } from '@/hooks/usePolling';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes, Send, Pencil, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
@@ -183,6 +184,74 @@ export default function Sanitarios() {
 
   useEffect(() => { loadTrucks(); loadStock(); }, []);
   useEffect(() => { setPage(1); load(1); loadStock(); /* eslint-disable-next-line */ }, [statusFilter, truckFilter, pageSize]);
+  // Sincronização multi-usuário: refaz lista e estoque a cada 15s
+  usePolling(() => { load(); loadStock(); }, 15000);
+
+  // ----- Despachar (informar número livre) -----
+  const [despOpen, setDespOpen] = useState(false);
+  const [despCustomerId, setDespCustomerId] = useState('');
+  const [despSearch, setDespSearch] = useState('');
+  const [despAddress, setDespAddress] = useState('');
+  const [despNumerosText, setDespNumerosText] = useState('');
+  const [despNotes, setDespNotes] = useState('');
+  const [despBusy, setDespBusy] = useState(false);
+  const despFilteredCustomers = useMemo(() => {
+    const q = despSearch.trim().toLowerCase();
+    if (!q) return customers.slice(0, 50);
+    return customers.filter(c =>
+      (c.customerName || '').toLowerCase().includes(q) ||
+      (c.address || '').toLowerCase().includes(q)
+    ).slice(0, 50);
+  }, [customers, despSearch]);
+  const submitDespacho = async () => {
+    const c = customers.find(x => x.id === despCustomerId);
+    if (!c) { toast.error('Selecione um cliente'); return; }
+    const finalAddress = (despAddress || '').trim() || c.address || '';
+    if (!finalAddress) { toast.error('Informe o endereço da obra/local'); return; }
+    const numeros = Array.from(new Set(
+      despNumerosText.split(/[\s,;\n]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
+    ));
+    if (!numeros.length) { toast.error('Informe pelo menos um número de sanitário'); return; }
+    setDespBusy(true);
+    try {
+      const usingClientAddress = finalAddress === (c.address || '');
+      await fetch(`${API_BASE_URL}/sanitarios/movimentar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          numeros,
+          operationType: 'entrega',
+          customerName: c.customerName,
+          address: finalAddress,
+          lat: usingClientAddress ? c.lat : undefined,
+          lng: usingClientAddress ? c.lng : undefined,
+          notes: despNotes || null,
+        }),
+      }).then(r => { if (!r.ok) throw new Error(); });
+      toast.success(`Despacho registrado (${numeros.length}) para ${c.customerName}`);
+      setDespOpen(false);
+      setDespCustomerId(''); setDespSearch(''); setDespAddress(''); setDespNumerosText(''); setDespNotes('');
+      load(); loadStock();
+    } catch { toast.error('Erro ao registrar despacho'); }
+    finally { setDespBusy(false); }
+  };
+
+  // ----- Total físico (editável inline) -----
+  const [editingTotal, setEditingTotal] = useState(false);
+  const [totalFisicoDraft, setTotalFisicoDraft] = useState('');
+  const startEditTotal = () => {
+    setTotalFisicoDraft(String(stock?.totalFisico ?? 0));
+    setEditingTotal(true);
+  };
+  const saveTotalFisico = async () => {
+    const v = Math.max(0, parseInt(totalFisicoDraft, 10) || 0);
+    try {
+      await updateSanitarioTotalFisico(v);
+      toast.success('Total físico atualizado');
+      setEditingTotal(false);
+      loadStock();
+    } catch { toast.error('Falha ao salvar total físico'); }
+  };
 
   const openDetail = async (numero: string) => {
     try {
