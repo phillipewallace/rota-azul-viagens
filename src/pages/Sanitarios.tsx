@@ -413,45 +413,21 @@ export default function Sanitarios() {
 
         <TabsContent value="estoque" className="space-y-4 mt-0">
 
-      {/* Resumo de estoque ERP */}
+      {/* Resumo de estoque ERP — KPIs */}
       {stock && (
         <div className="mb-4 grid grid-cols-2 md:grid-cols-6 gap-2">
-          <Card className="border-amber-300 bg-amber-50/40">
+          <Card className="border-amber-300 bg-gradient-to-br from-amber-50 to-amber-50/40">
             <CardContent className="p-3">
-              <div className="text-[11px] uppercase text-muted-foreground flex items-center justify-between">
-                <span>Total físico</span>
-                {!editingTotal && (
-                  <button onClick={startEditTotal} className="text-amber-700 hover:text-amber-900" title="Editar">
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                )}
+              <div className="text-[11px] uppercase text-muted-foreground">Total físico</div>
+              <div className="text-2xl font-bold text-amber-700">{stock.totalFisico ?? 0}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {Math.max(0, (stock.totalFisico ?? 0) - stock.total)} sem numeração
               </div>
-              {editingTotal ? (
-                <div className="flex items-center gap-1 mt-1">
-                  <Input
-                    autoFocus
-                    type="number"
-                    min={0}
-                    value={totalFisicoDraft}
-                    onChange={(e) => setTotalFisicoDraft(e.target.value)}
-                    className="h-8 text-base"
-                    onKeyDown={(e) => { if (e.key === 'Enter') saveTotalFisico(); if (e.key === 'Escape') setEditingTotal(false); }}
-                  />
-                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={saveTotalFisico}><Check className="h-4 w-4" /></Button>
-                </div>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold text-amber-700">{stock.totalFisico ?? 0}</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {Math.max(0, (stock.totalFisico ?? 0) - stock.total)} sem numeração
-                  </div>
-                </>
-              )}
             </CardContent>
           </Card>
           <Card className="border-green-200">
             <CardContent className="p-3">
-              <div className="text-[11px] uppercase text-muted-foreground">Disponíveis em estoque</div>
+              <div className="text-[11px] uppercase text-muted-foreground">Disponíveis</div>
               <div className="text-2xl font-bold text-green-700">{stock.disponivel}</div>
             </CardContent>
           </Card>
@@ -489,6 +465,80 @@ export default function Sanitarios() {
           </Card>
         </div>
       )}
+
+      {/* Painel por categoria */}
+      {stock?.porCategoria && (
+        <Card className="mb-4 overflow-hidden">
+          <CardHeader className="py-3 bg-gradient-to-r from-slate-50 to-white border-b">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="h-4 w-4 text-indigo-600" />
+              Estoque por categoria
+              <span className="text-xs font-normal text-muted-foreground ml-2">
+                Clique no lápis para informar quantos você tem fisicamente de cada tipo.
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {SANITARIO_CATEGORIAS.map(cat => {
+                const c = stock.porCategoria?.[cat.value];
+                if (!c) return null;
+                const isEditing = editingCat === cat.value;
+                return (
+                  <div key={cat.value}
+                       className={`rounded-lg border p-3 flex flex-col gap-2 ${cat.color.replace('text-', 'border-').split(' ').find(x => x.startsWith('border-')) || 'border-slate-200'} bg-white`}>
+                    <div className="flex items-center justify-between gap-1">
+                      <Badge className={`${cat.color} text-[11px] font-semibold border`}>
+                        {cat.label}
+                      </Badge>
+                      {!isEditing && (
+                        <button onClick={() => startEditCat(cat.value, c.totalFisico)} className="text-muted-foreground hover:text-indigo-600" title="Editar total físico">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          autoFocus type="number" min={0} value={catDraft}
+                          onChange={(e) => setCatDraft(e.target.value)}
+                          className="h-8 text-base"
+                          onKeyDown={(e) => { if (e.key === 'Enter') saveCatTotal(); if (e.key === 'Escape') setEditingCat(null); }}
+                        />
+                        <Button size="icon" className="h-8 w-8 shrink-0" onClick={saveCatTotal}><Check className="h-4 w-4" /></Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-2xl font-bold leading-none">{c.totalFisico}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground mt-1">total físico</div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-1 text-[11px] pt-2 border-t">
+                      <div>
+                        <div className="text-muted-foreground">Livres</div>
+                        <div className="font-bold text-green-700">{c.livres}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Em cliente</div>
+                        <div className="font-bold text-blue-700">{c.em_cliente}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Numerados</div>
+                        <div className="font-semibold">{c.numerados}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">S/ número</div>
+                        <div className="font-semibold text-amber-700">{c.semNumeracao}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
 
 
