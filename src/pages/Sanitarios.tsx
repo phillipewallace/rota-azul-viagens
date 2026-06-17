@@ -356,12 +356,12 @@ export default function Sanitarios() {
       const r = await fetch(`${API_BASE_URL}/sanitarios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ numero: newNum.trim().toUpperCase() }),
+        body: JSON.stringify({ numero: newNum.trim().toUpperCase(), categoria: newCategoria }),
       });
       if (!r.ok) throw new Error();
-      toast.success(`Sanitário ${newNum} cadastrado`);
+      toast.success(`Sanitário ${newNum} cadastrado (${sanitarioCategoriaLabel(newCategoria)})`);
       setNewNum('');
-      load();
+      load(); loadStock();
     } catch { toast.error('Erro ao cadastrar'); }
   };
 
