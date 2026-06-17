@@ -113,7 +113,7 @@ function App() {
               path="/management"
               element={
                 <ProtectedRoute>
-                  <Management />
+                  <Maintenance />
                 </ProtectedRoute>
               }
             />
