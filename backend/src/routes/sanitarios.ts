@@ -34,6 +34,40 @@ function buildSanitariosQuery(query: any) {
   return { where, params };
 }
 
+/** GET /api/sanitarios/total-fisico — total físico de banheiros (declarado pelo operador) */
+router.get('/total-fisico', requireAuth, async (_req: any, res: any) => {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+    const r = await pool.query(`SELECT value FROM app_settings WHERE key = 'sanitarios_total_fisico'`);
+    const v = r.rows[0]?.value ? parseInt(r.rows[0].value, 10) : 0;
+    res.json({ totalFisico: Number.isFinite(v) ? v : 0 });
+  } catch (e: any) {
+    console.error('[SANITARIOS] total-fisico get err:', e);
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
+/** PUT /api/sanitarios/total-fisico — atualiza o total físico */
+router.put('/total-fisico', requireAuth, async (req: any, res: any) => {
+  try {
+    const v = Math.max(0, parseInt(String(req.body?.totalFisico ?? 0), 10) || 0);
+    await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+    await pool.query(
+      `INSERT INTO app_settings(key, value, updated_at) VALUES ('sanitarios_total_fisico', $1, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [String(v)]
+    );
+    res.json({ ok: true, totalFisico: v });
+  } catch (e: any) {
+    console.error('[SANITARIOS] total-fisico put err:', e);
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
 /** GET /api/sanitarios/stock-summary — contagem por status (estoque ERP) */
 router.get('/stock-summary', requireAuth, async (_req: any, res: any) => {
   try {
@@ -62,7 +96,15 @@ router.get('/stock-summary', requireAuth, async (_req: any, res: any) => {
       atrasados = ra.rows[0]?.qtd || 0;
     } catch { /* tabelas ERP podem ainda não existir */ }
     const total = Object.values(summary).reduce((a, b) => a + b, 0);
-    res.json({ ...summary, reservadosEmOs, atrasados, total });
+    // total físico declarado (galpão + tudo que existe fisicamente, inclusive não numerados)
+    let totalFisico = 0;
+    try {
+      const tf = await pool.query(`SELECT value FROM app_settings WHERE key = 'sanitarios_total_fisico'`);
+      totalFisico = tf.rows[0]?.value ? parseInt(tf.rows[0].value, 10) || 0 : 0;
+    } catch { /* app_settings pode ainda não existir */ }
+    // Disponíveis físicos = total declarado - em_cliente - manutencao - em_os (reservados)
+    // Os "não numerados" = totalFisico - total (cadastrados)
+    res.json({ ...summary, reservadosEmOs, atrasados, total, totalFisico });
   } catch (e: any) {
     console.error('[SANITARIOS] stock-summary err:', e);
     res.status(500).json({ error: e?.message || 'erro' });

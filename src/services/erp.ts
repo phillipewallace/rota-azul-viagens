@@ -140,6 +140,35 @@ export interface SanitarioStockSummary {
   manutencao: number;
   inativo: number;
   em_os: number;
+  reservadosEmOs: number;
+  atrasados: number;
+  total: number;
+  totalFisico?: number;
+}
+
+export async function fetchSanitarioStockSummary(): Promise<SanitarioStockSummary> {
+  const tk = localStorage.getItem('auth_token');
+  const res = await fetch(`${API_BASE_URL}/sanitarios/stock-summary`, {
+    headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+  });
+  if (!res.ok) throw new Error('erro');
+  return res.json();
+}
+
+export async function updateSanitarioTotalFisico(totalFisico: number): Promise<void> {
+  const tk = localStorage.getItem('auth_token');
+  const res = await fetch(`${API_BASE_URL}/sanitarios/total-fisico`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+    body: JSON.stringify({ totalFisico }),
+  });
+  if (!res.ok) throw new Error('erro ao salvar total físico');
+}
+  disponivel: number;
+  em_cliente: number;
+  manutencao: number;
+  inativo: number;
+  em_os: number;
   reservadosEmOs?: number;
   atrasados?: number;
   total: number;
