@@ -7,6 +7,7 @@ import autoTable from 'jspdf-autotable';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { loadPdfImage, fitContain } from '@/utils/pdfImage';
+import { erpService } from '@/services/erp';
 import type { Receipt } from '@/services/contracts';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -228,9 +229,32 @@ export async function generateReceiptPdf(rec: Receipt) {
   doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
 
   // ---------- Assinatura ----------
-  if (afterY > H - 50) { doc.addPage(); afterY = 30; }
+  if (afterY > H - 60) { doc.addPage(); afterY = 30; }
   doc.text(`${co.cidade || 'Belo Horizonte'}, ${D(rec.dataEmissao)}.`, M, afterY);
   afterY += 22;
+
+  // Resolve URL da assinatura digital da empresa (com fallback por CNPJ)
+  let sigUrl: string | undefined = (co as any).assinaturaUrl || (co as any).assinatura_url;
+  if (!sigUrl && co.cnpj) {
+    try {
+      const all = await erpService.listCompanies();
+      const cnpjDigits = String(co.cnpj).replace(/\D/g, '');
+      const found = all.find((c: any) => String(c.cnpj || '').replace(/\D/g, '') === cnpjDigits);
+      if (found?.assinaturaUrl) sigUrl = found.assinaturaUrl;
+    } catch { /* sem assinatura */ }
+  }
+
+  // Imagem de assinatura acima da linha
+  if (sigUrl) {
+    try {
+      const sigImg = await loadPdfImage(sigUrl);
+      const sigH = 18;
+      const sigW = 80;
+      const sigX = W / 2 - sigW / 2;
+      const fit = fitContain(sigImg, sigX, afterY - sigH, sigW, sigH, 1);
+      doc.addImage(sigImg.dataUrl, sigImg.format, fit.x, fit.y, fit.w, fit.h);
+    } catch { /* segue sem assinatura */ }
+  }
 
   doc.setDrawColor(60, 60, 60); doc.setLineWidth(0.3);
   doc.line(M + 25, afterY, W - M - 25, afterY);

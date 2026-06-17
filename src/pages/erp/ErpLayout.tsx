@@ -84,16 +84,7 @@ const ErpLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="p-3 border-t border-slate-800/80 space-y-2">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 px-2">Integração</p>
-          <NavLink
-            to="/"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-slate-800/70 hover:text-white transition"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="flex-1">Sistema Principal</span>
-            <ExternalLink className="h-3 w-3 opacity-60" />
-          </NavLink>
+        <div className="p-3 border-t border-slate-800/80">
           <p className="text-[10px] text-slate-500 px-2 leading-snug">
             ERP conectado em tempo real ao AlchemyRotas — clientes, sanitários e frota são compartilhados.
           </p>
@@ -110,9 +101,6 @@ const ErpLayout: React.FC = () => {
             <h1 className="text-sm font-bold leading-none">ERP Suite</h1>
             <p className="text-[10px] text-indigo-300/80">Locação & Gestão</p>
           </div>
-          <NavLink to="/" className="text-xs text-slate-300 flex items-center gap-1">
-            <ArrowLeft className="h-3.5 w-3.5" /> App
-          </NavLink>
         </div>
         <nav className="flex overflow-x-auto px-2 pb-2 gap-1 no-scrollbar">
           {navItems.map((item) => {

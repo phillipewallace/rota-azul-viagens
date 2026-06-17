@@ -91,6 +91,7 @@ router.post('/generate', async (req, res) => {
               emp.estado AS company_estado, emp.cep AS company_cep,
               emp.telefone AS company_telefone, emp.email AS company_email,
               emp.logo_url AS company_logo_url, emp.logo_dataurl AS company_logo_dataurl,
+              emp.assinatura_url AS company_assinatura_url,
               emp.inscricao_estadual AS company_ie,
               cu.customer_name, cu.document AS customer_document, cu.address AS customer_address,
               cu.numero AS customer_numero, cu.bairro AS customer_bairro,
@@ -139,6 +140,7 @@ router.post('/generate', async (req, res) => {
         telefone: ct.company_telefone, email: ct.company_email,
         inscricaoEstadual: ct.company_ie,
         logoUrl: ct.company_logo_url, logoDataUrl: ct.company_logo_dataurl,
+        assinaturaUrl: ct.company_assinatura_url,
       },
       customer: {
         name: ct.customer_name, document: ct.customer_document,

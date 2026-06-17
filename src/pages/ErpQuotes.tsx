@@ -230,9 +230,6 @@ const ErpQuotes: React.FC = () => {
       <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Link>
-            </Button>
             <FileText className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-bold">Orçamentos</h1>
             <Badge variant="secondary">{list.length}</Badge>
