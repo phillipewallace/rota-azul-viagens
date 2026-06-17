@@ -33,6 +33,7 @@ import { serviceOrdersService } from '@/services/quotes';
 import { API_BASE_URL } from '@/services/config';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateContractPdf } from '@/utils/contractPdf';
+import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
 
 // Cliente vem do endpoint /customers que retorna camelCase (customerName)
 type Customer = { id: string; customerName: string; document?: string };
