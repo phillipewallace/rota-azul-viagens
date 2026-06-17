@@ -26,6 +26,8 @@ import {
   receiptsService, type Receipt, type PendingReceipt,
   receiptsExtraService, expensesService, type Expense,
 } from '@/services/contracts';
+import { uploadSignedPdf } from '@/services/erp';
+import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateReceiptPdf } from '@/utils/receiptPdf';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -522,9 +524,47 @@ function GastosPanel() {
               <Label className="text-xs">Nº Nota fiscal</Label>
               <Input value={form.notaFiscal || ''} onChange={e => setForm({ ...form, notaFiscal: e.target.value })} />
             </div>
-            <div>
-              <Label className="text-xs">Anexo (URL opcional)</Label>
-              <Input value={form.anexoUrl || ''} onChange={e => setForm({ ...form, anexoUrl: e.target.value })} />
+            <div className="md:col-span-2">
+              <Label className="text-xs">Anexo (foto, PDF, etc.)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const url = await uploadSignedPdf(file);
+                      setForm({ ...form, anexoUrl: url });
+                      toast.success('Anexo enviado');
+                    } catch (err: any) {
+                      toast.error(err.message || 'Falha ao enviar anexo');
+                    } finally {
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                {form.anexoUrl && (
+                  <>
+                    <a
+                      href={toAbsoluteUrl(form.anexoUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-indigo-600 underline whitespace-nowrap"
+                    >
+                      ver anexo
+                    </a>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setForm({ ...form, anexoUrl: '' })}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
             <div className="md:col-span-2">
               <Label className="text-xs">Observações</Label>
