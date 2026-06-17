@@ -359,6 +359,10 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
                             onClick={() => downloadServiceOrderPdf(os)}>
                       <ClipboardList className="h-3.5 w-3.5 mr-1" /> Gerar OS (entrega)
                     </Button>
+                    <Button size="sm" variant="default" className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                            onClick={() => setContractTarget(os)}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato
+                    </Button>
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" variant="ghost" className="flex-1 text-indigo-700 hover:bg-indigo-50"
