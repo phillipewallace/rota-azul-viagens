@@ -7,7 +7,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { MaintenanceRecord } from '@/hooks/useMaintenanceManagement';
 
-const D = (s?: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—');
+const D = (s?: string | null) => {
+  if (!s) return '—';
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR');
+};
 const M2 = (n: number) =>
   `R$ ${Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const KM = (n?: number | null) =>

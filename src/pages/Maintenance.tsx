@@ -357,9 +357,7 @@ const Maintenance = () => {
                 tone="destructive"
                 items={alerts.overdue.map((r) => ({
                   title: r.truck_name || r.truck_plate || '—',
-                  subtitle: `${TYPE_LABEL[r.maintenance_type] || r.maintenance_type} · ${new Date(
-                    r.scheduled_date,
-                  ).toLocaleDateString('pt-BR')}`,
+                  subtitle: `${TYPE_LABEL[r.maintenance_type] || r.maintenance_type} · ${formatDateBR(r.scheduled_date)}`,
                 }))}
               />
               <AlertList
@@ -367,9 +365,7 @@ const Maintenance = () => {
                 tone="warning"
                 items={alerts.upcoming.map((r) => ({
                   title: r.truck_name || r.truck_plate || '—',
-                  subtitle: `${TYPE_LABEL[r.maintenance_type] || r.maintenance_type} · ${new Date(
-                    r.scheduled_date,
-                  ).toLocaleDateString('pt-BR')}`,
+                  subtitle: `${TYPE_LABEL[r.maintenance_type] || r.maintenance_type} · ${formatDateBR(r.scheduled_date)}`,
                 }))}
               />
               <AlertList
@@ -610,9 +606,7 @@ const Maintenance = () => {
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">
-                            {r.scheduled_date
-                              ? new Date(r.scheduled_date).toLocaleDateString('pt-BR')
-                              : '—'}
+                            {r.scheduled_date ? formatDateBR(r.scheduled_date) : '—'}
                           </TableCell>
                           <TableCell className="text-sm">
                             {r.mileage != null

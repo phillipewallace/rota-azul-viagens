@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Wrench } from 'lucide-react';
 import { MaintenanceRecord } from '@/hooks/useMaintenanceManagement';
+import { formatDateBR } from '@/utils/dateFormat';
 
 interface MaintenanceTableProps {
   records: MaintenanceRecord[];
