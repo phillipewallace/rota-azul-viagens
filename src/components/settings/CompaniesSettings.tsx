@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Building2, Plus, Trash2, Save, Upload, Hash, Loader2, ImageIcon } from 'lucide-react';
+import { Building2, Plus, Trash2, Save, Upload, Hash, Loader2, ImageIcon, PenLine } from 'lucide-react';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { docSettingsService, type DocSetting } from '@/services/contracts';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
@@ -286,12 +286,53 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
             )}
           </div>
         </div>
+        <SignatureField
+          value={local.assinaturaUrl || ''}
+          onChange={(v) => setLocal({ ...local, assinaturaUrl: v })}
+        />
       </div>
       <div className="flex justify-end">
         <Button size="sm" disabled={!dirty || saving} onClick={() => onSave(local)}>
           <Save className="h-4 w-4 mr-1" /> {saving ? 'Salvando…' : 'Salvar alterações'}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function SignatureField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const handle = async (file: File) => {
+    setUploading(true);
+    try {
+      const url = await uploadSignedPdf(file);
+      onChange(url);
+      toast.success('Assinatura enviada — clique em Salvar');
+    } catch (e: any) { toast.error(e.message); }
+    finally { setUploading(false); }
+  };
+  return (
+    <div className="md:col-span-2">
+      <Label className="text-xs flex items-center gap-1">
+        <PenLine className="h-3 w-3" /> Assinatura digital (imagem PNG/JPG — sai em todo contrato gerado)
+      </Label>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Input type="file" accept="image/*"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handle(f); }}
+          disabled={uploading} className="max-w-sm" />
+        {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {value && (
+          <>
+            <img src={toAbsoluteUrl(value)} alt="assinatura"
+              className="h-12 border rounded bg-white object-contain px-2" />
+            <Button size="sm" variant="ghost" className="text-red-600"
+              onClick={() => onChange('')}>Remover</Button>
+          </>
+        )}
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-1">
+        Quando preenchida, todo PDF de contrato sai já assinado pela LOCADORA.
+      </p>
     </div>
   );
 }

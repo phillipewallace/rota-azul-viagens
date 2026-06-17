@@ -129,6 +129,7 @@ export interface ErpCompany {
   telefone?: string;
   email?: string;
   logoUrl?: string;
+  assinaturaUrl?: string;
   ativo: boolean;
   createdAt?: string;
 }

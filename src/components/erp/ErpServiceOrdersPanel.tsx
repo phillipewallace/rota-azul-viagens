@@ -15,6 +15,7 @@ import { serviceOrdersService, quotesService, ServiceOrder } from '@/services/qu
 import { generateQuotePdf } from '@/utils/quotePdf';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
+import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
 import { toast } from 'sonner';
 import {
   RefreshCcw, Truck, MapPin, User, CalendarClock, AlertTriangle,
@@ -44,6 +45,7 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
   const [deliver, setDeliver] = useState<DeliverState | null>(null);
   const [closing, setClosing] = useState<CloseState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -164,10 +166,10 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const downloadContractPdf = async (os: ServiceOrder) => {
+  const downloadContractPdf = async (os: ServiceOrder, dataVencimento?: string, preview = false) => {
     try {
       const detail = await serviceOrdersService.get(os.id) as any;
-      generateContractPdf({
+      await generateContractPdf({
         numero: detail.numero || os.numero,
         tipo: 'os',
         tipoContrato: (() => {
@@ -188,15 +190,16 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
         enderecoEntrega: detail.endereco_entrega || os.enderecoEntrega,
         observacoes: detail.observacoes,
         frete: detail.frete,
+        dataVencimento: dataVencimento || null,
         total: Number(detail.valor_total || os.valorTotal || 0),
         companySnapshot: detail.companySnapshot,
         customerSnapshot: detail.customer_snapshot,
         customerName: os.customerName,
         customerAddress: os.customerAddress,
         items: detail.items || [],
-      });
+      }, { preview });
 
-      toast.success('Contrato gerado');
+      if (!preview) toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message); }
   };
   const downloadServiceOrderPdf = async (os: ServiceOrder) => {
@@ -356,6 +359,10 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
                             onClick={() => downloadServiceOrderPdf(os)}>
                       <ClipboardList className="h-3.5 w-3.5 mr-1" /> Gerar OS (entrega)
                     </Button>
+                    <Button size="sm" variant="default" className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                            onClick={() => setContractTarget(os)}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato
+                    </Button>
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" variant="ghost" className="flex-1 text-indigo-700 hover:bg-indigo-50"
@@ -448,6 +455,17 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BoletoVencimentoDialog
+        open={!!contractTarget}
+        contractLabel={contractTarget ? `contrato da OS ${contractTarget.numero}` : undefined}
+        onClose={() => setContractTarget(null)}
+        onConfirm={async ({ dataVencimento, preview }) => {
+          const os = contractTarget;
+          setContractTarget(null);
+          if (os) await downloadContractPdf(os, dataVencimento, preview);
+        }}
+      />
     </div>
   );
 }

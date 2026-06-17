@@ -9,6 +9,8 @@ import jsPDF from 'jspdf';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
 import { contractTemplatesService, type ContractTemplate, type ContractTemplateTipo } from '@/services/contractTemplates';
 import { renderHtmlToPdf } from '@/utils/htmlToPdf';
+import { loadPdfImage, fitContain } from '@/utils/pdfImage';
+import { erpService } from '@/services/erp';
 
 const BRL = (n: number) =>
   (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -238,7 +240,18 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
   const H = doc.internal.pageSize.getHeight();
   const M = 18;
   const maxW = W - M * 2;
-  const company = src.companySnapshot || {};
+  const company: any = { ...(src.companySnapshot || {}) };
+
+  // Busca informações frescas da empresa (assinatura/logo) caso o snapshot
+  // do contrato seja antigo e não tenha o campo de assinatura digital.
+  if (company.id && !company.assinatura_url) {
+    try {
+      const all = await erpService.listCompanies();
+      const found = all.find((c) => c.id === company.id);
+      if (found?.assinaturaUrl) company.assinatura_url = found.assinaturaUrl;
+      if (found?.logoUrl && !company.logo_url) company.logo_url = found.logoUrl;
+    } catch { /* silencioso */ }
+  }
 
   let pageNum = 1;
 
@@ -321,11 +334,22 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
   y += 4;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
   doc.text(`${company.cidade || '____________'}, ${fmtDateLong(src.dataEmissao || src.dataInicio || new Date().toISOString())}.`, M, y);
-  y += 16;
+  y += 20; // espaço para a assinatura digital da empresa, se houver
 
   // Assinaturas
   if (y + 50 > H - 22) y = newPage();
   const colW = (W - M * 2 - 14) / 2;
+
+  // Renderiza a imagem de assinatura da empresa acima da linha da LOCADORA
+  if (company.assinatura_url) {
+    try {
+      const sigImg = await loadPdfImage(company.assinatura_url);
+      const sigH = 18;
+      const fit = fitContain(sigImg, M, y - sigH, colW, sigH, 1);
+      doc.addImage(sigImg.dataUrl, sigImg.format, fit.x, fit.y, fit.w, fit.h);
+    } catch { /* segue sem assinatura */ }
+  }
+
   doc.line(M, y, M + colW, y);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
   doc.text(String(company.razao_social || src.companyRazaoSocial || 'LOCADORA').toUpperCase(), M, y + 5);

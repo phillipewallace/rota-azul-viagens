@@ -33,6 +33,7 @@ import { serviceOrdersService } from '@/services/quotes';
 import { API_BASE_URL } from '@/services/config';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateContractPdf } from '@/utils/contractPdf';
+import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
 
 // Cliente vem do endpoint /customers que retorna camelCase (customerName)
 type Customer = { id: string; customerName: string; document?: string };
@@ -51,6 +52,7 @@ const ErpContracts: React.FC = () => {
   const [editing, setEditing] = useState<Contract | null>(null);
   const [openForm, setOpenForm] = useState(false);
   const [deleting, setDeleting] = useState<Contract | null>(null);
+  const [vencTarget, setVencTarget] = useState<Contract | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -143,13 +145,20 @@ const ErpContracts: React.FC = () => {
     };
   };
 
-  const downloadContractPdf = async (c: Contract, preview = false) => {
+  const downloadContractPdf = async (c: Contract, opts: { preview: boolean; dataVencimento?: string }) => {
     try {
       const full = await contractsService.get(c.id);
-      await generateContractPdf(buildPdfSource(full), { preview });
-      if (!preview) toast.success('Contrato gerado');
+      const src: any = buildPdfSource(full);
+      if (opts.dataVencimento) src.dataVencimento = opts.dataVencimento;
+      await generateContractPdf(src, { preview: opts.preview });
+      if (!opts.preview) toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
   };
+
+
+
+
+
 
 
   return (
@@ -244,11 +253,11 @@ const ErpContracts: React.FC = () => {
                     <TableCell className="text-xs">{c.osNumero || '—'}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       <Button variant="ghost" size="sm" title="Visualizar PDF (preview)"
-                        onClick={() => downloadContractPdf(c, true)}>
+                        onClick={() => setVencTarget(c)}>
                         <Eye className="h-3.5 w-3.5 text-slate-600" />
                       </Button>
                       <Button variant="ghost" size="sm" title="Baixar PDF do contrato"
-                        onClick={() => downloadContractPdf(c, false)}>
+                        onClick={() => setVencTarget(c)}>
                         <FileText className="h-3.5 w-3.5 text-indigo-600" />
                       </Button>
                       {c.pdfUrl && (
@@ -300,6 +309,17 @@ const ErpContracts: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BoletoVencimentoDialog
+        open={!!vencTarget}
+        contractLabel={vencTarget ? `contrato ${vencTarget.numero}` : undefined}
+        onClose={() => setVencTarget(null)}
+        onConfirm={async ({ dataVencimento, preview }) => {
+          const c = vencTarget;
+          setVencTarget(null);
+          if (c) await downloadContractPdf(c, { preview, dataVencimento });
+        }}
+      />
     </div>
   );
 };

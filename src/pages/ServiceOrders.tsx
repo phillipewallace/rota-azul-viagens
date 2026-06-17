@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft, ClipboardList, AlertTriangle, CheckCircle2, RefreshCcw, Trash2, Loader2, Search,
   FileDown, History, X, ChevronDown, ChevronRight, MapPin, Calendar, User, Building2, Package,
+  FileSignature, FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import { downloadCsv, downloadPdf } from '@/utils/exporters';
+import { generateContractPdf } from '@/utils/contractPdf';
+import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
+import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
@@ -33,6 +37,8 @@ const ServiceOrders: React.FC = () => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, any>>({});
   const [loadingDetail, setLoadingDetail] = useState<Record<string, boolean>>({});
+  const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
 
   const toggleExpand = async (o: ServiceOrder) => {
     if (expanded[o.id]) {
@@ -114,6 +120,70 @@ const ServiceOrders: React.FC = () => {
     try { await serviceOrdersService.remove(o.id); toast.success('Excluída'); load(); }
     catch (e: any) { toast.error(e.message); }
   };
+
+  const downloadOsPdf = async (o: ServiceOrder) => {
+    setPdfBusy(o.id);
+    try {
+      const d = await serviceOrdersService.get(o.id) as any;
+      await generateServiceOrderPdf({
+        numero: d.numero || o.numero,
+        modalidade: d.modalidade || o.modalidade,
+        tipoLocacao: d.tipo_locacao || (o as any).tipoLocacao,
+        dataInicio: d.data_inicio,
+        dataEntrega: d.data_entrega || o.dataEntrega,
+        dataRecolhimento: d.data_recolhimento || o.dataRecolhimento,
+        dataFimPrevista: d.data_fim_prevista || o.dataFimPrevista,
+        limpezasSemanais: d.limpezas_semanais ?? o.limpezasSemanais,
+        enderecoEntrega: d.endereco_entrega || o.enderecoEntrega,
+        observacoes: d.observacoes,
+        qtdReservada: d.qtd_reservada ?? o.qtdReservada,
+        customerName: o.customerName,
+        customerAddress: o.customerAddress,
+        customerSnapshot: d.customer_snapshot,
+        companySnapshot: d.companySnapshot,
+        companyRazaoSocial: o.companyRazaoSocial,
+        items: d.items || [],
+        sanitariosNumeros: (d.sanitarios || []).map((s: any) => s.numero).filter(Boolean),
+      });
+      toast.success('OS para entrega gerada');
+    } catch (e: any) { toast.error(e.message); }
+    finally { setPdfBusy(null); }
+  };
+
+  const downloadContract = async (o: ServiceOrder, dataVencimento: string, preview: boolean) => {
+    setPdfBusy(o.id);
+    try {
+      const d = await serviceOrdersService.get(o.id) as any;
+      const t = (d.tipo_locacao || (o as any).tipoLocacao || '').toLowerCase();
+      await generateContractPdf({
+        numero: d.numero || o.numero,
+        tipo: 'os',
+        tipoContrato: t === 'evento' ? 'evento' : t === 'obra' ? 'obra' : 'locacao',
+        modalidade: d.modalidade || o.modalidade,
+        dataEmissao: d.data_inicio,
+        dataInicio: d.data_inicio,
+        dataEntrega: d.data_entrega,
+        dataFimPrevista: d.data_fim_prevista,
+        dataRecolhimento: d.data_recolhimento || o.dataRecolhimento,
+        horaEntrega: d.hora_entrega || null,
+        localEvento: d.local_evento || null,
+        limpezasSemanais: d.limpezas_semanais,
+        enderecoEntrega: d.endereco_entrega || o.enderecoEntrega,
+        observacoes: d.observacoes,
+        frete: d.frete,
+        dataVencimento,
+        total: Number(d.valor_total || o.valorTotal || 0),
+        companySnapshot: d.companySnapshot,
+        customerSnapshot: d.customer_snapshot,
+        customerName: o.customerName,
+        customerAddress: o.customerAddress,
+        items: d.items || [],
+      }, { preview });
+      if (!preview) toast.success('Contrato gerado');
+    } catch (e: any) { toast.error(e.message); }
+    finally { setPdfBusy(null); }
+  };
+
 
   const openFinanceiro = async () => {
     setFinOpen(true);
@@ -518,7 +588,20 @@ const ServiceOrders: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="flex gap-1 pt-2 border-t">
+                  <div className="flex gap-1 pt-2 border-t flex-wrap">
+                    <Button size="sm" variant="default" className="flex-1 min-w-[110px] bg-green-700 hover:bg-green-800"
+                            onClick={() => downloadOsPdf(o)} disabled={pdfBusy === o.id}>
+                      {pdfBusy === o.id
+                        ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        : <FileText className="h-3.5 w-3.5 mr-1" />}
+                      Gerar OS PDF
+                    </Button>
+                    <Button size="sm" variant="default" className="flex-1 min-w-[110px] bg-indigo-600 hover:bg-indigo-700"
+                            onClick={() => setContractTarget(o)} disabled={pdfBusy === o.id}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato
+                    </Button>
+                  </div>
+                  <div className="flex gap-1 pt-1">
                     {o.status === 'aberta' && (
                       <Button size="sm" variant="outline" className="flex-1 text-green-700 hover:bg-green-50" onClick={() => close(o)}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Fechar e devolver
@@ -680,6 +763,17 @@ const ServiceOrders: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <BoletoVencimentoDialog
+        open={!!contractTarget}
+        contractLabel={contractTarget ? `contrato da OS ${contractTarget.numero}` : undefined}
+        onClose={() => setContractTarget(null)}
+        onConfirm={async ({ dataVencimento, preview }) => {
+          const o = contractTarget;
+          setContractTarget(null);
+          if (o) await downloadContract(o, dataVencimento, preview);
+        }}
+      />
     </div>
   );
 };
