@@ -393,7 +393,40 @@ export default function Sanitarios() {
 
       {/* Resumo de estoque ERP */}
       {stock && (
-        <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="mb-4 grid grid-cols-2 md:grid-cols-6 gap-2">
+          <Card className="border-amber-300 bg-amber-50/40">
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase text-muted-foreground flex items-center justify-between">
+                <span>Total físico</span>
+                {!editingTotal && (
+                  <button onClick={startEditTotal} className="text-amber-700 hover:text-amber-900" title="Editar">
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              {editingTotal ? (
+                <div className="flex items-center gap-1 mt-1">
+                  <Input
+                    autoFocus
+                    type="number"
+                    min={0}
+                    value={totalFisicoDraft}
+                    onChange={(e) => setTotalFisicoDraft(e.target.value)}
+                    className="h-8 text-base"
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveTotalFisico(); if (e.key === 'Escape') setEditingTotal(false); }}
+                  />
+                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={saveTotalFisico}><Check className="h-4 w-4" /></Button>
+                </div>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-amber-700">{stock.totalFisico ?? 0}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {Math.max(0, (stock.totalFisico ?? 0) - stock.total)} sem numeração
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
           <Card className="border-green-200">
             <CardContent className="p-3">
               <div className="text-[11px] uppercase text-muted-foreground">Disponíveis em estoque</div>
@@ -428,7 +461,7 @@ export default function Sanitarios() {
           </Card>
           <Card>
             <CardContent className="p-3">
-              <div className="text-[11px] uppercase text-muted-foreground">Total cadastrado</div>
+              <div className="text-[11px] uppercase text-muted-foreground">Total numerado</div>
               <div className="text-2xl font-bold">{stock.total}</div>
             </CardContent>
           </Card>
@@ -494,6 +527,10 @@ export default function Sanitarios() {
 
           <Button onClick={exportCsv} variant="outline" size="sm" disabled={exporting} className="gap-2">
             {exporting ? 'Exportando…' : 'Exportar CSV'}
+          </Button>
+
+          <Button onClick={() => setDespOpen(true)} size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700">
+            <Send className="h-4 w-4" /> Despachar (informar nº)
           </Button>
 
           <div className="flex gap-2 items-end ml-auto">
