@@ -155,8 +155,8 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
   };
 
-  // Estado para distinguir preview vs download após o modal de vencimento
-  const [vencPreview, setVencPreview] = useState(false);
+
+
 
 
 
