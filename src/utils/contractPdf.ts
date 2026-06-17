@@ -213,7 +213,7 @@ function tipoToTemplateTipo(t?: 'locacao' | 'evento' | 'obra'): ContractTemplate
   return t === 'evento' ? 'evento' : 'obra';
 }
 
-export async function generateContractPdf(src: ContractSource) {
+export async function generateContractPdf(src: ContractSource, opts: { preview?: boolean } = {}) {
   const tipoTpl = tipoToTemplateTipo(src.tipoContrato);
   let template: ContractTemplate | null = null;
   try {
@@ -360,5 +360,17 @@ export async function generateContractPdf(src: ContractSource) {
   const filename = tipoTpl === 'evento'
     ? `contrato-evento-${src.numero}.pdf`
     : `contrato-${src.numero}.pdf`;
+
+  if (opts.preview) {
+    // Abre o PDF em uma nova aba para visualização sem baixar.
+    const blobUrl = doc.output('bloburl');
+    const win = window.open(blobUrl, '_blank');
+    if (!win) {
+      // Pop-up bloqueado: força download como fallback.
+      doc.save(filename);
+    }
+    return;
+  }
+
   doc.save(filename);
 }
