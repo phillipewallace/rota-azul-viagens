@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Search, MapPin, Phone, Save, Loader2, Users,
-  Building2, History, PackageOpen, PackageCheck, Wrench, RefreshCcw, Filter, Edit3,
+  Building2, History, PackageOpen, PackageCheck, Wrench, RefreshCcw, Filter, Edit3, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +50,7 @@ const Customers: React.FC = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
+  const [lookingUpCnpj, setLookingUpCnpj] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
