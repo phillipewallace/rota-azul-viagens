@@ -265,6 +265,7 @@ export const useRoutes = () => {
   useEffect(() => {
     loadRoutes();
   }, []);
+  usePolling(loadRoutes, 20000);
 
   return {
     routes,
