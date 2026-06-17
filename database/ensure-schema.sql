@@ -516,3 +516,11 @@ ON CONFLICT (username) DO UPDATE
       role = 'admin',
       active = TRUE,
       updated_at = CURRENT_TIMESTAMP;
+
+-- ============================== ERP COMPANIES (assinatura) =================
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_companies') THEN
+    EXECUTE 'ALTER TABLE erp_companies ADD COLUMN IF NOT EXISTS assinatura_url TEXT';
+  END IF;
+END $$;
