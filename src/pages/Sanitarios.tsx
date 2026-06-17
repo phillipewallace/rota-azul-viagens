@@ -1015,6 +1015,21 @@ export default function Sanitarios() {
               </p>
             </div>
             <div>
+              <label className="text-xs text-muted-foreground">
+                Categoria <span className="text-red-500">*</span>
+              </label>
+              <select
+                className="block w-full border rounded-md h-10 px-2 bg-background"
+                value={despCategoria}
+                onChange={(e) => setDespCategoria(e.target.value as SanitarioCategoria)}
+              >
+                {SANITARIO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Se algum número for novo, ele será cadastrado nesta categoria. Para números já existentes, a categoria também será atualizada — útil para catalogar conforme você descobre na rua.
+              </p>
+            </div>
+            <div>
               <label className="text-xs text-muted-foreground">Observações (opcional)</label>
               <Textarea rows={2} value={despNotes} onChange={(e) => setDespNotes(e.target.value)} />
             </div>
