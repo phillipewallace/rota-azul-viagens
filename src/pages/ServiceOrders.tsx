@@ -763,6 +763,17 @@ const ServiceOrders: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <BoletoVencimentoDialog
+        open={!!contractTarget}
+        contractLabel={contractTarget ? `contrato da OS ${contractTarget.numero}` : undefined}
+        onClose={() => setContractTarget(null)}
+        onConfirm={async ({ dataVencimento, preview }) => {
+          const o = contractTarget;
+          setContractTarget(null);
+          if (o) await downloadContract(o, dataVencimento, preview);
+        }}
+      />
     </div>
   );
 };
