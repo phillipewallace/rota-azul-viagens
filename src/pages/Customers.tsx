@@ -394,28 +394,59 @@ const Customers: React.FC = () => {
                   <div>
                     <label className="text-xs text-muted-foreground">{personType === 'PJ' ? 'CNPJ' : 'CPF'}</label>
                     <div className="flex gap-1">
-                      <Input value={maskDocument(editing.document || '', personType)}
-                             onChange={e => setField('document', onlyDigits(e.target.value))}
-                             placeholder={personType === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'} />
-                      {personType === 'PJ' && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleLookupCnpj}
-                          disabled={lookingUpCnpj || onlyDigits(editing.document || '').length !== 14}
-                          title="Buscar dados pelo CNPJ"
-                        >
-                          {lookingUpCnpj
-                            ? <Loader2 className="h-4 w-4 animate-spin" />
-                            : <Download className="h-4 w-4" />}
-                        </Button>
-                      )}
+              <TabsContent value="dados" className="space-y-4 pt-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Tipo de pessoa</label>
+                  <div className="flex gap-1 mt-1">
+                    <Button type="button" size="sm" variant={personType === 'PJ' ? 'default' : 'outline'}
+                            onClick={() => setField('personType', 'PJ')}>Pessoa Jurídica (CNPJ)</Button>
+                    <Button type="button" size="sm" variant={personType === 'PF' ? 'default' : 'outline'}
+                            onClick={() => setField('personType', 'PF')}>Pessoa Física (CPF)</Button>
+                  </div>
+                </div>
+
+                {personType === 'PJ' && (
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      CNPJ — digite e clique em buscar para preencher automaticamente
+                    </label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        className="font-mono"
+                        value={maskDocument(editing.document || '', personType)}
+                        onChange={e => setField('document', onlyDigits(e.target.value))}
+                        placeholder="00.000.000/0000-00"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleLookupCnpj}
+                        disabled={lookingUpCnpj || onlyDigits(editing.document || '').length !== 14}
+                        className="gap-1 shrink-0"
+                      >
+                        {lookingUpCnpj
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Download className="h-4 w-4" />}
+                        Buscar dados
+                      </Button>
                     </div>
                     {docError && <div className="text-[11px] text-red-600 mt-1">{docError}</div>}
                   </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="text-xs text-muted-foreground">
+                      {personType === 'PJ' ? 'Razão social' : 'Nome completo'} *
+                    </label>
+                    <Input value={editing.customerName || ''} onChange={e => setField('customerName', e.target.value)} />
+                  </div>
+
                   {personType === 'PJ' ? (
                     <>
+                      <div className="md:col-span-2">
+                        <label className="text-xs text-muted-foreground">Nome fantasia</label>
+                        <Input value={editing.contactName || ''} onChange={e => setField('contactName', e.target.value)} />
+                      </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Inscrição estadual</label>
                         <Input value={editing.ie || ''} onChange={e => setField('ie', e.target.value)} />
@@ -424,18 +455,27 @@ const Customers: React.FC = () => {
                         <label className="text-xs text-muted-foreground">Inscrição municipal</label>
                         <Input value={editing.im || ''} onChange={e => setField('im', e.target.value)} />
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Nome fantasia</label>
-                        <Input value={editing.contactName || ''} onChange={e => setField('contactName', e.target.value)} />
-                      </div>
                     </>
                   ) : (
-                    <div>
-                      <label className="text-xs text-muted-foreground">RG</label>
-                      <Input value={editing.ie || ''} onChange={e => setField('ie', e.target.value)} />
-                    </div>
+                    <>
+                      <div>
+                        <label className="text-xs text-muted-foreground">CPF</label>
+                        <Input
+                          className="font-mono"
+                          value={maskDocument(editing.document || '', personType)}
+                          onChange={e => setField('document', onlyDigits(e.target.value))}
+                          placeholder="000.000.000-00"
+                        />
+                        {docError && <div className="text-[11px] text-red-600 mt-1">{docError}</div>}
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">RG</label>
+                        <Input value={editing.ie || ''} onChange={e => setField('ie', e.target.value)} />
+                      </div>
+                    </>
                   )}
-                  <div>
+
+                  <div className={personType === 'PJ' ? 'md:col-span-2' : 'md:col-span-2'}>
                     <label className="text-xs text-muted-foreground">Tipo de cliente</label>
                     <select className="w-full border rounded-md h-10 px-2 bg-background"
                             value={editing.tipoCliente || ''} onChange={e => setField('tipoCliente', e.target.value)}>
@@ -449,30 +489,6 @@ const Customers: React.FC = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="endereco" className="space-y-3 pt-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground">CEP</label>
-                    <div className="flex gap-1">
-                      <Input value={maskCep(editing.cep || '')}
-                             onChange={e => setField('cep', e.target.value)}
-                             maxLength={9} placeholder="00000-000" />
-                      <Button size="sm" variant="outline" onClick={handleSearchByCep} disabled={searchingAddress}>
-                        {searchingAddress ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-muted-foreground">Logradouro</label>
-                    <div className="flex gap-1">
-                      <Input value={editing.address || ''} onChange={e => setField('address', e.target.value)} />
-                      <Button size="sm" variant="outline" onClick={handleGeocode} disabled={searchingAddress}
-                              title="Buscar coordenadas"><MapPin className="h-4 w-4" /></Button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Número</label>
-                    <Input value={editing.numero || ''} onChange={e => setField('numero', e.target.value)} />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Complemento</label>
