@@ -448,7 +448,7 @@ router.post('/movimentar', softAuth, async (req: any, res: any) => {
   const client = await pool.connect();
   try {
     const { numeros, operationType, routeId, routePointId, customerName, address, lat, lng,
-            driverId, driverName, truckId, notes } = req.body || {};
+            driverId, driverName, truckId, notes, categoria } = req.body || {};
     if (!Array.isArray(numeros) || numeros.length === 0) {
       return res.status(400).json({ error: 'numeros obrigatório (array)' });
     }
@@ -460,6 +460,7 @@ router.post('/movimentar', softAuth, async (req: any, res: any) => {
     const cleanNums = Array.from(new Set(numeros.map((n: any) => String(n).trim()).filter(Boolean)));
     if (!cleanNums.length) return res.status(400).json({ error: 'numeros inválidos' });
 
+    await ensureCategoriaColumn();
     await client.query('BEGIN');
 
     const ids: string[] = [];
@@ -468,7 +469,7 @@ router.post('/movimentar', softAuth, async (req: any, res: any) => {
         numero,
         operationType,
         routeId, routePointId, customerName, address, lat, lng,
-        driverId, driverName, truckId, notes,
+        driverId, driverName, truckId, notes, categoria,
       });
       ids.push(id);
     }
