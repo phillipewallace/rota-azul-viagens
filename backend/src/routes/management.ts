@@ -289,6 +289,10 @@ router.put('/maintenance/:id', async (req, res) => {
       maintenance_date,
       cost, 
       mileage,
+      next_maintenance_km,
+      supplier,
+      invoice_number,
+      items,
       status,
       files 
     } = req.body;
@@ -296,18 +300,27 @@ router.put('/maintenance/:id', async (req, res) => {
     // Map frontend status to database status
     const validStatus = status === 'pending' ? 'scheduled' : status || 'scheduled';
     
-    // Ensure mileage column exists (idempotent)
-    await pool.query(`ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS mileage INTEGER`).catch(() => {});
+    // Ensure extra columns exist (idempotent)
+    await pool.query(`
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS mileage INTEGER;
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS next_maintenance_km INTEGER;
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS supplier TEXT;
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS invoice_number TEXT;
+      ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS items JSONB;
+    `).catch(() => {});
 
     const query = `
       UPDATE maintenance_records 
       SET type = $1, description = $2, scheduled_date = $3, maintenance_date = $4,
-          cost = $5, mileage = $6, status = $7, files = $8, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $9
-      RETURNING id, truck_id, type as maintenance_type, description, scheduled_date, maintenance_date, cost, mileage, status, files, created_at, updated_at
+          cost = $5, mileage = $6, next_maintenance_km = $7, supplier = $8,
+          invoice_number = $9, items = $10, status = $11, files = $12,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $13
+      RETURNING *
     `;
     
     const parsedMileage = mileage === '' || mileage == null || isNaN(parseInt(mileage)) ? null : parseInt(mileage);
+    const parsedNextKm = next_maintenance_km === '' || next_maintenance_km == null || isNaN(parseInt(next_maintenance_km)) ? null : parseInt(next_maintenance_km);
 
     const result = await pool.query(query, [
       maintenance_type,
@@ -316,10 +329,15 @@ router.put('/maintenance/:id', async (req, res) => {
       maintenance_date || scheduled_date,
       parseFloat(cost) || 0,
       parsedMileage,
+      parsedNextKm,
+      supplier || null,
+      invoice_number || null,
+      items ? JSON.stringify(items) : null,
       validStatus,
       files ? JSON.stringify(files) : null,
       id
     ]);
+
 
     
     if (result.rows.length === 0) {
