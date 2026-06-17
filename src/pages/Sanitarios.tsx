@@ -618,6 +618,16 @@ export default function Sanitarios() {
                 onKeyDown={(e) => e.key === 'Enter' && create()}
               />
             </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Categoria</label>
+              <select
+                className="block border rounded-md h-10 px-2 bg-background"
+                value={newCategoria}
+                onChange={(e) => setNewCategoria(e.target.value as SanitarioCategoria)}
+              >
+                {SANITARIO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
             <Button onClick={create} className="gap-1"><Plus className="h-4 w-4" />Adicionar</Button>
           </div>
         </CardContent>
