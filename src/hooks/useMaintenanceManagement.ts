@@ -23,6 +23,12 @@ export interface MaintenanceStats {
   };
 }
 
+export interface MaintenanceItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+}
+
 export interface MaintenanceRecord {
   id: string;
   truck_id: string;
@@ -33,11 +39,16 @@ export interface MaintenanceRecord {
   scheduled_date: string;
   cost: number;
   mileage?: number | null;
+  next_maintenance_km?: number | null;
+  supplier?: string | null;
+  invoice_number?: string | null;
+  items?: MaintenanceItem[];
   status: 'pending' | 'in_progress' | 'completed';
   created_at: string;
   updated_at: string;
   files?: FileAttachment[];
 }
+
 
 
 export interface FileAttachment {
