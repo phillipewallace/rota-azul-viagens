@@ -10,11 +10,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Link } from 'react-router-dom';
 import { API_BASE_URL } from '@/services/config';
-import { fetchSanitarioStockSummary, updateSanitarioTotalFisico, type SanitarioStockSummary } from '@/services/erp';
+import {
+  fetchSanitarioStockSummary, updateSanitarioCategoriaTotalFisico, updateSanitarioCategoria,
+  SANITARIO_CATEGORIAS, sanitarioCategoriaLabel, type SanitarioCategoria, type SanitarioStockSummary,
+} from '@/services/erp';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
 import { usePolling } from '@/hooks/usePolling';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes, Send, Pencil, Check } from 'lucide-react';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes, Send, Pencil, Check, ArrowLeft, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
