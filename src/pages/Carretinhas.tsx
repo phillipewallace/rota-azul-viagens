@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Plus, Edit, Trash2, History, LogIn, LogOut, Loader2, Container } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Edit, Trash2, History, LogIn, LogOut, Loader2, Container, ArrowLeft } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
