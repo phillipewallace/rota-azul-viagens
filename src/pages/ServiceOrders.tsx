@@ -121,6 +121,70 @@ const ServiceOrders: React.FC = () => {
     catch (e: any) { toast.error(e.message); }
   };
 
+  const downloadOsPdf = async (o: ServiceOrder) => {
+    setPdfBusy(o.id);
+    try {
+      const d = await serviceOrdersService.get(o.id) as any;
+      await generateServiceOrderPdf({
+        numero: d.numero || o.numero,
+        modalidade: d.modalidade || o.modalidade,
+        tipoLocacao: d.tipo_locacao || (o as any).tipoLocacao,
+        dataInicio: d.data_inicio,
+        dataEntrega: d.data_entrega || o.dataEntrega,
+        dataRecolhimento: d.data_recolhimento || o.dataRecolhimento,
+        dataFimPrevista: d.data_fim_prevista || o.dataFimPrevista,
+        limpezasSemanais: d.limpezas_semanais ?? o.limpezasSemanais,
+        enderecoEntrega: d.endereco_entrega || o.enderecoEntrega,
+        observacoes: d.observacoes,
+        qtdReservada: d.qtd_reservada ?? o.qtdReservada,
+        customerName: o.customerName,
+        customerAddress: o.customerAddress,
+        customerSnapshot: d.customer_snapshot,
+        companySnapshot: d.companySnapshot,
+        companyRazaoSocial: o.companyRazaoSocial,
+        items: d.items || [],
+        sanitariosNumeros: (d.sanitarios || []).map((s: any) => s.numero).filter(Boolean),
+      });
+      toast.success('OS para entrega gerada');
+    } catch (e: any) { toast.error(e.message); }
+    finally { setPdfBusy(null); }
+  };
+
+  const downloadContract = async (o: ServiceOrder, dataVencimento: string, preview: boolean) => {
+    setPdfBusy(o.id);
+    try {
+      const d = await serviceOrdersService.get(o.id) as any;
+      const t = (d.tipo_locacao || (o as any).tipoLocacao || '').toLowerCase();
+      await generateContractPdf({
+        numero: d.numero || o.numero,
+        tipo: 'os',
+        tipoContrato: t === 'evento' ? 'evento' : t === 'obra' ? 'obra' : 'locacao',
+        modalidade: d.modalidade || o.modalidade,
+        dataEmissao: d.data_inicio,
+        dataInicio: d.data_inicio,
+        dataEntrega: d.data_entrega,
+        dataFimPrevista: d.data_fim_prevista,
+        dataRecolhimento: d.data_recolhimento || o.dataRecolhimento,
+        horaEntrega: d.hora_entrega || null,
+        localEvento: d.local_evento || null,
+        limpezasSemanais: d.limpezas_semanais,
+        enderecoEntrega: d.endereco_entrega || o.enderecoEntrega,
+        observacoes: d.observacoes,
+        frete: d.frete,
+        dataVencimento,
+        total: Number(d.valor_total || o.valorTotal || 0),
+        companySnapshot: d.companySnapshot,
+        customerSnapshot: d.customer_snapshot,
+        customerName: o.customerName,
+        customerAddress: o.customerAddress,
+        items: d.items || [],
+      }, { preview });
+      if (!preview) toast.success('Contrato gerado');
+    } catch (e: any) { toast.error(e.message); }
+    finally { setPdfBusy(null); }
+  };
+
+
   const openFinanceiro = async () => {
     setFinOpen(true);
     await loadFin();
