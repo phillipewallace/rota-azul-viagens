@@ -118,10 +118,7 @@ export const MaintenanceTable: React.FC<MaintenanceTableProps> = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {record.scheduled_date ? 
-                      new Date(record.scheduled_date).toLocaleDateString('pt-BR') : 
-                      'Data não definida'
-                    }
+                    {record.scheduled_date ? formatDateBR(record.scheduled_date) : 'Data não definida'}
                   </TableCell>
                   <TableCell>
                     {getStatusBadge(record.status || 'pending')}
