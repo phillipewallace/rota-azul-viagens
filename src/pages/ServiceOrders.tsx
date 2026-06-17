@@ -588,7 +588,20 @@ const ServiceOrders: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="flex gap-1 pt-2 border-t">
+                  <div className="flex gap-1 pt-2 border-t flex-wrap">
+                    <Button size="sm" variant="default" className="flex-1 min-w-[110px] bg-green-700 hover:bg-green-800"
+                            onClick={() => downloadOsPdf(o)} disabled={pdfBusy === o.id}>
+                      {pdfBusy === o.id
+                        ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        : <FileText className="h-3.5 w-3.5 mr-1" />}
+                      Gerar OS PDF
+                    </Button>
+                    <Button size="sm" variant="default" className="flex-1 min-w-[110px] bg-indigo-600 hover:bg-indigo-700"
+                            onClick={() => setContractTarget(o)} disabled={pdfBusy === o.id}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato
+                    </Button>
+                  </div>
+                  <div className="flex gap-1 pt-1">
                     {o.status === 'aberta' && (
                       <Button size="sm" variant="outline" className="flex-1 text-green-700 hover:bg-green-50" onClick={() => close(o)}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Fechar e devolver
