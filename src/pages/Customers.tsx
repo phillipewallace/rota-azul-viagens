@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, Search, MapPin, Phone, Save, Loader2, Users,
-  Building2, History, PackageOpen, PackageCheck, Wrench, RefreshCcw, Filter, Edit3,
+  Building2, History, PackageOpen, PackageCheck, Wrench, RefreshCcw, Filter, Edit3, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +50,7 @@ const Customers: React.FC = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
+  const [lookingUpCnpj, setLookingUpCnpj] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -133,6 +134,44 @@ const Customers: React.FC = () => {
       } else toast.error('CEP não encontrado');
     } catch { toast.error('Erro ao buscar CEP'); }
     finally { setSearchingAddress(false); }
+  };
+
+  const handleLookupCnpj = async () => {
+    if (!editing) return;
+    const cnpj = onlyDigits(editing.document || '');
+    if (cnpj.length !== 14) {
+      toast.error('Digite um CNPJ válido (14 dígitos)');
+      return;
+    }
+    setLookingUpCnpj(true);
+    try {
+      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+      if (!r.ok) throw new Error('CNPJ não encontrado');
+      const d = await r.json();
+      // Atualiza tudo de uma vez para evitar race condition do setField
+      const updates: Partial<Customer> = {
+        customerName: d.razao_social || editing.customerName,
+        contactName: d.nome_fantasia || editing.contactName,
+        cep: d.cep ? String(d.cep).replace(/\D/g, '').replace(/^(\d{5})(\d{3}).*/, '$1-$2') : editing.cep,
+        address: [d.logradouro, d.numero ? `nº ${d.numero}` : null, d.complemento]
+          .filter(Boolean).join(', ') || editing.address,
+        numero: d.numero || editing.numero,
+        complemento: d.complemento || editing.complemento,
+        bairro: d.bairro || editing.bairro,
+        cidade: d.municipio || editing.cidade,
+        estado: d.uf || editing.estado,
+        contactPhone: d.ddd_telefone_1 || editing.contactPhone,
+        email: d.email || editing.email,
+      };
+      Object.entries(updates).forEach(([k, v]) => {
+        if (v !== undefined && v !== '') setField(k as keyof Customer, v);
+      });
+      toast.success('Dados do CNPJ preenchidos automaticamente');
+    } catch (e: any) {
+      toast.error(e.message || 'Falha ao consultar CNPJ');
+    } finally {
+      setLookingUpCnpj(false);
+    }
   };
 
   const handleGeocode = async () => {
@@ -336,9 +375,25 @@ const Customers: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">{personType === 'PJ' ? 'CNPJ' : 'CPF'}</label>
-                    <Input value={maskDocument(editing.document || '', personType)}
-                           onChange={e => setField('document', onlyDigits(e.target.value))}
-                           placeholder={personType === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'} />
+                    <div className="flex gap-1">
+                      <Input value={maskDocument(editing.document || '', personType)}
+                             onChange={e => setField('document', onlyDigits(e.target.value))}
+                             placeholder={personType === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'} />
+                      {personType === 'PJ' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleLookupCnpj}
+                          disabled={lookingUpCnpj || onlyDigits(editing.document || '').length !== 14}
+                          title="Buscar dados pelo CNPJ"
+                        >
+                          {lookingUpCnpj
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <Download className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
                     {docError && <div className="text-[11px] text-red-600 mt-1">{docError}</div>}
                   </div>
                   {personType === 'PJ' ? (
