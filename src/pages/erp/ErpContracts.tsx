@@ -145,13 +145,20 @@ const ErpContracts: React.FC = () => {
     };
   };
 
-  const downloadContractPdf = async (c: Contract, preview = false) => {
+  const downloadContractPdf = async (c: Contract, opts: { preview: boolean; dataVencimento?: string }) => {
     try {
       const full = await contractsService.get(c.id);
-      await generateContractPdf(buildPdfSource(full), { preview });
-      if (!preview) toast.success('Contrato gerado');
+      const src: any = buildPdfSource(full);
+      if (opts.dataVencimento) src.dataVencimento = opts.dataVencimento;
+      await generateContractPdf(src, { preview: opts.preview });
+      if (!opts.preview) toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
   };
+
+  // Estado para distinguir preview vs download após o modal de vencimento
+  const [vencPreview, setVencPreview] = useState(false);
+
+
 
 
   return (
