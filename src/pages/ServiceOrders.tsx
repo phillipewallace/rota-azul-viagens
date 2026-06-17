@@ -37,6 +37,8 @@ const ServiceOrders: React.FC = () => {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, any>>({});
   const [loadingDetail, setLoadingDetail] = useState<Record<string, boolean>>({});
+  const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
 
   const toggleExpand = async (o: ServiceOrder) => {
     if (expanded[o.id]) {
