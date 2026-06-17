@@ -252,18 +252,15 @@ const ErpContracts: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-xs">{c.osNumero || '—'}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
-                      <Button variant="ghost" size="sm" title="Visualizar PDF (preview)"
-                        onClick={() => setVencTarget(c)}>
-                        <Eye className="h-3.5 w-3.5 text-slate-600" />
-                      </Button>
-                      <Button variant="ghost" size="sm" title="Baixar PDF do contrato"
-                        onClick={() => setVencTarget(c)}>
-                        <FileText className="h-3.5 w-3.5 text-indigo-600" />
-                      </Button>
-                      {c.pdfUrl && (
+                      {c.pdfUrl ? (
                         <Button variant="ghost" size="sm" title="Abrir PDF assinado anexado"
                           onClick={() => window.open(toAbsoluteUrl(c.pdfUrl!), '_blank')}>
                           <FileDown className="h-3.5 w-3.5 text-emerald-600" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="sm" title="Nenhum PDF anexado — edite o contrato para anexar"
+                          onClick={() => { setEditing(c); setOpenForm(true); }}>
+                          <Upload className="h-3.5 w-3.5 text-slate-400" />
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" onClick={() => { setEditing(c); setOpenForm(true); }}>
@@ -310,16 +307,6 @@ const ErpContracts: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <BoletoVencimentoDialog
-        open={!!vencTarget}
-        contractLabel={vencTarget ? `contrato ${vencTarget.numero}` : undefined}
-        onClose={() => setVencTarget(null)}
-        onConfirm={async ({ dataVencimento, preview }) => {
-          const c = vencTarget;
-          setVencTarget(null);
-          if (c) await downloadContractPdf(c, { preview, dataVencimento });
-        }}
-      />
     </div>
   );
 };
