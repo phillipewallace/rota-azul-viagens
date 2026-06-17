@@ -66,6 +66,7 @@ import {
   generateMaintenanceOrderPdf,
   generateMaintenanceReportPdf,
 } from '@/utils/maintenancePdf';
+import { formatDateBR } from '@/utils/dateFormat';
 
 const TYPE_LABEL: Record<string, string> = {
   preventiva: 'Preventiva',
