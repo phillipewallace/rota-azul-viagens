@@ -5,6 +5,7 @@ import { pool } from './config/database';
 
 // Import routes
 import authRoutes from './routes/auth';
+import usersRoutes from './routes/users';
 import routesRoutes from './routes/routes';
 import trucksRoutes from './routes/trucks';
 import driversRoutes from './routes/drivers';
@@ -84,6 +85,7 @@ app.get('/api/test-db', async (req, res) => {
 console.log('🚀 [SERVER] Registrando rotas da API...');
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
 app.use('/api/routes', routesRoutes);
 app.use('/api/trucks', trucksRoutes);
 app.use('/api/drivers', driversRoutes);
