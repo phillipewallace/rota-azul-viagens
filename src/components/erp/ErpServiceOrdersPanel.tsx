@@ -166,10 +166,10 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const downloadContractPdf = async (os: ServiceOrder) => {
+  const downloadContractPdf = async (os: ServiceOrder, dataVencimento?: string, preview = false) => {
     try {
       const detail = await serviceOrdersService.get(os.id) as any;
-      generateContractPdf({
+      await generateContractPdf({
         numero: detail.numero || os.numero,
         tipo: 'os',
         tipoContrato: (() => {
@@ -190,15 +190,16 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
         enderecoEntrega: detail.endereco_entrega || os.enderecoEntrega,
         observacoes: detail.observacoes,
         frete: detail.frete,
+        dataVencimento: dataVencimento || null,
         total: Number(detail.valor_total || os.valorTotal || 0),
         companySnapshot: detail.companySnapshot,
         customerSnapshot: detail.customer_snapshot,
         customerName: os.customerName,
         customerAddress: os.customerAddress,
         items: detail.items || [],
-      });
+      }, { preview });
 
-      toast.success('Contrato gerado');
+      if (!preview) toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message); }
   };
   const downloadServiceOrderPdf = async (os: ServiceOrder) => {
