@@ -273,24 +273,45 @@ router.get('/meta/trucks', requireAuth, async (_req: any, res: any) => {
 });
 
 /**
- * POST /api/sanitarios — cria/atualiza por numero
+ * POST /api/sanitarios — cria/atualiza por numero (aceita categoria)
  */
 router.post('/', requireAuth, async (req: any, res: any) => {
   try {
-    const { numero, modelo, status, notes } = req.body || {};
+    await ensureCategoriaColumn();
+    const { numero, modelo, status, notes, categoria } = req.body || {};
     if (!numero || !String(numero).trim()) return res.status(400).json({ error: 'numero obrigatório' });
+    const cat = isCategoria(categoria) ? categoria : 'comum';
     const r = await pool.query(
-      `INSERT INTO sanitarios (numero, modelo, status, notes)
-       VALUES ($1, $2, COALESCE($3,'disponivel'), $4)
+      `INSERT INTO sanitarios (numero, modelo, status, notes, categoria)
+       VALUES ($1, $2, COALESCE($3,'disponivel'), $4, $5)
        ON CONFLICT (numero) DO UPDATE SET
          modelo = COALESCE(EXCLUDED.modelo, sanitarios.modelo),
          notes = COALESCE(EXCLUDED.notes, sanitarios.notes),
+         categoria = COALESCE(EXCLUDED.categoria, sanitarios.categoria),
          updated_at = NOW()
        RETURNING *`,
-      [String(numero).trim(), modelo || null, status || null, notes || null]
+      [String(numero).trim(), modelo || null, status || null, notes || null, cat]
     );
     res.json(r.rows[0]);
   } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
+/** PUT /api/sanitarios/:numero/categoria — atualiza apenas a categoria */
+router.put('/:numero/categoria', requireAuth, async (req: any, res: any) => {
+  try {
+    await ensureCategoriaColumn();
+    const { categoria } = req.body || {};
+    if (!isCategoria(categoria)) return res.status(400).json({ error: 'categoria inválida' });
+    const r = await pool.query(
+      `UPDATE sanitarios SET categoria = $2, updated_at = NOW() WHERE numero = $1 RETURNING *`,
+      [req.params.numero, categoria],
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
+    res.json(r.rows[0]);
+  } catch (e: any) {
+    console.error('[SANITARIOS] update categoria err:', e);
     res.status(500).json({ error: e?.message || 'erro' });
   }
 });
