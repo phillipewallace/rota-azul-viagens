@@ -148,14 +148,15 @@ const Customers: React.FC = () => {
       const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
       if (!r.ok) throw new Error('CNPJ não encontrado');
       const d = await r.json();
-      // Atualiza tudo de uma vez para evitar race condition do setField
+      const formatCep = (c: any) => c
+        ? String(c).replace(/\D/g, '').replace(/^(\d{5})(\d{3}).*/, '$1-$2')
+        : '';
       const updates: Partial<Customer> = {
         customerName: d.razao_social || editing.customerName,
         contactName: d.nome_fantasia || editing.contactName,
-        cep: d.cep ? String(d.cep).replace(/\D/g, '').replace(/^(\d{5})(\d{3}).*/, '$1-$2') : editing.cep,
-        address: [d.logradouro, d.numero ? `nº ${d.numero}` : null, d.complemento]
-          .filter(Boolean).join(', ') || editing.address,
-        numero: d.numero || editing.numero,
+        cep: d.cep ? formatCep(d.cep) : editing.cep,
+        address: d.logradouro || editing.address,
+        numero: d.numero ? String(d.numero) : editing.numero,
         complemento: d.complemento || editing.complemento,
         bairro: d.bairro || editing.bairro,
         cidade: d.municipio || editing.cidade,
@@ -163,9 +164,26 @@ const Customers: React.FC = () => {
         contactPhone: d.ddd_telefone_1 || editing.contactPhone,
         email: d.email || editing.email,
       };
+      // Batch: atualiza o estado local de uma vez (evita race do closure)
+      // e propaga cada campo ao hook pai.
+      const merged = { ...editing, ...updates } as Customer;
+      setEditing(merged);
       Object.entries(updates).forEach(([k, v]) => {
-        if (v !== undefined && v !== '') setField(k as keyof Customer, v);
+        if (v !== undefined && v !== '') updateCustomer(editing.id, k as keyof Customer, v);
       });
+      // Tenta geocodificar automaticamente
+      try {
+        const full = [merged.address, merged.numero, merged.bairro, merged.cidade, merged.estado]
+          .filter(Boolean).join(', ');
+        if (full.length > 5) {
+          const g = await geocodingService.getCoordinatesFromAddress(full);
+          if (g) {
+            setEditing(prev => prev ? { ...prev, lat: g.lat, lng: g.lng } : prev);
+            updateCustomer(editing.id, 'lat', g.lat);
+            updateCustomer(editing.id, 'lng', g.lng);
+          }
+        }
+      } catch {}
       toast.success('Dados do CNPJ preenchidos automaticamente');
     } catch (e: any) {
       toast.error(e.message || 'Falha ao consultar CNPJ');
@@ -358,7 +376,7 @@ const Customers: React.FC = () => {
                 <TabsTrigger value="obs">Observações</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="dados" className="space-y-3 pt-3">
+              <TabsContent value="dados" className="space-y-4 pt-3">
                 <div>
                   <label className="text-xs text-muted-foreground">Tipo de pessoa</label>
                   <div className="flex gap-1 mt-1">
@@ -368,36 +386,49 @@ const Customers: React.FC = () => {
                             onClick={() => setField('personType', 'PF')}>Pessoa Física (CPF)</Button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-muted-foreground">{personType === 'PJ' ? 'Razão social' : 'Nome completo'} *</label>
-                    <Input value={editing.customerName || ''} onChange={e => setField('customerName', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">{personType === 'PJ' ? 'CNPJ' : 'CPF'}</label>
-                    <div className="flex gap-1">
-                      <Input value={maskDocument(editing.document || '', personType)}
-                             onChange={e => setField('document', onlyDigits(e.target.value))}
-                             placeholder={personType === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'} />
-                      {personType === 'PJ' && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleLookupCnpj}
-                          disabled={lookingUpCnpj || onlyDigits(editing.document || '').length !== 14}
-                          title="Buscar dados pelo CNPJ"
-                        >
-                          {lookingUpCnpj
-                            ? <Loader2 className="h-4 w-4 animate-spin" />
-                            : <Download className="h-4 w-4" />}
-                        </Button>
-                      )}
+
+                {personType === 'PJ' && (
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      CNPJ — digite e clique em buscar para preencher automaticamente
+                    </label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        className="font-mono"
+                        value={maskDocument(editing.document || '', personType)}
+                        onChange={e => setField('document', onlyDigits(e.target.value))}
+                        placeholder="00.000.000/0000-00"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleLookupCnpj}
+                        disabled={lookingUpCnpj || onlyDigits(editing.document || '').length !== 14}
+                        className="gap-1 shrink-0"
+                      >
+                        {lookingUpCnpj
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Download className="h-4 w-4" />}
+                        Buscar dados
+                      </Button>
                     </div>
                     {docError && <div className="text-[11px] text-red-600 mt-1">{docError}</div>}
                   </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="text-xs text-muted-foreground">
+                      {personType === 'PJ' ? 'Razão social' : 'Nome completo'} *
+                    </label>
+                    <Input value={editing.customerName || ''} onChange={e => setField('customerName', e.target.value)} />
+                  </div>
+
                   {personType === 'PJ' ? (
                     <>
+                      <div className="md:col-span-2">
+                        <label className="text-xs text-muted-foreground">Nome fantasia</label>
+                        <Input value={editing.contactName || ''} onChange={e => setField('contactName', e.target.value)} />
+                      </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Inscrição estadual</label>
                         <Input value={editing.ie || ''} onChange={e => setField('ie', e.target.value)} />
@@ -406,18 +437,27 @@ const Customers: React.FC = () => {
                         <label className="text-xs text-muted-foreground">Inscrição municipal</label>
                         <Input value={editing.im || ''} onChange={e => setField('im', e.target.value)} />
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Nome fantasia</label>
-                        <Input value={editing.contactName || ''} onChange={e => setField('contactName', e.target.value)} />
-                      </div>
                     </>
                   ) : (
-                    <div>
-                      <label className="text-xs text-muted-foreground">RG</label>
-                      <Input value={editing.ie || ''} onChange={e => setField('ie', e.target.value)} />
-                    </div>
+                    <>
+                      <div>
+                        <label className="text-xs text-muted-foreground">CPF</label>
+                        <Input
+                          className="font-mono"
+                          value={maskDocument(editing.document || '', personType)}
+                          onChange={e => setField('document', onlyDigits(e.target.value))}
+                          placeholder="000.000.000-00"
+                        />
+                        {docError && <div className="text-[11px] text-red-600 mt-1">{docError}</div>}
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">RG</label>
+                        <Input value={editing.ie || ''} onChange={e => setField('ie', e.target.value)} />
+                      </div>
+                    </>
                   )}
-                  <div>
+
+                  <div className="md:col-span-2">
                     <label className="text-xs text-muted-foreground">Tipo de cliente</label>
                     <select className="w-full border rounded-md h-10 px-2 bg-background"
                             value={editing.tipoCliente || ''} onChange={e => setField('tipoCliente', e.target.value)}>
