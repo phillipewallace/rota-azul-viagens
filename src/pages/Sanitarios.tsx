@@ -847,6 +847,75 @@ export default function Sanitarios() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal Despachar (informar nº livre — auto-cadastra se não existir) */}
+      <Dialog open={despOpen} onOpenChange={setDespOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Despachar sanitário(s) — informar numeração</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Informe os números que estão saindo. Se algum número ainda não estiver cadastrado
+              no estoque, ele será criado automaticamente e já entrará para o histórico do cliente.
+            </p>
+            <div>
+              <label className="text-xs text-muted-foreground">Buscar cliente</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input className="pl-8" placeholder="Nome ou endereço…" value={despSearch} onChange={(e) => setDespSearch(e.target.value)} />
+              </div>
+            </div>
+            <div className="max-h-48 overflow-y-auto border rounded-md divide-y">
+              {despFilteredCustomers.length === 0 && (
+                <div className="p-3 text-xs text-muted-foreground">Nenhum cliente encontrado. Cadastre em Clientes.</div>
+              )}
+              {despFilteredCustomers.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setDespCustomerId(c.id);
+                    if (!despAddress.trim()) setDespAddress(c.address || '');
+                  }}
+                  className={`w-full text-left p-2 hover:bg-muted/30 ${despCustomerId === c.id ? 'bg-blue-50' : ''}`}
+                >
+                  <div className="text-sm font-medium">{c.customerName || '(sem nome)'}</div>
+                  <div className="text-xs text-muted-foreground truncate">{c.address || '—'}</div>
+                </button>
+              ))}
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Endereço da obra/local <span className="text-red-500">*</span></label>
+              <Textarea rows={2} value={despAddress} onChange={(e) => setDespAddress(e.target.value)} placeholder="Endereço onde o(s) sanitário(s) ficará(ão)" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Números dos sanitários <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                rows={2}
+                value={despNumerosText}
+                onChange={(e) => setDespNumerosText(e.target.value)}
+                placeholder="Ex: 0123, 0456, 1024 (separe por vírgula, espaço ou quebra de linha)"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Números não cadastrados serão criados automaticamente no estoque.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Observações (opcional)</label>
+              <Textarea rows={2} value={despNotes} onChange={(e) => setDespNotes(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDespOpen(false)}>Cancelar</Button>
+            <Button onClick={submitDespacho} disabled={despBusy || !despCustomerId || !despAddress.trim() || !despNumerosText.trim()} className="bg-blue-600 hover:bg-blue-700">
+              {despBusy ? 'Registrando…' : 'Confirmar despacho'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
