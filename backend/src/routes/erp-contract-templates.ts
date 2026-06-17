@@ -59,16 +59,17 @@ router.put('/:tipo', async (req, res) => {
     const titulo = String(req.body?.titulo || '').trim() || DEFAULTS[tipo].titulo;
     const corpo  = String(req.body?.corpoHtml || '').trim();
     if (!corpo) return res.status(400).json({ error: 'corpoHtml vazio' });
-    await pool.query(
+    const r = await pool.query(
       `INSERT INTO erp_contract_templates(tipo, titulo, corpo_html, atualizado_em)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (tipo) DO UPDATE SET
            titulo = EXCLUDED.titulo,
            corpo_html = EXCLUDED.corpo_html,
-           atualizado_em = NOW()`,
+           atualizado_em = NOW()
+         RETURNING tipo, titulo, corpo_html AS "corpoHtml", atualizado_em AS "atualizadoEm"`,
       [tipo, titulo, corpo]
     );
-    res.json({ ok: true });
+    res.json(r.rows[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
