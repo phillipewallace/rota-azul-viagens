@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft, ClipboardList, AlertTriangle, CheckCircle2, RefreshCcw, Trash2, Loader2, Search,
   FileDown, History, X, ChevronDown, ChevronRight, MapPin, Calendar, User, Building2, Package,
+  FileSignature, FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import { downloadCsv, downloadPdf } from '@/utils/exporters';
+import { generateContractPdf } from '@/utils/contractPdf';
+import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
+import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
