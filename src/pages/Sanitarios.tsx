@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/services/config';
-import { fetchSanitarioStockSummary, type SanitarioStockSummary } from '@/services/erp';
+import { fetchSanitarioStockSummary, updateSanitarioTotalFisico, type SanitarioStockSummary } from '@/services/erp';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes } from 'lucide-react';
+import { usePolling } from '@/hooks/usePolling';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes, Send, Pencil, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
@@ -183,6 +184,74 @@ export default function Sanitarios() {
 
   useEffect(() => { loadTrucks(); loadStock(); }, []);
   useEffect(() => { setPage(1); load(1); loadStock(); /* eslint-disable-next-line */ }, [statusFilter, truckFilter, pageSize]);
+  // Sincronização multi-usuário: refaz lista e estoque a cada 15s
+  usePolling(() => { load(); loadStock(); }, 15000);
+
+  // ----- Despachar (informar número livre) -----
+  const [despOpen, setDespOpen] = useState(false);
+  const [despCustomerId, setDespCustomerId] = useState('');
+  const [despSearch, setDespSearch] = useState('');
+  const [despAddress, setDespAddress] = useState('');
+  const [despNumerosText, setDespNumerosText] = useState('');
+  const [despNotes, setDespNotes] = useState('');
+  const [despBusy, setDespBusy] = useState(false);
+  const despFilteredCustomers = useMemo(() => {
+    const q = despSearch.trim().toLowerCase();
+    if (!q) return customers.slice(0, 50);
+    return customers.filter(c =>
+      (c.customerName || '').toLowerCase().includes(q) ||
+      (c.address || '').toLowerCase().includes(q)
+    ).slice(0, 50);
+  }, [customers, despSearch]);
+  const submitDespacho = async () => {
+    const c = customers.find(x => x.id === despCustomerId);
+    if (!c) { toast.error('Selecione um cliente'); return; }
+    const finalAddress = (despAddress || '').trim() || c.address || '';
+    if (!finalAddress) { toast.error('Informe o endereço da obra/local'); return; }
+    const numeros = Array.from(new Set(
+      despNumerosText.split(/[\s,;\n]+/).map(s => s.trim().toUpperCase()).filter(Boolean)
+    ));
+    if (!numeros.length) { toast.error('Informe pelo menos um número de sanitário'); return; }
+    setDespBusy(true);
+    try {
+      const usingClientAddress = finalAddress === (c.address || '');
+      await fetch(`${API_BASE_URL}/sanitarios/movimentar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          numeros,
+          operationType: 'entrega',
+          customerName: c.customerName,
+          address: finalAddress,
+          lat: usingClientAddress ? c.lat : undefined,
+          lng: usingClientAddress ? c.lng : undefined,
+          notes: despNotes || null,
+        }),
+      }).then(r => { if (!r.ok) throw new Error(); });
+      toast.success(`Despacho registrado (${numeros.length}) para ${c.customerName}`);
+      setDespOpen(false);
+      setDespCustomerId(''); setDespSearch(''); setDespAddress(''); setDespNumerosText(''); setDespNotes('');
+      load(); loadStock();
+    } catch { toast.error('Erro ao registrar despacho'); }
+    finally { setDespBusy(false); }
+  };
+
+  // ----- Total físico (editável inline) -----
+  const [editingTotal, setEditingTotal] = useState(false);
+  const [totalFisicoDraft, setTotalFisicoDraft] = useState('');
+  const startEditTotal = () => {
+    setTotalFisicoDraft(String(stock?.totalFisico ?? 0));
+    setEditingTotal(true);
+  };
+  const saveTotalFisico = async () => {
+    const v = Math.max(0, parseInt(totalFisicoDraft, 10) || 0);
+    try {
+      await updateSanitarioTotalFisico(v);
+      toast.success('Total físico atualizado');
+      setEditingTotal(false);
+      loadStock();
+    } catch { toast.error('Falha ao salvar total físico'); }
+  };
 
   const openDetail = async (numero: string) => {
     try {
@@ -295,9 +364,6 @@ export default function Sanitarios() {
       <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Button asChild variant="ghost" size="sm" className="gap-2">
-              <a href="/"><span aria-hidden>←</span> Voltar</a>
-            </Button>
             <div>
               <h1 className="text-xl md:text-2xl font-bold leading-tight">Gerenciamento de Sanitários</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
@@ -327,7 +393,40 @@ export default function Sanitarios() {
 
       {/* Resumo de estoque ERP */}
       {stock && (
-        <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="mb-4 grid grid-cols-2 md:grid-cols-6 gap-2">
+          <Card className="border-amber-300 bg-amber-50/40">
+            <CardContent className="p-3">
+              <div className="text-[11px] uppercase text-muted-foreground flex items-center justify-between">
+                <span>Total físico</span>
+                {!editingTotal && (
+                  <button onClick={startEditTotal} className="text-amber-700 hover:text-amber-900" title="Editar">
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              {editingTotal ? (
+                <div className="flex items-center gap-1 mt-1">
+                  <Input
+                    autoFocus
+                    type="number"
+                    min={0}
+                    value={totalFisicoDraft}
+                    onChange={(e) => setTotalFisicoDraft(e.target.value)}
+                    className="h-8 text-base"
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveTotalFisico(); if (e.key === 'Escape') setEditingTotal(false); }}
+                  />
+                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={saveTotalFisico}><Check className="h-4 w-4" /></Button>
+                </div>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-amber-700">{stock.totalFisico ?? 0}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {Math.max(0, (stock.totalFisico ?? 0) - stock.total)} sem numeração
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
           <Card className="border-green-200">
             <CardContent className="p-3">
               <div className="text-[11px] uppercase text-muted-foreground">Disponíveis em estoque</div>
@@ -362,7 +461,7 @@ export default function Sanitarios() {
           </Card>
           <Card>
             <CardContent className="p-3">
-              <div className="text-[11px] uppercase text-muted-foreground">Total cadastrado</div>
+              <div className="text-[11px] uppercase text-muted-foreground">Total numerado</div>
               <div className="text-2xl font-bold">{stock.total}</div>
             </CardContent>
           </Card>
@@ -428,6 +527,10 @@ export default function Sanitarios() {
 
           <Button onClick={exportCsv} variant="outline" size="sm" disabled={exporting} className="gap-2">
             {exporting ? 'Exportando…' : 'Exportar CSV'}
+          </Button>
+
+          <Button onClick={() => setDespOpen(true)} size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700">
+            <Send className="h-4 w-4" /> Despachar (informar nº)
           </Button>
 
           <div className="flex gap-2 items-end ml-auto">
@@ -744,6 +847,75 @@ export default function Sanitarios() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal Despachar (informar nº livre — auto-cadastra se não existir) */}
+      <Dialog open={despOpen} onOpenChange={setDespOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Despachar sanitário(s) — informar numeração</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Informe os números que estão saindo. Se algum número ainda não estiver cadastrado
+              no estoque, ele será criado automaticamente e já entrará para o histórico do cliente.
+            </p>
+            <div>
+              <label className="text-xs text-muted-foreground">Buscar cliente</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input className="pl-8" placeholder="Nome ou endereço…" value={despSearch} onChange={(e) => setDespSearch(e.target.value)} />
+              </div>
+            </div>
+            <div className="max-h-48 overflow-y-auto border rounded-md divide-y">
+              {despFilteredCustomers.length === 0 && (
+                <div className="p-3 text-xs text-muted-foreground">Nenhum cliente encontrado. Cadastre em Clientes.</div>
+              )}
+              {despFilteredCustomers.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setDespCustomerId(c.id);
+                    if (!despAddress.trim()) setDespAddress(c.address || '');
+                  }}
+                  className={`w-full text-left p-2 hover:bg-muted/30 ${despCustomerId === c.id ? 'bg-blue-50' : ''}`}
+                >
+                  <div className="text-sm font-medium">{c.customerName || '(sem nome)'}</div>
+                  <div className="text-xs text-muted-foreground truncate">{c.address || '—'}</div>
+                </button>
+              ))}
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Endereço da obra/local <span className="text-red-500">*</span></label>
+              <Textarea rows={2} value={despAddress} onChange={(e) => setDespAddress(e.target.value)} placeholder="Endereço onde o(s) sanitário(s) ficará(ão)" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Números dos sanitários <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                rows={2}
+                value={despNumerosText}
+                onChange={(e) => setDespNumerosText(e.target.value)}
+                placeholder="Ex: 0123, 0456, 1024 (separe por vírgula, espaço ou quebra de linha)"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Números não cadastrados serão criados automaticamente no estoque.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Observações (opcional)</label>
+              <Textarea rows={2} value={despNotes} onChange={(e) => setDespNotes(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDespOpen(false)}>Cancelar</Button>
+            <Button onClick={submitDespacho} disabled={despBusy || !despCustomerId || !despAddress.trim() || !despNumerosText.trim()} className="bg-blue-600 hover:bg-blue-700">
+              {despBusy ? 'Registrando…' : 'Confirmar despacho'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

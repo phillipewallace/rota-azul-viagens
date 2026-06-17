@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '@/services/config';
+import { usePolling } from './usePolling';
 
 export interface Customer {
   id: string;
@@ -53,6 +54,8 @@ export const useCustomers = () => {
   }, []);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+  // Sincronização entre usuários: refaz fetch a cada 15s
+  usePolling(fetchCustomers, 15000);
 
   const addCustomer = useCallback((customer: Customer) => {
     setCustomers(prev => [...prev, customer]);
