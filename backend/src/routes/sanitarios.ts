@@ -370,6 +370,7 @@ async function registrarMovimentacao(client: any, opts: {
   driverName?: string;
   truckId?: string;
   notes?: string;
+  categoria?: string;
 }) {
   // Garante que o sanitário existe (auto-cria se vier um número novo)
   let s = await client.query(`SELECT id FROM sanitarios WHERE numero = $1 FOR UPDATE`, [opts.numero]);
@@ -377,10 +378,14 @@ async function registrarMovimentacao(client: any, opts: {
     const initialStatus = opts.operationType === 'entrega' ? 'em_cliente'
                         : opts.operationType === 'manutencao' ? 'manutencao'
                         : 'disponivel';
+    const cat = isCategoria(opts.categoria) ? opts.categoria : 'comum';
     s = await client.query(
-      `INSERT INTO sanitarios (numero, status) VALUES ($1, $2) RETURNING id`,
-      [opts.numero, initialStatus]
+      `INSERT INTO sanitarios (numero, status, categoria) VALUES ($1, $2, $3) RETURNING id`,
+      [opts.numero, initialStatus, cat]
     );
+  } else if (isCategoria(opts.categoria)) {
+    // Atualiza categoria se vier informada (catalogação manual ao despachar)
+    await client.query(`UPDATE sanitarios SET categoria = $2 WHERE id = $1`, [s.rows[0].id, opts.categoria]);
   }
   const sanId = s.rows[0].id;
 
