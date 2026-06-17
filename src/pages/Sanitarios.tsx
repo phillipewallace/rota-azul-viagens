@@ -231,6 +231,7 @@ export default function Sanitarios() {
           lat: usingClientAddress ? c.lat : undefined,
           lng: usingClientAddress ? c.lng : undefined,
           notes: despNotes || null,
+          categoria: despCategoria,
         }),
       }).then(r => { if (!r.ok) throw new Error(); });
       toast.success(`Despacho registrado (${numeros.length}) para ${c.customerName}`);
