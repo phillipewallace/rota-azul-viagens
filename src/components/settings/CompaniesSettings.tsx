@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Building2, Plus, Trash2, Save, Upload, Hash, Loader2, ImageIcon } from 'lucide-react';
+import { Building2, Plus, Trash2, Save, Upload, Hash, Loader2, ImageIcon, PenLine } from 'lucide-react';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { docSettingsService, type DocSetting } from '@/services/contracts';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
