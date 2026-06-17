@@ -397,7 +397,7 @@ const ErpQuotes: React.FC = () => {
                     Pode ficar em branco e ser preenchida depois.
                   </p>
                 </div>
-                {editing.modalidade === 'mensal' && editing.tipoLocacao !== 'evento' && (
+                {editing.modalidade === 'mensal' && editing.tipoLocacao !== 'evento' && editing.tipoLocacao !== 'outro' && (
                   <div>
                     <label className="text-xs text-muted-foreground">Limpezas por semana</label>
                     <Input type="number" min={0} max={7} step={1}
