@@ -241,22 +241,39 @@ export default function Sanitarios() {
     finally { setDespBusy(false); }
   };
 
-  // ----- Total físico (editável inline) -----
-  const [editingTotal, setEditingTotal] = useState(false);
-  const [totalFisicoDraft, setTotalFisicoDraft] = useState('');
-  const startEditTotal = () => {
-    setTotalFisicoDraft(String(stock?.totalFisico ?? 0));
-    setEditingTotal(true);
+  // ----- Total físico por categoria (inline) -----
+  const [editingCat, setEditingCat] = useState<SanitarioCategoria | null>(null);
+  const [catDraft, setCatDraft] = useState('');
+  const startEditCat = (cat: SanitarioCategoria, current: number) => {
+    setEditingCat(cat);
+    setCatDraft(String(current ?? 0));
   };
-  const saveTotalFisico = async () => {
-    const v = Math.max(0, parseInt(totalFisicoDraft, 10) || 0);
+  const saveCatTotal = async () => {
+    if (!editingCat) return;
+    const v = Math.max(0, parseInt(catDraft, 10) || 0);
     try {
-      await updateSanitarioTotalFisico(v);
+      await updateSanitarioCategoriaTotalFisico(editingCat, v);
       toast.success('Total físico atualizado');
-      setEditingTotal(false);
+      setEditingCat(null);
       loadStock();
     } catch { toast.error('Falha ao salvar total físico'); }
   };
+
+  // ----- Inline edit de categoria de um sanitário existente -----
+  const [editingCatRow, setEditingCatRow] = useState<string | null>(null);
+  const changeRowCategoria = async (numero: string, cat: SanitarioCategoria) => {
+    try {
+      await updateSanitarioCategoria(numero, cat);
+      setEditingCatRow(null);
+      toast.success(`Sanitário ${numero} marcado como ${sanitarioCategoriaLabel(cat)}`);
+      load(); loadStock();
+    } catch { toast.error('Falha ao atualizar categoria'); }
+  };
+
+  // ----- Categoria selecionada no formulário de cadastro/despacho -----
+  const [newCategoria, setNewCategoria] = useState<SanitarioCategoria>('comum');
+  const [despCategoria, setDespCategoria] = useState<SanitarioCategoria>('comum');
+
 
   const openDetail = async (numero: string) => {
     try {
