@@ -295,9 +295,6 @@ export default function Sanitarios() {
       <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Button asChild variant="ghost" size="sm" className="gap-2">
-              <a href="/"><span aria-hidden>←</span> Voltar</a>
-            </Button>
             <div>
               <h1 className="text-xl md:text-2xl font-bold leading-tight">Gerenciamento de Sanitários</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
