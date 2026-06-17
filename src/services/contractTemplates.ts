@@ -35,7 +35,7 @@ export const contractTemplatesService = {
   list:  () => req<ContractTemplate[]>('GET', '/erp/contract-templates'),
   get:   (tipo: ContractTemplateTipo) => req<ContractTemplate>('GET', `/erp/contract-templates/${tipo}`),
   save:  (tipo: ContractTemplateTipo, data: { titulo: string; corpoHtml: string }) =>
-           req<{ ok: true }>('PUT', `/erp/contract-templates/${tipo}`, data),
+           req<ContractTemplate>('PUT', `/erp/contract-templates/${tipo}`, data),
   reset: (tipo: ContractTemplateTipo) =>
-           req<{ ok: true }>('POST', `/erp/contract-templates/${tipo}/reset`),
+           req<ContractTemplate>('POST', `/erp/contract-templates/${tipo}/reset`),
 };
