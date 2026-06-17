@@ -286,6 +286,10 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
             )}
           </div>
         </div>
+        <SignatureField
+          value={local.assinaturaUrl || ''}
+          onChange={(v) => setLocal({ ...local, assinaturaUrl: v })}
+        />
       </div>
       <div className="flex justify-end">
         <Button size="sm" disabled={!dirty || saving} onClick={() => onSave(local)}>
