@@ -195,7 +195,7 @@ function UserFormDialog({
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">Usuário</SelectItem>
-                  <SelectItem value="operator">Operador</SelectItem>
+                  <SelectItem value="manager">Gerente</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
