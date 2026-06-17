@@ -52,6 +52,7 @@ const ErpContracts: React.FC = () => {
   const [editing, setEditing] = useState<Contract | null>(null);
   const [openForm, setOpenForm] = useState(false);
   const [deleting, setDeleting] = useState<Contract | null>(null);
+  const [vencTarget, setVencTarget] = useState<Contract | null>(null);
 
   const load = async () => {
     setLoading(true);
