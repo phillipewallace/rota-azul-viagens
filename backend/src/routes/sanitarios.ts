@@ -34,49 +34,102 @@ function buildSanitariosQuery(query: any) {
   return { where, params };
 }
 
-/** GET /api/sanitarios/total-fisico — total físico de banheiros (declarado pelo operador) */
+const CATEGORIAS = ['comum', 'pne', 'pia', 'luxo', 'cabine_banho'] as const;
+type Categoria = typeof CATEGORIAS[number];
+const isCategoria = (v: any): v is Categoria => CATEGORIAS.includes(v);
+
+async function ensureAppSettings() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+}
+async function ensureCategoriaColumn() {
+  try {
+    await pool.query(`ALTER TABLE sanitarios ADD COLUMN IF NOT EXISTS categoria TEXT NOT NULL DEFAULT 'comum'`);
+  } catch { /* ignora */ }
+}
+
+async function getCategoriasTotalFisico(): Promise<Record<Categoria, number>> {
+  await ensureAppSettings();
+  const r = await pool.query(
+    `SELECT value FROM app_settings WHERE key = 'sanitarios_categorias_total_fisico'`,
+  );
+  let parsed: any = {};
+  try { parsed = r.rows[0]?.value ? JSON.parse(r.rows[0].value) : {}; } catch { parsed = {}; }
+  if (!Object.keys(parsed).length) {
+    const r2 = await pool.query(`SELECT value FROM app_settings WHERE key = 'sanitarios_total_fisico'`);
+    const legacy = r2.rows[0]?.value ? parseInt(r2.rows[0].value, 10) || 0 : 0;
+    if (legacy > 0) parsed = { comum: legacy };
+  }
+  const map = Object.fromEntries(
+    CATEGORIAS.map(c => [c, Math.max(0, parseInt(parsed[c], 10) || 0)])
+  ) as Record<Categoria, number>;
+  return map;
+}
+
+async function saveCategoriasTotalFisico(map: Record<Categoria, number>) {
+  await ensureAppSettings();
+  const clean: Record<string, number> = {};
+  for (const c of CATEGORIAS) clean[c] = Math.max(0, parseInt(String(map[c] ?? 0), 10) || 0);
+  await pool.query(
+    `INSERT INTO app_settings(key, value, updated_at) VALUES ('sanitarios_categorias_total_fisico', $1, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [JSON.stringify(clean)],
+  );
+  const sum = Object.values(clean).reduce((a, b) => a + b, 0);
+  await pool.query(
+    `INSERT INTO app_settings(key, value, updated_at) VALUES ('sanitarios_total_fisico', $1, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [String(sum)],
+  );
+  return clean;
+}
+
+/** GET /api/sanitarios/total-fisico */
 router.get('/total-fisico', requireAuth, async (_req: any, res: any) => {
   try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
-      key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
-    const r = await pool.query(`SELECT value FROM app_settings WHERE key = 'sanitarios_total_fisico'`);
-    const v = r.rows[0]?.value ? parseInt(r.rows[0].value, 10) : 0;
-    res.json({ totalFisico: Number.isFinite(v) ? v : 0 });
+    const porCategoria = await getCategoriasTotalFisico();
+    const totalFisico = Object.values(porCategoria).reduce((a, b) => a + b, 0);
+    res.json({ totalFisico, porCategoria });
   } catch (e: any) {
     console.error('[SANITARIOS] total-fisico get err:', e);
     res.status(500).json({ error: e?.message || 'erro' });
   }
 });
 
-/** PUT /api/sanitarios/total-fisico — atualiza o total físico */
+/** PUT /api/sanitarios/total-fisico — { porCategoria } OU { categoria, totalFisico } OU { totalFisico } (legado) */
 router.put('/total-fisico', requireAuth, async (req: any, res: any) => {
   try {
-    const v = Math.max(0, parseInt(String(req.body?.totalFisico ?? 0), 10) || 0);
-    await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
-      key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`);
-    await pool.query(
-      `INSERT INTO app_settings(key, value, updated_at) VALUES ('sanitarios_total_fisico', $1, NOW())
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-      [String(v)]
-    );
-    res.json({ ok: true, totalFisico: v });
+    const body = req.body || {};
+    const current = await getCategoriasTotalFisico();
+    const next: Record<string, number> = { ...current };
+    if (body.porCategoria && typeof body.porCategoria === 'object') {
+      for (const c of CATEGORIAS) {
+        if (body.porCategoria[c] !== undefined) next[c] = parseInt(String(body.porCategoria[c]), 10) || 0;
+      }
+    } else if (body.categoria && isCategoria(body.categoria)) {
+      next[body.categoria] = parseInt(String(body.totalFisico ?? 0), 10) || 0;
+    } else if (body.totalFisico !== undefined) {
+      next.comum = parseInt(String(body.totalFisico), 10) || 0;
+    }
+    const saved = await saveCategoriasTotalFisico(next as Record<Categoria, number>);
+    const totalFisico = Object.values(saved).reduce((a, b) => a + b, 0);
+    res.json({ ok: true, totalFisico, porCategoria: saved });
   } catch (e: any) {
     console.error('[SANITARIOS] total-fisico put err:', e);
     res.status(500).json({ error: e?.message || 'erro' });
   }
 });
 
-/** GET /api/sanitarios/stock-summary — contagem por status (estoque ERP) */
+/** GET /api/sanitarios/stock-summary — contagem por status + por categoria */
 router.get('/stock-summary', requireAuth, async (_req: any, res: any) => {
   try {
+    await ensureCategoriaColumn();
     const r = await pool.query(`SELECT status, COUNT(*)::int AS qtd FROM sanitarios GROUP BY status`);
     const summary: Record<string, number> = {
       disponivel: 0, em_cliente: 0, manutencao: 0, inativo: 0, em_os: 0,
     };
     for (const row of r.rows) summary[row.status] = row.qtd;
-    // Reservados em OS aberta (sub-contagem, já incluída em em_os normalmente)
     let reservadosEmOs = 0, atrasados = 0;
     try {
       const rr = await pool.query(
@@ -96,15 +149,34 @@ router.get('/stock-summary', requireAuth, async (_req: any, res: any) => {
       atrasados = ra.rows[0]?.qtd || 0;
     } catch { /* tabelas ERP podem ainda não existir */ }
     const total = Object.values(summary).reduce((a, b) => a + b, 0);
-    // total físico declarado (galpão + tudo que existe fisicamente, inclusive não numerados)
-    let totalFisico = 0;
-    try {
-      const tf = await pool.query(`SELECT value FROM app_settings WHERE key = 'sanitarios_total_fisico'`);
-      totalFisico = tf.rows[0]?.value ? parseInt(tf.rows[0].value, 10) || 0 : 0;
-    } catch { /* app_settings pode ainda não existir */ }
-    // Disponíveis físicos = total declarado - em_cliente - manutencao - em_os (reservados)
-    // Os "não numerados" = totalFisico - total (cadastrados)
-    res.json({ ...summary, reservadosEmOs, atrasados, total, totalFisico });
+
+    const totaisCat = await getCategoriasTotalFisico();
+    const cr = await pool.query(
+      `SELECT COALESCE(categoria,'comum') AS categoria, status, COUNT(*)::int AS qtd
+         FROM sanitarios GROUP BY 1, status`);
+    const porCategoria: Record<string, any> = {};
+    for (const c of CATEGORIAS) {
+      porCategoria[c] = {
+        totalFisico: totaisCat[c] || 0,
+        numerados: 0, disponivel: 0, em_cliente: 0, manutencao: 0, inativo: 0,
+      };
+    }
+    for (const row of cr.rows) {
+      const cat = String(row.categoria || 'comum');
+      if (!porCategoria[cat]) {
+        porCategoria[cat] = { totalFisico: 0, numerados: 0, disponivel: 0, em_cliente: 0, manutencao: 0, inativo: 0 };
+      }
+      porCategoria[cat].numerados += row.qtd;
+      if (porCategoria[cat][row.status] !== undefined) porCategoria[cat][row.status] = row.qtd;
+    }
+    for (const c of Object.keys(porCategoria)) {
+      const v = porCategoria[c];
+      v.semNumeracao = Math.max(0, (v.totalFisico || 0) - v.numerados);
+      v.livres = Math.max(0, (v.totalFisico || 0) - (v.em_cliente || 0) - (v.manutencao || 0));
+    }
+    const totalFisico = Object.values(totaisCat).reduce((a, b) => a + b, 0);
+
+    res.json({ ...summary, reservadosEmOs, atrasados, total, totalFisico, porCategoria });
   } catch (e: any) {
     console.error('[SANITARIOS] stock-summary err:', e);
     res.status(500).json({ error: e?.message || 'erro' });
@@ -201,24 +273,45 @@ router.get('/meta/trucks', requireAuth, async (_req: any, res: any) => {
 });
 
 /**
- * POST /api/sanitarios — cria/atualiza por numero
+ * POST /api/sanitarios — cria/atualiza por numero (aceita categoria)
  */
 router.post('/', requireAuth, async (req: any, res: any) => {
   try {
-    const { numero, modelo, status, notes } = req.body || {};
+    await ensureCategoriaColumn();
+    const { numero, modelo, status, notes, categoria } = req.body || {};
     if (!numero || !String(numero).trim()) return res.status(400).json({ error: 'numero obrigatório' });
+    const cat = isCategoria(categoria) ? categoria : 'comum';
     const r = await pool.query(
-      `INSERT INTO sanitarios (numero, modelo, status, notes)
-       VALUES ($1, $2, COALESCE($3,'disponivel'), $4)
+      `INSERT INTO sanitarios (numero, modelo, status, notes, categoria)
+       VALUES ($1, $2, COALESCE($3,'disponivel'), $4, $5)
        ON CONFLICT (numero) DO UPDATE SET
          modelo = COALESCE(EXCLUDED.modelo, sanitarios.modelo),
          notes = COALESCE(EXCLUDED.notes, sanitarios.notes),
+         categoria = COALESCE(EXCLUDED.categoria, sanitarios.categoria),
          updated_at = NOW()
        RETURNING *`,
-      [String(numero).trim(), modelo || null, status || null, notes || null]
+      [String(numero).trim(), modelo || null, status || null, notes || null, cat]
     );
     res.json(r.rows[0]);
   } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'erro' });
+  }
+});
+
+/** PUT /api/sanitarios/:numero/categoria — atualiza apenas a categoria */
+router.put('/:numero/categoria', requireAuth, async (req: any, res: any) => {
+  try {
+    await ensureCategoriaColumn();
+    const { categoria } = req.body || {};
+    if (!isCategoria(categoria)) return res.status(400).json({ error: 'categoria inválida' });
+    const r = await pool.query(
+      `UPDATE sanitarios SET categoria = $2, updated_at = NOW() WHERE numero = $1 RETURNING *`,
+      [req.params.numero, categoria],
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
+    res.json(r.rows[0]);
+  } catch (e: any) {
+    console.error('[SANITARIOS] update categoria err:', e);
     res.status(500).json({ error: e?.message || 'erro' });
   }
 });
@@ -277,6 +370,7 @@ async function registrarMovimentacao(client: any, opts: {
   driverName?: string;
   truckId?: string;
   notes?: string;
+  categoria?: string;
 }) {
   // Garante que o sanitário existe (auto-cria se vier um número novo)
   let s = await client.query(`SELECT id FROM sanitarios WHERE numero = $1 FOR UPDATE`, [opts.numero]);
@@ -284,10 +378,14 @@ async function registrarMovimentacao(client: any, opts: {
     const initialStatus = opts.operationType === 'entrega' ? 'em_cliente'
                         : opts.operationType === 'manutencao' ? 'manutencao'
                         : 'disponivel';
+    const cat = isCategoria(opts.categoria) ? opts.categoria : 'comum';
     s = await client.query(
-      `INSERT INTO sanitarios (numero, status) VALUES ($1, $2) RETURNING id`,
-      [opts.numero, initialStatus]
+      `INSERT INTO sanitarios (numero, status, categoria) VALUES ($1, $2, $3) RETURNING id`,
+      [opts.numero, initialStatus, cat]
     );
+  } else if (isCategoria(opts.categoria)) {
+    // Atualiza categoria se vier informada (catalogação manual ao despachar)
+    await client.query(`UPDATE sanitarios SET categoria = $2 WHERE id = $1`, [s.rows[0].id, opts.categoria]);
   }
   const sanId = s.rows[0].id;
 
@@ -350,7 +448,7 @@ router.post('/movimentar', softAuth, async (req: any, res: any) => {
   const client = await pool.connect();
   try {
     const { numeros, operationType, routeId, routePointId, customerName, address, lat, lng,
-            driverId, driverName, truckId, notes } = req.body || {};
+            driverId, driverName, truckId, notes, categoria } = req.body || {};
     if (!Array.isArray(numeros) || numeros.length === 0) {
       return res.status(400).json({ error: 'numeros obrigatório (array)' });
     }
@@ -362,6 +460,7 @@ router.post('/movimentar', softAuth, async (req: any, res: any) => {
     const cleanNums = Array.from(new Set(numeros.map((n: any) => String(n).trim()).filter(Boolean)));
     if (!cleanNums.length) return res.status(400).json({ error: 'numeros inválidos' });
 
+    await ensureCategoriaColumn();
     await client.query('BEGIN');
 
     const ids: string[] = [];
@@ -370,7 +469,7 @@ router.post('/movimentar', softAuth, async (req: any, res: any) => {
         numero,
         operationType,
         routeId, routePointId, customerName, address, lat, lng,
-        driverId, driverName, truckId, notes,
+        driverId, driverName, truckId, notes, categoria,
       });
       ids.push(id);
     }

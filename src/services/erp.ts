@@ -134,6 +134,28 @@ export interface ErpCompany {
   createdAt?: string;
 }
 
+export type SanitarioCategoria = 'comum' | 'pne' | 'pia' | 'luxo' | 'cabine_banho';
+export const SANITARIO_CATEGORIAS: { value: SanitarioCategoria; label: string; color: string }[] = [
+  { value: 'comum',        label: 'Comum',            color: 'bg-slate-100 text-slate-700 border-slate-200' },
+  { value: 'pne',          label: 'PNE',              color: 'bg-sky-100 text-sky-700 border-sky-200' },
+  { value: 'pia',          label: 'Com Pia',          color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  { value: 'luxo',         label: 'Luxo',             color: 'bg-amber-100 text-amber-800 border-amber-200' },
+  { value: 'cabine_banho', label: 'Cabine de Banho',  color: 'bg-violet-100 text-violet-700 border-violet-200' },
+];
+export const sanitarioCategoriaLabel = (v?: string) =>
+  SANITARIO_CATEGORIAS.find(c => c.value === v)?.label || 'Comum';
+
+export interface SanitarioCategoriaSummary {
+  totalFisico: number;
+  numerados: number;
+  disponivel: number;
+  em_cliente: number;
+  manutencao: number;
+  inativo: number;
+  semNumeracao: number;
+  livres: number;
+}
+
 export interface SanitarioStockSummary {
   disponivel: number;
   em_cliente: number;
@@ -144,6 +166,7 @@ export interface SanitarioStockSummary {
   atrasados: number;
   total: number;
   totalFisico?: number;
+  porCategoria?: Record<SanitarioCategoria, SanitarioCategoriaSummary>;
 }
 
 export async function fetchSanitarioStockSummary(): Promise<SanitarioStockSummary> {
@@ -163,6 +186,32 @@ export async function updateSanitarioTotalFisico(totalFisico: number): Promise<v
     body: JSON.stringify({ totalFisico }),
   });
   if (!res.ok) throw new Error('erro ao salvar total físico');
+}
+
+export async function updateSanitarioCategoriaTotalFisico(
+  categoria: SanitarioCategoria,
+  totalFisico: number,
+): Promise<void> {
+  const tk = localStorage.getItem('auth_token');
+  const res = await fetch(`${API_BASE_URL}/sanitarios/total-fisico`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+    body: JSON.stringify({ categoria, totalFisico }),
+  });
+  if (!res.ok) throw new Error('erro ao salvar total físico');
+}
+
+export async function updateSanitarioCategoria(
+  numero: string,
+  categoria: SanitarioCategoria,
+): Promise<void> {
+  const tk = localStorage.getItem('auth_token');
+  const res = await fetch(`${API_BASE_URL}/sanitarios/${encodeURIComponent(numero)}/categoria`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+    body: JSON.stringify({ categoria }),
+  });
+  if (!res.ok) throw new Error('erro ao salvar categoria');
 }
 
 

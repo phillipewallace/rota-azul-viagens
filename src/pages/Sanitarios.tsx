@@ -10,11 +10,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Link } from 'react-router-dom';
 import { API_BASE_URL } from '@/services/config';
-import { fetchSanitarioStockSummary, updateSanitarioTotalFisico, type SanitarioStockSummary } from '@/services/erp';
+import {
+  fetchSanitarioStockSummary, updateSanitarioCategoriaTotalFisico, updateSanitarioCategoria,
+  SANITARIO_CATEGORIAS, sanitarioCategoriaLabel, type SanitarioCategoria, type SanitarioStockSummary,
+} from '@/services/erp';
 import { useCustomers, Customer } from '@/hooks/useCustomers';
 import { usePolling } from '@/hooks/usePolling';
-import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes, Send, Pencil, Check } from 'lucide-react';
+import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes, Send, Pencil, Check, ArrowLeft, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
@@ -33,6 +37,7 @@ interface Sanitario {
   id: string;
   numero: string;
   modelo?: string;
+  categoria?: SanitarioCategoria;
   status: 'disponivel' | 'em_cliente' | 'manutencao' | 'inativo';
   current_customer_name?: string;
   current_address?: string;
@@ -226,6 +231,7 @@ export default function Sanitarios() {
           lat: usingClientAddress ? c.lat : undefined,
           lng: usingClientAddress ? c.lng : undefined,
           notes: despNotes || null,
+          categoria: despCategoria,
         }),
       }).then(r => { if (!r.ok) throw new Error(); });
       toast.success(`Despacho registrado (${numeros.length}) para ${c.customerName}`);
@@ -236,22 +242,39 @@ export default function Sanitarios() {
     finally { setDespBusy(false); }
   };
 
-  // ----- Total físico (editável inline) -----
-  const [editingTotal, setEditingTotal] = useState(false);
-  const [totalFisicoDraft, setTotalFisicoDraft] = useState('');
-  const startEditTotal = () => {
-    setTotalFisicoDraft(String(stock?.totalFisico ?? 0));
-    setEditingTotal(true);
+  // ----- Total físico por categoria (inline) -----
+  const [editingCat, setEditingCat] = useState<SanitarioCategoria | null>(null);
+  const [catDraft, setCatDraft] = useState('');
+  const startEditCat = (cat: SanitarioCategoria, current: number) => {
+    setEditingCat(cat);
+    setCatDraft(String(current ?? 0));
   };
-  const saveTotalFisico = async () => {
-    const v = Math.max(0, parseInt(totalFisicoDraft, 10) || 0);
+  const saveCatTotal = async () => {
+    if (!editingCat) return;
+    const v = Math.max(0, parseInt(catDraft, 10) || 0);
     try {
-      await updateSanitarioTotalFisico(v);
+      await updateSanitarioCategoriaTotalFisico(editingCat, v);
       toast.success('Total físico atualizado');
-      setEditingTotal(false);
+      setEditingCat(null);
       loadStock();
     } catch { toast.error('Falha ao salvar total físico'); }
   };
+
+  // ----- Inline edit de categoria de um sanitário existente -----
+  const [editingCatRow, setEditingCatRow] = useState<string | null>(null);
+  const changeRowCategoria = async (numero: string, cat: SanitarioCategoria) => {
+    try {
+      await updateSanitarioCategoria(numero, cat);
+      setEditingCatRow(null);
+      toast.success(`Sanitário ${numero} marcado como ${sanitarioCategoriaLabel(cat)}`);
+      load(); loadStock();
+    } catch { toast.error('Falha ao atualizar categoria'); }
+  };
+
+  // ----- Categoria selecionada no formulário de cadastro/despacho -----
+  const [newCategoria, setNewCategoria] = useState<SanitarioCategoria>('comum');
+  const [despCategoria, setDespCategoria] = useState<SanitarioCategoria>('comum');
+
 
   const openDetail = async (numero: string) => {
     try {
@@ -333,12 +356,12 @@ export default function Sanitarios() {
       const r = await fetch(`${API_BASE_URL}/sanitarios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ numero: newNum.trim().toUpperCase() }),
+        body: JSON.stringify({ numero: newNum.trim().toUpperCase(), categoria: newCategoria }),
       });
       if (!r.ok) throw new Error();
-      toast.success(`Sanitário ${newNum} cadastrado`);
+      toast.success(`Sanitário ${newNum} cadastrado (${sanitarioCategoriaLabel(newCategoria)})`);
       setNewNum('');
-      load();
+      load(); loadStock();
     } catch { toast.error('Erro ao cadastrar'); }
   };
 
@@ -363,11 +386,14 @@ export default function Sanitarios() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold leading-tight">Gerenciamento de Sanitários</h1>
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="icon" asChild title="Voltar ao sistema">
+              <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold leading-tight truncate">Gerenciamento de Sanitários</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
-                Localização atual e histórico de cada banheiro químico.
+                Estoque por categoria, localização atual e histórico de cada banheiro químico.
               </p>
             </div>
           </div>
@@ -391,45 +417,21 @@ export default function Sanitarios() {
 
         <TabsContent value="estoque" className="space-y-4 mt-0">
 
-      {/* Resumo de estoque ERP */}
+      {/* Resumo de estoque ERP — KPIs */}
       {stock && (
         <div className="mb-4 grid grid-cols-2 md:grid-cols-6 gap-2">
-          <Card className="border-amber-300 bg-amber-50/40">
+          <Card className="border-amber-300 bg-gradient-to-br from-amber-50 to-amber-50/40">
             <CardContent className="p-3">
-              <div className="text-[11px] uppercase text-muted-foreground flex items-center justify-between">
-                <span>Total físico</span>
-                {!editingTotal && (
-                  <button onClick={startEditTotal} className="text-amber-700 hover:text-amber-900" title="Editar">
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                )}
+              <div className="text-[11px] uppercase text-muted-foreground">Total físico</div>
+              <div className="text-2xl font-bold text-amber-700">{stock.totalFisico ?? 0}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {Math.max(0, (stock.totalFisico ?? 0) - stock.total)} sem numeração
               </div>
-              {editingTotal ? (
-                <div className="flex items-center gap-1 mt-1">
-                  <Input
-                    autoFocus
-                    type="number"
-                    min={0}
-                    value={totalFisicoDraft}
-                    onChange={(e) => setTotalFisicoDraft(e.target.value)}
-                    className="h-8 text-base"
-                    onKeyDown={(e) => { if (e.key === 'Enter') saveTotalFisico(); if (e.key === 'Escape') setEditingTotal(false); }}
-                  />
-                  <Button size="icon" className="h-8 w-8 shrink-0" onClick={saveTotalFisico}><Check className="h-4 w-4" /></Button>
-                </div>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold text-amber-700">{stock.totalFisico ?? 0}</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {Math.max(0, (stock.totalFisico ?? 0) - stock.total)} sem numeração
-                  </div>
-                </>
-              )}
             </CardContent>
           </Card>
           <Card className="border-green-200">
             <CardContent className="p-3">
-              <div className="text-[11px] uppercase text-muted-foreground">Disponíveis em estoque</div>
+              <div className="text-[11px] uppercase text-muted-foreground">Disponíveis</div>
               <div className="text-2xl font-bold text-green-700">{stock.disponivel}</div>
             </CardContent>
           </Card>
@@ -467,6 +469,80 @@ export default function Sanitarios() {
           </Card>
         </div>
       )}
+
+      {/* Painel por categoria */}
+      {stock?.porCategoria && (
+        <Card className="mb-4 overflow-hidden">
+          <CardHeader className="py-3 bg-gradient-to-r from-slate-50 to-white border-b">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="h-4 w-4 text-indigo-600" />
+              Estoque por categoria
+              <span className="text-xs font-normal text-muted-foreground ml-2">
+                Clique no lápis para informar quantos você tem fisicamente de cada tipo.
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {SANITARIO_CATEGORIAS.map(cat => {
+                const c = stock.porCategoria?.[cat.value];
+                if (!c) return null;
+                const isEditing = editingCat === cat.value;
+                return (
+                  <div key={cat.value}
+                       className={`rounded-lg border p-3 flex flex-col gap-2 ${cat.color.replace('text-', 'border-').split(' ').find(x => x.startsWith('border-')) || 'border-slate-200'} bg-white`}>
+                    <div className="flex items-center justify-between gap-1">
+                      <Badge className={`${cat.color} text-[11px] font-semibold border`}>
+                        {cat.label}
+                      </Badge>
+                      {!isEditing && (
+                        <button onClick={() => startEditCat(cat.value, c.totalFisico)} className="text-muted-foreground hover:text-indigo-600" title="Editar total físico">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          autoFocus type="number" min={0} value={catDraft}
+                          onChange={(e) => setCatDraft(e.target.value)}
+                          className="h-8 text-base"
+                          onKeyDown={(e) => { if (e.key === 'Enter') saveCatTotal(); if (e.key === 'Escape') setEditingCat(null); }}
+                        />
+                        <Button size="icon" className="h-8 w-8 shrink-0" onClick={saveCatTotal}><Check className="h-4 w-4" /></Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-2xl font-bold leading-none">{c.totalFisico}</div>
+                        <div className="text-[10px] uppercase text-muted-foreground mt-1">total físico</div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-1 text-[11px] pt-2 border-t">
+                      <div>
+                        <div className="text-muted-foreground">Livres</div>
+                        <div className="font-bold text-green-700">{c.livres}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Em cliente</div>
+                        <div className="font-bold text-blue-700">{c.em_cliente}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Numerados</div>
+                        <div className="font-semibold">{c.numerados}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">S/ número</div>
+                        <div className="font-semibold text-amber-700">{c.semNumeracao}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
 
 
@@ -543,6 +619,16 @@ export default function Sanitarios() {
                 onKeyDown={(e) => e.key === 'Enter' && create()}
               />
             </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Categoria</label>
+              <select
+                className="block border rounded-md h-10 px-2 bg-background"
+                value={newCategoria}
+                onChange={(e) => setNewCategoria(e.target.value as SanitarioCategoria)}
+              >
+                {SANITARIO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
             <Button onClick={create} className="gap-1"><Plus className="h-4 w-4" />Adicionar</Button>
           </div>
         </CardContent>
@@ -571,6 +657,7 @@ export default function Sanitarios() {
               <thead className="bg-muted/40 sticky top-0">
                 <tr className="text-left">
                   <th className="p-2">Número</th>
+                  <th className="p-2">Categoria</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">Cliente atual</th>
                   <th className="p-2">Endereço</th>
@@ -579,9 +666,32 @@ export default function Sanitarios() {
                 </tr>
               </thead>
               <tbody>
-                {list.map((s) => (
+                {list.map((s) => {
+                  const catMeta = SANITARIO_CATEGORIAS.find(c => c.value === (s.categoria || 'comum'));
+                  return (
                   <tr key={s.id} className="border-t hover:bg-muted/20">
                     <td className="p-2 font-mono font-bold">{s.numero}</td>
+                    <td className="p-2">
+                      {editingCatRow === s.numero ? (
+                        <select
+                          autoFocus
+                          className="border rounded h-8 px-1 bg-background text-xs"
+                          defaultValue={s.categoria || 'comum'}
+                          onBlur={() => setEditingCatRow(null)}
+                          onChange={(e) => changeRowCategoria(s.numero, e.target.value as SanitarioCategoria)}
+                        >
+                          {SANITARIO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+                      ) : (
+                        <button
+                          onClick={() => setEditingCatRow(s.numero)}
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border ${catMeta?.color || ''} hover:ring-2 hover:ring-indigo-200`}
+                          title="Clique para alterar categoria"
+                        >
+                          {catMeta?.label || 'Comum'} <Pencil className="h-3 w-3 opacity-60" />
+                        </button>
+                      )}
+                    </td>
                     <td className="p-2">{statusBadge(s.status)}</td>
                     <td className="p-2">{s.current_customer_name || '–'}</td>
                     <td className="p-2 truncate max-w-[260px]">{s.current_address || '–'}</td>
@@ -596,9 +706,10 @@ export default function Sanitarios() {
                       </Button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {!list.length && !loading && (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">
                     Nenhum sanitário cadastrado.
                   </td></tr>
                 )}
@@ -901,6 +1012,21 @@ export default function Sanitarios() {
               />
               <p className="text-[10px] text-muted-foreground mt-1">
                 Números não cadastrados serão criados automaticamente no estoque.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Categoria <span className="text-red-500">*</span>
+              </label>
+              <select
+                className="block w-full border rounded-md h-10 px-2 bg-background"
+                value={despCategoria}
+                onChange={(e) => setDespCategoria(e.target.value as SanitarioCategoria)}
+              >
+                {SANITARIO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Se algum número for novo, ele será cadastrado nesta categoria. Para números já existentes, a categoria também será atualizada — útil para catalogar conforme você descobre na rua.
               </p>
             </div>
             <div>
