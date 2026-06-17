@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Edit, Trash2, History, LogIn, LogOut, Loader2, Container } from 'lucide-react';
+import { Plus, Edit, Trash2, History, LogIn, LogOut, Loader2, Container } from 'lucide-react';
+import { usePolling } from '@/hooks/usePolling';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +58,7 @@ export default function Carretinhas() {
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+  usePolling(load, 15000);
 
   const openNew = () => {
     setEditing(null);
