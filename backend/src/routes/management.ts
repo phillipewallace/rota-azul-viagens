@@ -101,6 +101,10 @@ router.get('/maintenance', async (req, res) => {
         m.maintenance_date,
         m.cost,
         m.mileage,
+        m.next_maintenance_km,
+        m.supplier,
+        m.invoice_number,
+        m.items,
         m.status,
         m.files,
         m.created_at,
@@ -111,6 +115,7 @@ router.get('/maintenance', async (req, res) => {
       LEFT JOIN trucks t ON m.truck_id = t.id
       WHERE 1=1
     `;
+
 
     
     const params: any[] = [];
