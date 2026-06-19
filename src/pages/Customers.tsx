@@ -82,6 +82,35 @@ const Customers: React.FC = () => {
 
   const sanCount = (c: Customer) => counts[(c.customerName || '').toLowerCase()] || 0;
 
+  // Mapeia documentos/nomes duplicados para destaque visual na lista
+  const duplicateInfo = useMemo(() => {
+    const byDoc = new Map<string, string[]>();
+    const byName = new Map<string, string[]>();
+    for (const c of customers) {
+      const doc = onlyDigits(c.document || '');
+      if (doc) {
+        if (!byDoc.has(doc)) byDoc.set(doc, []);
+        byDoc.get(doc)!.push(c.id);
+      } else {
+        const n = (c.customerName || '').trim().toLowerCase();
+        if (n) {
+          if (!byName.has(n)) byName.set(n, []);
+          byName.get(n)!.push(c.id);
+        }
+      }
+    }
+    const dupIds = new Set<string>();
+    const dupReason = new Map<string, string>();
+    byDoc.forEach((ids, doc) => {
+      if (ids.length > 1) ids.forEach(id => { dupIds.add(id); dupReason.set(id, `Documento repetido (${doc})`); });
+    });
+    byName.forEach((ids) => {
+      if (ids.length > 1) ids.forEach(id => { dupIds.add(id); dupReason.set(id, `Nome repetido`); });
+    });
+    return { dupIds, dupReason };
+  }, [customers]);
+  const [onlyDuplicates, setOnlyDuplicates] = useState(false);
+
   const filtered = useMemo(() => {
     const s = search.toLowerCase().trim();
     const sDigits = onlyDigits(search);
