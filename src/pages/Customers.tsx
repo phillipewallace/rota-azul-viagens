@@ -129,15 +129,16 @@ const Customers: React.FC = () => {
           docDigits.includes(sDigits) ||
           phoneDigits.includes(sDigits) ||
           cepDigits.includes(sDigits)
-        ));
+          ));
       if (!matchSearch) return false;
+      if (onlyDuplicates && !duplicateInfo.dupIds.has(c.id)) return false;
       if (filterMode === 'withSan') return sanCount(c) > 0;
       if (filterMode === 'noCoords') return !c.lat || !c.lng;
       if (filterMode === 'pf') return c.personType === 'PF';
       if (filterMode === 'pj') return (c.personType || 'PJ') === 'PJ';
       return true;
     });
-  }, [customers, search, filterMode, counts]);
+  }, [customers, search, filterMode, counts, onlyDuplicates, duplicateInfo]);
 
   const handleAddNew = () => {
     const c: Customer = {
