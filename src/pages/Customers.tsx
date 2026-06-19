@@ -82,6 +82,35 @@ const Customers: React.FC = () => {
 
   const sanCount = (c: Customer) => counts[(c.customerName || '').toLowerCase()] || 0;
 
+  // Mapeia documentos/nomes duplicados para destaque visual na lista
+  const duplicateInfo = useMemo(() => {
+    const byDoc = new Map<string, string[]>();
+    const byName = new Map<string, string[]>();
+    for (const c of customers) {
+      const doc = onlyDigits(c.document || '');
+      if (doc) {
+        if (!byDoc.has(doc)) byDoc.set(doc, []);
+        byDoc.get(doc)!.push(c.id);
+      } else {
+        const n = (c.customerName || '').trim().toLowerCase();
+        if (n) {
+          if (!byName.has(n)) byName.set(n, []);
+          byName.get(n)!.push(c.id);
+        }
+      }
+    }
+    const dupIds = new Set<string>();
+    const dupReason = new Map<string, string>();
+    byDoc.forEach((ids, doc) => {
+      if (ids.length > 1) ids.forEach(id => { dupIds.add(id); dupReason.set(id, `Documento repetido (${doc})`); });
+    });
+    byName.forEach((ids) => {
+      if (ids.length > 1) ids.forEach(id => { dupIds.add(id); dupReason.set(id, `Nome repetido`); });
+    });
+    return { dupIds, dupReason };
+  }, [customers]);
+  const [onlyDuplicates, setOnlyDuplicates] = useState(false);
+
   const filtered = useMemo(() => {
     const s = search.toLowerCase().trim();
     const sDigits = onlyDigits(search);
@@ -100,15 +129,16 @@ const Customers: React.FC = () => {
           docDigits.includes(sDigits) ||
           phoneDigits.includes(sDigits) ||
           cepDigits.includes(sDigits)
-        ));
+          ));
       if (!matchSearch) return false;
+      if (onlyDuplicates && !duplicateInfo.dupIds.has(c.id)) return false;
       if (filterMode === 'withSan') return sanCount(c) > 0;
       if (filterMode === 'noCoords') return !c.lat || !c.lng;
       if (filterMode === 'pf') return c.personType === 'PF';
       if (filterMode === 'pj') return (c.personType || 'PJ') === 'PJ';
       return true;
     });
-  }, [customers, search, filterMode, counts]);
+  }, [customers, search, filterMode, counts, onlyDuplicates, duplicateInfo]);
 
   const handleAddNew = () => {
     const c: Customer = {
@@ -127,27 +157,46 @@ const Customers: React.FC = () => {
   };
 
   const handleSearchByCep = async () => {
-    if (!editing?.cep || onlyDigits(editing.cep).length < 8) return;
+    if (!editing) return;
+    const cep = onlyDigits(editing.cep || '');
+    if (cep.length !== 8) { toast.error('Informe um CEP com 8 dígitos'); return; }
     setSearchingAddress(true);
     try {
-      const r = await geocodingService.getAddressByCep(editing.cep);
-      if (r) {
-        setField('address', r.address);
-        // ViaCEP-style enrichment se disponível
-        const cep = onlyDigits(editing.cep);
-        try {
-          const vc = await fetch(`https://viacep.com.br/ws/${cep}/json/`).then(x => x.json());
-          if (vc && !vc.erro) {
-            setField('bairro', vc.bairro || '');
-            setField('cidade', vc.localidade || '');
-            setField('estado', vc.uf || '');
-          }
-        } catch {}
-        if (r.lat && r.lng) { setField('lat', r.lat); setField('lng', r.lng); }
-        toast.success('Endereço encontrado');
-      } else toast.error('CEP não encontrado');
-    } catch { toast.error('Erro ao buscar CEP'); }
-    finally { setSearchingAddress(false); }
+      // Fonte primária: ViaCEP — campos separados (logradouro, bairro, cidade, UF)
+      const vc = await fetch(`https://viacep.com.br/ws/${cep}/json/`).then(x => x.json());
+      if (!vc || vc.erro) { toast.error('CEP não encontrado'); return; }
+
+      const updates: Partial<Customer> = {
+        address: vc.logradouro || editing.address || '',
+        bairro: vc.bairro || editing.bairro || '',
+        cidade: vc.localidade || editing.cidade || '',
+        estado: vc.uf || editing.estado || '',
+        complemento: editing.complemento || vc.complemento || '',
+      };
+      // Aplica em lote para evitar perda de updates por closure stale
+      const merged = { ...editing, ...updates } as Customer;
+      setEditing(merged);
+      Object.entries(updates).forEach(([k, v]) => {
+        updateCustomer(editing.id, k as keyof Customer, v);
+      });
+
+      // Geocodifica em segundo plano para obter lat/lng
+      try {
+        const full = [vc.logradouro, vc.bairro, vc.localidade, vc.uf, 'Brasil']
+          .filter(Boolean).join(', ');
+        const g = await geocodingService.getCoordinatesFromAddress(full);
+        if (g) {
+          setEditing(prev => prev ? { ...prev, lat: g.lat, lng: g.lng } : prev);
+          updateCustomer(editing.id, 'lat', g.lat);
+          updateCustomer(editing.id, 'lng', g.lng);
+        }
+      } catch {}
+      toast.success('Endereço preenchido pelo CEP');
+    } catch {
+      toast.error('Erro ao buscar CEP');
+    } finally {
+      setSearchingAddress(false);
+    }
   };
 
   const handleLookupCnpj = async () => {
@@ -306,8 +355,20 @@ const Customers: React.FC = () => {
               <option value="noCoords">Sem coordenadas</option>
             </select>
           </div>
-          <div className="ml-auto text-xs text-muted-foreground">
-            Exibindo <strong>{filtered.length}</strong> de {customers.length}
+          <div className="ml-auto flex items-center gap-3">
+            {duplicateInfo.dupIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setOnlyDuplicates(v => !v)}
+                className={`text-xs px-2 py-1 rounded-md border transition ${onlyDuplicates ? 'bg-amber-100 border-amber-400 text-amber-800' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'}`}
+                title="Mostrar apenas duplicados"
+              >
+                ⚠️ {duplicateInfo.dupIds.size} duplicado(s)
+              </button>
+            )}
+            <div className="text-xs text-muted-foreground">
+              Exibindo <strong>{filtered.length}</strong> de {customers.length}
+            </div>
           </div>
         </CardContent></Card>
 
@@ -320,8 +381,15 @@ const Customers: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map(c => {
               const n = sanCount(c);
+              const isDup = duplicateInfo.dupIds.has(c.id);
+              const dupReason = duplicateInfo.dupReason.get(c.id);
               return (
-                <Card key={c.id} className="hover:shadow-md transition-shadow">
+                <Card key={c.id} className={`hover:shadow-md transition-shadow relative ${isDup ? 'ring-2 ring-amber-400 bg-amber-50/30' : ''}`}>
+                  {isDup && (
+                    <div className="absolute -top-2 left-3 bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full shadow" title={dupReason}>
+                      ⚠ {dupReason}
+                    </div>
+                  )}
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
