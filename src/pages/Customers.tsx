@@ -83,14 +83,24 @@ const Customers: React.FC = () => {
   const sanCount = (c: Customer) => counts[(c.customerName || '').toLowerCase()] || 0;
 
   const filtered = useMemo(() => {
-    const s = search.toLowerCase();
+    const s = search.toLowerCase().trim();
+    const sDigits = onlyDigits(search);
     return customers.filter(c => {
+      const docDigits = onlyDigits(c.document || '');
+      const phoneDigits = onlyDigits(c.contactPhone || '');
+      const cepDigits = onlyDigits(c.cep || '');
       const matchSearch = !s ||
         (c.customerName || '').toLowerCase().includes(s) ||
         (c.address || '').toLowerCase().includes(s) ||
-        (c.cep || '').includes(s) ||
-        (c.document || '').includes(s) ||
-        (c.contactPhone || '').includes(s);
+        (c.cidade || '').toLowerCase().includes(s) ||
+        (c.bairro || '').toLowerCase().includes(s) ||
+        (c.email || '').toLowerCase().includes(s) ||
+        (c.contactName || '').toLowerCase().includes(s) ||
+        (sDigits.length > 0 && (
+          docDigits.includes(sDigits) ||
+          phoneDigits.includes(sDigits) ||
+          cepDigits.includes(sDigits)
+        ));
       if (!matchSearch) return false;
       if (filterMode === 'withSan') return sanCount(c) > 0;
       if (filterMode === 'noCoords') return !c.lat || !c.lng;
