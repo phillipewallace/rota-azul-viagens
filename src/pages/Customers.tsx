@@ -381,8 +381,15 @@ const Customers: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map(c => {
               const n = sanCount(c);
+              const isDup = duplicateInfo.dupIds.has(c.id);
+              const dupReason = duplicateInfo.dupReason.get(c.id);
               return (
-                <Card key={c.id} className="hover:shadow-md transition-shadow">
+                <Card key={c.id} className={`hover:shadow-md transition-shadow relative ${isDup ? 'ring-2 ring-amber-400 bg-amber-50/30' : ''}`}>
+                  {isDup && (
+                    <div className="absolute -top-2 left-3 bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full shadow" title={dupReason}>
+                      ⚠ {dupReason}
+                    </div>
+                  )}
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
