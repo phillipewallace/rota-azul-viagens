@@ -127,27 +127,46 @@ const Customers: React.FC = () => {
   };
 
   const handleSearchByCep = async () => {
-    if (!editing?.cep || onlyDigits(editing.cep).length < 8) return;
+    if (!editing) return;
+    const cep = onlyDigits(editing.cep || '');
+    if (cep.length !== 8) { toast.error('Informe um CEP com 8 dígitos'); return; }
     setSearchingAddress(true);
     try {
-      const r = await geocodingService.getAddressByCep(editing.cep);
-      if (r) {
-        setField('address', r.address);
-        // ViaCEP-style enrichment se disponível
-        const cep = onlyDigits(editing.cep);
-        try {
-          const vc = await fetch(`https://viacep.com.br/ws/${cep}/json/`).then(x => x.json());
-          if (vc && !vc.erro) {
-            setField('bairro', vc.bairro || '');
-            setField('cidade', vc.localidade || '');
-            setField('estado', vc.uf || '');
-          }
-        } catch {}
-        if (r.lat && r.lng) { setField('lat', r.lat); setField('lng', r.lng); }
-        toast.success('Endereço encontrado');
-      } else toast.error('CEP não encontrado');
-    } catch { toast.error('Erro ao buscar CEP'); }
-    finally { setSearchingAddress(false); }
+      // Fonte primária: ViaCEP — campos separados (logradouro, bairro, cidade, UF)
+      const vc = await fetch(`https://viacep.com.br/ws/${cep}/json/`).then(x => x.json());
+      if (!vc || vc.erro) { toast.error('CEP não encontrado'); return; }
+
+      const updates: Partial<Customer> = {
+        address: vc.logradouro || editing.address || '',
+        bairro: vc.bairro || editing.bairro || '',
+        cidade: vc.localidade || editing.cidade || '',
+        estado: vc.uf || editing.estado || '',
+        complemento: editing.complemento || vc.complemento || '',
+      };
+      // Aplica em lote para evitar perda de updates por closure stale
+      const merged = { ...editing, ...updates } as Customer;
+      setEditing(merged);
+      Object.entries(updates).forEach(([k, v]) => {
+        updateCustomer(editing.id, k as keyof Customer, v);
+      });
+
+      // Geocodifica em segundo plano para obter lat/lng
+      try {
+        const full = [vc.logradouro, vc.bairro, vc.localidade, vc.uf, 'Brasil']
+          .filter(Boolean).join(', ');
+        const g = await geocodingService.getCoordinatesFromAddress(full);
+        if (g) {
+          setEditing(prev => prev ? { ...prev, lat: g.lat, lng: g.lng } : prev);
+          updateCustomer(editing.id, 'lat', g.lat);
+          updateCustomer(editing.id, 'lng', g.lng);
+        }
+      } catch {}
+      toast.success('Endereço preenchido pelo CEP');
+    } catch {
+      toast.error('Erro ao buscar CEP');
+    } finally {
+      setSearchingAddress(false);
+    }
   };
 
   const handleLookupCnpj = async () => {
