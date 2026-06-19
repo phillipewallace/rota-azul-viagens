@@ -355,8 +355,20 @@ const Customers: React.FC = () => {
               <option value="noCoords">Sem coordenadas</option>
             </select>
           </div>
-          <div className="ml-auto text-xs text-muted-foreground">
-            Exibindo <strong>{filtered.length}</strong> de {customers.length}
+          <div className="ml-auto flex items-center gap-3">
+            {duplicateInfo.dupIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setOnlyDuplicates(v => !v)}
+                className={`text-xs px-2 py-1 rounded-md border transition ${onlyDuplicates ? 'bg-amber-100 border-amber-400 text-amber-800' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'}`}
+                title="Mostrar apenas duplicados"
+              >
+                ⚠️ {duplicateInfo.dupIds.size} duplicado(s)
+              </button>
+            )}
+            <div className="text-xs text-muted-foreground">
+              Exibindo <strong>{filtered.length}</strong> de {customers.length}
+            </div>
           </div>
         </CardContent></Card>
 
