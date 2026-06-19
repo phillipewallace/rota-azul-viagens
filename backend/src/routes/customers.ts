@@ -63,6 +63,23 @@ router.put('/', async (req: Request, res: Response) => {
   const { customers } = req.body;
   if (!Array.isArray(customers)) { res.status(400).json({ error: 'Lista de clientes inválida' }); return; }
 
+  // Detecta documentos duplicados ENTRE os clientes do payload antes de tocar no banco
+  const seen = new Map<string, string>(); // doc -> nome do primeiro
+  for (const c of customers) {
+    const doc = c.document ? String(c.document).replace(/\D/g, '') : '';
+    if (!doc) continue;
+    const prev = seen.get(doc);
+    if (prev) {
+      res.status(409).json({
+        error: `Documento duplicado: ${doc} aparece em "${prev}" e "${c.customerName || 'sem nome'}".`,
+        duplicateDocument: doc,
+        duplicateNames: [prev, c.customerName || 'sem nome'],
+      });
+      return;
+    }
+    seen.set(doc, c.customerName || 'sem nome');
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -76,7 +93,8 @@ router.put('/', async (req: Request, res: Response) => {
     }
     for (const c of customers) {
       const doc = c.document ? String(c.document).replace(/\D/g, '') : null;
-      await client.query(`
+      try {
+        await client.query(`
         INSERT INTO customers (
           id, customer_name, address, cep, lat, lng,
           restrooms_qty, cleanings_qty, contact_name, contact_phone, notes,
@@ -105,6 +123,31 @@ router.put('/', async (req: Request, res: Response) => {
         c.cidade || null, c.estado || null,
         c.responsavelNome || null, c.responsavelCpf || null, c.tipoCliente || null,
       ]);
+      } catch (innerErr: any) {
+        // 23505 = unique_violation no Postgres
+        if (innerErr?.code === '23505') {
+          await client.query('ROLLBACK');
+          // Descobre qual cliente já existe com esse documento
+          let owner = '';
+          if (doc) {
+            const existing = await pool.query(
+              `SELECT customer_name FROM customers WHERE document = $1 AND id <> $2 LIMIT 1`,
+              [doc, c.id]
+            );
+            owner = existing.rows[0]?.customer_name || '';
+          }
+          res.status(409).json({
+            error: doc
+              ? `O documento ${doc} (cliente "${c.customerName || 'sem nome'}") já está cadastrado${owner ? ` em "${owner}"` : ''}.`
+              : `Registro duplicado em "${c.customerName || 'sem nome'}".`,
+            duplicateDocument: doc,
+            duplicateOwner: owner,
+            conflictingName: c.customerName || null,
+          });
+          return;
+        }
+        throw innerErr;
+      }
     }
     await client.query('COMMIT');
     const result = await pool.query(`SELECT ${CUSTOMER_SELECT} FROM customers ORDER BY customer_name ASC`);
