@@ -41,7 +41,6 @@ const opIcon = (op: string) => {
 };
 
 const Customers: React.FC = () => {
-  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch } = useCustomers();
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'withSan' | 'noCoords' | 'pf' | 'pj'>('all');
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -52,6 +51,11 @@ const Customers: React.FC = () => {
   const [searchingAddress, setSearchingAddress] = useState(false);
   const [lookingUpCnpj, setLookingUpCnpj] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  // Pausa o auto-refresh enquanto o usuário está cadastrando/editando
+  // ou consultando histórico, para não sobrescrever dados em digitação.
+  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch } = useCustomers({
+    pollEnabled: !editing && !historyFor,
+  });
 
   useEffect(() => {
     if (!customers.length) return;

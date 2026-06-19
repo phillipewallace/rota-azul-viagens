@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/services/config';
 import { usePolling } from './usePolling';
 
@@ -32,30 +32,40 @@ export interface Customer {
   updatedAt?: string;
 }
 
-export const useCustomers = () => {
+export interface UseCustomersOptions {
+  /** Quando false, pausa o polling automático (ex.: durante cadastro/edição) */
+  pollEnabled?: boolean;
+}
+
+export const useCustomers = (options: UseCustomersOptions = {}) => {
+  const { pollEnabled = true } = options;
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const fetchCustomers = useCallback(async () => {
     try {
-      setLoading(true);
+      // Só mostra "loading" no primeiro fetch — refetches em background
+      // não devem piscar a UI nem dar sensação de refresh
+      if (!hasLoadedRef.current) setLoading(true);
       const response = await fetch(`${API_BASE_URL}/customers`);
       if (!response.ok) throw new Error('Erro ao carregar clientes');
       const data = await response.json();
       setCustomers(data || []);
+      hasLoadedRef.current = true;
     } catch (err) {
       console.error('Erro ao buscar clientes:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
-      setCustomers([]);
+      if (!hasLoadedRef.current) setCustomers([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
-  // Sincronização entre usuários: refaz fetch a cada 15s
-  usePolling(fetchCustomers, 15000);
+  // Sincronização entre usuários — pausada quando há edição em andamento
+  usePolling(fetchCustomers, 15000, pollEnabled);
 
   const addCustomer = useCallback((customer: Customer) => {
     setCustomers(prev => [...prev, customer]);
