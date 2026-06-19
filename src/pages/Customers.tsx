@@ -41,7 +41,9 @@ const opIcon = (op: string) => {
 };
 
 const Customers: React.FC = () => {
-  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch } = useCustomers();
+  const [editing, _placeholder] = [null as Customer | null, null]; // (mantido p/ compat — ver abaixo)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const __unused = _placeholder;
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'withSan' | 'noCoords' | 'pf' | 'pj'>('all');
   const [editing, setEditing] = useState<Customer | null>(null);
