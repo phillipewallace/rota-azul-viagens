@@ -40,14 +40,10 @@ async function loadItems(quoteId: string) {
 
 router.get('/', async (req, res) => {
   try {
-    const { status, customerId, includeConvertido } = req.query as any;
+    const { status, customerId } = req.query as any;
     const conds: string[] = [];
     const params: any[] = [];
     if (status) { params.push(status); conds.push(`q.status = $${params.length}`); }
-    else if (includeConvertido !== 'true') {
-      // por padrão oculta orçamentos já convertidos em OS
-      conds.push(`q.status <> 'convertido'`);
-    }
     if (customerId) { params.push(customerId); conds.push(`q.customer_id = $${params.length}`); }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const r = await pool.query(
