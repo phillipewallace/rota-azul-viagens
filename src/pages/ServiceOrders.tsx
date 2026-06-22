@@ -20,10 +20,17 @@ import { downloadCsv, downloadPdf } from '@/utils/exporters';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
 import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
+import { formatDateBR } from '@/utils/dateFormat';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
-const DT = (s?: string) => s ? new Date(s).toLocaleString('pt-BR') : '—';
+const D = (s?: string) => formatDateBR(s);
+const DT = (s?: string) => {
+  if (!s) return '—';
+  // Pure date (YYYY-MM-DD) → format as local date to avoid UTC -1 day shift
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return formatDateBR(s);
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? '—' : dt.toLocaleString('pt-BR');
+};
 
 const tipoLabel = (t?: string) =>
   t === 'obra' ? '🏗️ Obra' : t === 'evento' ? '🎉 Evento' :
