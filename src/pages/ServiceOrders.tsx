@@ -542,6 +542,11 @@ const ServiceOrders: React.FC = () => {
                         {o.modalidade === 'mensal' && (det.limpezas_semanais ?? o.limpezasSemanais) != null && (det.tipo_locacao || o.tipoLocacao) !== 'evento' && (
                           <div>🧽 <strong>Limpezas/semana:</strong> {det.limpezas_semanais ?? o.limpezasSemanais}</div>
                         )}
+                        {(det.forma_pagamento || (o as any).formaPagamento) && (
+                          <div className="bg-indigo-50 border border-indigo-200 rounded p-2 text-indigo-900">
+                            💳 <strong>Pagamento:</strong> {describeFormaPagamento(det.forma_pagamento || (o as any).formaPagamento, det.data_entrega || o.dataEntrega)}
+                          </div>
+                        )}
                         {det.observacoes && (
                           <div className="bg-muted/30 rounded p-2">
                             <strong>Observações:</strong> {det.observacoes}
