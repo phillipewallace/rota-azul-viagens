@@ -199,6 +199,13 @@ function buildContext(src: ContractSource): Record<string, string> {
     'contrato.frete_extenso': valorPorExtenso(freteVal),
     'contrato.data_vencimento': fmtDateBr(src.dataVencimento),
     'contrato.data_vencimento_extenso': fmtDateLong(src.dataVencimento),
+    'contrato.forma_pagamento': (() => {
+      const f = String(src.formaPagamento || '').toLowerCase();
+      if (f === 'boleto') return 'Boleto bancário';
+      if (f === 'pix') return 'PIX';
+      if (f === 'cartao') return 'Cartão';
+      return src.condicoesPagamento || '';
+    })(),
     'contrato.limpezas_semanais': String(limp || 1),
     'contrato.observacoes': src.observacoes || '',
   };
