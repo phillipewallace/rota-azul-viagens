@@ -775,6 +775,8 @@ const ServiceOrders: React.FC = () => {
       <BoletoVencimentoDialog
         open={!!contractTarget}
         contractLabel={contractTarget ? `contrato da OS ${contractTarget.numero}` : undefined}
+        formaPagamento={(contractTarget as any)?.formaPagamento || 'boleto'}
+        dataEntrega={contractTarget?.dataEntrega || null}
         onClose={() => setContractTarget(null)}
         onConfirm={async ({ dataVencimento, preview }) => {
           const o = contractTarget;
