@@ -476,14 +476,36 @@ const ErpQuotes: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="md:col-span-2 space-y-3">
                   <div>
-                    <label className="text-xs text-muted-foreground">Condições de pagamento</label>
-                    <Textarea rows={2} value={editing.condicoesPagamento}
-                              onChange={e => setEditing({ ...editing, condicoesPagamento: e.target.value })} />
+                    <label className="text-xs text-muted-foreground">Forma de pagamento *</label>
+                    <div className="flex gap-1">
+                      {([
+                        { v: 'cartao', l: '💳 Cartão' },
+                        { v: 'pix', l: '⚡ PIX' },
+                        { v: 'boleto', l: '🧾 Boleto' },
+                      ] as const).map(o => (
+                        <Button key={o.v} type="button" size="sm" className="flex-1"
+                                variant={editing.formaPagamento === o.v ? 'default' : 'outline'}
+                                onClick={() => setEditing({ ...editing, formaPagamento: o.v })}>
+                          {o.l}
+                        </Button>
+                      ))}
+                    </div>
+                    {editing.formaPagamento === 'boleto' && (
+                      <p className="text-[11px] text-blue-700 mt-1">
+                        Vencimento do boleto: <strong>{formatDateBR(calcVencimentoBoleto(editing.dataEntrega))}</strong>
+                        {' '}(28 dias após a entrega — regra fixa).
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground">Observações</label>
+                    <label className="text-xs text-muted-foreground">Observações livres</label>
                     <Textarea rows={2} value={editing.observacoes}
-                              onChange={e => setEditing({ ...editing, observacoes: e.target.value })} />
+                              onChange={e => setEditing({ ...editing, observacoes: e.target.value })}
+                              placeholder="Observações específicas deste orçamento (opcional)" />
+                  </div>
+                  <div className="rounded-md border border-amber-200 bg-amber-50/60 p-2 text-[11px] text-amber-900 whitespace-pre-line">
+                    <div className="font-semibold mb-1">Observações fixas (sempre incluídas no orçamento e na OS):</div>
+                    {OBSERVACAO_FIXA_LOCACAO}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
