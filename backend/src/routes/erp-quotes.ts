@@ -172,6 +172,7 @@ router.put('/:id', async (req, res) => {
          limpezas_semanais = $16,
          endereco_entrega = $17,
          data_recolhimento = $18,
+         forma_pagamento = COALESCE($19, forma_pagamento),
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
@@ -179,7 +180,8 @@ router.put('/:id', async (req, res) => {
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null,
        c.dataEntrega || null, c.limpezasSemanais ?? null,
-       c.enderecoEntrega || null, c.dataRecolhimento || null]
+       c.enderecoEntrega || null, c.dataRecolhimento || null,
+       c.formaPagamento || null]
     );
 
     if (items) {
