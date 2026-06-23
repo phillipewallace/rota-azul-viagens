@@ -200,6 +200,8 @@ const ErpQuotes: React.FC = () => {
         enderecoEntrega: q.enderecoEntrega,
         observacoes: q.observacoes,
         condicoesPagamento: q.condicoesPagamento,
+        formaPagamento: q.formaPagamento || null,
+        dataVencimento: q.formaPagamento === 'boleto' ? calcVencimentoBoleto(q.dataEntrega) : null,
         frete: q.frete,
         total: q.total,
         companySnapshot: q.companySnapshot,
