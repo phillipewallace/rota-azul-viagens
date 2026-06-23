@@ -51,6 +51,7 @@ export interface Quote {
   limpezasSemanais?: number | null;
   observacoes?: string;
   condicoesPagamento?: string;
+  formaPagamento?: 'cartao' | 'pix' | 'boleto' | null;
   descontoPct: number;
   frete: number;
   subtotal: number;
