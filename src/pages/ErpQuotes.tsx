@@ -21,6 +21,8 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { generateQuotePdf } from '@/utils/quotePdf';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { FileSignature } from 'lucide-react';
+import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento, calcVencimentoBoleto, type FormaPagamento } from '@/utils/fixedObservations';
+import { formatDateBR } from '@/utils/dateFormat';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -39,6 +41,7 @@ interface EditorState {
   frete: number;
   observacoes: string;
   condicoesPagamento: string;
+  formaPagamento?: FormaPagamento;
   status: Quote['status'];
   items: QuoteItem[];
 }
@@ -46,7 +49,8 @@ interface EditorState {
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
   dataEntrega: '', dataRecolhimento: '', enderecoEntrega: '', limpezasSemanais: 1,
-  observacoes: '', condicoesPagamento: '50% na contratação, 50% na entrega.',
+  observacoes: '', condicoesPagamento: '',
+  formaPagamento: 'boleto',
   status: 'rascunho',
   items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
 });
@@ -113,6 +117,7 @@ const ErpQuotes: React.FC = () => {
         limpezasSemanais: q.limpezasSemanais ?? undefined,
         descontoPct: Number(q.descontoPct), frete: Number(q.frete),
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
+        formaPagamento: (q.formaPagamento as FormaPagamento) || 'boleto',
         status: q.status,
         items: q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }],
       });
@@ -134,8 +139,10 @@ const ErpQuotes: React.FC = () => {
     setSaving(true);
     try {
       let id = editing.id;
-      const payload = { ...editing };
+      const payload: any = { ...editing };
       if (payload.tipoLocacao === 'evento' || payload.tipoLocacao === 'outro') payload.limpezasSemanais = undefined;
+      // Sincroniza o texto livre com a forma escolhida (compat. com PDFs antigos).
+      payload.condicoesPagamento = describeFormaPagamento(payload.formaPagamento, payload.dataEntrega);
       if (id) await quotesService.update(id, payload);
       else {
         const r = await quotesService.create(payload);
@@ -154,6 +161,7 @@ const ErpQuotes: React.FC = () => {
         limpezasSemanais: full.limpezasSemanais ?? undefined,
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
+        formaPagamento: (full.formaPagamento as FormaPagamento) || 'boleto',
         status: full.status, items: full.items || [],
       });
       return full;
@@ -192,6 +200,8 @@ const ErpQuotes: React.FC = () => {
         enderecoEntrega: q.enderecoEntrega,
         observacoes: q.observacoes,
         condicoesPagamento: q.condicoesPagamento,
+        formaPagamento: q.formaPagamento || null,
+        dataVencimento: q.formaPagamento === 'boleto' ? calcVencimentoBoleto(q.dataEntrega) : null,
         frete: q.frete,
         total: q.total,
         companySnapshot: q.companySnapshot,
@@ -468,14 +478,36 @@ const ErpQuotes: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="md:col-span-2 space-y-3">
                   <div>
-                    <label className="text-xs text-muted-foreground">Condições de pagamento</label>
-                    <Textarea rows={2} value={editing.condicoesPagamento}
-                              onChange={e => setEditing({ ...editing, condicoesPagamento: e.target.value })} />
+                    <label className="text-xs text-muted-foreground">Forma de pagamento *</label>
+                    <div className="flex gap-1">
+                      {([
+                        { v: 'cartao', l: '💳 Cartão' },
+                        { v: 'pix', l: '⚡ PIX' },
+                        { v: 'boleto', l: '🧾 Boleto' },
+                      ] as const).map(o => (
+                        <Button key={o.v} type="button" size="sm" className="flex-1"
+                                variant={editing.formaPagamento === o.v ? 'default' : 'outline'}
+                                onClick={() => setEditing({ ...editing, formaPagamento: o.v })}>
+                          {o.l}
+                        </Button>
+                      ))}
+                    </div>
+                    {editing.formaPagamento === 'boleto' && (
+                      <p className="text-[11px] text-blue-700 mt-1">
+                        Vencimento do boleto: <strong>{formatDateBR(calcVencimentoBoleto(editing.dataEntrega))}</strong>
+                        {' '}(28 dias após a entrega — regra fixa).
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground">Observações</label>
+                    <label className="text-xs text-muted-foreground">Observações livres</label>
                     <Textarea rows={2} value={editing.observacoes}
-                              onChange={e => setEditing({ ...editing, observacoes: e.target.value })} />
+                              onChange={e => setEditing({ ...editing, observacoes: e.target.value })}
+                              placeholder="Observações específicas deste orçamento (opcional)" />
+                  </div>
+                  <div className="rounded-md border border-amber-200 bg-amber-50/60 p-2 text-[11px] text-amber-900 whitespace-pre-line">
+                    <div className="font-semibold mb-1">Observações fixas (sempre incluídas no orçamento e na OS):</div>
+                    {OBSERVACAO_FIXA_LOCACAO}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>

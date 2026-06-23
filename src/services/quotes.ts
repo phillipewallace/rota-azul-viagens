@@ -51,6 +51,7 @@ export interface Quote {
   limpezasSemanais?: number | null;
   observacoes?: string;
   condicoesPagamento?: string;
+  formaPagamento?: 'cartao' | 'pix' | 'boleto' | null;
   descontoPct: number;
   frete: number;
   subtotal: number;
@@ -100,6 +101,7 @@ export interface ServiceOrder {
   status: 'aberta' | 'fechada' | 'cancelada';
   valorTotal: number;
   observacoes?: string;
+  formaPagamento?: 'cartao' | 'pix' | 'boleto' | null;
   createdAt: string;
   emAtraso?: boolean;
   sanitariosAlocados?: number;

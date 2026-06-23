@@ -14,6 +14,7 @@ const QUOTE_SELECT = `
   q.endereco_entrega AS "enderecoEntrega",
   q.limpezas_semanais AS "limpezasSemanais",
   q.observacoes, q.condicoes_pagamento AS "condicoesPagamento",
+  q.forma_pagamento AS "formaPagamento",
   q.desconto_pct AS "descontoPct", q.frete, q.subtotal, q.total,
   q.status, q.pdf_gerado_em AS "pdfGeradoEm",
   q.created_at AS "createdAt", q.updated_at AS "updatedAt",
@@ -105,15 +106,16 @@ router.post('/', async (req, res) => {
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
           modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
           desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais,
-          endereco_entrega, data_recolhimento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20)
+          endereco_entrega, data_recolhimento, forma_pagamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20,$21)
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, c.dataEmissao || null, c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
        c.dataEntrega || null, c.limpezasSemanais ?? null,
-       c.enderecoEntrega || null, c.dataRecolhimento || null]
+       c.enderecoEntrega || null, c.dataRecolhimento || null,
+       c.formaPagamento || null]
     );
     const quoteId = ins.rows[0].id;
 
@@ -170,6 +172,7 @@ router.put('/:id', async (req, res) => {
          limpezas_semanais = $16,
          endereco_entrega = $17,
          data_recolhimento = $18,
+         forma_pagamento = COALESCE($19, forma_pagamento),
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
@@ -177,7 +180,8 @@ router.put('/:id', async (req, res) => {
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null,
        c.dataEntrega || null, c.limpezasSemanais ?? null,
-       c.enderecoEntrega || null, c.dataRecolhimento || null]
+       c.enderecoEntrega || null, c.dataRecolhimento || null,
+       c.formaPagamento || null]
     );
 
     if (items) {
@@ -240,13 +244,15 @@ router.post('/:id/convert-to-os', async (req, res) => {
       `INSERT INTO erp_service_orders
          (numero, quote_id, company_id, customer_id, customer_snapshot,
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
-          data_entrega, limpezas_semanais, endereco_entrega, data_recolhimento, qtd_reservada)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9, $10, $11, $12, $13, $14)
+          data_entrega, limpezas_semanais, endereco_entrega, data_recolhimento, qtd_reservada,
+          forma_pagamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING id, numero`,
       [numero, quote.id, quote.company_id, quote.customer_id, quote.customer_snapshot,
        quote.modalidade, quote.tipo_locacao, quote.total, quote.observacoes,
        quote.data_entrega || null, quote.limpezas_semanais ?? null,
-       quote.endereco_entrega || null, quote.data_recolhimento || null, qtdSanit]
+       quote.endereco_entrega || null, quote.data_recolhimento || null, qtdSanit,
+       quote.forma_pagamento || null]
     );
     const osId = osIns.rows[0].id;
 

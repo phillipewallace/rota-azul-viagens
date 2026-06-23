@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import type { Quote } from '@/services/quotes';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
 import { loadPdfImage, fitContain } from '@/utils/pdfImage';
+import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento } from '@/utils/fixedObservations';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '';
@@ -186,18 +187,28 @@ export async function generateQuotePdf(quote: Quote) {
   doc.setTextColor(0); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   afterY += 14;
 
-  // Condições / observações
-  if (quote.condicoesPagamento) {
-    doc.setFont('helvetica', 'bold'); doc.text('Condições de pagamento:', M, afterY); afterY += 5;
+  // Forma de pagamento (padronizada)
+  const formaTexto = describeFormaPagamento(quote.formaPagamento, quote.dataEntrega) || quote.condicoesPagamento;
+  if (formaTexto) {
+    doc.setFont('helvetica', 'bold'); doc.text('Forma de pagamento:', M, afterY); afterY += 5;
     doc.setFont('helvetica', 'normal');
-    const lines = doc.splitTextToSize(quote.condicoesPagamento, W - 2 * M);
+    const lines = doc.splitTextToSize(formaTexto, W - 2 * M);
     doc.text(lines, M, afterY); afterY += lines.length * 4.5 + 2;
   }
-  if (quote.observacoes) {
+  // Observações: usuário + bloco fixo obrigatório
+  const obsCombinada = [quote.observacoes?.trim(), OBSERVACAO_FIXA_LOCACAO].filter(Boolean).join('\n\n');
+  if (obsCombinada) {
     doc.setFont('helvetica', 'bold'); doc.text('Observações:', M, afterY); afterY += 5;
     doc.setFont('helvetica', 'normal');
-    const lines = doc.splitTextToSize(quote.observacoes, W - 2 * M);
-    doc.text(lines, M, afterY); afterY += lines.length * 4.5 + 2;
+    const lines = doc.splitTextToSize(obsCombinada, W - 2 * M);
+    // Quebra de página se necessário
+    const lineH = 4.2;
+    const pageH = doc.internal.pageSize.getHeight();
+    for (const ln of lines) {
+      if (afterY > pageH - 20) { doc.addPage(); afterY = 20; }
+      doc.text(ln, M, afterY); afterY += lineH;
+    }
+    afterY += 2;
   }
 
   // Rodapé com assinaturas

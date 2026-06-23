@@ -21,6 +21,7 @@ import { generateContractPdf } from '@/utils/contractPdf';
 import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
 import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
 import { formatDateBR } from '@/utils/dateFormat';
+import { calcVencimentoBoleto, describeFormaPagamento } from '@/utils/fixedObservations';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => formatDateBR(s);
@@ -143,6 +144,7 @@ const ServiceOrders: React.FC = () => {
         limpezasSemanais: d.limpezas_semanais ?? o.limpezasSemanais,
         enderecoEntrega: d.endereco_entrega || o.enderecoEntrega,
         observacoes: d.observacoes,
+        formaPagamento: d.forma_pagamento || (o as any).formaPagamento || null,
         qtdReservada: d.qtd_reservada ?? o.qtdReservada,
         customerName: o.customerName,
         customerAddress: o.customerAddress,
@@ -178,6 +180,8 @@ const ServiceOrders: React.FC = () => {
         enderecoEntrega: d.endereco_entrega || o.enderecoEntrega,
         observacoes: d.observacoes,
         frete: d.frete,
+        formaPagamento: d.forma_pagamento || (o as any).formaPagamento || null,
+        condicoesPagamento: describeFormaPagamento(d.forma_pagamento || (o as any).formaPagamento, d.data_entrega || o.dataEntrega),
         dataVencimento,
         total: Number(d.valor_total || o.valorTotal || 0),
         companySnapshot: d.companySnapshot,
@@ -538,6 +542,11 @@ const ServiceOrders: React.FC = () => {
                         {o.modalidade === 'mensal' && (det.limpezas_semanais ?? o.limpezasSemanais) != null && (det.tipo_locacao || o.tipoLocacao) !== 'evento' && (
                           <div>🧽 <strong>Limpezas/semana:</strong> {det.limpezas_semanais ?? o.limpezasSemanais}</div>
                         )}
+                        {(det.forma_pagamento || (o as any).formaPagamento) && (
+                          <div className="bg-indigo-50 border border-indigo-200 rounded p-2 text-indigo-900">
+                            💳 <strong>Pagamento:</strong> {describeFormaPagamento(det.forma_pagamento || (o as any).formaPagamento, det.data_entrega || o.dataEntrega)}
+                          </div>
+                        )}
                         {det.observacoes && (
                           <div className="bg-muted/30 rounded p-2">
                             <strong>Observações:</strong> {det.observacoes}
@@ -771,6 +780,8 @@ const ServiceOrders: React.FC = () => {
       <BoletoVencimentoDialog
         open={!!contractTarget}
         contractLabel={contractTarget ? `contrato da OS ${contractTarget.numero}` : undefined}
+        formaPagamento={(contractTarget as any)?.formaPagamento || 'boleto'}
+        dataEntrega={contractTarget?.dataEntrega || null}
         onClose={() => setContractTarget(null)}
         onConfirm={async ({ dataVencimento, preview }) => {
           const o = contractTarget;

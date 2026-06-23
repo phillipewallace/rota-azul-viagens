@@ -6,6 +6,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toDataUrl } from '@/utils/receiptPdf';
+import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento } from '@/utils/fixedObservations';
 
 const D = (s?: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
 
@@ -26,6 +27,7 @@ export interface ServiceOrderPdfInput {
   customerSnapshot?: any;
   companySnapshot?: any;
   companyRazaoSocial?: string;
+  formaPagamento?: 'cartao' | 'pix' | 'boleto' | string | null;
   items?: Array<{ produto?: string; descricao?: string; quantidade?: number }>;
   sanitariosNumeros?: string[];
 }
@@ -168,13 +170,29 @@ export async function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
     doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 2;
   }
 
-  // Observações
-  if (os.observacoes) {
+  // Forma de pagamento (sempre exibida, mesmo na via operacional, p/ alinhamento)
+  const formaTxt = describeFormaPagamento(os.formaPagamento, os.dataEntrega);
+  if (formaTxt) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    doc.text('Forma de pagamento:', M, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    const wrapped = doc.splitTextToSize(formaTxt, W - 2 * M);
+    doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 2;
+  }
+
+  // Observações livres + bloco fixo obrigatório
+  const obsCombinada = [os.observacoes?.trim(), OBSERVACAO_FIXA_LOCACAO].filter(Boolean).join('\n\n');
+  if (obsCombinada) {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
     doc.text('Observações:', M, y); y += 5;
     doc.setFont('helvetica', 'normal');
-    const wrapped = doc.splitTextToSize(os.observacoes, W - 2 * M);
-    doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 2;
+    const wrapped = doc.splitTextToSize(obsCombinada, W - 2 * M);
+    const pageH = doc.internal.pageSize.getHeight();
+    for (const ln of wrapped) {
+      if (y > pageH - 25) { doc.addPage(); y = 20; }
+      doc.text(ln, M, y); y += 4.3;
+    }
+    y += 2;
   }
 
   // Campos para conferência
