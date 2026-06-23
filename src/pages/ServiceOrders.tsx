@@ -180,6 +180,8 @@ const ServiceOrders: React.FC = () => {
         enderecoEntrega: d.endereco_entrega || o.enderecoEntrega,
         observacoes: d.observacoes,
         frete: d.frete,
+        formaPagamento: d.forma_pagamento || (o as any).formaPagamento || null,
+        condicoesPagamento: describeFormaPagamento(d.forma_pagamento || (o as any).formaPagamento, d.data_entrega || o.dataEntrega),
         dataVencimento,
         total: Number(d.valor_total || o.valorTotal || 0),
         companySnapshot: d.companySnapshot,
