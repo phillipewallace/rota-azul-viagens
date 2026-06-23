@@ -144,6 +144,7 @@ const ServiceOrders: React.FC = () => {
         limpezasSemanais: d.limpezas_semanais ?? o.limpezasSemanais,
         enderecoEntrega: d.endereco_entrega || o.enderecoEntrega,
         observacoes: d.observacoes,
+        formaPagamento: d.forma_pagamento || (o as any).formaPagamento || null,
         qtdReservada: d.qtd_reservada ?? o.qtdReservada,
         customerName: o.customerName,
         customerAddress: o.customerAddress,
