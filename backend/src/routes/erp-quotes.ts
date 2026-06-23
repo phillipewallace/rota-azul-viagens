@@ -244,13 +244,15 @@ router.post('/:id/convert-to-os', async (req, res) => {
       `INSERT INTO erp_service_orders
          (numero, quote_id, company_id, customer_id, customer_snapshot,
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
-          data_entrega, limpezas_semanais, endereco_entrega, data_recolhimento, qtd_reservada)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9, $10, $11, $12, $13, $14)
+          data_entrega, limpezas_semanais, endereco_entrega, data_recolhimento, qtd_reservada,
+          forma_pagamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING id, numero`,
       [numero, quote.id, quote.company_id, quote.customer_id, quote.customer_snapshot,
        quote.modalidade, quote.tipo_locacao, quote.total, quote.observacoes,
        quote.data_entrega || null, quote.limpezas_semanais ?? null,
-       quote.endereco_entrega || null, quote.data_recolhimento || null, qtdSanit]
+       quote.endereco_entrega || null, quote.data_recolhimento || null, qtdSanit,
+       quote.forma_pagamento || null]
     );
     const osId = osIns.rows[0].id;
 
