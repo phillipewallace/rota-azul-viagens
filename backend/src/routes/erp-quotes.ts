@@ -14,6 +14,7 @@ const QUOTE_SELECT = `
   q.endereco_entrega AS "enderecoEntrega",
   q.limpezas_semanais AS "limpezasSemanais",
   q.observacoes, q.condicoes_pagamento AS "condicoesPagamento",
+  q.forma_pagamento AS "formaPagamento",
   q.desconto_pct AS "descontoPct", q.frete, q.subtotal, q.total,
   q.status, q.pdf_gerado_em AS "pdfGeradoEm",
   q.created_at AS "createdAt", q.updated_at AS "updatedAt",
