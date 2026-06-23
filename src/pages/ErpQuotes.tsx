@@ -41,6 +41,7 @@ interface EditorState {
   frete: number;
   observacoes: string;
   condicoesPagamento: string;
+  formaPagamento?: FormaPagamento;
   status: Quote['status'];
   items: QuoteItem[];
 }
@@ -48,7 +49,8 @@ interface EditorState {
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
   dataEntrega: '', dataRecolhimento: '', enderecoEntrega: '', limpezasSemanais: 1,
-  observacoes: '', condicoesPagamento: '50% na contratação, 50% na entrega.',
+  observacoes: '', condicoesPagamento: '',
+  formaPagamento: 'boleto',
   status: 'rascunho',
   items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
 });
