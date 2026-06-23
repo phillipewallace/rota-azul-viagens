@@ -117,6 +117,7 @@ const ErpQuotes: React.FC = () => {
         limpezasSemanais: q.limpezasSemanais ?? undefined,
         descontoPct: Number(q.descontoPct), frete: Number(q.frete),
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
+        formaPagamento: (q.formaPagamento as FormaPagamento) || 'boleto',
         status: q.status,
         items: q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }],
       });
