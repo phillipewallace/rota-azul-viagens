@@ -101,6 +101,7 @@ export interface ServiceOrder {
   status: 'aberta' | 'fechada' | 'cancelada';
   valorTotal: number;
   observacoes?: string;
+  formaPagamento?: 'cartao' | 'pix' | 'boleto' | null;
   createdAt: string;
   emAtraso?: boolean;
   sanitariosAlocados?: number;
