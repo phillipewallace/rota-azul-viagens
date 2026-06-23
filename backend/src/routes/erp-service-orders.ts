@@ -25,6 +25,7 @@ router.get('/', async (req, res) => {
              o.limpezas_semanais AS "limpezasSemanais",
              o.endereco_entrega AS "enderecoEntrega",
              o.valor_total AS "valorTotal", o.observacoes,
+             o.forma_pagamento AS "formaPagamento",
              COALESCE(o.qtd_reservada,0) AS "qtdReservada",
              o.created_at AS "createdAt",
              cu.customer_name AS "customerName", cu.address AS "customerAddress",
