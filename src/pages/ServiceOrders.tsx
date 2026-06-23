@@ -21,6 +21,7 @@ import { generateContractPdf } from '@/utils/contractPdf';
 import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
 import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
 import { formatDateBR } from '@/utils/dateFormat';
+import { calcVencimentoBoleto, describeFormaPagamento } from '@/utils/fixedObservations';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => formatDateBR(s);
