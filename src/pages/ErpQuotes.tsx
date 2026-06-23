@@ -139,8 +139,10 @@ const ErpQuotes: React.FC = () => {
     setSaving(true);
     try {
       let id = editing.id;
-      const payload = { ...editing };
+      const payload: any = { ...editing };
       if (payload.tipoLocacao === 'evento' || payload.tipoLocacao === 'outro') payload.limpezasSemanais = undefined;
+      // Sincroniza o texto livre com a forma escolhida (compat. com PDFs antigos).
+      payload.condicoesPagamento = describeFormaPagamento(payload.formaPagamento, payload.dataEntrega);
       if (id) await quotesService.update(id, payload);
       else {
         const r = await quotesService.create(payload);
@@ -159,6 +161,7 @@ const ErpQuotes: React.FC = () => {
         limpezasSemanais: full.limpezasSemanais ?? undefined,
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
+        formaPagamento: (full.formaPagamento as FormaPagamento) || 'boleto',
         status: full.status, items: full.items || [],
       });
       return full;
