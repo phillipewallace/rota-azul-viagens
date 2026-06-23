@@ -6,6 +6,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toDataUrl } from '@/utils/receiptPdf';
+import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento } from '@/utils/fixedObservations';
 
 const D = (s?: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
 
@@ -26,6 +27,7 @@ export interface ServiceOrderPdfInput {
   customerSnapshot?: any;
   companySnapshot?: any;
   companyRazaoSocial?: string;
+  formaPagamento?: 'cartao' | 'pix' | 'boleto' | string | null;
   items?: Array<{ produto?: string; descricao?: string; quantidade?: number }>;
   sanitariosNumeros?: string[];
 }
