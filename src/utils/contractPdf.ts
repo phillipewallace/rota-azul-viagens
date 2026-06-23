@@ -93,6 +93,7 @@ export interface ContractSource {
   enderecoEntrega?: string | null;
   observacoes?: string | null;
   condicoesPagamento?: string | null;
+  formaPagamento?: 'cartao' | 'pix' | 'boleto' | string | null;
   dataVencimento?: string | null;
   frete?: number | null;
 
