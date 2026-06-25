@@ -498,7 +498,7 @@ const Customers: React.FC = () => {
                       <Button size="sm" variant="ghost" className="flex-1 gap-1" onClick={() => openHistory(c)}>
                         <History className="h-3.5 w-3.5" />Histórico
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => handleDelete(c)}>
+                      <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDelete(c)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
