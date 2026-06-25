@@ -8,7 +8,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, Plus, Trash2, Search, MapPin, Phone, Save, Loader2, Users,
+  ArrowLeft, Plus, Trash2, Search, MapPin, Phone, Loader2, Users,
   Building2, History, PackageOpen, PackageCheck, Wrench, RefreshCcw, Filter, Edit3, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,10 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
@@ -44,6 +48,9 @@ const Customers: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'withSan' | 'noCoords' | 'pf' | 'pj'>('all');
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [isNewDraft, setIsNewDraft] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [historyFor, setHistoryFor] = useState<Customer | null>(null);
   const [historyData, setHistoryData] = useState<{ current: CurrentSan[]; history: HistoryItem[] } | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -53,8 +60,8 @@ const Customers: React.FC = () => {
   const [counts, setCounts] = useState<Record<string, number>>({});
   // Pausa o auto-refresh enquanto o usuário está cadastrando/editando
   // ou consultando histórico, para não sobrescrever dados em digitação.
-  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch } = useCustomers({
-    pollEnabled: !editing && !historyFor,
+  const { customers, loading, error, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch } = useCustomers({
+    pollEnabled: !editing && !historyFor && !confirmDelete,
   });
 
   useEffect(() => {
@@ -141,18 +148,21 @@ const Customers: React.FC = () => {
   }, [customers, search, filterMode, counts, onlyDuplicates, duplicateInfo]);
 
   const handleAddNew = () => {
+    // Cria como "draft" — só entra na lista ao salvar.
+    // Evita cards-fantasma vazios quando o usuário fecha o modal sem salvar.
     const c: Customer = {
       id: uuidv4(),
       customerName: '', address: '', cep: '',
       personType: 'PJ', document: '',
     };
-    addCustomer(c);
+    setIsNewDraft(true);
     setEditing(c);
   };
 
   const setField = (field: keyof Customer, value: any) => {
     if (!editing) return;
-    updateCustomer(editing.id, field, value);
+    // Só propaga ao hook quando o cliente já existe na lista (não é draft).
+    if (!isNewDraft) updateCustomer(editing.id, field, value);
     setEditing({ ...editing, [field]: value });
   };
 
@@ -273,21 +283,82 @@ const Customers: React.FC = () => {
       : `${type === 'PF' ? 'CPF' : 'CNPJ'} inválido`;
   };
 
-  const handleSave = async () => {
-    if (editing) {
-      const err = validateDoc(editing);
-      if (err) { toast.error(err); return; }
-    }
-    setSaving(true);
-    try { await saveCustomers(); toast.success('Clientes salvos!'); setEditing(null); }
-    catch (e: any) { toast.error(e?.message || 'Erro ao salvar'); }
-    finally { setSaving(false); }
+  // Detecta se o documento que está sendo editado já pertence a outro cliente.
+  const findDuplicateOwner = (c: Customer | null): string | null => {
+    if (!c) return null;
+    const doc = onlyDigits(c.document || '');
+    if (!doc) return null;
+    const other = customers.find(
+      x => x.id !== c.id && onlyDigits(x.document || '') === doc
+    );
+    return other ? (other.customerName || 'sem nome') : null;
   };
 
-  const handleDelete = (c: Customer) => {
-    if (!confirm(`Remover "${c.customerName || 'sem nome'}"?`)) return;
-    deleteCustomer(c.id);
-    toast.success('Cliente removido (clique em Salvar para confirmar)');
+  const handleSave = async () => {
+    if (!editing) return;
+    // Validações de front (proporcional ao pedido): nome obrigatório,
+    // documento válido se preenchido, sem duplicar documento já cadastrado.
+    if (!(editing.customerName || '').trim()) {
+      toast.error('Informe o nome / razão social do cliente.');
+      return;
+    }
+    const docErr = validateDoc(editing);
+    if (docErr) { toast.error(docErr); return; }
+    const dupOwner = findDuplicateOwner(editing);
+    if (dupOwner) {
+      toast.error(`Documento já cadastrado em "${dupOwner}".`);
+      return;
+    }
+    setSaving(true);
+    try {
+      // Se for draft (novo), insere agora na lista — o saveCustomers usa o
+      // estado atualizado via closure dentro do hook, então sincronizamos antes.
+      if (isNewDraft) {
+        addCustomer(editing);
+      } else {
+        // Garante que o último estado do form está propagado.
+        Object.entries(editing).forEach(([k, v]) => {
+          updateCustomer(editing.id, k as keyof Customer, v);
+        });
+      }
+      // Pequeno tick para garantir que o setState do hook foi aplicado
+      // antes do bulk PUT enxergar o novo cliente.
+      await new Promise(r => setTimeout(r, 0));
+      await saveCustomers();
+      toast.success(isNewDraft ? 'Cliente cadastrado!' : 'Cliente atualizado!');
+      setEditing(null);
+      setIsNewDraft(false);
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao salvar cliente');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const closeEditor = () => {
+    // Descarta draft silenciosamente; edição em registro existente
+    // mantém o estado local (já refletido pelo updateCustomer durante setField).
+    setEditing(null);
+    setIsNewDraft(false);
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    const target = confirmDelete;
+    try {
+      deleteCustomer(target.id);
+      await new Promise(r => setTimeout(r, 0));
+      await saveCustomers();
+      toast.success(`"${target.customerName || 'Cliente'}" removido.`);
+      setConfirmDelete(null);
+    } catch (e: any) {
+      // Reverte estado local em caso de falha no servidor.
+      toast.error(e?.message || 'Erro ao remover cliente');
+      await refetch();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openHistory = async (c: Customer) => {
@@ -310,6 +381,8 @@ const Customers: React.FC = () => {
   }
 
   const docError = editing ? validateDoc(editing) : null;
+  const dupOwner = editing ? findDuplicateOwner(editing) : null;
+  const nameMissing = editing ? !(editing.customerName || '').trim() : false;
   const personType = (editing?.personType || 'PJ') as 'PF' | 'PJ';
 
   return (
@@ -326,15 +399,20 @@ const Customers: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={refetch}><RefreshCcw className="h-4 w-4 mr-1" />Recarregar</Button>
-            <Button size="sm" variant="outline" onClick={handleAddNew}><Plus className="h-4 w-4 mr-1" />Novo cliente</Button>
-            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700">
-              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}Salvar
+            <Button size="sm" onClick={handleAddNew} className="bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4 mr-1" />Novo cliente
             </Button>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
+        {error && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 text-destructive text-sm px-3 py-2 flex items-center justify-between">
+            <span>Falha ao carregar clientes: {error}</span>
+            <Button size="sm" variant="outline" onClick={refetch}>Tentar novamente</Button>
+          </div>
+        )}
         <Card><CardContent className="p-4 flex flex-wrap gap-3 items-end">
           <div className="flex-1 min-w-[260px]">
             <label className="text-xs text-muted-foreground">Buscar</label>
@@ -427,7 +505,7 @@ const Customers: React.FC = () => {
                       <Button size="sm" variant="ghost" className="flex-1 gap-1" onClick={() => openHistory(c)}>
                         <History className="h-3.5 w-3.5" />Histórico
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => handleDelete(c)}>
+                      <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDelete(c)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -439,16 +517,23 @@ const Customers: React.FC = () => {
         )}
 
         <p className="text-xs text-muted-foreground text-center">
-          Lembre-se de clicar em <strong>Salvar</strong> para persistir as alterações.
+          Cada cadastro, edição ou remoção é salvo automaticamente no servidor.
         </p>
       </div>
 
       {/* Modal de edição com tabs */}
-      <Dialog open={!!editing} onOpenChange={o => !o && setEditing(null)}>
+      <Dialog open={!!editing} onOpenChange={o => !o && closeEditor()}>
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing?.customerName || 'Novo cliente'}</DialogTitle>
+            <DialogTitle>
+              {isNewDraft ? 'Novo cliente' : (editing?.customerName || 'Editar cliente')}
+            </DialogTitle>
           </DialogHeader>
+          {dupOwner && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-xs px-3 py-2">
+              ⚠ Este documento já está cadastrado em <strong>{dupOwner}</strong>. Salvar será bloqueado.
+            </div>
+          )}
           {editing && (
             <Tabs defaultValue="dados">
               <TabsList className="grid grid-cols-4 w-full">
@@ -652,10 +737,18 @@ const Customers: React.FC = () => {
             </Tabs>
           )}
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>Fechar</Button>
-            <Button onClick={handleSave} disabled={saving || !!docError}
-                    className="bg-green-600 hover:bg-green-700">
-              {saving ? 'Salvando…' : 'Salvar tudo'}
+            <Button variant="ghost" onClick={closeEditor} disabled={saving}>
+              {isNewDraft ? 'Cancelar' : 'Fechar'}
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving || !!docError || !!dupOwner || nameMissing}
+              className="bg-green-600 hover:bg-green-700"
+              title={nameMissing ? 'Preencha o nome do cliente' : dupOwner ? `Documento duplicado em ${dupOwner}` : docError || ''}
+            >
+              {saving
+                ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Salvando…</>
+                : (isNewDraft ? 'Cadastrar cliente' : 'Salvar alterações')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -716,6 +809,33 @@ const Customers: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={o => !o && !deleting && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover cliente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a remover <strong>{confirmDelete?.customerName || 'este cliente'}</strong>.
+              {sanCount(confirmDelete || ({} as Customer)) > 0 && (
+                <span className="block mt-2 text-amber-700">
+                  ⚠ Este cliente possui {sanCount(confirmDelete!)} sanitário(s) alocado(s). A remoção não afeta o histórico já registrado.
+                </span>
+              )}
+              <span className="block mt-2">Esta ação é imediata e não pode ser desfeita.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Removendo…</> : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
