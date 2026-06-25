@@ -266,4 +266,53 @@ router.post('/:id/convert-to-os', async (req, res) => {
   } finally { client.release(); }
 });
 
+/**
+ * Duplica um orçamento: cria um novo registro com numeração nova,
+ * status 'rascunho', mesmas informações e itens.
+ */
+router.post('/:id/duplicate', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const q = await client.query('SELECT * FROM erp_quotes WHERE id=$1', [req.params.id]);
+    if (!q.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'não encontrado' }); }
+    const src = q.rows[0];
+    const items = await loadItems(req.params.id);
+
+    const numRes = await client.query(`SELECT erp_next_doc_number('ORC') AS num`);
+    const numero = numRes.rows[0].num;
+
+    const ins = await client.query(
+      `INSERT INTO erp_quotes
+         (numero, company_id, customer_id, company_snapshot, customer_snapshot,
+          modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
+          desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais,
+          endereco_entrega, data_recolhimento, forma_pagamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,$8,$9,$10,$11,$12,$13,$14,'rascunho',$15,$16,$17,$18,$19)
+       RETURNING id`,
+      [numero, src.company_id, src.customer_id, src.company_snapshot, src.customer_snapshot,
+       src.modalidade, src.tipo_locacao, src.validade_dias,
+       src.observacoes, src.condicoes_pagamento,
+       src.desconto_pct, src.frete, src.subtotal, src.total,
+       src.data_entrega, src.limpezas_semanais,
+       src.endereco_entrega, src.data_recolhimento, src.forma_pagamento]
+    );
+    const newId = ins.rows[0].id;
+
+    for (const it of items) {
+      await client.query(
+        `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [newId, it.produto, it.descricao, it.quantidade, it.valorUnitario, it.valorTotal, it.ordem]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ id: newId, numero });
+  } catch (e: any) {
+    await client.query('ROLLBACK');
+    console.error('[erp-quotes duplicate]', e);
+    res.status(500).json({ error: e.message });
+  } finally { client.release(); }
+});
+
 export default router;

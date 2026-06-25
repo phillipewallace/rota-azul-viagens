@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, FileText, Trash2, Search, Loader2, Save, Download,
-  CheckCircle2, RefreshCcw, FileDown, AlertCircle,
+  CheckCircle2, RefreshCcw, FileDown, AlertCircle, Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -299,6 +299,18 @@ const ErpQuotes: React.FC = () => {
                   <div className="text-right font-bold text-lg text-primary">{BRL(q.total)}</div>
                   <div className="flex gap-1 pt-2 border-t">
                     <Button size="sm" variant="ghost" className="flex-1" onClick={() => openEdit(q.id)}>Editar</Button>
+                    <Button size="sm" variant="ghost" className="text-blue-700 hover:bg-blue-50"
+                            title="Duplicar orçamento"
+                            onClick={async () => {
+                              try {
+                                const r = await quotesService.duplicate(q.id);
+                                toast.success(`Orçamento ${r.numero} criado`);
+                                await load();
+                                openEdit(r.id);
+                              } catch (e: any) { toast.error(e.message); }
+                            }}>
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
                     {q.status !== 'convertido' && (
                       <Button size="sm" variant="ghost" className="text-purple-700 hover:bg-purple-50"
                               title="Converter em Ordem de Serviço"
