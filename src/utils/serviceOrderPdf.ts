@@ -171,27 +171,34 @@ export async function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
     doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 2;
   }
 
+  const pageH = doc.internal.pageSize.getHeight();
+  const ensureSpace = (needed: number) => {
+    if (y + needed > pageH - 30) { doc.addPage(); y = 20; }
+  };
+
   // Forma de pagamento (sempre exibida, mesmo na via operacional, p/ alinhamento)
   const formaTxt = describeFormaPagamento(os.formaPagamento, os.dataEntrega);
   if (formaTxt) {
+    const wrapped = doc.splitTextToSize(formaTxt, W - 2 * M);
+    ensureSpace(5 + wrapped.length * 4.5 + 2);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
     doc.text('Forma de pagamento:', M, y); y += 5;
     doc.setFont('helvetica', 'normal');
-    const wrapped = doc.splitTextToSize(formaTxt, W - 2 * M);
     doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 2;
   }
 
-  // Observações livres + bloco fixo obrigatório
+  // Observações livres + bloco fixo obrigatório (sempre presente)
   const obsCombinada = [os.observacoes?.trim(), OBSERVACAO_FIXA_LOCACAO].filter(Boolean).join('\n\n');
   if (obsCombinada) {
+    const wrapped = doc.splitTextToSize(obsCombinada, W - 2 * M);
+    const lineH = 4.3;
+    ensureSpace(5 + lineH * Math.min(wrapped.length, 3));
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
     doc.text('Observações:', M, y); y += 5;
     doc.setFont('helvetica', 'normal');
-    const wrapped = doc.splitTextToSize(obsCombinada, W - 2 * M);
-    const pageH = doc.internal.pageSize.getHeight();
     for (const ln of wrapped) {
-      if (y > pageH - 25) { doc.addPage(); y = 20; }
-      doc.text(ln, M, y); y += 4.3;
+      if (y > pageH - 30) { doc.addPage(); y = 20; }
+      doc.text(ln, M, y); y += lineH;
     }
     y += 2;
   }
