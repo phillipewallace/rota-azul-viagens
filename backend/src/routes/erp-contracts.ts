@@ -143,8 +143,13 @@ router.put('/:id', async (req, res) => {
          observacoes = $19,
          motivo_encerramento = $20,
          frete = COALESCE($21, frete),
-         encerrado_em = CASE WHEN $17 = FALSE AND ativo = TRUE THEN NOW()
-                             WHEN $17 = TRUE THEN NULL ELSE encerrado_em END,
+         -- [#7 alto] encerrado_em só muda quando $17 vem definido; null deixa intacto.
+         encerrado_em = CASE
+           WHEN $17::boolean IS NULL THEN encerrado_em
+           WHEN $17 = FALSE AND ativo = TRUE THEN NOW()
+           WHEN $17 = TRUE THEN NULL
+           ELSE encerrado_em
+         END,
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null, c.osId || null,
@@ -164,9 +169,21 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM erp_contracts WHERE id=$1', [req.params.id]);
+    // [#26 baixo] Bloqueia exclusão de contrato com recibos associados.
+    const dep = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM erp_receipts WHERE contract_id=$1`,
+      [req.params.id]
+    );
+    if ((dep.rows[0]?.n || 0) > 0) {
+      return res.status(400).json({
+        error: `Contrato possui ${dep.rows[0].n} recibo(s) emitido(s). Encerre o contrato em vez de excluí-lo.`,
+      });
+    }
+    const r = await pool.query('DELETE FROM erp_contracts WHERE id=$1 RETURNING id', [req.params.id]);
+    if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
+
 
 export default router;

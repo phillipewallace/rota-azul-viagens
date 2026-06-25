@@ -51,6 +51,8 @@ router.get('/', async (req, res) => {
 router.get('/pending', async (req, res) => {
   try {
     const competencia = String((req.query as any).competencia || competenciaAtual());
+    // [#6 alto] usa o ÚLTIMO dia do mês da competência como corte (e não dia 28
+    // fixo, que excluía contratos iniciados em 29/30/31).
     const r = await pool.query(
       `SELECT c.id AS "contractId", c.numero AS "contractNumero",
               c.valor_mensal AS "valorMensal", c.dia_vencimento AS "diaVencimento",
@@ -63,7 +65,8 @@ router.get('/pending', async (req, res) => {
          LEFT JOIN erp_companies emp ON emp.id = c.company_id
          LEFT JOIN customers cu ON cu.id = c.customer_id
         WHERE c.ativo = TRUE
-          AND c.data_inicio <= ($1 || '-28')::date
+          AND c.data_inicio <= (date_trunc('month', ($1 || '-01')::date)
+                                + INTERVAL '1 month - 1 day')::date
           AND NOT EXISTS (
              SELECT 1 FROM erp_receipts r
               WHERE r.contract_id = c.id AND r.competencia = $1
@@ -74,6 +77,7 @@ router.get('/pending', async (req, res) => {
     res.json({ competencia, pendentes: r.rows });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
+
 
 // Gera (ou regera) recibo da competência. Se já existir, atualiza valor e marca regerado.
 router.post('/generate', async (req, res) => {
@@ -106,26 +110,41 @@ router.post('/generate', async (req, res) => {
     const ct = contractRes.rows[0];
 
     const existing = await client.query(
-      `SELECT id, numero FROM erp_receipts WHERE contract_id=$1 AND competencia=$2`,
+      `SELECT id, numero, snapshot FROM erp_receipts WHERE contract_id=$1 AND competencia=$2`,
       [contractId, competencia]
     );
 
-    // É o 1º recibo do contrato (em qualquer competência)? Se sim, e existe frete, cobra UMA ÚNICA VEZ.
-    const totalRecibos = await client.query(
-      `SELECT COUNT(*)::int AS n FROM erp_receipts WHERE contract_id=$1${existing.rows[0] ? ' AND id <> $2' : ''}`,
-      existing.rows[0] ? [contractId, existing.rows[0].id] : [contractId]
-    );
-    const isPrimeiro = (totalRecibos.rows[0]?.n || 0) === 0;
+    // [#10 alto] regerar um recibo NÃO deve duplicar o frete: ao regerar,
+    // reutilizamos o freteIncluso que já estava no snapshot original.
     const freteCt = Number(ct.frete || 0);
-    const freteAplicado = (isPrimeiro && freteCt > 0) ? freteCt : 0;
+    let isPrimeiro = false;
+    let freteAplicado = 0;
+
+    if (existing.rows[0]) {
+      // Regeração — preserva a decisão original sobre o frete.
+      const snap = existing.rows[0].snapshot || {};
+      freteAplicado = Number(snap.freteIncluso || 0);
+      isPrimeiro = !!snap.primeiroRecibo;
+    } else {
+      // Nova competência — é o primeiro se ainda não há outro recibo do contrato.
+      const totalRecibos = await client.query(
+        `SELECT COUNT(*)::int AS n FROM erp_receipts WHERE contract_id=$1`,
+        [contractId]
+      );
+      isPrimeiro = (totalRecibos.rows[0]?.n || 0) === 0;
+      freteAplicado = (isPrimeiro && freteCt > 0) ? freteCt : 0;
+    }
 
     const baseValor = Number(valor ?? ct.valor_mensal ?? 0);
     const valorFinal = baseValor + freteAplicado;
 
-    // Vencimento da competência
+    // [#21 médio] Vencimento da competência — respeita dia_vencimento mesmo > 28,
+    // limitando ao último dia real do mês quando necessário.
     const [ano, mes] = competencia.split('-').map(Number);
-    const dia = Math.min(Number(ct.dia_vencimento || 10), 28);
+    const ultimoDia = new Date(ano, mes, 0).getDate(); // dia 0 do mês seguinte
+    const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
     const dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+
 
     const snapshot = {
       contract: {

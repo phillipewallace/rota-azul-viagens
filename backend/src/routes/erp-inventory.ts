@@ -228,11 +228,14 @@ router.post('/movements', async (req: AuthedRequest, res: Response) => {
     await client.query('COMMIT');
     res.json(m.rows[0]);
   } catch (e: any) {
-    await client.query('ROLLBACK').catch(() => {});
+    // [#29 baixo] loga falhas no ROLLBACK em vez de silenciá-las.
+    try { await client.query('ROLLBACK'); }
+    catch (rbErr) { console.error('[ERP movs POST] rollback failed', rbErr); }
     console.error('[ERP movs POST]', e);
     res.status(500).json({ error: e.message });
   } finally { client.release(); }
 });
+
 
 // ============ DASHBOARD / ALERTAS ============
 router.get('/dashboard', async (_req: Request, res: Response) => {

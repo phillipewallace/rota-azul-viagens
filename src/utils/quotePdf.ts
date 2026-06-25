@@ -162,9 +162,11 @@ export async function generateQuotePdf(quote: Quote) {
     margin: { left: M, right: M },
   });
 
-  let afterY = (doc as any).lastAutoTable.finalY + 6;
+  // [#14 médio] guarda contra autoTable indisponível por erro interno.
+  let afterY = ((doc as any).lastAutoTable?.finalY ?? y) + 6;
   // Garante espaço para o bloco de totais (45mm) — evita corte ao pé da página
   if (afterY + 45 > doc.internal.pageSize.getHeight() - 25) { doc.addPage(); afterY = 20; }
+
 
 
 

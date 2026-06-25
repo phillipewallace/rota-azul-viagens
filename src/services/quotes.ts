@@ -63,11 +63,17 @@ export interface Quote {
   items?: QuoteItem[];
 }
 
+// [#27 baixo] helper — só inclui chaves com valor presente (evita "undefined" como string).
+const toQuery = (params?: Record<string, unknown>): string => {
+  if (!params) return '';
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '');
+  if (!entries.length) return '';
+  return '?' + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+};
+
 export const quotesService = {
-  list: (params?: { status?: string; customerId?: string }) => {
-    const q = new URLSearchParams(params as any).toString();
-    return req<Quote[]>('GET', `/erp/quotes${q ? '?' + q : ''}`);
-  },
+  list: (params?: { status?: string; customerId?: string }) =>
+    req<Quote[]>('GET', `/erp/quotes${toQuery(params)}`),
   get: (id: string) => req<Quote>('GET', `/erp/quotes/${id}`),
   create: (data: Partial<Quote>) => req<{ id: string; numero: string }>('POST', '/erp/quotes', data),
   update: (id: string, data: Partial<Quote>) => req<{ ok: true }>('PUT', `/erp/quotes/${id}`, data),
@@ -78,6 +84,7 @@ export const quotesService = {
   duplicate: (id: string) =>
     req<{ id: string; numero: string }>('POST', `/erp/quotes/${id}/duplicate`),
 };
+
 
 export interface ServiceOrder {
   id: string;

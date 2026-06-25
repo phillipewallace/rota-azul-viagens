@@ -44,16 +44,26 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
   const [error, setError] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
 
+  // [#5 alto] sempre envia o token JWT — backend agora exige auth.
+  const authHeaders = useCallback((): HeadersInit => {
+    const t = localStorage.getItem('auth_token');
+    return {
+      'Content-Type': 'application/json',
+      ...(t ? { Authorization: `Bearer ${t}` } : {}),
+    };
+  }, []);
+
   const fetchCustomers = useCallback(async () => {
     try {
       // Só mostra "loading" no primeiro fetch — refetches em background
       // não devem piscar a UI nem dar sensação de refresh
       if (!hasLoadedRef.current) setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/customers`);
+      const response = await fetch(`${API_BASE_URL}/customers`, { headers: authHeaders() });
       if (!response.ok) throw new Error('Erro ao carregar clientes');
       const data = await response.json();
       setCustomers(data || []);
       hasLoadedRef.current = true;
+      setError(null);
     } catch (err) {
       console.error('Erro ao buscar clientes:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
@@ -61,7 +71,7 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authHeaders]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
   // Sincronização entre usuários — pausada quando há edição em andamento
@@ -70,7 +80,7 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
   const addCustomer = useCallback((customer: Customer) => {
     setCustomers(prev => [...prev, customer]);
   }, []);
-  const updateCustomer = useCallback((id: string, field: keyof Customer, value: any) => {
+  const updateCustomer = useCallback(<K extends keyof Customer>(id: string, field: K, value: Customer[K]) => {
     setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
   }, []);
   const deleteCustomer = useCallback((id: string) => {
@@ -80,7 +90,7 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
   const saveCustomers = useCallback(async () => {
     const response = await fetch(`${API_BASE_URL}/customers`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ customers }),
     });
     if (!response.ok) {
@@ -90,7 +100,8 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
     const result = await response.json();
     setCustomers(result.customers || customers);
     return result;
-  }, [customers]);
+  }, [customers, authHeaders]);
+
 
   return { customers, loading, error, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch: fetchCustomers };
 };

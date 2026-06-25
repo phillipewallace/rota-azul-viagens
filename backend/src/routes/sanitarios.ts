@@ -38,16 +38,26 @@ const CATEGORIAS = ['comum', 'pne', 'pia', 'luxo', 'cabine_banho'] as const;
 type Categoria = typeof CATEGORIAS[number];
 const isCategoria = (v: any): v is Categoria => CATEGORIAS.includes(v);
 
+// [#17 médio] DDL one-shot por processo, em vez de rodar em todo hot path.
+let _appSettingsReady: Promise<void> | null = null;
+let _categoriaColReady: Promise<void> | null = null;
 async function ensureAppSettings() {
-  await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
-    key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`);
+  if (!_appSettingsReady) {
+    _appSettingsReady = pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`).then(() => undefined).catch((e) => { _appSettingsReady = null; throw e; });
+  }
+  return _appSettingsReady;
 }
 async function ensureCategoriaColumn() {
-  try {
-    await pool.query(`ALTER TABLE sanitarios ADD COLUMN IF NOT EXISTS categoria TEXT NOT NULL DEFAULT 'comum'`);
-  } catch { /* ignora */ }
+  if (!_categoriaColReady) {
+    _categoriaColReady = pool.query(
+      `ALTER TABLE sanitarios ADD COLUMN IF NOT EXISTS categoria TEXT NOT NULL DEFAULT 'comum'`
+    ).then(() => undefined).catch(() => undefined);
+  }
+  return _categoriaColReady;
 }
+
 
 async function getCategoriasTotalFisico(): Promise<Record<Categoria, number>> {
   await ensureAppSettings();

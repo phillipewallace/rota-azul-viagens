@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../config/database';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
+router.use(requireAuth); // [#1 crítico] exige autenticação em todos os endpoints
 
 const CUSTOMER_SELECT = `
   id,
@@ -26,7 +28,7 @@ const CUSTOMER_SELECT = `
 router.get('/:id/history', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const cust = await pool.query(`SELECT customer_name FROM customers WHERE id = $1`, [id]);
+    const cust = await pool.query(`SELECT id, customer_name FROM customers WHERE id = $1`, [id]);
     if (!cust.rows[0]) { res.status(404).json({ error: 'cliente não encontrado' }); return; }
     const name = cust.rows[0].customer_name;
     if (!name) { res.json({ current: [], history: [] }); return; }
@@ -63,19 +65,24 @@ router.put('/', async (req: Request, res: Response) => {
   const { customers } = req.body;
   if (!Array.isArray(customers)) { res.status(400).json({ error: 'Lista de clientes inválida' }); return; }
 
-  // Observação: duplicatas por documento são permitidas e tratadas no
-  // frontend via modal de confirmação. O índice único foi removido pela
-  // migration `migration-customers-drop-document-unique.sql`.
+  const sentIds = customers.map(c => c?.id).filter(Boolean);
+
+  // [#2 crítico] Guarda contra "DELETE FROM customers" acidental.
+  // Se o array não está vazio mas não tem nenhum id válido, é payload corrompido.
+  if (customers.length > 0 && sentIds.length === 0) {
+    res.status(400).json({ error: 'Payload inválido: nenhum cliente possui id' });
+    return;
+  }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const sentIds = customers.map(c => c.id).filter(Boolean);
     if (sentIds.length > 0) {
       await client.query(
         `DELETE FROM customers WHERE id NOT IN (${sentIds.map((_, i) => `$${i + 1}`).join(',')})`,
         sentIds);
     } else {
+      // lista vazia explícita = limpar tudo
       await client.query('DELETE FROM customers');
     }
     for (const c of customers) {
@@ -100,11 +107,17 @@ router.put('/', async (req: Request, res: Response) => {
           tipo_cliente=EXCLUDED.tipo_cliente,
           updated_at=NOW()
       `, [
-        c.id, c.customerName || null, c.address || null, c.cep || null,
+        c.id,
+        (c.customerName || '').trim() || null,                  // [#5 médio] trim
+        (c.address || '').trim() || null,
+        c.cep ? String(c.cep).replace(/\D/g, '') : null,        // [#5 médio] normaliza
         c.lat || null, c.lng || null,
         c.restroomsQty || null, c.cleaningsQty || null,
-        c.contactName || null, c.contactPhone || null, c.notes || null,
-        c.personType || 'PJ', doc, c.ie || null, c.im || null, c.email || null,
+        (c.contactName || '').trim() || null,
+        c.contactPhone ? String(c.contactPhone).trim() : null,
+        c.notes || null,
+        c.personType || 'PJ', doc, c.ie || null, c.im || null,
+        c.email ? String(c.email).trim().toLowerCase() : null,  // [#5 médio] normaliza email
         c.numero || null, c.complemento || null, c.bairro || null,
         c.cidade || null, c.estado || null,
         c.responsavelNome || null, c.responsavelCpf || null, c.tipoCliente || null,
