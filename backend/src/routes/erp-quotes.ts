@@ -162,27 +162,32 @@ router.put('/:id', async (req, res) => {
          tipo_locacao = COALESCE($14, tipo_locacao),
          data_emissao = COALESCE($5, data_emissao),
          validade_dias = COALESCE($6, validade_dias),
-         observacoes = $7,
-         condicoes_pagamento = $8,
+         observacoes = COALESCE($7, observacoes),
+         condicoes_pagamento = COALESCE($8, condicoes_pagamento),
          desconto_pct = COALESCE($9, desconto_pct),
          frete = COALESCE($10, frete),
          subtotal = $11, total = $12,
          status = COALESCE($13, status),
-         data_entrega = $15,
-         limpezas_semanais = $16,
-         endereco_entrega = $17,
-         data_recolhimento = $18,
+         data_entrega = COALESCE($15, data_entrega),
+         limpezas_semanais = COALESCE($16, limpezas_semanais),
+         endereco_entrega = COALESCE($17, endereco_entrega),
+         data_recolhimento = COALESCE($18, data_recolhimento),
          forma_pagamento = COALESCE($19, forma_pagamento),
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
        c.modalidade || null, c.dataEmissao || null, c.validadeDias || null,
-       c.observacoes || null, c.condicoesPagamento || null,
+       // [#25 baixo] preserva campos quando omitidos no PUT (não zera observações).
+       c.observacoes !== undefined ? c.observacoes : null,
+       c.condicoesPagamento !== undefined ? c.condicoesPagamento : null,
        c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null,
-       c.dataEntrega || null, c.limpezasSemanais ?? null,
-       c.enderecoEntrega || null, c.dataRecolhimento || null,
+       c.dataEntrega !== undefined ? c.dataEntrega : null,
+       c.limpezasSemanais !== undefined ? c.limpezasSemanais : null,
+       c.enderecoEntrega !== undefined ? c.enderecoEntrega : null,
+       c.dataRecolhimento !== undefined ? c.dataRecolhimento : null,
        c.formaPagamento || null]
     );
+
 
     if (items) {
       await client.query('DELETE FROM erp_quote_items WHERE quote_id=$1', [req.params.id]);

@@ -11,9 +11,12 @@ router.get('/', async (req, res) => {
     const { status, overdue } = req.query as any;
     const conds: string[] = [];
     const params: any[] = [];
-    if (status) { params.push(status); conds.push(`o.status = $${params.length}`); }
+    // [#12 alto] quando overdue=true, ignora status (já força 'aberta'), evitando AND conflitante.
     if (overdue === 'true') {
       conds.push(`o.status = 'aberta' AND o.modalidade='diaria' AND o.data_fim_prevista IS NOT NULL AND o.data_fim_prevista < CURRENT_DATE`);
+    } else if (status) {
+      params.push(status);
+      conds.push(`o.status = $${params.length}`);
     }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const r = await pool.query(`
@@ -49,6 +52,7 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 
 // OS com entrega próxima (hoje ou amanhã) ainda em aberto — para notificações
 router.get('/notifications/upcoming', async (_req, res) => {
