@@ -48,6 +48,9 @@ const Customers: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'withSan' | 'noCoords' | 'pf' | 'pj'>('all');
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [isNewDraft, setIsNewDraft] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [historyFor, setHistoryFor] = useState<Customer | null>(null);
   const [historyData, setHistoryData] = useState<{ current: CurrentSan[]; history: HistoryItem[] } | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -57,8 +60,8 @@ const Customers: React.FC = () => {
   const [counts, setCounts] = useState<Record<string, number>>({});
   // Pausa o auto-refresh enquanto o usuário está cadastrando/editando
   // ou consultando histórico, para não sobrescrever dados em digitação.
-  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch } = useCustomers({
-    pollEnabled: !editing && !historyFor,
+  const { customers, loading, error, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch } = useCustomers({
+    pollEnabled: !editing && !historyFor && !confirmDelete,
   });
 
   useEffect(() => {
