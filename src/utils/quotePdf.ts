@@ -163,6 +163,10 @@ export async function generateQuotePdf(quote: Quote) {
   });
 
   let afterY = (doc as any).lastAutoTable.finalY + 6;
+  // Garante espaço para o bloco de totais (45mm) — evita corte ao pé da página
+  if (afterY + 45 > doc.internal.pageSize.getHeight() - 25) { doc.addPage(); afterY = 20; }
+
+
 
   // Resumo financeiro
   const desconto = Number(quote.subtotal) * (Number(quote.descontoPct) || 0) / 100;
