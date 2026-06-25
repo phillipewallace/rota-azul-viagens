@@ -228,17 +228,20 @@ router.post('/:id/convert-to-os', async (req, res) => {
     const quote = q.rows[0];
     const items = await loadItems(req.params.id);
 
+    // [#9 alto] detecção de sanitário mais precisa — evita "sanitização"
+    // e captura "banheiro químico" (sem a palavra "sanit").
+    const isSanitarioItem = (s: string) =>
+      /banheiro\s*qu[íi]mico|sanit[áa]rios?(\s|$)/i.test(s || '');
     const qtdSanit = items
-      .filter((it: any) => /sanit/i.test(it.produto || '') || /sanit/i.test(it.descricao || ''))
+      .filter((it: any) => isSanitarioItem(it.produto || '') || isSanitarioItem(it.descricao || ''))
       .reduce((acc: number, it: any) => acc + Math.ceil(Number(it.quantidade || 0)), 0);
 
     const numRes = await client.query(`SELECT erp_next_doc_number('OS') AS num`);
     const numero = numRes.rows[0].num;
 
-    const diasReq = req.body?.dias || quote.validade_dias || 1;
-    const fimPrevista = quote.modalidade === 'diaria'
-      ? `(CURRENT_DATE + INTERVAL '${parseInt(diasReq) || 1} day')::date`
-      : 'NULL';
+    // [#3 crítico] sem interpolação de string — passa como parâmetro
+    const diasReq = Math.max(1, parseInt(String(req.body?.dias || quote.validade_dias || 1)) || 1);
+    const isDiaria = quote.modalidade === 'diaria';
 
     const osIns = await client.query(
       `INSERT INTO erp_service_orders
@@ -246,13 +249,16 @@ router.post('/:id/convert-to-os', async (req, res) => {
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
           data_entrega, limpezas_semanais, endereco_entrega, data_recolhimento, qtd_reservada,
           forma_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE, ${fimPrevista}, 'aberta', $8, $9, $10, $11, $12, $13, $14, $15)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,
+               CASE WHEN $16::boolean THEN (CURRENT_DATE + ($17::int * INTERVAL '1 day'))::date ELSE NULL END,
+               'aberta', $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING id, numero`,
       [numero, quote.id, quote.company_id, quote.customer_id, quote.customer_snapshot,
        quote.modalidade, quote.tipo_locacao, quote.total, quote.observacoes,
        quote.data_entrega || null, quote.limpezas_semanais ?? null,
        quote.endereco_entrega || null, quote.data_recolhimento || null, qtdSanit,
-       quote.forma_pagamento || null]
+       quote.forma_pagamento || null,
+       isDiaria, diasReq]
     );
     const osId = osIns.rows[0].id;
 
@@ -265,6 +271,7 @@ router.post('/:id/convert-to-os', async (req, res) => {
     res.status(500).json({ error: e.message });
   } finally { client.release(); }
 });
+
 
 /**
  * Duplica um orçamento: cria um novo registro com numeração nova,

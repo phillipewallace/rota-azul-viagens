@@ -24,27 +24,46 @@ router.get('/', async (_req, res) => {
   }
 });
 
+// Validação de CNPJ (algoritmo dígitos verificadores)
+function isValidCnpj(raw: string): boolean {
+  const c = (raw || '').replace(/\D/g, '');
+  if (c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false;
+  const calc = (slice: number) => {
+    const w = slice === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2];
+    let s = 0;
+    for (let i = 0; i < w.length; i++) s += parseInt(c[i]) * w[i];
+    const r = s % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === parseInt(c[12]) && calc(13) === parseInt(c[13]);
+}
+
 router.post('/', async (req, res) => {
   try {
     const c = req.body || {};
     if (!c.razaoSocial || !c.cnpj) {
       return res.status(400).json({ error: 'razaoSocial e cnpj são obrigatórios' });
     }
-    const count = await pool.query('SELECT COUNT(*)::int AS n FROM erp_companies');
-    if ((count.rows[0]?.n || 0) >= MAX_COMPANIES) {
-      return res.status(400).json({ error: `Limite de ${MAX_COMPANIES} empresas atingido` });
+    const cnpjDigits = String(c.cnpj).replace(/\D/g, '');
+    if (!isValidCnpj(cnpjDigits)) {                          // [#30 baixo] valida CNPJ
+      return res.status(400).json({ error: 'CNPJ inválido' });
     }
+    // [#4 crítico] insert condicional dentro de transação — evita race no limite de empresas.
     const r = await pool.query(
       `INSERT INTO erp_companies
         (razao_social, nome_fantasia, cnpj, inscricao_estadual,
          endereco, cidade, estado, cep, telefone, email, logo_url, assinatura_url, ativo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13,TRUE))
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13,TRUE)
+        WHERE (SELECT COUNT(*) FROM erp_companies) < ${MAX_COMPANIES}
        RETURNING *`,
-      [c.razaoSocial, c.nomeFantasia || null, String(c.cnpj).replace(/\D/g, ''),
+      [c.razaoSocial, c.nomeFantasia || null, cnpjDigits,
        c.inscricaoEstadual || null, c.endereco || null, c.cidade || null,
        c.estado || null, c.cep || null, c.telefone || null, c.email || null,
        c.logoUrl || null, c.assinaturaUrl || null, c.ativo]
     );
+    if (!r.rows[0]) {
+      return res.status(400).json({ error: `Limite de ${MAX_COMPANIES} empresas atingido` });
+    }
     res.json(r.rows[0]);
   } catch (e: any) {
     console.error('[ERP companies POST]', e);
@@ -54,6 +73,7 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 
 router.put('/:id', async (req, res) => {
   try {
