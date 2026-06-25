@@ -7,8 +7,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toDataUrl } from '@/utils/receiptPdf';
 import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento } from '@/utils/fixedObservations';
+import { formatDateBR } from '@/utils/dateFormat';
 
-const D = (s?: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
+const D = (s?: string | null) => s ? formatDateBR(s) : '—';
 
 export interface ServiceOrderPdfInput {
   numero: string;
