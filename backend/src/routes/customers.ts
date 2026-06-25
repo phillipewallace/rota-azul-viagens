@@ -109,31 +109,6 @@ router.put('/', async (req: Request, res: Response) => {
         c.cidade || null, c.estado || null,
         c.responsavelNome || null, c.responsavelCpf || null, c.tipoCliente || null,
       ]);
-      } catch (innerErr: any) {
-        // 23505 = unique_violation no Postgres
-        if (innerErr?.code === '23505') {
-          await client.query('ROLLBACK');
-          // Descobre qual cliente já existe com esse documento
-          let owner = '';
-          if (doc) {
-            const existing = await pool.query(
-              `SELECT customer_name FROM customers WHERE document = $1 AND id <> $2 LIMIT 1`,
-              [doc, c.id]
-            );
-            owner = existing.rows[0]?.customer_name || '';
-          }
-          res.status(409).json({
-            error: doc
-              ? `O documento ${doc} (cliente "${c.customerName || 'sem nome'}") já está cadastrado${owner ? ` em "${owner}"` : ''}.`
-              : `Registro duplicado em "${c.customerName || 'sem nome'}".`,
-            duplicateDocument: doc,
-            duplicateOwner: owner,
-            conflictingName: c.customerName || null,
-          });
-          return;
-        }
-        throw innerErr;
-      }
     }
     await client.query('COMMIT');
     const result = await pool.query(`SELECT ${CUSTOMER_SELECT} FROM customers ORDER BY customer_name ASC`);
