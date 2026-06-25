@@ -381,6 +381,8 @@ const Customers: React.FC = () => {
   }
 
   const docError = editing ? validateDoc(editing) : null;
+  const dupOwner = editing ? findDuplicateOwner(editing) : null;
+  const nameMissing = editing ? !(editing.customerName || '').trim() : false;
   const personType = (editing?.personType || 'PJ') as 'PF' | 'PJ';
 
   return (
