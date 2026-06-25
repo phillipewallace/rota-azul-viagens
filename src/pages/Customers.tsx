@@ -283,21 +283,82 @@ const Customers: React.FC = () => {
       : `${type === 'PF' ? 'CPF' : 'CNPJ'} inválido`;
   };
 
-  const handleSave = async () => {
-    if (editing) {
-      const err = validateDoc(editing);
-      if (err) { toast.error(err); return; }
-    }
-    setSaving(true);
-    try { await saveCustomers(); toast.success('Clientes salvos!'); setEditing(null); }
-    catch (e: any) { toast.error(e?.message || 'Erro ao salvar'); }
-    finally { setSaving(false); }
+  // Detecta se o documento que está sendo editado já pertence a outro cliente.
+  const findDuplicateOwner = (c: Customer | null): string | null => {
+    if (!c) return null;
+    const doc = onlyDigits(c.document || '');
+    if (!doc) return null;
+    const other = customers.find(
+      x => x.id !== c.id && onlyDigits(x.document || '') === doc
+    );
+    return other ? (other.customerName || 'sem nome') : null;
   };
 
-  const handleDelete = (c: Customer) => {
-    if (!confirm(`Remover "${c.customerName || 'sem nome'}"?`)) return;
-    deleteCustomer(c.id);
-    toast.success('Cliente removido (clique em Salvar para confirmar)');
+  const handleSave = async () => {
+    if (!editing) return;
+    // Validações de front (proporcional ao pedido): nome obrigatório,
+    // documento válido se preenchido, sem duplicar documento já cadastrado.
+    if (!(editing.customerName || '').trim()) {
+      toast.error('Informe o nome / razão social do cliente.');
+      return;
+    }
+    const docErr = validateDoc(editing);
+    if (docErr) { toast.error(docErr); return; }
+    const dupOwner = findDuplicateOwner(editing);
+    if (dupOwner) {
+      toast.error(`Documento já cadastrado em "${dupOwner}".`);
+      return;
+    }
+    setSaving(true);
+    try {
+      // Se for draft (novo), insere agora na lista — o saveCustomers usa o
+      // estado atualizado via closure dentro do hook, então sincronizamos antes.
+      if (isNewDraft) {
+        addCustomer(editing);
+      } else {
+        // Garante que o último estado do form está propagado.
+        Object.entries(editing).forEach(([k, v]) => {
+          updateCustomer(editing.id, k as keyof Customer, v);
+        });
+      }
+      // Pequeno tick para garantir que o setState do hook foi aplicado
+      // antes do bulk PUT enxergar o novo cliente.
+      await new Promise(r => setTimeout(r, 0));
+      await saveCustomers();
+      toast.success(isNewDraft ? 'Cliente cadastrado!' : 'Cliente atualizado!');
+      setEditing(null);
+      setIsNewDraft(false);
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao salvar cliente');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const closeEditor = () => {
+    // Descarta draft silenciosamente; edição em registro existente
+    // mantém o estado local (já refletido pelo updateCustomer durante setField).
+    setEditing(null);
+    setIsNewDraft(false);
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    const target = confirmDelete;
+    try {
+      deleteCustomer(target.id);
+      await new Promise(r => setTimeout(r, 0));
+      await saveCustomers();
+      toast.success(`"${target.customerName || 'Cliente'}" removido.`);
+      setConfirmDelete(null);
+    } catch (e: any) {
+      // Reverte estado local em caso de falha no servidor.
+      toast.error(e?.message || 'Erro ao remover cliente');
+      await refetch();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openHistory = async (c: Customer) => {
