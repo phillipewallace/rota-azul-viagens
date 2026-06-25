@@ -14,10 +14,15 @@ export const OBSERVACAO_FIXA_LOCACAO = [
   'Gentileza solicitar a devolução com antecedência mínima de 2 (dois) dias.',
 ].join('\n');
 
+// [#28 baixo] marcador mais robusto: usa as primeiras 50 chars do bloco fixo
+// como assinatura — substring genérica como "Gentileza solicitar..." era
+// frágil (qualquer cliente podia digitar a frase no campo livre).
+const OBS_MARKER = OBSERVACAO_FIXA_LOCACAO.slice(0, 60);
+
 /** Junta observações livres do usuário com o bloco fixo, sem duplicar. */
 export function mergeObservacoes(livre?: string | null): string {
   const free = (livre || '').trim();
-  if (free.includes('Gentileza solicitar a devolução')) return free; // já contém o bloco
+  if (free.includes(OBS_MARKER)) return free; // já contém o bloco
   return [free, OBSERVACAO_FIXA_LOCACAO].filter(Boolean).join('\n\n');
 }
 
@@ -31,14 +36,24 @@ export const FORMA_PAGAMENTO_LABEL: Record<FormaPagamento, string> = {
   boleto: 'Boleto bancário',
 };
 
-/** Boleto vence sempre 28 dias após a entrega. Fallback: hoje + 28. */
+/**
+ * [#20 médio] Boleto vence sempre 28 dias após a entrega. Calcula em UTC
+ * para evitar off-by-one em GMT-3 e usa aritmética de ms (imune ao bug
+ * de setDate em meses curtos).
+ */
 export function calcVencimentoBoleto(dataEntrega?: string | null): string {
-  const base = dataEntrega && /^\d{4}-\d{2}-\d{2}/.test(dataEntrega)
-    ? new Date(`${dataEntrega.slice(0, 10)}T12:00:00`)
-    : new Date();
-  base.setDate(base.getDate() + 28);
-  return base.toISOString().slice(0, 10);
+  let base: Date;
+  if (dataEntrega && /^\d{4}-\d{2}-\d{2}/.test(dataEntrega)) {
+    const [y, m, d] = dataEntrega.slice(0, 10).split('-').map(Number);
+    base = new Date(Date.UTC(y, m - 1, d));
+  } else {
+    const now = new Date();
+    base = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  }
+  const result = new Date(base.getTime() + 28 * 24 * 60 * 60 * 1000);
+  return result.toISOString().slice(0, 10);
 }
+
 
 /** Texto pronto descrevendo a forma de pagamento (usado nos PDFs). */
 export function describeFormaPagamento(

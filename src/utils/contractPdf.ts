@@ -70,15 +70,23 @@ function valorPorExtenso(n: number): string {
     }
     return parts.join(' e ');
   }
-  const milhares = Math.floor(num / 1000);
+  // [#24 baixo] agora suporta milhões/bilhões (até 999.999.999.999).
+  const partes: string[] = [];
+  const bilhoes = Math.floor(num / 1_000_000_000);
+  const milhoes = Math.floor((num % 1_000_000_000) / 1_000_000);
+  const milhares = Math.floor((num % 1_000_000) / 1000);
   const resto = num % 1000;
-  let txt = '';
-  if (milhares) txt += (milhares === 1 ? 'mil' : ate999(milhares) + ' mil');
-  if (resto) txt += (txt ? (resto < 100 || resto % 100 === 0 ? ' e ' : ', ') : '') + ate999(resto);
+  if (bilhoes) partes.push((bilhoes === 1 ? 'um bilhão' : `${ate999(bilhoes)} bilhões`));
+  if (milhoes) partes.push((milhoes === 1 ? 'um milhão' : `${ate999(milhoes)} milhões`));
+  if (milhares) partes.push((milhares === 1 ? 'mil' : `${ate999(milhares)} mil`));
+  if (resto) partes.push(ate999(resto));
+  let txt = partes.join(' e ');
+  if (!txt) txt = 'zero';
   txt += ` ${num === 1 ? 'real' : 'reais'}`;
   if (cents) txt += ` e ${ate999(cents)} centavo${cents > 1 ? 's' : ''}`;
   return txt;
 }
+
 
 function numeroPorExtenso(n: number): string {
   return valorPorExtenso(n).replace(/ rea(?:l|is).*/, '');

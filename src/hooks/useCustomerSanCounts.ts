@@ -13,10 +13,12 @@ export function useCustomerSanCounts(triggerKey: unknown): Record<string, number
     (async () => {
       try {
         const token = localStorage.getItem('auth_token');
+        // [#16 médio] pageSize alto evita truncar contagem com >200 sanitários em cliente.
         const r = await fetch(
-          `${API_BASE_URL}/sanitarios?status=em_cliente&pageSize=200&page=1`,
+          `${API_BASE_URL}/sanitarios?status=em_cliente&pageSize=2000&page=1`,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} },
         );
+
         if (!r.ok) return;
         const data = await r.json();
         const list = Array.isArray(data) ? data : (data.data || []);

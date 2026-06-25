@@ -5,9 +5,10 @@
  */
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { toDataUrl } from '@/utils/receiptPdf';
 import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento } from '@/utils/fixedObservations';
 import { formatDateBR } from '@/utils/dateFormat';
+import { loadPdfImage, fitContain } from '@/utils/pdfImage';
+
 
 const D = (s?: string | null) => s ? formatDateBR(s) : '—';
 
@@ -48,11 +49,15 @@ export async function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
   let titleX = M;
   if (logo) {
     try {
-      const dataUrl = await toDataUrl(logo);
-      doc.addImage(dataUrl, 'JPEG', M, 4, 22, 22, undefined, 'FAST');
-      titleX = M + 26;
-    } catch {}
+      // [#13 médio] detecta formato real da imagem (PNG vs JPEG) e preserva aspect ratio.
+      const img = await loadPdfImage(logo);
+      const cardX = M, cardY = 4, cardW = 22, cardH = 22;
+      const fit = fitContain(img, cardX, cardY, cardW, cardH, 1);
+      doc.addImage(img.dataUrl, img.format, fit.x, fit.y, fit.w, fit.h, undefined, 'FAST');
+      titleX = M + cardW + 4;
+    } catch { /* segue sem logo */ }
   }
+
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18); doc.setFont('helvetica', 'bold');
