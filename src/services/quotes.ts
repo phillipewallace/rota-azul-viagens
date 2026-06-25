@@ -75,6 +75,8 @@ export const quotesService = {
   convertToOs: (id: string, body?: { dias?: number }) =>
     req<{ ok: true; osId: string; osNumero: string; sanitariosReservados: number }>(
       'POST', `/erp/quotes/${id}/convert-to-os`, body || {}),
+  duplicate: (id: string) =>
+    req<{ id: string; numero: string }>('POST', `/erp/quotes/${id}/duplicate`),
 };
 
 export interface ServiceOrder {
