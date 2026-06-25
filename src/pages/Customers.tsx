@@ -523,11 +523,18 @@ const Customers: React.FC = () => {
       </div>
 
       {/* Modal de edição com tabs */}
-      <Dialog open={!!editing} onOpenChange={o => !o && setEditing(null)}>
+      <Dialog open={!!editing} onOpenChange={o => !o && closeEditor()}>
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing?.customerName || 'Novo cliente'}</DialogTitle>
+            <DialogTitle>
+              {isNewDraft ? 'Novo cliente' : (editing?.customerName || 'Editar cliente')}
+            </DialogTitle>
           </DialogHeader>
+          {dupOwner && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-800 text-xs px-3 py-2">
+              ⚠ Este documento já está cadastrado em <strong>{dupOwner}</strong>. Salvar será bloqueado.
+            </div>
+          )}
           {editing && (
             <Tabs defaultValue="dados">
               <TabsList className="grid grid-cols-4 w-full">
