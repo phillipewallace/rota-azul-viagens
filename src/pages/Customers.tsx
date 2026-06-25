@@ -399,9 +399,8 @@ const Customers: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={refetch}><RefreshCcw className="h-4 w-4 mr-1" />Recarregar</Button>
-            <Button size="sm" variant="outline" onClick={handleAddNew}><Plus className="h-4 w-4 mr-1" />Novo cliente</Button>
-            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700">
-              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}Salvar
+            <Button size="sm" onClick={handleAddNew} className="bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4 mr-1" />Novo cliente
             </Button>
           </div>
         </div>
