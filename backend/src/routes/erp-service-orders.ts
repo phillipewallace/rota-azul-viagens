@@ -61,12 +61,12 @@ router.get('/notifications/upcoming', async (_req, res) => {
       SELECT o.id, o.numero, o.data_entrega AS "dataEntrega", o.tipo_locacao AS "tipoLocacao",
              o.endereco_entrega AS "enderecoEntrega", cu.customer_name AS "customerName",
              (o.data_entrega = CURRENT_DATE) AS "hoje",
-             (o.data_entrega = CURRENT_DATE + 1) AS "amanha"
+             (o.data_entrega = CURRENT_DATE + INTERVAL '1 day') AS "amanha"
         FROM erp_service_orders o
         LEFT JOIN customers cu ON cu.id = o.customer_id
        WHERE o.status='aberta'
          AND o.data_entrega IS NOT NULL
-         AND o.data_entrega BETWEEN CURRENT_DATE AND CURRENT_DATE + 1
+         AND o.data_entrega BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '1 day'
          AND COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s
                         JOIN sanitarios sa ON sa.id=s.sanitario_id
                        WHERE s.os_id=o.id AND s.devolvido_em IS NULL AND sa.status='em_cliente'),0) = 0
@@ -74,6 +74,7 @@ router.get('/notifications/upcoming', async (_req, res) => {
     res.json(r.rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
+
 
 router.get('/overdue/count', async (_req, res) => {
   try {
@@ -354,8 +355,12 @@ router.post('/', async (req, res) => {
     const osId = r.rows[0].id;
     const qtdSanit = Number(c.qtdSanitarios) || 0;
     if (qtdSanit > 0) {
+      // [#8 alto] ordenação natural — numero pode ser texto, mas evita 10 < 2.
       const av = await client.query(
-        `SELECT id FROM sanitarios WHERE status='disponivel' ORDER BY numero::text ASC LIMIT $1 FOR UPDATE`,
+        `SELECT id FROM sanitarios
+          WHERE status='disponivel'
+          ORDER BY LENGTH(numero), numero
+          LIMIT $1 FOR UPDATE`,
         [qtdSanit]
       );
       for (const row of av.rows) {
@@ -363,6 +368,7 @@ router.post('/', async (req, res) => {
         await client.query(`UPDATE sanitarios SET status='em_os' WHERE id=$1`, [row.id]);
       }
     }
+
     await client.query('COMMIT');
     res.json({ id: osId, numero });
   } catch (e: any) {
@@ -512,8 +518,14 @@ router.post('/:id/deliver', async (req: any, res) => {
         [address, req.params.id]);
     }
     if (!os.data_entrega) {
-      await client.query(`UPDATE erp_service_orders SET data_entrega=CURRENT_DATE, updated_at=NOW() WHERE id=$1`, [req.params.id]);
+      // [#22 médio] usa timezone de São Paulo p/ não registrar entrega no dia seguinte após 21h.
+      await client.query(
+        `UPDATE erp_service_orders
+            SET data_entrega = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date,
+                updated_at = NOW()
+          WHERE id=$1`, [req.params.id]);
     }
+
     await client.query('COMMIT');
     res.json({ ok: true, delivered });
   } catch (e: any) {
