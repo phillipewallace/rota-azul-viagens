@@ -22,9 +22,10 @@ import {
   PackageOpen, CheckCircle2, Loader2, FileText, FileDown, FileSignature, ClipboardList,
 } from 'lucide-react';
 import SanitarioMultiCombobox from './SanitarioMultiCombobox';
+import { formatDateBR } from '@/utils/dateFormat';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+const fmtDate = (d?: string | null) => d ? formatDateBR(d) : '—';
 
 interface DeliverState {
   os: ServiceOrder;

@@ -4,9 +4,10 @@ import type { Quote } from '@/services/quotes';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
 import { loadPdfImage, fitContain } from '@/utils/pdfImage';
 import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento } from '@/utils/fixedObservations';
+import { formatDateBR } from '@/utils/dateFormat';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '';
+const D = (s?: string) => s ? formatDateBR(s) : '';
 
 function maskDoc(doc?: string) {
   if (!doc) return '';

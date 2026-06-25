@@ -29,9 +29,10 @@ import {
 import { uploadSignedPdf } from '@/services/erp';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateReceiptPdf } from '@/utils/receiptPdf';
+import { formatDateBR } from '@/utils/dateFormat';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const D = (s?: string) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
+const D = (s?: string) => s ? formatDateBR(s) : '—';
 
 const compAtual = () => {
   const d = new Date();
