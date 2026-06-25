@@ -517,7 +517,7 @@ const Customers: React.FC = () => {
         )}
 
         <p className="text-xs text-muted-foreground text-center">
-          Lembre-se de clicar em <strong>Salvar</strong> para persistir as alterações.
+          Cada cadastro, edição ou remoção é salvo automaticamente no servidor.
         </p>
       </div>
 
