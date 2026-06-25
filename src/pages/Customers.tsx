@@ -738,10 +738,18 @@ const Customers: React.FC = () => {
             </Tabs>
           )}
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>Fechar</Button>
-            <Button onClick={handleSave} disabled={saving || !!docError}
-                    className="bg-green-600 hover:bg-green-700">
-              {saving ? 'Salvando…' : 'Salvar tudo'}
+            <Button variant="ghost" onClick={closeEditor} disabled={saving}>
+              {isNewDraft ? 'Cancelar' : 'Fechar'}
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving || !!docError || !!dupOwner || nameMissing}
+              className="bg-green-600 hover:bg-green-700"
+              title={nameMissing ? 'Preencha o nome do cliente' : dupOwner ? `Documento duplicado em ${dupOwner}` : docError || ''}
+            >
+              {saving
+                ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Salvando…</>
+                : (isNewDraft ? 'Cadastrar cliente' : 'Salvar alterações')}
             </Button>
           </DialogFooter>
         </DialogContent>
