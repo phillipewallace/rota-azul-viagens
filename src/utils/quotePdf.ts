@@ -188,23 +188,29 @@ export async function generateQuotePdf(quote: Quote) {
   doc.setTextColor(0); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   afterY += 14;
 
+  const pageH = doc.internal.pageSize.getHeight();
+  const ensureSpace = (needed: number) => {
+    if (afterY + needed > pageH - 25) { doc.addPage(); afterY = 20; }
+  };
+
   // Forma de pagamento (padronizada)
   const formaTexto = describeFormaPagamento(quote.formaPagamento, quote.dataEntrega) || quote.condicoesPagamento;
   if (formaTexto) {
+    const fLines = doc.splitTextToSize(formaTexto, W - 2 * M);
+    ensureSpace(5 + fLines.length * 4.5 + 2);
     doc.setFont('helvetica', 'bold'); doc.text('Forma de pagamento:', M, afterY); afterY += 5;
     doc.setFont('helvetica', 'normal');
-    const lines = doc.splitTextToSize(formaTexto, W - 2 * M);
-    doc.text(lines, M, afterY); afterY += lines.length * 4.5 + 2;
+    doc.text(fLines, M, afterY); afterY += fLines.length * 4.5 + 2;
   }
-  // Observações: usuário + bloco fixo obrigatório
+  // Observações: usuário + bloco fixo obrigatório (sempre presente)
   const obsCombinada = [quote.observacoes?.trim(), OBSERVACAO_FIXA_LOCACAO].filter(Boolean).join('\n\n');
   if (obsCombinada) {
+    const lines = doc.splitTextToSize(obsCombinada, W - 2 * M);
+    const lineH = 4.2;
+    // Garante que o cabeçalho + pelo menos as 3 primeiras linhas fiquem juntos
+    ensureSpace(5 + lineH * Math.min(lines.length, 3));
     doc.setFont('helvetica', 'bold'); doc.text('Observações:', M, afterY); afterY += 5;
     doc.setFont('helvetica', 'normal');
-    const lines = doc.splitTextToSize(obsCombinada, W - 2 * M);
-    // Quebra de página se necessário
-    const lineH = 4.2;
-    const pageH = doc.internal.pageSize.getHeight();
     for (const ln of lines) {
       if (afterY > pageH - 20) { doc.addPage(); afterY = 20; }
       doc.text(ln, M, afterY); afterY += lineH;
