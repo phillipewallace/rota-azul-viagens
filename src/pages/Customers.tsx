@@ -8,11 +8,13 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Filter, Loader2, Plus, RefreshCcw, Search, Users } from 'lucide-react';
+import {
+  AlertTriangle, ArrowLeft, Filter, Loader2, Plus, RefreshCcw, Search, Users, X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -29,6 +31,14 @@ import { CustomerHistoryDialog } from '@/components/customers/CustomerHistoryDia
 import { CustomerDuplicateDialog } from '@/components/customers/CustomerDuplicateDialog';
 
 type FilterMode = 'all' | 'withSan' | 'noCoords' | 'pf' | 'pj';
+
+const FILTER_OPTIONS: { value: FilterMode; label: string }[] = [
+  { value: 'all',      label: 'Todos' },
+  { value: 'pj',       label: 'Pessoa Jurídica' },
+  { value: 'pf',       label: 'Pessoa Física' },
+  { value: 'withSan',  label: 'Com sanitários' },
+  { value: 'noCoords', label: 'Sem coordenadas' },
+];
 
 const Customers: React.FC = () => {
   // ---------- estado de UI ----------
@@ -99,10 +109,6 @@ const Customers: React.FC = () => {
 
   const closeEditor = () => { setEditing(null); setIsNewDraft(false); };
 
-  /**
-   * Persiste o cliente (novo ou editado). Se `force`=false e houver
-   * duplicata por documento, abre o modal de confirmação em vez de salvar.
-   */
   const persistCustomer = async (c: Customer, force = false) => {
     if (!force) {
       const dup = findDuplicateByDocument(c, customers);
@@ -115,10 +121,8 @@ const Customers: React.FC = () => {
     try {
       if (isNewDraft) addCustomer(c);
       else {
-        // garante que o estado local reflete o draft antes do bulk PUT
         (Object.keys(c) as (keyof Customer)[]).forEach(k => updateCustomer(c.id, k, c[k]));
       }
-      // microtick: deixa o setState do hook aplicar antes do PUT
       await new Promise(r => setTimeout(r, 0));
       await saveCustomers();
       toast.success(isNewDraft ? 'Cliente cadastrado!' : 'Cliente atualizado!');
@@ -153,99 +157,174 @@ const Customers: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-7 w-7 animate-spin text-primary" />
+          <span className="text-sm">Carregando clientes…</span>
+        </div>
       </div>
     );
   }
 
+  const hasActiveFilters = !!search || filterMode !== 'all' || onlyDuplicates;
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild title="Voltar ao sistema">
-              <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
+    <div className="min-h-screen bg-surface-muted">
+      {/* Header */}
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+              title="Voltar"
+            >
+              <Link to="/"><ArrowLeft className="h-4 w-4" /></Link>
             </Button>
-            <Users className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-bold">Clientes</h1>
-            <Badge variant="secondary">{customers.length}</Badge>
+            <div className="h-9 w-9 rounded-lg bg-primary/5 text-primary flex items-center justify-center ring-1 ring-primary/10 shrink-0">
+              <Users className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base md:text-lg font-semibold tracking-tight leading-none">Clientes</h1>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-none">
+                {customers.length} {customers.length === 1 ? 'cadastro' : 'cadastros'}
+              </p>
+            </div>
           </div>
+
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={refetch}>
-              <RefreshCcw className="h-4 w-4 mr-1" />Recarregar
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refetch}
+              className="hidden sm:inline-flex h-9 gap-1.5 text-xs font-medium"
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+              Recarregar
             </Button>
-            <Button size="sm" onClick={openNew}>
-              <Plus className="h-4 w-4 mr-1" />Novo cliente
+            <Button
+              size="sm"
+              onClick={openNew}
+              className="h-9 gap-1.5 text-xs font-medium shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Novo cliente
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-5">
         {error && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 text-destructive text-sm px-3 py-2 flex items-center justify-between">
-            <span>Falha ao carregar clientes: {error}</span>
-            <Button size="sm" variant="outline" onClick={refetch}>Tentar novamente</Button>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 text-destructive text-sm px-4 py-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="truncate">Falha ao carregar clientes: {error}</span>
+            </div>
+            <Button size="sm" variant="outline" onClick={refetch} className="shrink-0">
+              Tentar novamente
+            </Button>
           </div>
         )}
 
-        <Card>
-          <CardContent className="p-4 flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-[260px]">
-              <label className="text-xs text-muted-foreground">Buscar</label>
+        {/* Toolbar */}
+        <Card className="border-border/70 shadow-[var(--shadow-sm)]">
+          <div className="p-3 md:p-4 flex flex-col md:flex-row md:items-center gap-3">
+            <div className="relative flex-1 min-w-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9 pr-9 h-10 bg-background border-border/80 focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="Buscar por nome, documento, endereço, telefone…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                aria-label="Buscar clientes"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  aria-label="Limpar busca"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  className="pl-8"
-                  placeholder="Nome, documento, endereço, telefone…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
+                <Filter className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  className="h-10 pl-8 pr-8 rounded-md border border-border/80 bg-background text-sm appearance-none cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
+                  value={filterMode}
+                  onChange={e => setFilterMode(e.target.value as FilterMode)}
+                  aria-label="Filtrar"
+                >
+                  {FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
               </div>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground flex items-center gap-1">
-                <Filter className="h-3 w-3" />Filtro
-              </label>
-              <select
-                className="block border rounded-md h-10 px-2 bg-background"
-                value={filterMode}
-                onChange={e => setFilterMode(e.target.value as FilterMode)}
-              >
-                <option value="all">Todos</option>
-                <option value="pj">Apenas PJ</option>
-                <option value="pf">Apenas PF</option>
-                <option value="withSan">Com sanitários alocados</option>
-                <option value="noCoords">Sem coordenadas</option>
-              </select>
-            </div>
-            <div className="ml-auto flex items-center gap-3">
+
               {duplicateInfo.dupIds.size > 0 && (
                 <button
                   type="button"
                   onClick={() => setOnlyDuplicates(v => !v)}
-                  className={`text-xs px-2 py-1 rounded-md border transition ${onlyDuplicates ? 'bg-amber-100 border-amber-400 text-amber-800' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'}`}
+                  className={[
+                    'inline-flex items-center gap-1.5 h-10 px-3 rounded-md border text-xs font-medium transition-colors',
+                    onlyDuplicates
+                      ? 'bg-warning text-warning-foreground border-warning'
+                      : 'bg-warning-soft text-warning-foreground border-warning/30 hover:bg-warning/20',
+                  ].join(' ')}
                   title="Mostrar apenas duplicados"
                 >
-                  ⚠️ {duplicateInfo.dupIds.size} duplicado(s)
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {duplicateInfo.dupIds.size} duplicado{duplicateInfo.dupIds.size > 1 ? 's' : ''}
                 </button>
               )}
-              <div className="text-xs text-muted-foreground">
-                Exibindo <strong>{filtered.length}</strong> de {customers.length}
-              </div>
             </div>
-          </CardContent>
+          </div>
+
+          {hasActiveFilters && (
+            <div className="px-4 pb-3 -mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                Exibindo <strong className="text-foreground tabular-nums">{filtered.length}</strong> de{' '}
+                <span className="tabular-nums">{customers.length}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setFilterMode('all'); setOnlyDuplicates(false); }}
+                className="text-primary hover:underline font-medium"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          )}
         </Card>
 
+        {/* Grid */}
         {filtered.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-3 opacity-40" />
-              <p className="font-medium">Nenhum cliente encontrado</p>
-            </CardContent>
+          <Card className="border-dashed border-border/70 bg-background/60">
+            <div className="px-6 py-16 text-center">
+              <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Users className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                {hasActiveFilters ? 'Nenhum cliente corresponde aos filtros' : 'Nenhum cliente cadastrado ainda'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {hasActiveFilters
+                  ? 'Tente ajustar a busca ou os filtros acima.'
+                  : 'Clique em "Novo cliente" para começar.'}
+              </p>
+              {!hasActiveFilters && (
+                <Button size="sm" onClick={openNew} className="mt-5 gap-1.5">
+                  <Plus className="h-4 w-4" />Cadastrar primeiro cliente
+                </Button>
+              )}
+            </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map(c => (
               <CustomerCard
                 key={c.id}
@@ -261,7 +340,7 @@ const Customers: React.FC = () => {
           </div>
         )}
 
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="text-[11px] text-muted-foreground text-center pt-2">
           Cada cadastro, edição ou remoção é salvo automaticamente no servidor.
         </p>
       </main>
@@ -290,15 +369,22 @@ const Customers: React.FC = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover cliente?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você está prestes a remover <strong>{confirmDelete?.customerName || 'este cliente'}</strong>.
-              {confirmDelete && sanCount(confirmDelete) > 0 && (
-                <span className="block mt-2 text-amber-700">
-                  ⚠ Este cliente possui {sanCount(confirmDelete)} sanitário(s) alocado(s).
-                  A remoção não afeta o histórico já registrado.
-                </span>
-              )}
-              <span className="block mt-2">Esta ação é imediata e não pode ser desfeita.</span>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Você está prestes a remover <strong className="text-foreground">{confirmDelete?.customerName || 'este cliente'}</strong>.
+                </p>
+                {confirmDelete && sanCount(confirmDelete) > 0 && (
+                  <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning-soft text-warning-foreground px-3 py-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Este cliente possui <strong>{sanCount(confirmDelete)}</strong> sanitário(s) alocado(s).
+                      A remoção não afeta o histórico já registrado.
+                    </span>
+                  </p>
+                )}
+                <p className="text-muted-foreground">Esta ação é imediata e não pode ser desfeita.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
