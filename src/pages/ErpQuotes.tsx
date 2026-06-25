@@ -287,7 +287,7 @@ const ErpQuotes: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>{q.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'}</span>
-                    <span>{new Date(q.dataEmissao).toLocaleDateString('pt-BR')}</span>
+                    <span>{formatDateBR(q.dataEmissao)}</span>
                   </div>
                   {q.tipoLocacao && (
                     <Badge variant="outline" className="text-[10px]">
