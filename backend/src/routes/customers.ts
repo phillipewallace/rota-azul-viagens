@@ -63,22 +63,9 @@ router.put('/', async (req: Request, res: Response) => {
   const { customers } = req.body;
   if (!Array.isArray(customers)) { res.status(400).json({ error: 'Lista de clientes inválida' }); return; }
 
-  // Detecta documentos duplicados ENTRE os clientes do payload antes de tocar no banco
-  const seen = new Map<string, string>(); // doc -> nome do primeiro
-  for (const c of customers) {
-    const doc = c.document ? String(c.document).replace(/\D/g, '') : '';
-    if (!doc) continue;
-    const prev = seen.get(doc);
-    if (prev) {
-      res.status(409).json({
-        error: `Documento duplicado: ${doc} aparece em "${prev}" e "${c.customerName || 'sem nome'}".`,
-        duplicateDocument: doc,
-        duplicateNames: [prev, c.customerName || 'sem nome'],
-      });
-      return;
-    }
-    seen.set(doc, c.customerName || 'sem nome');
-  }
+  // Observação: duplicatas por documento são permitidas e tratadas no
+  // frontend via modal de confirmação. O índice único foi removido pela
+  // migration `migration-customers-drop-document-unique.sql`.
 
   const client = await pool.connect();
   try {
@@ -93,8 +80,7 @@ router.put('/', async (req: Request, res: Response) => {
     }
     for (const c of customers) {
       const doc = c.document ? String(c.document).replace(/\D/g, '') : null;
-      try {
-        await client.query(`
+      await client.query(`
         INSERT INTO customers (
           id, customer_name, address, cep, lat, lng,
           restrooms_qty, cleanings_qty, contact_name, contact_phone, notes,
