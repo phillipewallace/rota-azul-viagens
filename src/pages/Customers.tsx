@@ -809,6 +809,33 @@ const Customers: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={o => !o && !deleting && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover cliente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a remover <strong>{confirmDelete?.customerName || 'este cliente'}</strong>.
+              {sanCount(confirmDelete || ({} as Customer)) > 0 && (
+                <span className="block mt-2 text-amber-700">
+                  ⚠ Este cliente possui {sanCount(confirmDelete!)} sanitário(s) alocado(s). A remoção não afeta o histórico já registrado.
+                </span>
+              )}
+              <span className="block mt-2">Esta ação é imediata e não pode ser desfeita.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Removendo…</> : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
