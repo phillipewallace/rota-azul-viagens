@@ -15,18 +15,26 @@ import { erpService } from '@/services/erp';
 const BRL = (n: number) =>
   (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+// Parse YYYY-MM-DD as LOCAL date to avoid UTC -1 day shift in BR timezone.
+const parseLocal = (d?: string | Date | null): Date | null => {
+  if (!d) return null;
+  if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
+  const m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? null : dt;
+};
+
 const fmtDateLong = (d?: string | Date | null) => {
-  if (!d) return '____ de ______________ de ______';
-  const dt = typeof d === 'string' ? new Date(d) : d;
-  if (isNaN(dt.getTime())) return '____ de ______________ de ______';
+  const dt = parseLocal(d);
+  if (!dt) return '____ de ______________ de ______';
   const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   return `${dt.getDate().toString().padStart(2, '0')} de ${meses[dt.getMonth()]} de ${dt.getFullYear()}`;
 };
 
 const fmtDateBr = (d?: string | Date | null) => {
-  if (!d) return '___/___/______';
-  const dt = typeof d === 'string' ? new Date(d) : d;
-  if (isNaN(dt.getTime())) return '___/___/______';
+  const dt = parseLocal(d);
+  if (!dt) return '___/___/______';
   return dt.toLocaleDateString('pt-BR');
 };
 
