@@ -58,7 +58,7 @@ const ErpFinanceiro: React.FC = () => {
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
 
-  const load = async () => {
+  const load = React.useCallback(async () => {
     setLoading(true);
     try {
       const [p, r] = await Promise.all([
@@ -70,9 +70,12 @@ const ErpFinanceiro: React.FC = () => {
       setRecibos(r);
     } catch (e: any) { toast.error(e.message); }
     finally { setLoading(false); }
-  };
+  }, [competencia, filterFrom, filterTo]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [competencia, filterFrom, filterTo]);
+  // [#11 alto] dependências completas — filtros client-side não disparam refetch
+  // por design, mas `load` agora é estável via useCallback.
+  useEffect(() => { load(); }, [load]);
+
 
   const recibosFiltrados = useMemo(() => {
     return recibos.filter(r => {
