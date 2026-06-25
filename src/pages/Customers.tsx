@@ -148,18 +148,21 @@ const Customers: React.FC = () => {
   }, [customers, search, filterMode, counts, onlyDuplicates, duplicateInfo]);
 
   const handleAddNew = () => {
+    // Cria como "draft" — só entra na lista ao salvar.
+    // Evita cards-fantasma vazios quando o usuário fecha o modal sem salvar.
     const c: Customer = {
       id: uuidv4(),
       customerName: '', address: '', cep: '',
       personType: 'PJ', document: '',
     };
-    addCustomer(c);
+    setIsNewDraft(true);
     setEditing(c);
   };
 
   const setField = (field: keyof Customer, value: any) => {
     if (!editing) return;
-    updateCustomer(editing.id, field, value);
+    // Só propaga ao hook quando o cliente já existe na lista (não é draft).
+    if (!isNewDraft) updateCustomer(editing.id, field, value);
     setEditing({ ...editing, [field]: value });
   };
 
