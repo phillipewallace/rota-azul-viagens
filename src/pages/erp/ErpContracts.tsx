@@ -34,12 +34,13 @@ import { API_BASE_URL } from '@/services/config';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
+import { formatDateBR } from '@/utils/dateFormat';
 
 // Cliente vem do endpoint /customers que retorna camelCase (customerName)
 type Customer = { id: string; customerName: string; document?: string };
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const D = (s?: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—';
+const D = (s?: string | null) => s ? formatDateBR(s) : '—';
 
 const ErpContracts: React.FC = () => {
   const [list, setList] = useState<Contract[]>([]);
