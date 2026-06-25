@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, FileText, Trash2, Search, Loader2, Save, Download,
-  CheckCircle2, RefreshCcw, FileDown, AlertCircle,
+  CheckCircle2, RefreshCcw, FileDown, AlertCircle, Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
