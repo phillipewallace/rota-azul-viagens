@@ -22,6 +22,13 @@ const QUOTE_SELECT = `
   cu.customer_name AS "customerName", cu.document AS "customerDocument"
 `;
 
+// [bug fix] strings vazias vindas do front quebram colunas DATE no Postgres
+function emptyToNull(v: any) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'string' && v.trim() === '') return null;
+  return v;
+}
+
 function calcTotals(items: any[], descontoPct = 0, frete = 0) {
   const subtotal = items.reduce((acc, it) => acc + Number(it.quantidade || 0) * Number(it.valorUnitario || 0), 0);
   const desconto = subtotal * (Number(descontoPct) || 0) / 100;
