@@ -176,15 +176,15 @@ router.put('/:id', async (req, res) => {
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
-       c.modalidade || null, c.dataEmissao || null, c.validadeDias || null,
+       c.modalidade || null, emptyToNull(c.dataEmissao), c.validadeDias || null,
        // [#25 baixo] preserva campos quando omitidos no PUT (não zera observações).
        c.observacoes !== undefined ? c.observacoes : null,
        c.condicoesPagamento !== undefined ? c.condicoesPagamento : null,
        c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null,
-       c.dataEntrega !== undefined ? c.dataEntrega : null,
+       emptyToNull(c.dataEntrega),
        c.limpezasSemanais !== undefined ? c.limpezasSemanais : null,
        c.enderecoEntrega !== undefined ? c.enderecoEntrega : null,
-       c.dataRecolhimento !== undefined ? c.dataRecolhimento : null,
+       emptyToNull(c.dataRecolhimento),
        c.formaPagamento || null]
     );
 
