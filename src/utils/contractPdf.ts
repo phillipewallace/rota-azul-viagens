@@ -256,7 +256,15 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
   }
 
   const ctx = buildContext(src);
-  const corpoHtml = applyTemplate(template.corpoHtml, ctx);
+  // Fallback: se o modelo salvo no banco for antigo e não contiver o placeholder
+  // de frete, injeta uma cláusula automática quando houver frete > 0, para que o
+  // valor sempre apareça no contrato gerado.
+  let rawBody = template.corpoHtml || '';
+  const freteNum = Number(src.frete) || 0;
+  if (freteNum > 0 && !/\{\{\s*contrato\.frete\s*\}\}/.test(rawBody)) {
+    rawBody += `<p><strong>Frete:</strong> O valor referente ao frete de entrega e recolhimento dos equipamentos será cobrado <strong>uma única vez</strong>, no importe de <strong>{{contrato.frete}} ({{contrato.frete_extenso}})</strong>, lançado integralmente na primeira nota fiscal/recibo emitido.</p>`;
+  }
+  const corpoHtml = applyTemplate(rawBody, ctx);
   const titulo = applyTemplate(template.titulo, ctx);
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
