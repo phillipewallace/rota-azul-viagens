@@ -117,11 +117,11 @@ router.post('/', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20,$21)
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
-       c.modalidade || 'mensal', c.tipoLocacao || null, c.dataEmissao || null, c.validadeDias || 15,
+       c.modalidade || 'mensal', c.tipoLocacao || null, emptyToNull(c.dataEmissao), c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
-       c.dataEntrega || null, c.limpezasSemanais ?? null,
-       c.enderecoEntrega || null, c.dataRecolhimento || null,
+       emptyToNull(c.dataEntrega), c.limpezasSemanais ?? null,
+       c.enderecoEntrega || null, emptyToNull(c.dataRecolhimento),
        c.formaPagamento || null]
     );
     const quoteId = ins.rows[0].id;
