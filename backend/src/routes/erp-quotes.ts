@@ -22,6 +22,13 @@ const QUOTE_SELECT = `
   cu.customer_name AS "customerName", cu.document AS "customerDocument"
 `;
 
+// [bug fix] strings vazias vindas do front quebram colunas DATE no Postgres
+function emptyToNull(v: any) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'string' && v.trim() === '') return null;
+  return v;
+}
+
 function calcTotals(items: any[], descontoPct = 0, frete = 0) {
   const subtotal = items.reduce((acc, it) => acc + Number(it.quantidade || 0) * Number(it.valorUnitario || 0), 0);
   const desconto = subtotal * (Number(descontoPct) || 0) / 100;
@@ -110,11 +117,11 @@ router.post('/', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20,$21)
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
-       c.modalidade || 'mensal', c.tipoLocacao || null, c.dataEmissao || null, c.validadeDias || 15,
+       c.modalidade || 'mensal', c.tipoLocacao || null, emptyToNull(c.dataEmissao), c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
-       c.dataEntrega || null, c.limpezasSemanais ?? null,
-       c.enderecoEntrega || null, c.dataRecolhimento || null,
+       emptyToNull(c.dataEntrega), c.limpezasSemanais ?? null,
+       c.enderecoEntrega || null, emptyToNull(c.dataRecolhimento),
        c.formaPagamento || null]
     );
     const quoteId = ins.rows[0].id;
@@ -176,15 +183,15 @@ router.put('/:id', async (req, res) => {
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
-       c.modalidade || null, c.dataEmissao || null, c.validadeDias || null,
+       c.modalidade || null, emptyToNull(c.dataEmissao), c.validadeDias || null,
        // [#25 baixo] preserva campos quando omitidos no PUT (não zera observações).
        c.observacoes !== undefined ? c.observacoes : null,
        c.condicoesPagamento !== undefined ? c.condicoesPagamento : null,
        c.descontoPct, c.frete, subtotal, total, c.status || null, c.tipoLocacao || null,
-       c.dataEntrega !== undefined ? c.dataEntrega : null,
+       emptyToNull(c.dataEntrega),
        c.limpezasSemanais !== undefined ? c.limpezasSemanais : null,
        c.enderecoEntrega !== undefined ? c.enderecoEntrega : null,
-       c.dataRecolhimento !== undefined ? c.dataRecolhimento : null,
+       emptyToNull(c.dataRecolhimento),
        c.formaPagamento || null]
     );
 
