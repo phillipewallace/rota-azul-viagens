@@ -217,6 +217,14 @@ router.patch('/:id/pago', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    // [#24] não permitir deletar recibo pago sem flag explícita (?force=1).
+    // Mantém histórico financeiro auditável.
+    const force = String((req.query as any).force || '') === '1';
+    const cur = await pool.query('SELECT pago FROM erp_receipts WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (cur.rows[0].pago && !force) {
+      return res.status(409).json({ error: 'Recibo pago — confirme a exclusão (force=1) para remover.' });
+    }
     await pool.query('DELETE FROM erp_receipts WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
