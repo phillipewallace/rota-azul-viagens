@@ -146,11 +146,12 @@ export interface Expense {
   createdAt?: string;
 }
 export const expensesService = {
-  list: (params?: { from?: string; to?: string; categoria?: string }) => {
+  list: (params?: { from?: string; to?: string; categoria?: string; origem?: 'manual' | 'manutencao' | 'all' }) => {
     const q = new URLSearchParams();
     if (params?.from) q.set('from', params.from);
     if (params?.to)   q.set('to', params.to);
     if (params?.categoria) q.set('categoria', params.categoria);
+    if (params?.origem && params.origem !== 'all') q.set('origem', params.origem);
     const s = q.toString();
     return req<Expense[]>('GET', `/erp/expenses${s ? '?' + s : ''}`);
   },
