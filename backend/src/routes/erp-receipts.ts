@@ -210,11 +210,159 @@ router.post('/generate', async (req, res) => {
   } finally { client.release(); }
 });
 
+/**
+ * PATCH /:id/pago
+ * Atualiza status de pagamento. Aceita:
+ *  - { pago: boolean }                            (compat antigo)
+ *  - { status, formaPagamento, dataPagamento, valorPago }   (rico)
+ * Calcula status automaticamente:
+ *   valorPago >= valor          → 'pago'
+ *   0 < valorPago < valor       → 'parcial'
+ *   valorPago == 0 ou null      → 'aberto'
+ */
 router.patch('/:id/pago', async (req, res) => {
   try {
-    const { pago } = req.body || {};
-    await pool.query(`UPDATE erp_receipts SET pago=$2 WHERE id=$1`, [req.params.id, !!pago]);
+    const { pago, formaPagamento, dataPagamento, valorPago, status: statusIn } = req.body || {};
+    const cur = await pool.query('SELECT valor, status FROM erp_receipts WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (cur.rows[0].status === 'cancelado') {
+      return res.status(409).json({ error: 'Recibo cancelado — não pode ser pago.' });
+    }
+
+    const totalValor = Number(cur.rows[0].valor || 0);
+    let finalValorPago: number | null = null;
+    let finalStatus = statusIn as string | undefined;
+
+    if (valorPago !== undefined && valorPago !== null) {
+      finalValorPago = Math.max(0, Number(valorPago));
+    } else if (typeof pago === 'boolean') {
+      finalValorPago = pago ? totalValor : 0;
+    }
+
+    if (!finalStatus) {
+      if (finalValorPago == null) finalStatus = undefined;
+      else if (finalValorPago <= 0) finalStatus = 'aberto';
+      else if (finalValorPago + 0.005 >= totalValor) finalStatus = 'pago';
+      else finalStatus = 'parcial';
+    }
+
+    const finalPagoBool = finalStatus === 'pago';
+    const finalDataPag  = (finalStatus === 'aberto') ? null : (dataPagamento || new Date().toISOString().slice(0, 10));
+
+    await pool.query(
+      `UPDATE erp_receipts
+          SET status           = COALESCE($2, status),
+              pago             = $3,
+              valor_pago       = $4,
+              forma_pagamento  = COALESCE($5, forma_pagamento),
+              data_pagamento   = $6
+        WHERE id = $1`,
+      [
+        req.params.id,
+        finalStatus || null,
+        finalPagoBool,
+        finalValorPago,
+        formaPagamento || null,
+        finalDataPag,
+      ]
+    );
+    res.json({ ok: true, status: finalStatus, valorPago: finalValorPago });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /:id/cancel — marca recibo como cancelado preservando histórico
+router.post('/:id/cancel', async (req, res) => {
+  try {
+    const { motivo } = req.body || {};
+    if (!motivo || !String(motivo).trim()) {
+      return res.status(400).json({ error: 'motivo é obrigatório' });
+    }
+    const cur = await pool.query('SELECT status FROM erp_receipts WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (cur.rows[0].status === 'cancelado') {
+      return res.status(409).json({ error: 'Recibo já está cancelado.' });
+    }
+    await pool.query(
+      `UPDATE erp_receipts
+          SET status = 'cancelado',
+              pago = FALSE,
+              cancelado_em = NOW(),
+              motivo_cancelamento = $2
+        WHERE id = $1`,
+      [req.params.id, String(motivo).trim()]
+    );
     res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /summary?months=12 — série mensal para gráfico
+router.get('/summary', async (req, res) => {
+  try {
+    const months = Math.min(36, Math.max(1, Number((req.query as any).months) || 12));
+    // Recebidos (recibos com status pago/parcial) por competência
+    const recR = await pool.query(
+      `WITH meses AS (
+         SELECT to_char(date_trunc('month', CURRENT_DATE) - (i || ' months')::interval, 'YYYY-MM') AS competencia
+           FROM generate_series(0, $1 - 1) AS i
+       )
+       SELECT m.competencia,
+              COALESCE(SUM(CASE WHEN r.status IN ('pago','parcial')
+                                THEN COALESCE(r.valor_pago, r.valor, 0)
+                                ELSE 0 END), 0) AS recebido,
+              COALESCE(SUM(CASE WHEN r.status = 'aberto'
+                                THEN r.valor ELSE 0 END), 0) AS aberto
+         FROM meses m
+         LEFT JOIN erp_receipts r ON r.competencia = m.competencia
+        GROUP BY m.competencia
+        ORDER BY m.competencia ASC`,
+      [months]
+    );
+
+    // Gastos (manuais + manutenção) por mês
+    const gR = await pool.query(
+      `WITH meses AS (
+         SELECT to_char(date_trunc('month', CURRENT_DATE) - (i || ' months')::interval, 'YYYY-MM') AS competencia,
+                date_trunc('month', CURRENT_DATE) - (i || ' months')::interval AS ini,
+                (date_trunc('month', CURRENT_DATE) - (i || ' months')::interval + INTERVAL '1 month - 1 day')::date AS fim
+           FROM generate_series(0, $1 - 1) AS i
+       ),
+       manuais AS (
+         SELECT to_char(date_trunc('month', data), 'YYYY-MM') AS competencia,
+                COALESCE(SUM(valor),0) AS total
+           FROM erp_expenses GROUP BY 1
+       ),
+       manut AS (
+         SELECT to_char(date_trunc('month', COALESCE(m.completed_date, m.maintenance_date, m.created_at::date)), 'YYYY-MM') AS competencia,
+                COALESCE(SUM(m.cost),0) AS total
+           FROM maintenance_records m
+          WHERE COALESCE(m.cost,0) > 0
+          GROUP BY 1
+       )
+       SELECT m.competencia,
+              COALESCE(ma.total,0) + COALESCE(mn.total,0) AS gasto
+         FROM meses m
+         LEFT JOIN manuais ma ON ma.competencia = m.competencia
+         LEFT JOIN manut   mn ON mn.competencia = m.competencia
+        ORDER BY m.competencia ASC`,
+      [months]
+    );
+
+    const map = new Map<string, any>();
+    recR.rows.forEach((r: any) => map.set(r.competencia, {
+      competencia: r.competencia,
+      recebido: Number(r.recebido) || 0,
+      aberto: Number(r.aberto) || 0,
+      gasto: 0,
+    }));
+    gR.rows.forEach((g: any) => {
+      const row = map.get(g.competencia) || { competencia: g.competencia, recebido: 0, aberto: 0, gasto: 0 };
+      row.gasto = Number(g.gasto) || 0;
+      map.set(g.competencia, row);
+    });
+    const series = Array.from(map.values())
+      .sort((a, b) => a.competencia.localeCompare(b.competencia))
+      .map(r => ({ ...r, resultado: r.recebido - r.gasto }));
+    res.json({ series });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
