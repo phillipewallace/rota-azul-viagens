@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { carretinhasService, Carretinha, CarretinhaLocacao } from '@/services/carretinhas';
+import PageHeader from '@/components/PageHeader';
 
 import { confirmDialog } from '@/lib/confirm';
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
