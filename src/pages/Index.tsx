@@ -88,9 +88,9 @@ const Index = () => {
             
             <div className="flex-1 p-3 sm:p-4 overflow-y-auto">
               <div className="space-y-2">
-                {menuItems.map((item, index) => (
+                {menuItems.map((item) => (
                   <Button
-                    key={index}
+                    key={item.label}
                     variant="ghost"
                     className="w-full justify-start text-left text-white hover:bg-gray-800 hover:text-blue-400 text-sm"
                     onClick={item.action}
