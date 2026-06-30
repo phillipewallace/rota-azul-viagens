@@ -14,18 +14,21 @@ const STORAGE_KEY_PREFIX = 'route-autosave-';
 
 export const useRouteAutoSave = (routeId?: string) => {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const lastSerializedRef = useRef<string>('');
   const storageKey = routeId ? `${STORAGE_KEY_PREFIX}${routeId}` : `${STORAGE_KEY_PREFIX}new`;
 
   const saveToStorage = useCallback((data: RouteAutoSaveData) => {
     try {
+      // [race-fix] dedupe: se nada mudou desde o último write, não regrava.
+      // Evita corrida quando múltiplos efeitos disparam scheduleAutoSave em sequência.
+      const payload = JSON.stringify({ ...data, timestamp: 0 });
+      if (payload === lastSerializedRef.current) return;
+      lastSerializedRef.current = payload;
+
       localStorage.setItem(storageKey, JSON.stringify({
         ...data,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       }));
-      console.log('💾 [AUTOSAVE] Dados salvos automaticamente:', {
-        points: data.points.length,
-        mode: data.optimizationMode
-      });
     } catch (error) {
       console.error('❌ [AUTOSAVE] Erro ao salvar:', error);
     }
@@ -35,12 +38,7 @@ export const useRouteAutoSave = (routeId?: string) => {
     try {
       const stored = localStorage.getItem(storageKey);
       if (!stored) return null;
-
       const data = JSON.parse(stored);
-      console.log('📥 [AUTOSAVE] Dados recuperados:', {
-        points: data.points?.length || 0,
-        timestamp: new Date(data.timestamp).toLocaleString()
-      });
       return data;
     } catch (error) {
       console.error('❌ [AUTOSAVE] Erro ao carregar:', error);
@@ -51,20 +49,15 @@ export const useRouteAutoSave = (routeId?: string) => {
   const clearStorage = useCallback(() => {
     try {
       localStorage.removeItem(storageKey);
-      console.log('🗑️ [AUTOSAVE] Dados limpos');
+      lastSerializedRef.current = '';
     } catch (error) {
       console.error('❌ [AUTOSAVE] Erro ao limpar:', error);
     }
   }, [storageKey]);
 
   const scheduleAutoSave = useCallback((data: RouteAutoSaveData) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      saveToStorage(data);
-    }, AUTOSAVE_INTERVAL);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => saveToStorage(data), AUTOSAVE_INTERVAL);
   }, [saveToStorage]);
 
   useEffect(() => {

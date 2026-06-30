@@ -106,11 +106,24 @@ DB_PORT=5432
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASS}
-JWT_SECRET=$(openssl rand -hex 32)
+JWT_SECRET=$(openssl rand -hex 48)
 JWT_EXPIRES_IN=24h
 GOOGLE_MAPS_API_KEY=
 CORS_ORIGIN=https://${SERVER_NAME},http://localhost:5173,http://localhost:8080
 EOF
+else
+  # Segurança: se o JWT_SECRET ainda for o placeholder/inseguro herdado,
+  # rotaciona automaticamente para um valor forte (invalida sessões antigas).
+  CURRENT_JWT=$(grep -E '^JWT_SECRET=' .env | head -1 | cut -d= -f2-)
+  if [[ -z "$CURRENT_JWT" || "$CURRENT_JWT" == "your-super-secret-jwt-key" || "$CURRENT_JWT" == "your-secret-key-change-in-production" || ${#CURRENT_JWT} -lt 32 ]]; then
+    NEW_JWT="$(openssl rand -hex 48)"
+    if grep -qE '^JWT_SECRET=' .env; then
+      sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${NEW_JWT}|" .env
+    else
+      echo "JWT_SECRET=${NEW_JWT}" >> .env
+    fi
+    warn "JWT_SECRET fraco detectado — rotacionado automaticamente (sessões antigas serão invalidadas)"
+  fi
 fi
 ok "Backend compilado"
 
