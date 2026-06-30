@@ -475,6 +475,7 @@ const ErpQuotes: React.FC = () => {
                       {BRL(Number(it.quantidade) * Number(it.valorUnitario))}
                     </div>
                     <Button size="icon" variant="ghost" className="text-red-600 hover:bg-red-50"
+                            aria-label="Remover item do orçamento"
                             onClick={() => removeItem(i)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>

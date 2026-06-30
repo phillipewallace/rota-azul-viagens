@@ -628,6 +628,7 @@ const Maintenance = () => {
                                 size="icon"
                                 variant="ghost"
                                 title="Gerar PDF"
+                                aria-label="Gerar PDF da manutenção"
                                 onClick={() => generateMaintenanceOrderPdf(r)}
                               >
                                 <FileText className="h-4 w-4" />
@@ -636,6 +637,7 @@ const Maintenance = () => {
                                 size="icon"
                                 variant="ghost"
                                 title="Editar"
+                                aria-label="Editar manutenção"
                                 onClick={() => {
                                   setEditing(r);
                                   setShowModal(true);
@@ -648,6 +650,7 @@ const Maintenance = () => {
                                 variant="ghost"
                                 className="text-destructive"
                                 title="Excluir"
+                                aria-label="Excluir manutenção"
                                 onClick={() => handleDelete(r.id)}
                               >
                                 <Trash2 className="h-4 w-4" />
