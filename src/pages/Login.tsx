@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, Eye, EyeOff, Truck, Lock, User, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { PageMeta } from '@/components/PageMeta';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -41,6 +42,11 @@ const Login = () => {
   };
 
   return (
+    <>
+    <PageMeta
+      title="Entrar"
+      description="Acesse a plataforma AlchemyRotas para gerenciar rotas, frota e operações."
+    />
     <main
       className="fixed inset-0 flex items-center justify-center p-4 overflow-hidden"
       style={{ background: 'var(--gradient-brand)' }}
@@ -157,6 +163,7 @@ const Login = () => {
         </CardContent>
       </Card>
     </main>
+    </>
   );
 };
 

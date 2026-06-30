@@ -187,7 +187,7 @@ export default function Checklists() {
     <div className="min-h-screen bg-background">
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto p-4 flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild><Link to="/"><ArrowLeft className="h-5 w-5" /></Link></Button>
+          <Button variant="ghost" size="icon" asChild aria-label="Voltar ao início"><Link to="/"><ArrowLeft className="h-5 w-5" /></Link></Button>
           <ClipboardCheck className="h-6 w-6 text-blue-600" />
           <div>
             <h1 className="text-xl font-bold">Checklists de Caminhões</h1>

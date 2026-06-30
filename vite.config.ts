@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       "/api": {
-        target: "http://localhost:3001", // Porta onde seu backend roda
+        target: "http://localhost:3001",
         changeOrigin: true,
         secure: false,
       },
@@ -32,7 +32,8 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
-        // Separa libs pesadas em chunks dedicados para melhor cache long-term
+        // Libs pesadas em chunks dedicados para cache long-term e
+        // para sair do bundle inicial de quem nunca abre PDF/mapa.
         manualChunks: {
           "react-vendor": ["react", "react-dom", "react-router-dom"],
           "query-vendor": ["@tanstack/react-query"],
@@ -46,6 +47,8 @@ export default defineConfig(({ mode }) => ({
             "@radix-ui/react-alert-dialog",
           ],
           "charts-vendor": ["recharts"],
+          "pdf-vendor": ["jspdf", "jspdf-autotable"],
+          "map-vendor": ["mapbox-gl"],
         },
       },
     },

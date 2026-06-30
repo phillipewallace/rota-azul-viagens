@@ -360,6 +360,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
                         variant="ghost"
                         size="icon"
                         className="col-span-1 text-destructive"
+                        aria-label="Remover item"
                         onClick={() => removeItem(i)}
                       >
                         <Trash2 className="h-4 w-4" />

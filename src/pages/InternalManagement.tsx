@@ -99,7 +99,7 @@ const InternalManagement: React.FC = () => {
     <div className="min-h-screen bg-background">
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild aria-label="Voltar ao início">
             <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
           </Button>
           <Building2 className="h-6 w-6 text-blue-600" />

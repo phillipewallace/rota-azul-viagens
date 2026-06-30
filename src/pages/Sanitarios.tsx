@@ -387,7 +387,7 @@ export default function Sanitarios() {
       <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="icon" asChild title="Voltar ao sistema">
+            <Button variant="ghost" size="icon" asChild title="Voltar ao sistema" aria-label="Voltar ao sistema">
               <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
             </Button>
             <div className="min-w-0">
@@ -509,7 +509,7 @@ export default function Sanitarios() {
                           className="h-8 text-base"
                           onKeyDown={(e) => { if (e.key === 'Enter') saveCatTotal(); if (e.key === 'Escape') setEditingCat(null); }}
                         />
-                        <Button size="icon" className="h-8 w-8 shrink-0" onClick={saveCatTotal}><Check className="h-4 w-4" /></Button>
+                        <Button size="icon" className="h-8 w-8 shrink-0" aria-label="Salvar total" onClick={saveCatTotal}><Check className="h-4 w-4" /></Button>
                       </div>
                     ) : (
                       <div>

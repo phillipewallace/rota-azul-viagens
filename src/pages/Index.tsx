@@ -74,6 +74,7 @@ const Index = () => {
           <Button 
             size="icon" 
             className="fixed top-4 left-4 z-20 bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+            aria-label="Abrir menu de navegação"
           >
             <Menu className="h-4 w-4" />
           </Button>

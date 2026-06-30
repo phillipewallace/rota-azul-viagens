@@ -179,6 +179,7 @@ const Customers: React.FC = () => {
               asChild
               className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
               title="Voltar"
+              aria-label="Voltar ao início"
             >
               <Link to="/"><ArrowLeft className="h-4 w-4" /></Link>
             </Button>
