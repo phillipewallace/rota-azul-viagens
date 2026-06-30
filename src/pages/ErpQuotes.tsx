@@ -463,7 +463,7 @@ const ErpQuotes: React.FC = () => {
                   <div />
                 </div>
                 {editing.items.map((it, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
+                  <div key={(it as any).__uid ?? i} className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
                     <Input value={it.produto} placeholder="Ex.: Sanitário Standard"
                            onChange={e => updateItem(i, { produto: e.target.value })} />
                     <Input value={it.descricao || ''} placeholder="Opcional"
