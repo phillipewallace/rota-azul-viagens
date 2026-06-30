@@ -47,13 +47,16 @@ interface EditorState {
   items: QuoteItem[];
 }
 
+let __itemUid = 0;
+const withUid = <T extends object>(it: T): T & { __uid: number } => ({ ...(it as T), __uid: ++__itemUid });
+
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
   dataEntrega: '', dataRecolhimento: '', enderecoEntrega: '', limpezasSemanais: 1,
   observacoes: '', condicoesPagamento: '',
   formaPagamento: 'boleto',
   status: 'rascunho',
-  items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
+  items: [withUid({ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 })],
 });
 
 const statusBadge: Record<string, string> = {
