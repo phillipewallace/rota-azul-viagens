@@ -485,7 +485,7 @@ const ServiceOrders: React.FC = () => {
           </CardContent></Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {filtered.map(o => {
+            {visible.map(o => {
               const det = expanded[o.id];
               const isOpen = !!det;
               return (
@@ -637,7 +637,23 @@ const ServiceOrders: React.FC = () => {
               );
             })}
           </div>
-
+        )}
+        {!loading && hasMore && (
+          <div className="flex flex-col items-center gap-2 pt-2">
+            <p className="text-xs text-muted-foreground tabular-nums">
+              Exibindo <span className="font-medium text-foreground">{visible.length}</span> de{' '}
+              <span className="font-medium text-foreground">{filtered.length}</span> OS
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+              className="transition-all duration-200 hover:shadow-sm"
+            >
+              <ChevronDown className="h-4 w-4 mr-1.5" />
+              Carregar mais {Math.min(PAGE_SIZE, filtered.length - visibleCount)}
+            </Button>
+          </div>
         )}
       </div>
 
