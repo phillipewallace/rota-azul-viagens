@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Edit, Trash2, History, LogIn, LogOut, Loader2, Container, ArrowLeft } from 'lucide-react';
+import { Plus, Edit, Trash2, History, LogIn, LogOut, Loader2 } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,12 +13,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { carretinhasService, Carretinha, CarretinhaLocacao } from '@/services/carretinhas';
+import PageHeader from '@/components/PageHeader';
 
 import { confirmDialog } from '@/lib/confirm';
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  galpao:      { label: 'No Galpão',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
-  locada:      { label: 'Locada',     cls: 'bg-blue-100 text-blue-700 border-blue-300' },
-  manutencao:  { label: 'Manutenção', cls: 'bg-amber-100 text-amber-700 border-amber-300' },
+  galpao:      { label: 'No Galpão',  cls: 'bg-success/15 text-success border-success/30' },
+  locada:      { label: 'Locada',     cls: 'bg-info/15 text-info border-info/30' },
+  manutencao:  { label: 'Manutenção', cls: 'bg-warning/15 text-warning border-warning/30' },
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -128,21 +128,14 @@ export default function Carretinhas() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto p-4 flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild title="Voltar ao sistema" aria-label="Voltar ao sistema">
-            <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
-          </Button>
-          <Container className="h-6 w-6 text-blue-600" />
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">Carretinhas</h1>
-            <p className="text-sm text-muted-foreground">Frota de carretinhas, locações e histórico</p>
-          </div>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Nova Carretinha</Button>
-        </div>
-      </div>
+      <PageHeader title="Carretinhas" subtitle="Frota de carretinhas, locações e histórico">
+        <Button onClick={openNew} className="transition-all duration-200">
+          <Plus className="h-4 w-4 mr-2" />Nova Carretinha
+        </Button>
+      </PageHeader>
 
-      <div className="max-w-7xl mx-auto p-4">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+
         <Card>
           <CardContent className="p-0">
             {loading ? (
@@ -183,7 +176,7 @@ export default function Carretinhas() {
                               </Button>
                             )}
                             {c.status === 'locada' && (
-                              <Button size="sm" variant="outline" onClick={() => openBaixa(c)} title="Dar baixa (retorno)" className="text-orange-600">
+                              <Button size="sm" variant="outline" onClick={() => openBaixa(c)} title="Dar baixa (retorno)" className="text-warning">
                                 <LogOut className="h-4 w-4" />
                               </Button>
                             )}
@@ -285,7 +278,7 @@ export default function Carretinhas() {
                   <TableRow key={h.id}>
                     <TableCell className="font-medium">{h.customerName}</TableCell>
                     <TableCell>{new Date(h.startDate).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell>{h.endDate ? new Date(h.endDate).toLocaleDateString('pt-BR') : <Badge variant="outline" className="bg-blue-50 text-blue-700">Em curso</Badge>}</TableCell>
+                    <TableCell>{h.endDate ? new Date(h.endDate).toLocaleDateString('pt-BR') : <Badge variant="outline" className="bg-info/15 text-info border-info/30">Em curso</Badge>}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{h.notes || '-'}</TableCell>
                   </TableRow>
                 ))}

@@ -267,15 +267,15 @@ const Maintenance = () => {
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, { label: string; className: string }> = {
-      scheduled: { label: 'Agendada', className: 'bg-blue-500/15 text-blue-700 border-blue-300' },
-      pending: { label: 'Agendada', className: 'bg-blue-500/15 text-blue-700 border-blue-300' },
+      scheduled: { label: 'Agendada', className: 'bg-info/15 text-info border-info/30' },
+      pending: { label: 'Agendada', className: 'bg-info/15 text-info border-info/30' },
       in_progress: {
         label: 'Em andamento',
-        className: 'bg-amber-500/15 text-amber-700 border-amber-300',
+        className: 'bg-warning/15 text-warning border-warning/30',
       },
       completed: {
         label: 'Concluída',
-        className: 'bg-emerald-500/15 text-emerald-700 border-emerald-300',
+        className: 'bg-success/15 text-success border-success/30',
       },
     };
     const m = map[status] || { label: status, className: '' };
@@ -320,7 +320,7 @@ const Maintenance = () => {
             label="Custo total"
             value={formatBRL(kpis.total)}
             icon={DollarSign}
-            accent="text-emerald-600"
+            accent="text-success"
           />
           <KpiCard
             label="Custo médio"
@@ -332,13 +332,13 @@ const Maintenance = () => {
             label="Concluídas"
             value={String(kpis.completed)}
             icon={CheckCircle2}
-            accent="text-emerald-600"
+            accent="text-success"
           />
           <KpiCard
             label="Pendentes"
             value={String(kpis.pending)}
             icon={Clock}
-            accent="text-amber-600"
+            accent="text-warning"
           />
         </div>
 
@@ -346,9 +346,9 @@ const Maintenance = () => {
         {(alerts.overdue.length > 0 ||
           alerts.upcoming.length > 0 ||
           alerts.kmAlerts.length > 0) && (
-          <Card className="border-amber-300/60 bg-amber-50/40">
+          <Card className="border-warning/30 bg-warning/5">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-amber-800">
+              <CardTitle className="flex items-center gap-2 text-warning">
                 <AlertTriangle className="w-5 h-5" />
                 Alertas de manutenção
               </CardTitle>
@@ -711,10 +711,10 @@ const AlertList: React.FC<{
 }> = ({ title, tone, items }) => {
   const dot =
     tone === 'destructive'
-      ? 'bg-red-500'
+      ? 'bg-destructive'
       : tone === 'warning'
-      ? 'bg-amber-500'
-      : 'bg-blue-500';
+      ? 'bg-warning'
+      : 'bg-info';
   return (
     <div>
       <p className="text-sm font-semibold mb-2 flex items-center gap-2">

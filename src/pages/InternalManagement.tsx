@@ -36,10 +36,10 @@ const movementLabel: Record<string, string> = {
   in: 'Entrada', out: 'Retirada', adjust: 'Ajuste', discard: 'Descarte',
 };
 const movementColor: Record<string, string> = {
-  in: 'bg-green-100 text-green-700',
-  out: 'bg-blue-100 text-blue-700',
-  adjust: 'bg-amber-100 text-amber-700',
-  discard: 'bg-red-100 text-red-700',
+  in: 'bg-success/15 text-success border-success/30',
+  out: 'bg-info/15 text-info border-info/30',
+  adjust: 'bg-warning/15 text-warning border-warning/30',
+  discard: 'bg-destructive/15 text-destructive border-destructive/30',
 };
 
 const InternalManagement: React.FC = () => {
@@ -97,18 +97,20 @@ const InternalManagement: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild aria-label="Voltar ao início">
+      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 sticky top-0 z-30">
+        <div className="container mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild aria-label="Voltar ao início" className="-ml-2 text-muted-foreground hover:text-foreground transition-colors duration-200">
             <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
           </Button>
-          <Building2 className="h-6 w-6 text-blue-600" />
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">Gestão Interna · ERP</h1>
-            <p className="text-xs text-muted-foreground">Estoque, EPIs, Produtos Químicos e mais</p>
+          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Building2 className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground truncate">Gestão Interna · ERP</h1>
+            <p className="text-sm text-muted-foreground mt-0.5 truncate">Estoque, EPIs, Produtos Químicos e mais</p>
           </div>
           {dashboard && dashboard.alertCount > 0 && (
-            <Badge variant="destructive" className="gap-1">
+            <Badge variant="destructive" className="gap-1 shrink-0">
               <AlertTriangle className="h-3 w-3" />
               {dashboard.alertCount} alerta(s)
             </Badge>
@@ -290,7 +292,7 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            <AlertTriangle className="h-5 w-5 text-warning" />
             Estoque baixo ({lowStock.length})
           </CardTitle>
           <div className="flex gap-2">
@@ -319,7 +321,7 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
                   <TableRow key={it.id}>
                     <TableCell>{it.name}</TableCell>
                     <TableCell>{it.categoryName}</TableCell>
-                    <TableCell className="text-right text-red-600 font-medium">
+                    <TableCell className="text-right text-destructive font-medium">
                       {Number(it.currentQty)} {it.unit}
                     </TableCell>
                     <TableCell className="text-right">{Number(it.minQty)} {it.unit}</TableCell>
@@ -334,7 +336,7 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarClock className="h-5 w-5 text-orange-500" />
+            <CalendarClock className="h-5 w-5 text-warning" />
             Validade próxima ({expiring.length})
           </CardTitle>
           <div className="flex gap-2">
@@ -453,7 +455,7 @@ const ItemsView: React.FC<{
                       {i.sku && <div className="text-xs text-muted-foreground">SKU: {i.sku}</div>}
                     </TableCell>
                     <TableCell>{i.categoryName}</TableCell>
-                    <TableCell className={`text-right font-medium ${low ? 'text-red-600' : ''}`}>
+                    <TableCell className={`text-right font-medium ${low ? 'text-destructive' : ''}`}>
                       {Number(i.currentQty)} {i.unit}
                     </TableCell>
                     <TableCell className="text-right">{Number(i.minQty)} {i.unit}</TableCell>
@@ -462,11 +464,11 @@ const ItemsView: React.FC<{
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
-                        <Button size="sm" variant="outline" className="text-green-600"
+                        <Button size="sm" variant="outline" className="text-success"
                           onClick={() => onMovement(i, 'in')}>
                           <ArrowDownToLine className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline" className="text-blue-600"
+                        <Button size="sm" variant="outline" className="text-info"
                           onClick={() => onMovement(i, 'out')}>
                           <ArrowUpFromLine className="h-4 w-4" />
                         </Button>
@@ -477,7 +479,7 @@ const ItemsView: React.FC<{
                         <Button size="sm" variant="ghost" onClick={() => onEdit(i)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-red-600"
+                        <Button size="sm" variant="ghost" className="text-destructive"
                           onClick={() => onDelete(i.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -521,7 +523,7 @@ const CategoriesView: React.FC<{
               <TableCell>{c.requiresSignedTerm ? <Badge variant="secondary">Requer</Badge> : '-'}</TableCell>
               <TableCell className="text-right">
                 <Button size="sm" variant="ghost" onClick={() => onEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" className="text-red-600" onClick={() => onDelete(c.id)}>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onDelete(c.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TableCell>
@@ -559,7 +561,7 @@ const EmployeesView: React.FC<{
               <TableCell>{e.phone || '-'}</TableCell>
               <TableCell className="text-right">
                 <Button size="sm" variant="ghost" onClick={() => onEdit(e)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" className="text-red-600" onClick={() => onDelete(e.id)}>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onDelete(e.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TableCell>
@@ -688,7 +690,7 @@ const MovementsView: React.FC<{ movements: ErpMovement[]; items: ErpItem[] }> = 
                 <TableCell>
                   {m.signedPdfUrl ? (
                     <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
-                       className="text-blue-600 underline text-xs flex items-center gap-1">
+                       className="text-info underline text-xs flex items-center gap-1">
                       <FileSignature className="h-3 w-3" /> Termo
                     </a>
                   ) : '-'}
@@ -748,7 +750,7 @@ const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ it
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-blue-600" />
+            <Package className="h-5 w-5 text-info" />
             Histórico · {item.name}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -759,19 +761,19 @@ const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ it
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Total entrada</p>
-            <p className="text-xl font-bold text-green-600">+{summary.in} {item.unit}</p>
+            <p className="text-xl font-bold text-success">+{summary.in} {item.unit}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Total retirada</p>
-            <p className="text-xl font-bold text-blue-600">-{summary.out} {item.unit}</p>
+            <p className="text-xl font-bold text-info">-{summary.out} {item.unit}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Ajustes</p>
-            <p className="text-xl font-bold text-amber-600">{summary.adjust}</p>
+            <p className="text-xl font-bold text-warning">{summary.adjust}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Descarte</p>
-            <p className="text-xl font-bold text-red-600">{summary.discard} {item.unit}</p>
+            <p className="text-xl font-bold text-destructive">{summary.discard} {item.unit}</p>
           </CardContent></Card>
         </div>
 
@@ -817,7 +819,7 @@ const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ it
                     <TableCell>
                       {m.signedPdfUrl ? (
                         <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
-                           className="text-blue-600 text-xs underline">PDF</a>
+                           className="text-info text-xs underline">PDF</a>
                       ) : '-'}
                     </TableCell>
                   </TableRow>
@@ -1077,7 +1079,7 @@ const MovementModal: React.FC<{
                 </SelectContent>
               </Select>
               {employees.length === 0 && (
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-warning mt-1">
                   Cadastre funcionários na aba Funcionários.
                 </p>
               )}
@@ -1093,7 +1095,7 @@ const MovementModal: React.FC<{
               </div>
               {pdfUrl && (
                 <a href={pdfUrl} target="_blank" rel="noreferrer"
-                   className="text-xs text-blue-600 underline mt-1 inline-block">
+                   className="text-xs text-info underline mt-1 inline-block">
                   PDF anexado ✓
                 </a>
               )}
