@@ -1,6 +1,8 @@
 
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { pool } from './config/database';
 
 // Import routes
@@ -42,7 +44,10 @@ import path from 'path';
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-// Middleware
+// Segurança HTTP — headers seguros (sem CSP para não quebrar assets servidos)
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// CORS: permite origens conhecidas + requisições sem Origin (APK Capacitor)
 const ALLOWED_ORIGINS = [
   'http://localhost:5173', 'http://localhost:8080', 'http://192.168.1.100:5173',
   'https://alchemyrotas.com', 'https://www.alchemyrotas.com',
@@ -52,13 +57,26 @@ app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    return cb(null, true); // permitir APK (sem origin) e fallback amplo
+    if (/\.lovableproject\.com$/.test(new URL(origin).hostname) || /\.lovable\.app$/.test(new URL(origin).hostname)) {
+      return cb(null, true);
+    }
+    return cb(new Error(`Origem não permitida: ${origin}`));
   },
   credentials: true,
 }));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Rate limit agressivo no login para mitigar brute-force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 20, // 20 tentativas/IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas. Tente novamente em alguns minutos.' },
+});
+app.use('/api/auth/login', authLimiter);
 
 // Health check
 app.get('/api/health', (req, res) => {

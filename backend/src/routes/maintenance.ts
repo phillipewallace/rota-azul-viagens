@@ -1,8 +1,10 @@
 
 import { Router } from 'express';
 import { pool } from '../config/database';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
+router.use(requireAuth);
 
 // Get all maintenance records
 router.get('/', async (req, res) => {
