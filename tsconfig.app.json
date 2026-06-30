@@ -2,6 +2,7 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
+    "types": ["vitest/globals"],
     "jsx": "react-jsx",
     "lib": [
       "ES2020",
