@@ -458,7 +458,7 @@ export default function Sanitarios() {
           <Card>
             <CardContent className="p-3">
               <div className="text-[11px] uppercase text-muted-foreground">Manutenção</div>
-              <div className="text-2xl font-bold text-orange-700">{stock.manutencao}</div>
+              <div className="text-2xl font-bold text-warning">{stock.manutencao}</div>
             </CardContent>
           </Card>
           <Card>
@@ -490,7 +490,7 @@ export default function Sanitarios() {
                 const isEditing = editingCat === cat.value;
                 return (
                   <div key={cat.value}
-                       className={`rounded-lg border p-3 flex flex-col gap-2 ${cat.color.replace('text-', 'border-').split(' ').find(x => x.startsWith('border-')) || 'border-slate-200'} bg-white`}>
+                       className={`rounded-lg border p-3 flex flex-col gap-2 ${cat.color.replace('text-', 'border-').split(' ').find(x => x.startsWith('border-')) || 'border-border'} bg-card`}>
                     <div className="flex items-center justify-between gap-1">
                       <Badge className={`${cat.color} text-[11px] font-semibold border`}>
                         {cat.label}
@@ -779,7 +779,7 @@ export default function Sanitarios() {
                     size="sm"
                     variant="outline"
                     onClick={() => setDeleteOpen(true)}
-                    className="gap-1 text-destructive border-red-200 hover:bg-red-50 hover:text-red-700 ml-auto"
+                    className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10 ml-auto"
                   >
                     <Trash2 className="h-4 w-4" /> Excluir
                   </Button>
