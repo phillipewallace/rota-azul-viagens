@@ -4,7 +4,8 @@
  * - Gastos: categorias dinâmicas + recorrências mensais materializáveis.
  * - Visão gerencial: KPIs + gráfico 12 meses (receita × gasto × resultado).
  */
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { VirtualRows } from '@/components/erp/VirtualRows';
 import {
   DollarSign, Loader2, Download, RefreshCw, Receipt as ReceiptIcon,
   CalendarDays, CheckCircle2, AlertCircle, Filter, Plus, Trash2, Wrench,
@@ -107,6 +108,10 @@ const ErpFinanceiro: React.FC = () => {
 
   // seleção lote
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // refs para scroll-parents das tabelas virtualizadas
+  const pendentesScrollRef = useRef<HTMLDivElement>(null);
+  const recibosScrollRef = useRef<HTMLDivElement>(null);
 
   // diálogos
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
