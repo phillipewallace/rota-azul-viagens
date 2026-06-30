@@ -267,15 +267,15 @@ const Maintenance = () => {
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, { label: string; className: string }> = {
-      scheduled: { label: 'Agendada', className: 'bg-blue-500/15 text-blue-700 border-blue-300' },
-      pending: { label: 'Agendada', className: 'bg-blue-500/15 text-blue-700 border-blue-300' },
+      scheduled: { label: 'Agendada', className: 'bg-info/15 text-info border-info/30' },
+      pending: { label: 'Agendada', className: 'bg-info/15 text-info border-info/30' },
       in_progress: {
         label: 'Em andamento',
-        className: 'bg-amber-500/15 text-amber-700 border-amber-300',
+        className: 'bg-warning/15 text-warning border-warning/30',
       },
       completed: {
         label: 'Concluída',
-        className: 'bg-emerald-500/15 text-emerald-700 border-emerald-300',
+        className: 'bg-success/15 text-success border-success/30',
       },
     };
     const m = map[status] || { label: status, className: '' };
