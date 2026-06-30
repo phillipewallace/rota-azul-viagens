@@ -61,6 +61,14 @@
     --shadow-md: 0 4px 12px -2px hsl(222 47% 11% / 0.06), 0 2px 4px -2px hsl(222 47% 11% / 0.04);
     --shadow-lg: 0 12px 28px -8px hsl(222 47% 11% / 0.12);
 
+    /* Brand — usado em telas de marca (login, splash). Adapta-se ao tema. */
+    --brand: 222 76% 22%;
+    --brand-2: 230 70% 35%;
+    --brand-3: 245 65% 45%;
+    --brand-foreground: 0 0% 100%;
+    --gradient-brand: linear-gradient(135deg, hsl(var(--brand)) 0%, hsl(var(--brand-2)) 55%, hsl(var(--brand-3)) 100%);
+    --shadow-brand: 0 24px 60px -20px hsl(var(--brand) / 0.45);
+
     --radius: 0.65rem;
 
 
