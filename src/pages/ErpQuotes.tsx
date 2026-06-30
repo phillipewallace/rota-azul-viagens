@@ -123,7 +123,7 @@ const ErpQuotes: React.FC = () => {
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
         formaPagamento: (q.formaPagamento as FormaPagamento) || 'boleto',
         status: q.status,
-        items: q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }],
+        items: (q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }]).map(withUid),
       });
     } catch (e: any) { toast.error(e.message); }
   };
@@ -132,7 +132,7 @@ const ErpQuotes: React.FC = () => {
     if (!editing) return;
     setEditing({ ...editing, items: editing.items.map((it, idx) => idx === i ? { ...it, ...patch } : it) });
   };
-  const addItem = () => editing && setEditing({ ...editing, items: [...editing.items, { produto: '', quantidade: 1, valorUnitario: 0 }] });
+  const addItem = () => editing && setEditing({ ...editing, items: [...editing.items, withUid({ produto: '', quantidade: 1, valorUnitario: 0 })] });
   const removeItem = (i: number) => editing && setEditing({ ...editing, items: editing.items.filter((_, idx) => idx !== i) });
 
   const save = async (): Promise<Quote | null> => {
