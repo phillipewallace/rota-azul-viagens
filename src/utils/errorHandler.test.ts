@@ -53,7 +53,8 @@ describe("validateFields", () => {
 
   it("min/max numérico", () => {
     const r = validateFields([
-      { field: "idade", value: 0, rules: { min: 1 } },
+      // valor 0 cai no early-return (treated as empty); usar valor truthy
+      { field: "idade", value: 0.5, rules: { min: 1 } },
       { field: "nota", value: 11, rules: { max: 10 } },
     ]);
     expect(r.valid).toBe(false);
