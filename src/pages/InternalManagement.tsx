@@ -321,7 +321,7 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
                   <TableRow key={it.id}>
                     <TableCell>{it.name}</TableCell>
                     <TableCell>{it.categoryName}</TableCell>
-                    <TableCell className="text-right text-red-600 font-medium">
+                    <TableCell className="text-right text-destructive font-medium">
                       {Number(it.currentQty)} {it.unit}
                     </TableCell>
                     <TableCell className="text-right">{Number(it.minQty)} {it.unit}</TableCell>
@@ -455,7 +455,7 @@ const ItemsView: React.FC<{
                       {i.sku && <div className="text-xs text-muted-foreground">SKU: {i.sku}</div>}
                     </TableCell>
                     <TableCell>{i.categoryName}</TableCell>
-                    <TableCell className={`text-right font-medium ${low ? 'text-red-600' : ''}`}>
+                    <TableCell className={`text-right font-medium ${low ? 'text-destructive' : ''}`}>
                       {Number(i.currentQty)} {i.unit}
                     </TableCell>
                     <TableCell className="text-right">{Number(i.minQty)} {i.unit}</TableCell>
@@ -464,11 +464,11 @@ const ItemsView: React.FC<{
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
-                        <Button size="sm" variant="outline" className="text-green-600"
+                        <Button size="sm" variant="outline" className="text-success"
                           onClick={() => onMovement(i, 'in')}>
                           <ArrowDownToLine className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline" className="text-blue-600"
+                        <Button size="sm" variant="outline" className="text-info"
                           onClick={() => onMovement(i, 'out')}>
                           <ArrowUpFromLine className="h-4 w-4" />
                         </Button>
@@ -479,7 +479,7 @@ const ItemsView: React.FC<{
                         <Button size="sm" variant="ghost" onClick={() => onEdit(i)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-red-600"
+                        <Button size="sm" variant="ghost" className="text-destructive"
                           onClick={() => onDelete(i.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -523,7 +523,7 @@ const CategoriesView: React.FC<{
               <TableCell>{c.requiresSignedTerm ? <Badge variant="secondary">Requer</Badge> : '-'}</TableCell>
               <TableCell className="text-right">
                 <Button size="sm" variant="ghost" onClick={() => onEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" className="text-red-600" onClick={() => onDelete(c.id)}>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onDelete(c.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TableCell>
@@ -561,7 +561,7 @@ const EmployeesView: React.FC<{
               <TableCell>{e.phone || '-'}</TableCell>
               <TableCell className="text-right">
                 <Button size="sm" variant="ghost" onClick={() => onEdit(e)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" className="text-red-600" onClick={() => onDelete(e.id)}>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onDelete(e.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TableCell>
@@ -690,7 +690,7 @@ const MovementsView: React.FC<{ movements: ErpMovement[]; items: ErpItem[] }> = 
                 <TableCell>
                   {m.signedPdfUrl ? (
                     <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
-                       className="text-blue-600 underline text-xs flex items-center gap-1">
+                       className="text-info underline text-xs flex items-center gap-1">
                       <FileSignature className="h-3 w-3" /> Termo
                     </a>
                   ) : '-'}
@@ -750,7 +750,7 @@ const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ it
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-blue-600" />
+            <Package className="h-5 w-5 text-info" />
             Histórico · {item.name}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -761,11 +761,11 @@ const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ it
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Total entrada</p>
-            <p className="text-xl font-bold text-green-600">+{summary.in} {item.unit}</p>
+            <p className="text-xl font-bold text-success">+{summary.in} {item.unit}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Total retirada</p>
-            <p className="text-xl font-bold text-blue-600">-{summary.out} {item.unit}</p>
+            <p className="text-xl font-bold text-info">-{summary.out} {item.unit}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Ajustes</p>
@@ -773,7 +773,7 @@ const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ it
           </CardContent></Card>
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Descarte</p>
-            <p className="text-xl font-bold text-red-600">{summary.discard} {item.unit}</p>
+            <p className="text-xl font-bold text-destructive">{summary.discard} {item.unit}</p>
           </CardContent></Card>
         </div>
 
@@ -819,7 +819,7 @@ const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ it
                     <TableCell>
                       {m.signedPdfUrl ? (
                         <a href={m.signedPdfUrl} target="_blank" rel="noreferrer"
-                           className="text-blue-600 text-xs underline">PDF</a>
+                           className="text-info text-xs underline">PDF</a>
                       ) : '-'}
                     </TableCell>
                   </TableRow>
@@ -1095,7 +1095,7 @@ const MovementModal: React.FC<{
               </div>
               {pdfUrl && (
                 <a href={pdfUrl} target="_blank" rel="noreferrer"
-                   className="text-xs text-blue-600 underline mt-1 inline-block">
+                   className="text-xs text-info underline mt-1 inline-block">
                   PDF anexado ✓
                 </a>
               )}
