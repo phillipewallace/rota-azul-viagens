@@ -112,6 +112,13 @@ const ServiceOrders: React.FC = () => {
     return l;
   }, [list, tab, tipoFilter, search]);
 
+  // Render incremental — evita travar com centenas de cards (cada um tem painel expansível pesado)
+  const PAGE_SIZE = 60;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [tab, tipoFilter, search]);
+  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = filtered.length > visibleCount;
+
   const counts = useMemo(() => ({
     todas: list.length,
     abertas: list.filter(x => x.status === 'aberta' && !x.emAtraso).length,
