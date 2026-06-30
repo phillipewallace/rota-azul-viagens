@@ -93,7 +93,7 @@ const DesktopCreateRoute = () => {
     if (isEditing && editId) {
       loadRoutes();
     }
-  }, [isEditing, editId]);
+  }, [isEditing, editId, loadRoutes]);
 
   useEffect(() => {
     if (isEditing && editId && routes.length > 0) {

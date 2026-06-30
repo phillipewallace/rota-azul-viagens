@@ -167,8 +167,8 @@ const Maintenance = () => {
     const kmAlerts = records
       .filter((r) => r.next_maintenance_km)
       .map((r) => {
-        const truck = trucks.find((t: any) => t.id === r.truck_id);
-        const currentKm = Number((truck as any)?.mileage) || 0;
+        const truck = trucks.find((t) => t.id === r.truck_id);
+        const currentKm = Number(truck?.mileage) || 0;
         const left = (r.next_maintenance_km || 0) - currentKm;
         return { ...r, currentKm, left };
       })

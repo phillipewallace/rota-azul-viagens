@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePolling } from './usePolling';
 import { routesService } from '@/services/routes';
 import { API_CONFIG } from '@/services/config';
@@ -52,7 +52,7 @@ export const useRoutes = () => {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadRoutes = async () => {
+  const loadRoutes = useCallback(async () => {
     try {
       setLoading(true);
       const data = await routesService.getRoutes();
@@ -62,7 +62,7 @@ export const useRoutes = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const getAddressByCep = async (cep: string) => {
     try {

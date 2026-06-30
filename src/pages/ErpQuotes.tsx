@@ -47,13 +47,16 @@ interface EditorState {
   items: QuoteItem[];
 }
 
+let __itemUid = 0;
+const withUid = <T extends object>(it: T): T & { __uid: number } => ({ ...(it as T), __uid: ++__itemUid });
+
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
   dataEntrega: '', dataRecolhimento: '', enderecoEntrega: '', limpezasSemanais: 1,
   observacoes: '', condicoesPagamento: '',
   formaPagamento: 'boleto',
   status: 'rascunho',
-  items: [{ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 }],
+  items: [withUid({ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 })],
 });
 
 const statusBadge: Record<string, string> = {
@@ -120,7 +123,7 @@ const ErpQuotes: React.FC = () => {
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
         formaPagamento: (q.formaPagamento as FormaPagamento) || 'boleto',
         status: q.status,
-        items: q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }],
+        items: (q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }]).map(withUid),
       });
     } catch (e: any) { toast.error(e.message); }
   };
@@ -129,7 +132,7 @@ const ErpQuotes: React.FC = () => {
     if (!editing) return;
     setEditing({ ...editing, items: editing.items.map((it, idx) => idx === i ? { ...it, ...patch } : it) });
   };
-  const addItem = () => editing && setEditing({ ...editing, items: [...editing.items, { produto: '', quantidade: 1, valorUnitario: 0 }] });
+  const addItem = () => editing && setEditing({ ...editing, items: [...editing.items, withUid({ produto: '', quantidade: 1, valorUnitario: 0 })] });
   const removeItem = (i: number) => editing && setEditing({ ...editing, items: editing.items.filter((_, idx) => idx !== i) });
 
   const save = async (): Promise<Quote | null> => {
@@ -460,7 +463,7 @@ const ErpQuotes: React.FC = () => {
                   <div />
                 </div>
                 {editing.items.map((it, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
+                  <div key={(it as any).__uid ?? i} className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
                     <Input value={it.produto} placeholder="Ex.: Sanitário Standard"
                            onChange={e => updateItem(i, { produto: e.target.value })} />
                     <Input value={it.descricao || ''} placeholder="Opcional"
