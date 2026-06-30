@@ -24,6 +24,7 @@ import { FileSignature } from 'lucide-react';
 import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento, calcVencimentoBoleto, type FormaPagamento } from '@/utils/fixedObservations';
 import { formatDateBR } from '@/utils/dateFormat';
 
+import { confirmDialog } from '@/lib/confirm';
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 interface EditorState {
@@ -230,7 +231,7 @@ const ErpQuotes: React.FC = () => {
   };
 
   const removeQuote = async (id: string) => {
-    if (!confirm('Excluir este orçamento?')) return;
+    if (!(await confirmDialog({ description: 'Excluir este orçamento?', destructive: true }))) return;
     try { await quotesService.remove(id); toast.success('Excluído'); load(); }
     catch (e: any) { toast.error(e.message); }
   };
@@ -315,7 +316,7 @@ const ErpQuotes: React.FC = () => {
                       <Button size="sm" variant="ghost" className="text-purple-700 hover:bg-purple-50"
                               title="Converter em Ordem de Serviço"
                               onClick={async () => {
-                                if (!confirm(`Converter ${q.numero} em OS?`)) return;
+                                if (!(await confirmDialog({ description: `Converter ${q.numero} em OS?`, destructive: true }))) return;
                                 const dias = q.modalidade === 'diaria'
                                   ? parseInt(prompt('Dias de locação?', '1') || '1') || 1 : 30;
                                 try {

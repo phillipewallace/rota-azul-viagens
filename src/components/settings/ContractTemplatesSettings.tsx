@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { contractTemplatesService, type ContractTemplate, type ContractTemplateTipo } from '@/services/contractTemplates';
 import { TEMPLATE_VARIABLES } from '@/utils/contractTemplatesDefaults';
 
+import { confirmDialog } from '@/lib/confirm';
 function exec(cmd: string, value?: string) {
   document.execCommand(cmd, false, value);
 }
@@ -85,7 +86,7 @@ function TemplateEditor({ tipo }: { tipo: ContractTemplateTipo }) {
   };
 
   const reset = async () => {
-    if (!confirm(`Restaurar o modelo de ${tipo.toUpperCase()} para o padrão original? Suas edições atuais serão perdidas.`)) return;
+    if (!(await confirmDialog({ description: `Restaurar o modelo de ${tipo.toUpperCase()} para o padrão original? Suas edições atuais serão perdidas.`, destructive: true }))) return;
     try {
       setSaving(true);
       const restored = await contractTemplatesService.reset(tipo);

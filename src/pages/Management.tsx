@@ -11,6 +11,7 @@ import { MaintenanceTable } from '@/components/MaintenanceTable';
 import { MaintenanceModal } from '@/components/MaintenanceModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, Pie } from 'recharts';
 
+import { confirmDialog } from '@/lib/confirm';
 const Management = () => {
   const { toast } = useToast();
   const [startDate, setStartDate] = useState('');
@@ -121,7 +122,7 @@ const Management = () => {
   };
 
   const handleDeleteMaintenance = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este registro de manutenção?')) {
+    if ((await confirmDialog({ description: 'Tem certeza que deseja excluir este registro de manutenção?', destructive: true }))) {
       try {
         await deleteMaintenance(id);
         toast({

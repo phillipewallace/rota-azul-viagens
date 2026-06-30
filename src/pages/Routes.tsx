@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileOperatorRoutes from '@/components/mobile/operator/MobileOperatorRoutes';
 
+import { confirmDialog } from '@/lib/confirm';
 const Routes = () => {
   const isMobile = useIsMobile();
   
@@ -43,7 +44,7 @@ const DesktopRoutes = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta rota? Isso também removerá todos os agendamentos relacionados.')) {
+    if ((await confirmDialog({ description: 'Tem certeza que deseja excluir esta rota? Isso também removerá todos os agendamentos relacionados.', destructive: true }))) {
       try {
         console.log('🗑️ [ROUTES PAGE] Excluindo rota:', id);
         await deleteRoute(id);
@@ -74,7 +75,7 @@ const DesktopRoutes = () => {
 
   // ✅ ÚNICO PONTO AUTORIZADO DE RESET - Via botão específico
   const handleReset = async (route: any) => {
-    if (window.confirm(`Tem certeza que deseja resetar a rota "${route.name}"? TODOS os pontos concluídos serão marcados como não concluídos.`)) {
+    if ((await confirmDialog({ description: `Tem certeza que deseja resetar a rota "${route.name}"? TODOS os pontos concluídos serão marcados como não concluídos.`, destructive: true }))) {
       try {
         console.log('🔄 [ROUTES PAGE] Resetando rota via botão reset:', route.name);
         await resetRoute(route.id);
@@ -94,7 +95,7 @@ const DesktopRoutes = () => {
       return;
     }
     
-    if (window.confirm(`Tem certeza que deseja otimizar a rota "${route.name}"? Isso reorganizará os pontos intermediários para a melhor sequência.`)) {
+    if ((await confirmDialog({ description: `Tem certeza que deseja otimizar a rota "${route.name}"? Isso reorganizará os pontos intermediários para a melhor sequência.`, destructive: true }))) {
       try {
         console.log('🔄 [ROUTES PAGE] Otimizando rota:', route.name);
         await optimizeRoute(route.id);

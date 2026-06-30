@@ -15,6 +15,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getCompanyLogoDataUrl } from '@/utils/companyLogo';
 
+import { confirmDialog } from '@/lib/confirm';
 const SUMMARY_BADGE: Record<string, { label: string; cls: string }> = {
   ok:        { label: 'OK',       cls: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
   attention: { label: 'Atenção',  cls: 'bg-amber-100 text-amber-700 border-amber-300' },
@@ -173,7 +174,7 @@ export default function Checklists() {
   }, [openId]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir esta checklist?')) return;
+    if (!(await confirmDialog({ description: 'Excluir esta checklist?', destructive: true }))) return;
     try {
       await checklistsService.remove(id);
       toast.success('Excluída');

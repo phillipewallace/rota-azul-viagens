@@ -48,6 +48,7 @@ import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateReceiptPdf } from '@/utils/receiptPdf';
 import { formatDateBR } from '@/utils/dateFormat';
 
+import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => s ? formatDateBR(s) : '—';
@@ -909,7 +910,7 @@ function GastosPanel() {
 
   const remove = async (e: Expense) => {
     if (e.origem === 'manutencao') { toast.info('Para alterar uma manutenção, vá para o módulo Manutenção.'); return; }
-    if (!confirm('Excluir este gasto?')) return;
+    if (!(await confirmDialog({ description: 'Excluir este gasto?', destructive: true }))) return;
     try { await expensesService.remove(e.id); toast.success('Removido'); await load(); }
     catch (er: any) { toast.error(er.message); }
   };
@@ -1164,7 +1165,7 @@ const CategoriesDialog: React.FC<{
     catch (e: any) { toast.error(e.message); }
   };
   const remove = async (c: ExpenseCategory) => {
-    if (!confirm(`Excluir categoria "${c.label}"?`)) return;
+    if (!(await confirmDialog({ description: `Excluir categoria "${c.label}"?`, destructive: true }))) return;
     try {
       const r = await expenseCategoriesService.remove(c.id);
       toast.success(r.inactivated ? 'Categoria padrão — desativada' : 'Excluída');
@@ -1247,7 +1248,7 @@ const RecurringDialog: React.FC<{
   };
 
   const remove = async (r: RecurringExpense) => {
-    if (!confirm(`Excluir recorrência "${r.descricao}"?`)) return;
+    if (!(await confirmDialog({ description: `Excluir recorrência "${r.descricao}"?`, destructive: true }))) return;
     try { await recurringExpensesService.remove(r.id); toast.success('Removida'); await onChanged(); }
     catch (e: any) { toast.error(e.message); }
   };
