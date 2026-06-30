@@ -44,6 +44,13 @@ ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS license_expiry DATE;
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+-- Colunas usadas pelo backend (routes/drivers.ts) — garantem que /api/drivers não estoure 500.
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS license_number VARCHAR(50);
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS license_category VARCHAR(10);
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS hire_date DATE DEFAULT CURRENT_DATE;
+-- Backfill: se a instalação antiga só tinha "license", copia para license_number.
+UPDATE public.drivers SET license_number = license WHERE license_number IS NULL AND license IS NOT NULL;
 
 -- ============================== ROUTES ======================================
 CREATE TABLE IF NOT EXISTS public.routes (
