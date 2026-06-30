@@ -78,7 +78,7 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filterAtivo]);
+  useEffect(() => { load(); }, [filterAtivo]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { loadAux(); }, []);
 
   const filtered = useMemo(() => {

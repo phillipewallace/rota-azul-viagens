@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePolling } from './usePolling';
 import { routesService } from '@/services/routes';
 import { API_CONFIG } from '@/services/config';
@@ -51,16 +51,22 @@ export interface Route {
 export const useRoutes = () => {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
+  // Guard pra evitar setState após unmount (race em polling + efeito inicial)
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const loadRoutes = useCallback(async () => {
     try {
-      setLoading(true);
+      if (mountedRef.current) setLoading(true);
       const data = await routesService.getRoutes();
-      setRoutes(data);
+      if (mountedRef.current) setRoutes(data);
     } catch (error) {
       console.error('Error loading routes:', error);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, []);
 
@@ -264,7 +270,7 @@ export const useRoutes = () => {
 
   useEffect(() => {
     loadRoutes();
-  }, []);
+  }, [loadRoutes]);
   usePolling(loadRoutes, 20000);
 
   return {
