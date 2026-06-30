@@ -420,25 +420,25 @@ export default function Sanitarios() {
       {/* Resumo de estoque ERP — KPIs */}
       {stock && (
         <div className="mb-4 grid grid-cols-2 md:grid-cols-6 gap-2">
-          <Card className="border-amber-300 bg-gradient-to-br from-amber-50 to-amber-50/40">
+          <Card className="border-warning/30 bg-warning/5">
             <CardContent className="p-3">
               <div className="text-[11px] uppercase text-muted-foreground">Total físico</div>
-              <div className="text-2xl font-bold text-amber-700">{stock.totalFisico ?? 0}</div>
+              <div className="text-2xl font-bold text-warning">{stock.totalFisico ?? 0}</div>
               <div className="text-[10px] text-muted-foreground">
                 {Math.max(0, (stock.totalFisico ?? 0) - stock.total)} sem numeração
               </div>
             </CardContent>
           </Card>
-          <Card className="border-green-200">
+          <Card className="border-success/30">
             <CardContent className="p-3">
               <div className="text-[11px] uppercase text-muted-foreground">Disponíveis</div>
-              <div className="text-2xl font-bold text-green-700">{stock.disponivel}</div>
+              <div className="text-2xl font-bold text-success">{stock.disponivel}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3">
               <div className="text-[11px] uppercase text-muted-foreground">Em cliente</div>
-              <div className="text-2xl font-bold text-blue-700">{stock.em_cliente}</div>
+              <div className="text-2xl font-bold text-info">{stock.em_cliente}</div>
             </CardContent>
           </Card>
           <Card>
@@ -446,10 +446,10 @@ export default function Sanitarios() {
               <div className="text-[11px] uppercase text-muted-foreground flex items-center justify-between">
                 <span>Em OS</span>
                 {!!stock.atrasados && (
-                  <span className="text-[10px] text-red-600 font-bold">{stock.atrasados} atrasada(s)</span>
+                  <span className="text-[10px] text-destructive font-bold">{stock.atrasados} atrasada(s)</span>
                 )}
               </div>
-              <div className="text-2xl font-bold text-purple-700">{stock.em_os}</div>
+              <div className="text-2xl font-bold text-primary">{stock.em_os}</div>
               {!!stock.reservadosEmOs && (
                 <div className="text-[10px] text-muted-foreground">{stock.reservadosEmOs} reservado(s)</div>
               )}
@@ -520,11 +520,11 @@ export default function Sanitarios() {
                     <div className="grid grid-cols-2 gap-1 text-[11px] pt-2 border-t">
                       <div>
                         <div className="text-muted-foreground">Livres</div>
-                        <div className="font-bold text-green-700">{c.livres}</div>
+                        <div className="font-bold text-success">{c.livres}</div>
                       </div>
                       <div>
                         <div className="text-muted-foreground">Em cliente</div>
-                        <div className="font-bold text-blue-700">{c.em_cliente}</div>
+                        <div className="font-bold text-info">{c.em_cliente}</div>
                       </div>
                       <div>
                         <div className="text-muted-foreground">Numerados</div>
@@ -532,7 +532,7 @@ export default function Sanitarios() {
                       </div>
                       <div>
                         <div className="text-muted-foreground">S/ número</div>
-                        <div className="font-semibold text-amber-700">{c.semNumeracao}</div>
+                        <div className="font-semibold text-warning">{c.semNumeracao}</div>
                       </div>
                     </div>
                   </div>
@@ -605,7 +605,7 @@ export default function Sanitarios() {
             {exporting ? 'Exportando…' : 'Exportar CSV'}
           </Button>
 
-          <Button onClick={() => setDespOpen(true)} size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => setDespOpen(true)} size="sm" className="gap-1 bg-info text-info-foreground hover:bg-info/90">
             <Send className="h-4 w-4" /> Despachar (informar nº)
           </Button>
 
@@ -766,7 +766,7 @@ export default function Sanitarios() {
                     </Button>
                   )}
                   {selected.status === 'em_cliente' && (
-                    <Button size="sm" variant="default" onClick={() => setBaixaOpen(true)} className="gap-1 bg-green-600 hover:bg-green-700">
+                    <Button size="sm" variant="default" onClick={() => setBaixaOpen(true)} className="gap-1 bg-success text-success-foreground hover:bg-success/90">
                       <LogOut className="h-4 w-4" /> Dar baixa
                     </Button>
                   )}
@@ -779,16 +779,16 @@ export default function Sanitarios() {
                     size="sm"
                     variant="outline"
                     onClick={() => setDeleteOpen(true)}
-                    className="gap-1 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 ml-auto"
+                    className="gap-1 text-destructive border-red-200 hover:bg-red-50 hover:text-red-700 ml-auto"
                   >
                     <Trash2 className="h-4 w-4" /> Excluir
                   </Button>
                 </div>
 
                 {selected.status === 'em_cliente' && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1">
+                  <div className="bg-info/10 border border-info/30 rounded-lg p-3 space-y-1">
                     <div className="flex items-center gap-2 text-sm">
-                      <User className="h-4 w-4 text-blue-700" />
+                      <User className="h-4 w-4 text-info" />
                       <strong>{selected.current_customer_name || '—'}</strong>
                     </div>
                     {selected.current_address && (
@@ -805,7 +805,7 @@ export default function Sanitarios() {
                     )}
                     {selected.current_lat && selected.current_lng && (
                       <a
-                        className="text-xs text-blue-600 underline"
+                        className="text-xs text-info underline"
                         href={`https://www.google.com/maps?q=${selected.current_lat},${selected.current_lng}`}
                         target="_blank" rel="noreferrer"
                       >
@@ -880,7 +880,7 @@ export default function Sanitarios() {
                     // pré-preenche o endereço com o cadastrado, mas é editável
                     if (!allocAddress.trim()) setAllocAddress(c.address || '');
                   }}
-                  className={`w-full text-left p-2 hover:bg-muted/30 ${allocCustomerId === c.id ? 'bg-blue-50' : ''}`}
+                  className={`w-full text-left p-2 hover:bg-muted/30 ${allocCustomerId === c.id ? 'bg-info/10' : ''}`}
                 >
                   <div className="text-sm font-medium">{c.customerName || '(sem nome)'}</div>
                   <div className="text-xs text-muted-foreground truncate">{c.address || '—'}</div>
@@ -889,7 +889,7 @@ export default function Sanitarios() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">
-                Endereço da obra/local <span className="text-red-500">*</span>
+                Endereço da obra/local <span className="text-destructive">*</span>
               </label>
               <Textarea
                 rows={2}
@@ -930,7 +930,7 @@ export default function Sanitarios() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setBaixaOpen(false)}>Cancelar</Button>
-            <Button onClick={submitBaixa} disabled={allocBusy} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={submitBaixa} disabled={allocBusy} className="bg-success text-success-foreground hover:bg-success/90">
               {allocBusy ? 'Registrando…' : 'Confirmar baixa'}
             </Button>
           </DialogFooter>
@@ -951,7 +951,7 @@ export default function Sanitarios() {
             <AlertDialogAction
               onClick={remove}
               disabled={deleteBusy}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteBusy ? 'Excluindo…' : 'Excluir'}
             </AlertDialogAction>
@@ -989,7 +989,7 @@ export default function Sanitarios() {
                     setDespCustomerId(c.id);
                     if (!despAddress.trim()) setDespAddress(c.address || '');
                   }}
-                  className={`w-full text-left p-2 hover:bg-muted/30 ${despCustomerId === c.id ? 'bg-blue-50' : ''}`}
+                  className={`w-full text-left p-2 hover:bg-muted/30 ${despCustomerId === c.id ? 'bg-info/10' : ''}`}
                 >
                   <div className="text-sm font-medium">{c.customerName || '(sem nome)'}</div>
                   <div className="text-xs text-muted-foreground truncate">{c.address || '—'}</div>
@@ -997,12 +997,12 @@ export default function Sanitarios() {
               ))}
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Endereço da obra/local <span className="text-red-500">*</span></label>
+              <label className="text-xs text-muted-foreground">Endereço da obra/local <span className="text-destructive">*</span></label>
               <Textarea rows={2} value={despAddress} onChange={(e) => setDespAddress(e.target.value)} placeholder="Endereço onde o(s) sanitário(s) ficará(ão)" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">
-                Números dos sanitários <span className="text-red-500">*</span>
+                Números dos sanitários <span className="text-destructive">*</span>
               </label>
               <Textarea
                 rows={2}
@@ -1016,7 +1016,7 @@ export default function Sanitarios() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">
-                Categoria <span className="text-red-500">*</span>
+                Categoria <span className="text-destructive">*</span>
               </label>
               <select
                 className="block w-full border rounded-md h-10 px-2 bg-background"
@@ -1036,7 +1036,7 @@ export default function Sanitarios() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDespOpen(false)}>Cancelar</Button>
-            <Button onClick={submitDespacho} disabled={despBusy || !despCustomerId || !despAddress.trim() || !despNumerosText.trim()} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={submitDespacho} disabled={despBusy || !despCustomerId || !despAddress.trim() || !despNumerosText.trim()} className="bg-info text-info-foreground hover:bg-info/90">
               {despBusy ? 'Registrando…' : 'Confirmar despacho'}
             </Button>
           </DialogFooter>
