@@ -4,7 +4,8 @@
  * - Gastos: categorias dinâmicas + recorrências mensais materializáveis.
  * - Visão gerencial: KPIs + gráfico 12 meses (receita × gasto × resultado).
  */
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { VirtualRows } from '@/components/erp/VirtualRows';
 import {
   DollarSign, Loader2, Download, RefreshCw, Receipt as ReceiptIcon,
   CalendarDays, CheckCircle2, AlertCircle, Filter, Plus, Trash2, Wrench,
@@ -107,6 +108,10 @@ const ErpFinanceiro: React.FC = () => {
 
   // seleção lote
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // refs para scroll-parents das tabelas virtualizadas
+  const pendentesScrollRef = useRef<HTMLDivElement>(null);
+  const recibosScrollRef = useRef<HTMLDivElement>(null);
 
   // diálogos
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
@@ -359,9 +364,12 @@ const ErpFinanceiro: React.FC = () => {
               </div>
             </CardContent>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div
+                ref={pendentesScrollRef}
+                className={`overflow-auto ${pendentes.length > 50 ? 'max-h-[70vh]' : ''}`}
+              >
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
                       <TableHead className="w-10">
                         <Checkbox aria-label="Selecionar todos"
@@ -378,37 +386,44 @@ const ErpFinanceiro: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {pendentes.length === 0 && (
-                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Nenhuma cobrança pendente para {formatComp(competencia)}.
                       </TableCell></TableRow>
                     )}
-                    {pendentes.map(p => (
-                      <TableRow key={p.contractId} data-state={selected.has(p.contractId) ? 'selected' : undefined}>
-                        <TableCell>
-                          <Checkbox aria-label={`Selecionar ${p.contractNumero}`}
-                            checked={selected.has(p.contractId)}
-                            onCheckedChange={() => toggleSel(p.contractId)} />
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">{p.contractNumero}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{p.customerName || '—'}</TableCell>
-                        <TableCell className="text-xs text-slate-500 max-w-[160px] truncate">{p.companyRazaoSocial || '—'}</TableCell>
-                        <TableCell className="text-xs">dia {p.diaVencimento}</TableCell>
-                        <TableCell className="text-right font-semibold">{BRL(Number(p.valorMensal))}</TableCell>
-                        <TableCell className="text-right whitespace-nowrap space-x-1">
-                          <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
-                            disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
-                          </Button>
-                          <Button size="sm" onClick={() => gerar(p)} disabled={working === p.contractId}
-                            className="bg-emerald-600 hover:bg-emerald-700">
-                            {working === p.contractId
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                            Gerar recibo
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    <VirtualRows
+                      scrollRef={pendentesScrollRef}
+                      items={pendentes}
+                      colSpan={7}
+                      estimateSize={56}
+                      getKey={(p) => p.contractId}
+                      renderRow={(p) => (
+                        <TableRow key={p.contractId} data-state={selected.has(p.contractId) ? 'selected' : undefined}>
+                          <TableCell>
+                            <Checkbox aria-label={`Selecionar ${p.contractNumero}`}
+                              checked={selected.has(p.contractId)}
+                              onCheckedChange={() => toggleSel(p.contractId)} />
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{p.contractNumero}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{p.customerName || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{p.companyRazaoSocial || '—'}</TableCell>
+                          <TableCell className="text-xs">dia {p.diaVencimento}</TableCell>
+                          <TableCell className="text-right font-semibold">{BRL(Number(p.valorMensal))}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap space-x-1">
+                            <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
+                              disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
+                            </Button>
+                            <Button size="sm" onClick={() => gerar(p)} disabled={working === p.contractId}
+                              className="bg-emerald-600 hover:bg-emerald-700">
+                              {working === p.contractId
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                                : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                              Gerar recibo
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    />
                   </TableBody>
                 </Table>
               </div>
@@ -478,9 +493,12 @@ const ErpFinanceiro: React.FC = () => {
               </div>
             </CardContent>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div
+                ref={recibosScrollRef}
+                className={`overflow-auto ${recibosFiltrados.length > 50 ? 'max-h-[70vh]' : ''}`}
+              >
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
                       <TableHead>Nº</TableHead>
                       <TableHead>Contrato</TableHead>
@@ -494,88 +512,95 @@ const ErpFinanceiro: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {recibosFiltrados.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         Sem recibos para os filtros selecionados.
                       </TableCell></TableRow>
                     )}
-                    {recibosFiltrados.map(r => {
-                      const venc = r.dataVencimento || '';
-                      const atrasoDias = (r.status === 'aberto' || r.status === 'parcial') && venc && venc < today
-                        ? diffDays(today, venc) : 0;
-                      return (
-                        <TableRow key={r.id} className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
-                          <TableCell className="font-mono text-xs font-bold">{r.numero}</TableCell>
-                          <TableCell className="font-mono text-xs text-slate-500">{r.contractNumero}</TableCell>
-                          <TableCell className="max-w-[180px] truncate">{r.customerName || '—'}</TableCell>
-                          <TableCell className="text-xs">{D(r.dataEmissao)}</TableCell>
-                          <TableCell className="text-xs">
-                            <div className="flex flex-col gap-0.5">
-                              <span>{D(r.dataVencimento)}</span>
-                              {atrasoDias > 0 && (
-                                <Badge variant="outline" className="text-rose-700 border-rose-200 bg-rose-50 w-fit">
-                                  Atrasado {atrasoDias}d
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span>{BRL(Number(r.valor))}</span>
-                              {r.status === 'parcial' && (
-                                <span className="text-[10px] font-normal text-amber-700">
-                                  pago {BRL(Number(r.valorPago || 0))}
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge r={r} />
-                          </TableCell>
-                          <TableCell className="text-right whitespace-nowrap">
-                            <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
-                              <Download className="h-3.5 w-3.5 mr-1" /> PDF
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button size="sm" variant="ghost" aria-label="Mais ações" disabled={working === r.id}>
-                                  {working === r.id
-                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    : <MoreVertical className="h-3.5 w-3.5" />}
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-52">
-                                {r.status !== 'cancelado' && r.status !== 'pago' && (
-                                  <DropdownMenuItem onClick={() => setPayDialog(r)}>
-                                    <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" />
-                                    Registrar pagamento
-                                  </DropdownMenuItem>
+                    <VirtualRows
+                      scrollRef={recibosScrollRef}
+                      items={recibosFiltrados}
+                      colSpan={8}
+                      estimateSize={64}
+                      getKey={(r) => r.id}
+                      renderRow={(r) => {
+                        const venc = r.dataVencimento || '';
+                        const atrasoDias = (r.status === 'aberto' || r.status === 'parcial') && venc && venc < today
+                          ? diffDays(today, venc) : 0;
+                        return (
+                          <TableRow key={r.id} className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
+                            <TableCell className="font-mono text-xs font-bold">{r.numero}</TableCell>
+                            <TableCell className="font-mono text-xs text-muted-foreground">{r.contractNumero}</TableCell>
+                            <TableCell className="max-w-[180px] truncate">{r.customerName || '—'}</TableCell>
+                            <TableCell className="text-xs">{D(r.dataEmissao)}</TableCell>
+                            <TableCell className="text-xs">
+                              <div className="flex flex-col gap-0.5">
+                                <span>{D(r.dataVencimento)}</span>
+                                {atrasoDias > 0 && (
+                                  <Badge variant="outline" className="text-rose-700 border-rose-200 bg-rose-50 w-fit">
+                                    Atrasado {atrasoDias}d
+                                  </Badge>
                                 )}
-                                {(r.status === 'pago' || r.status === 'parcial') && (
-                                  <DropdownMenuItem onClick={() => setReabrirDialog(r)}>
-                                    <RefreshCw className="h-3.5 w-3.5 mr-2 text-slate-600" />
-                                    Reabrir (marcar em aberto)
-                                  </DropdownMenuItem>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span>{BRL(Number(r.valor))}</span>
+                                {r.status === 'parcial' && (
+                                  <span className="text-[10px] font-normal text-amber-700">
+                                    pago {BRL(Number(r.valorPago || 0))}
+                                  </span>
                                 )}
-                                <DropdownMenuItem onClick={() => regerar(r)} disabled={r.status === 'cancelado'}>
-                                  <RefreshCw className="h-3.5 w-3.5 mr-2 text-slate-600" />
-                                  Re-gerar PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {r.status !== 'cancelado' && (
-                                  <DropdownMenuItem
-                                    onClick={() => setCancelDialog(r)}
-                                    className="text-rose-600 focus:text-rose-700"
-                                  >
-                                    <XCircle className="h-3.5 w-3.5 mr-2" />
-                                    Cancelar recibo
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge r={r} />
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
+                                <Download className="h-3.5 w-3.5 mr-1" /> PDF
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="ghost" aria-label="Mais ações" disabled={working === r.id}>
+                                    {working === r.id
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <MoreVertical className="h-3.5 w-3.5" />}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                  {r.status !== 'cancelado' && r.status !== 'pago' && (
+                                    <DropdownMenuItem onClick={() => setPayDialog(r)}>
+                                      <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+                                      Registrar pagamento
+                                    </DropdownMenuItem>
+                                  )}
+                                  {(r.status === 'pago' || r.status === 'parcial') && (
+                                    <DropdownMenuItem onClick={() => setReabrirDialog(r)}>
+                                      <RefreshCw className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                      Reabrir (marcar em aberto)
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => regerar(r)} disabled={r.status === 'cancelado'}>
+                                    <RefreshCw className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                    Re-gerar PDF
                                   </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                                  <DropdownMenuSeparator />
+                                  {r.status !== 'cancelado' && (
+                                    <DropdownMenuItem
+                                      onClick={() => setCancelDialog(r)}
+                                      className="text-rose-600 focus:text-rose-700"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5 mr-2" />
+                                      Cancelar recibo
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }}
+                    />
                   </TableBody>
                 </Table>
               </div>
@@ -851,6 +876,7 @@ function GastosPanel() {
   const [saving, setSaving] = useState(false);
   const [catsOpen, setCatsOpen] = useState(false);
   const [recOpen, setRecOpen] = useState(false);
+  const gastosScrollRef = useRef<HTMLDivElement>(null);
 
   const catLabel = useCallback((key: string) => {
     if (key === 'manutencao') return 'Manutenção';
@@ -997,9 +1023,12 @@ function GastosPanel() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div
+            ref={gastosScrollRef}
+            className={`overflow-auto ${list.length > 50 ? 'max-h-[70vh]' : ''}`}
+          >
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Categoria</TableHead>
@@ -1013,42 +1042,49 @@ function GastosPanel() {
               </TableHeader>
               <TableBody>
                 {loading && (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     <Loader2 className="h-4 w-4 inline animate-spin mr-2" /> Carregando…
                   </TableCell></TableRow>
                 )}
                 {!loading && list.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Nenhum gasto no período.
                   </TableCell></TableRow>
                 )}
-                {list.map(e => (
-                  <TableRow key={`${e.origem || 'm'}-${e.id}`}>
-                    <TableCell className="text-xs">{D(e.data)}</TableCell>
-                    <TableCell className="text-xs">{catLabel(e.categoria)}</TableCell>
-                    <TableCell className="max-w-[260px] truncate">{e.descricao}</TableCell>
-                    <TableCell className="text-xs text-slate-500">{e.fornecedor || '—'}</TableCell>
-                    <TableCell className="text-xs">{e.notaFiscal || '—'}</TableCell>
-                    <TableCell className="text-right font-semibold text-rose-700">{BRL(Number(e.valor))}</TableCell>
-                    <TableCell>
-                      {e.origem === 'manutencao'
-                        ? <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">Manutenção</Badge>
-                        : <Badge variant="outline">Manual</Badge>}
-                    </TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      {e.origem !== 'manutencao' && (
-                        <>
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(e)} aria-label="Editar gasto">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="text-red-600" onClick={() => remove(e)} aria-label="Excluir gasto">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                <VirtualRows
+                  scrollRef={gastosScrollRef}
+                  items={list}
+                  colSpan={8}
+                  estimateSize={48}
+                  getKey={(e) => `${e.origem || 'm'}-${e.id}`}
+                  renderRow={(e) => (
+                    <TableRow key={`${e.origem || 'm'}-${e.id}`}>
+                      <TableCell className="text-xs">{D(e.data)}</TableCell>
+                      <TableCell className="text-xs">{catLabel(e.categoria)}</TableCell>
+                      <TableCell className="max-w-[260px] truncate">{e.descricao}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{e.fornecedor || '—'}</TableCell>
+                      <TableCell className="text-xs">{e.notaFiscal || '—'}</TableCell>
+                      <TableCell className="text-right font-semibold text-rose-700">{BRL(Number(e.valor))}</TableCell>
+                      <TableCell>
+                        {e.origem === 'manutencao'
+                          ? <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">Manutenção</Badge>
+                          : <Badge variant="outline">Manual</Badge>}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        {e.origem !== 'manutencao' && (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(e)} aria-label="Editar gasto">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-red-600" onClick={() => remove(e)} aria-label="Excluir gasto">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                />
               </TableBody>
             </Table>
           </div>
