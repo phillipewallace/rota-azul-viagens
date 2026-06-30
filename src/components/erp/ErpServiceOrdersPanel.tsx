@@ -128,7 +128,7 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
     finally { setBusy(false); }
   };
 
-  const closeOs = (os: ServiceOrder) => {
+  const closeOs = async (os: ServiceOrder) => {
     if ((os.tipoLocacao || '').toLowerCase() === 'evento') {
       setClosing({ os, descricao: '' });
     } else {
