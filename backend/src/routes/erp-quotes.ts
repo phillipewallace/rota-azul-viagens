@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, requireRole } from '../middleware/requireAuth';
 
 const router = Router();
 router.use(requireAuth);
@@ -218,7 +218,7 @@ router.put('/:id', async (req, res) => {
   } finally { client.release(); }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
   try {
     const r = await pool.query('DELETE FROM erp_quotes WHERE id=$1 RETURNING id', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
