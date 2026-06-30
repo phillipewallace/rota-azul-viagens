@@ -19,6 +19,24 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				sans: ['"DM Sans"', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+				display: ['"Space Grotesk"', '"DM Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+				mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+			},
+			letterSpacing: {
+				'tightish': '-0.015em',
+			},
+			boxShadow: {
+				'soft': 'var(--shadow-sm)',
+				'elevated': 'var(--shadow-md)',
+				'floating': 'var(--shadow-lg)',
+				'brand': 'var(--shadow-brand)',
+			},
+			backgroundImage: {
+				'gradient-brand': 'var(--gradient-brand)',
+				'gradient-subtle': 'var(--gradient-subtle)',
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -98,26 +116,18 @@ export default {
 				sm: 'calc(var(--radius) - 4px)'
 			},
 			keyframes: {
-				'accordion-down': {
-					from: {
-						height: '0'
-					},
-					to: {
-						height: 'var(--radix-accordion-content-height)'
-					}
-				},
-				'accordion-up': {
-					from: {
-						height: 'var(--radix-accordion-content-height)'
-					},
-					to: {
-						height: '0'
-					}
-				}
+				'accordion-down': { from: { height: '0' }, to: { height: 'var(--radix-accordion-content-height)' } },
+				'accordion-up':   { from: { height: 'var(--radix-accordion-content-height)' }, to: { height: '0' } },
+				'fade-in':  { '0%': { opacity: '0', transform: 'translateY(4px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+				'scale-in': { '0%': { opacity: '0', transform: 'scale(0.98)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
+				'shimmer':  { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up':   'accordion-up 0.2s ease-out',
+				'fade-in':  'fade-in 0.25s ease-out',
+				'scale-in': 'scale-in 0.2s ease-out',
+				'shimmer':  'shimmer 2s linear infinite',
 			}
 		}
 	},
