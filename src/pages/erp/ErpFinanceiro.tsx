@@ -876,6 +876,7 @@ function GastosPanel() {
   const [saving, setSaving] = useState(false);
   const [catsOpen, setCatsOpen] = useState(false);
   const [recOpen, setRecOpen] = useState(false);
+  const gastosScrollRef = useRef<HTMLDivElement>(null);
 
   const catLabel = useCallback((key: string) => {
     if (key === 'manutencao') return 'Manutenção';
