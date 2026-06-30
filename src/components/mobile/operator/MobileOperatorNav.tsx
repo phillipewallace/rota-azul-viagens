@@ -1,18 +1,17 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { MapPin, Route, Truck, Users, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const navigationItems = [
+  { icon: MapPin, label: 'Mapa', to: '/' },
+  { icon: Route, label: 'Rotas', to: '/routes' },
+  { icon: Truck, label: 'Caminhões', to: '/trucks' },
+  { icon: Users, label: 'Motoristas', to: '/drivers' },
+  { icon: Menu, label: 'Menu', to: '/menu' },
+];
+
 const MobileOperatorNav = () => {
   const location = useLocation();
-
-  const navigationItems = [
-    { icon: MapPin, label: 'Mapa', to: '/' },
-    { icon: Route, label: 'Rotas', to: '/routes' },
-    { icon: Truck, label: 'Caminhões', to: '/trucks' },
-    { icon: Users, label: 'Motoristas', to: '/drivers' },
-    { icon: Menu, label: 'Menu', to: '/menu' },
-  ];
 
   const isActive = (path: string) => {
     if (path === '/' && location.pathname === '/') return true;
@@ -21,29 +20,48 @@ const MobileOperatorNav = () => {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-bottom">
-      <div className="flex justify-around items-center h-16">
+    <nav
+      aria-label="Navegação principal"
+      className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t border-border z-50 safe-area-bottom"
+    >
+      <ul className="flex justify-around items-stretch h-16">
         {navigationItems.map((item) => {
           const active = isActive(item.to);
           return (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full px-2 transition-colors",
-                active 
-                  ? "text-blue-600 bg-blue-50" 
-                  : "text-gray-500 hover:text-blue-600 hover:bg-gray-50"
-              )}
-            >
-              <item.icon className={cn("h-5 w-5 mb-1", active && "text-blue-600")} />
-              <span className={cn("text-xs font-medium", active && "text-blue-600")}>
-                {item.label}
-              </span>
-            </Link>
+            <li key={item.to} className="flex-1">
+              <Link
+                to={item.to}
+                aria-current={active ? 'page' : undefined}
+                aria-label={item.label}
+                className={cn(
+                  'group relative flex flex-col items-center justify-center h-full px-2 min-h-11',
+                  'transition-colors duration-200',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+                  active
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground active:text-primary',
+                )}
+              >
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary"
+                  />
+                )}
+                <item.icon
+                  className={cn(
+                    'h-5 w-5 mb-0.5 transition-transform duration-200',
+                    active && 'scale-110',
+                  )}
+                />
+                <span className="text-[11px] font-medium leading-tight">
+                  {item.label}
+                </span>
+              </Link>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </nav>
   );
 };
