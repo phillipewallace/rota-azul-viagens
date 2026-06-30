@@ -43,8 +43,10 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
+  // [concurrency] Timestamp do último fetch — backend usa pra não apagar
+  // clientes criados por outros usuários enquanto este editava.
+  const loadedAtRef = useRef<string | null>(null);
 
-  // [#5 alto] sempre envia o token JWT — backend agora exige auth.
   const authHeaders = useCallback((): HeadersInit => {
     const t = localStorage.getItem('auth_token');
     return {
@@ -55,13 +57,12 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      // Só mostra "loading" no primeiro fetch — refetches em background
-      // não devem piscar a UI nem dar sensação de refresh
       if (!hasLoadedRef.current) setLoading(true);
       const response = await fetch(`${API_BASE_URL}/customers`, { headers: authHeaders() });
       if (!response.ok) throw new Error('Erro ao carregar clientes');
       const data = await response.json();
       setCustomers(data || []);
+      loadedAtRef.current = new Date().toISOString();
       hasLoadedRef.current = true;
       setError(null);
     } catch (err) {
@@ -74,7 +75,6 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
   }, [authHeaders]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
-  // Sincronização entre usuários — pausada quando há edição em andamento
   usePolling(fetchCustomers, 15000, pollEnabled);
 
   const addCustomer = useCallback((customer: Customer) => {
@@ -91,16 +91,30 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
     const response = await fetch(`${API_BASE_URL}/customers`, {
       method: 'PUT',
       headers: authHeaders(),
-      body: JSON.stringify({ customers }),
+      body: JSON.stringify({
+        customers,
+        clientLoadedAt: loadedAtRef.current,
+      }),
     });
+    if (response.status === 409) {
+      // Conflito otimista — outro usuário editou os mesmos registros.
+      // Recarrega lista pra usuário ver versão atual e decidir.
+      const err = await response.json().catch(() => ({}));
+      await fetchCustomers();
+      const e = new Error(err.error || 'Outro usuário modificou estes registros. Lista recarregada.');
+      (e as any).code = 'CONFLICT';
+      (e as any).conflicts = err.conflicts;
+      throw e;
+    }
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.error || 'Erro ao salvar clientes');
     }
     const result = await response.json();
     setCustomers(result.customers || customers);
+    loadedAtRef.current = new Date().toISOString();
     return result;
-  }, [customers, authHeaders]);
+  }, [customers, authHeaders, fetchCustomers]);
 
 
   return { customers, loading, error, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch: fetchCustomers };
