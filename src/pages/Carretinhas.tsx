@@ -17,9 +17,9 @@ import { carretinhasService, Carretinha, CarretinhaLocacao } from '@/services/ca
 
 import { confirmDialog } from '@/lib/confirm';
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  galpao:      { label: 'No Galpão',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
-  locada:      { label: 'Locada',     cls: 'bg-blue-100 text-blue-700 border-blue-300' },
-  manutencao:  { label: 'Manutenção', cls: 'bg-amber-100 text-amber-700 border-amber-300' },
+  galpao:      { label: 'No Galpão',  cls: 'bg-success/15 text-success border-success/30' },
+  locada:      { label: 'Locada',     cls: 'bg-info/15 text-info border-info/30' },
+  manutencao:  { label: 'Manutenção', cls: 'bg-warning/15 text-warning border-warning/30' },
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
