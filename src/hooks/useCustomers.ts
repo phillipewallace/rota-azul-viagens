@@ -87,18 +87,17 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
     setCustomers(prev => prev.filter(c => c.id !== id));
   }, []);
 
-  const saveCustomers = useCallback(async () => {
+  const saveCustomers = useCallback(async (override?: Customer[]) => {
+    const payload = override ?? customers;
     const response = await fetch(`${API_BASE_URL}/customers`, {
       method: 'PUT',
       headers: authHeaders(),
       body: JSON.stringify({
-        customers,
+        customers: payload,
         clientLoadedAt: loadedAtRef.current,
       }),
     });
     if (response.status === 409) {
-      // Conflito otimista — outro usuário editou os mesmos registros.
-      // Recarrega lista pra usuário ver versão atual e decidir.
       const err = await response.json().catch(() => ({}));
       await fetchCustomers();
       const e = new Error(err.error || 'Outro usuário modificou estes registros. Lista recarregada.');
@@ -111,7 +110,7 @@ export const useCustomers = (options: UseCustomersOptions = {}) => {
       throw new Error(err.error || 'Erro ao salvar clientes');
     }
     const result = await response.json();
-    setCustomers(result.customers || customers);
+    setCustomers(result.customers || payload);
     loadedAtRef.current = new Date().toISOString();
     return result;
   }, [customers, authHeaders, fetchCustomers]);
