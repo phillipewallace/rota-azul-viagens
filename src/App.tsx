@@ -102,7 +102,7 @@ function App() {
                 <Route path="empresas" element={<ErpCompanies />} />
               </Route>
 
-              <Route element={<Protected><MobileOperatorMenuPage /></Protected>} />
+              <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />
 
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />

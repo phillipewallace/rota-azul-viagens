@@ -98,39 +98,34 @@ router.post('/', async (req, res) => {
   try {
     console.log('👥 [DRIVER CREATE] Iniciando criação de novo motorista...');
     console.log('📝 [DRIVER CREATE] Dados recebidos:', { ...req.body, password: '***' });
-    
-    const { name, license, phone, email, status } = req.body;
-    
-    // Validate required fields
+
+    const { name, license, licenseCategory, phone, email, status } = req.body;
+
     if (!name || !license || !phone || !email) {
-      console.log('❌ [DRIVER CREATE] Validação falhou - campos obrigatórios faltando');
       return res.status(400).json({ error: 'Campos obrigatórios: nome, CNH, telefone e email' });
     }
-    
-    console.log('✅ [DRIVER CREATE] Validação dos campos passou');
-    
+
     const query = `
-      INSERT INTO drivers (name, license_number, phone, email, status, hire_date)
-      VALUES ($1, $2, $3, $4, $5, CURRENT_DATE)
+      INSERT INTO drivers (name, license_number, license_category, phone, email, status, hire_date)
+      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_DATE)
       RETURNING *
     `;
-    
-    console.log('🔍 [DRIVER CREATE] Executando INSERT no banco...');
+
     const result = await pool.query(query, [
       name,
       license,
+      licenseCategory || null,
       phone,
       email,
-      status || 'active'
+      status || 'active',
     ]);
-    
-    console.log(`✅ [DRIVER CREATE] Motorista criado com sucesso: ${result.rows[0].name} (ID: ${result.rows[0].id})`);
+
+    console.log(`✅ [DRIVER CREATE] Motorista criado: ${result.rows[0].name}`);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('❌ [DRIVER CREATE] Erro ao criar motorista:', error);
     const dbError = error as any;
     if (dbError?.code === '23505') {
-      console.log('🔍 [DRIVER CREATE] Erro de duplicação - CNH já cadastrada');
       return res.status(400).json({ error: 'Número de CNH já cadastrado' });
     }
     res.status(500).json({ error: 'Erro ao criar motorista' });
@@ -141,30 +136,40 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`👥 [DRIVER UPDATE] Iniciando atualização do motorista: ${id}`);
-    console.log('📝 [DRIVER UPDATE] Dados recebidos:', req.body);
-    
-    const { name, license, phone, email, status } = req.body;
-    
+    console.log(`👥 [DRIVER UPDATE] Atualizando ${id}`);
+
+    const { name, license, licenseCategory, phone, email, status } = req.body;
+
     const query = `
-      UPDATE drivers 
-      SET name = $1, license_number = $2, phone = $3, email = $4, status = $5, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $6
+      UPDATE drivers
+      SET name = $1,
+          license_number = $2,
+          license_category = $3,
+          phone = $4,
+          email = $5,
+          status = $6,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $7
       RETURNING *
     `;
-    
-    console.log('🔍 [DRIVER UPDATE] Executando UPDATE no banco...');
-    const result = await pool.query(query, [name, license, phone, email, status, id]);
-    
+
+    const result = await pool.query(query, [
+      name,
+      license,
+      licenseCategory || null,
+      phone,
+      email,
+      status,
+      id,
+    ]);
+
     if (result.rows.length === 0) {
-      console.log(`❌ [DRIVER UPDATE] Motorista não encontrado: ${id}`);
       return res.status(404).json({ error: 'Motorista não encontrado' });
     }
-    
-    console.log(`✅ [DRIVER UPDATE] Motorista atualizado: ${result.rows[0].name}`);
+
     res.json(result.rows[0]);
   } catch (error) {
-    console.error(`❌ [DRIVER UPDATE] Erro ao atualizar motorista ${req.params.id}:`, error);
+    console.error(`❌ [DRIVER UPDATE] Erro:`, error);
     res.status(500).json({ error: 'Erro ao atualizar motorista' });
   }
 });
