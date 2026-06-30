@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -150,7 +150,7 @@ export default function Checklists() {
   const [detail, setDetail] = useState<ChecklistDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await checklistsService.list({ plate, signer, from, to, status });
@@ -160,17 +160,20 @@ export default function Checklists() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [plate, signer, from, to, status]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  // Carregamento inicial (filtros disparam o load via botão "Buscar")
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!openId) { setDetail(null); return; }
+    let cancelled = false;
     setLoadingDetail(true);
     checklistsService.get(openId)
-      .then(setDetail)
-      .catch(e => toast.error(e.message))
-      .finally(() => setLoadingDetail(false));
+      .then(d => { if (!cancelled) setDetail(d); })
+      .catch(e => { if (!cancelled) toast.error(e.message); })
+      .finally(() => { if (!cancelled) setLoadingDetail(false); });
+    return () => { cancelled = true; };
   }, [openId]);
 
   const handleDelete = async (id: string) => {
