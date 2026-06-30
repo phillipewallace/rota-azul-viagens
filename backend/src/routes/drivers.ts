@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
         d.status,
         d.created_at,
         COUNT(t.id) as truck_count,
-        MAX(t.current_route) as current_route,
+        MAX(t.current_route::text) as current_route,
         0 as total_trips
       FROM drivers d
       LEFT JOIN trucks t ON d.id = t.current_driver_id
