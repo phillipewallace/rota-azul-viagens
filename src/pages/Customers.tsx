@@ -119,12 +119,15 @@ const Customers: React.FC = () => {
     }
     setSaving(true);
     try {
-      if (isNewDraft) addCustomer(c);
-      else {
+      let nextList: Customer[];
+      if (isNewDraft) {
+        nextList = [...customers, c];
+        addCustomer(c);
+      } else {
+        nextList = customers.map(x => x.id === c.id ? { ...x, ...c } : x);
         (Object.keys(c) as (keyof Customer)[]).forEach(k => updateCustomer(c.id, k, c[k]));
       }
-      await new Promise(r => setTimeout(r, 0));
-      await saveCustomers();
+      await saveCustomers(nextList);
       toast.success(isNewDraft ? 'Cliente cadastrado!' : 'Cliente atualizado!');
       setDuplicatePrompt(null);
       closeEditor();
