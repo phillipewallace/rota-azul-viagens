@@ -320,7 +320,7 @@ const Maintenance = () => {
             label="Custo total"
             value={formatBRL(kpis.total)}
             icon={DollarSign}
-            accent="text-emerald-600"
+            accent="text-success"
           />
           <KpiCard
             label="Custo médio"
@@ -332,13 +332,13 @@ const Maintenance = () => {
             label="Concluídas"
             value={String(kpis.completed)}
             icon={CheckCircle2}
-            accent="text-emerald-600"
+            accent="text-success"
           />
           <KpiCard
             label="Pendentes"
             value={String(kpis.pending)}
             icon={Clock}
-            accent="text-amber-600"
+            accent="text-warning"
           />
         </div>
 
@@ -346,9 +346,9 @@ const Maintenance = () => {
         {(alerts.overdue.length > 0 ||
           alerts.upcoming.length > 0 ||
           alerts.kmAlerts.length > 0) && (
-          <Card className="border-amber-300/60 bg-amber-50/40">
+          <Card className="border-warning/30 bg-warning/5">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-amber-800">
+              <CardTitle className="flex items-center gap-2 text-warning">
                 <AlertTriangle className="w-5 h-5" />
                 Alertas de manutenção
               </CardTitle>

@@ -292,7 +292,7 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            <AlertTriangle className="h-5 w-5 text-warning" />
             Estoque baixo ({lowStock.length})
           </CardTitle>
           <div className="flex gap-2">
@@ -336,7 +336,7 @@ const DashboardView: React.FC<{ dashboard: ErpDashboard | null }> = ({ dashboard
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarClock className="h-5 w-5 text-orange-500" />
+            <CalendarClock className="h-5 w-5 text-warning" />
             Validade próxima ({expiring.length})
           </CardTitle>
           <div className="flex gap-2">
@@ -769,7 +769,7 @@ const ItemHistoryModal: React.FC<{ item: ErpItem; onClose: () => void }> = ({ it
           </CardContent></Card>
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Ajustes</p>
-            <p className="text-xl font-bold text-amber-600">{summary.adjust}</p>
+            <p className="text-xl font-bold text-warning">{summary.adjust}</p>
           </CardContent></Card>
           <Card><CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Descarte</p>
@@ -1079,7 +1079,7 @@ const MovementModal: React.FC<{
                 </SelectContent>
               </Select>
               {employees.length === 0 && (
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-warning mt-1">
                   Cadastre funcionários na aba Funcionários.
                 </p>
               )}

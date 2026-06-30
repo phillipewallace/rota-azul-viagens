@@ -176,7 +176,7 @@ export default function Carretinhas() {
                               </Button>
                             )}
                             {c.status === 'locada' && (
-                              <Button size="sm" variant="outline" onClick={() => openBaixa(c)} title="Dar baixa (retorno)" className="text-orange-600">
+                              <Button size="sm" variant="outline" onClick={() => openBaixa(c)} title="Dar baixa (retorno)" className="text-warning">
                                 <LogOut className="h-4 w-4" />
                               </Button>
                             )}
