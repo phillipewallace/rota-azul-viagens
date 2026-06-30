@@ -279,7 +279,7 @@ export default function Carretinhas() {
                   <TableRow key={h.id}>
                     <TableCell className="font-medium">{h.customerName}</TableCell>
                     <TableCell>{new Date(h.startDate).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell>{h.endDate ? new Date(h.endDate).toLocaleDateString('pt-BR') : <Badge variant="outline" className="bg-blue-50 text-blue-700">Em curso</Badge>}</TableCell>
+                    <TableCell>{h.endDate ? new Date(h.endDate).toLocaleDateString('pt-BR') : <Badge variant="outline" className="bg-info/15 text-info border-info/30">Em curso</Badge>}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{h.notes || '-'}</TableCell>
                   </TableRow>
                 ))}
