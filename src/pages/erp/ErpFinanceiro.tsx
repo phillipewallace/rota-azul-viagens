@@ -121,6 +121,13 @@ const ErpFinanceiro: React.FC = () => {
   // gastos do mês para resultado
   const [gastosMes, setGastosMes] = useState(0);
 
+  // Guarda contra setState após unmount / troca de competência
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -128,28 +135,37 @@ const ErpFinanceiro: React.FC = () => {
         receiptsService.pending(competencia),
         receiptsService.list(filterFrom || filterTo || quick !== 'none' ? {} : { competencia }),
       ]);
+      if (!mountedRef.current) return;
       setPendentes(p.pendentes);
       setRecibos(r);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
+    } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
+    finally { if (mountedRef.current) setLoading(false); }
   }, [competencia, filterFrom, filterTo, quick]);
 
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    erpService.listCompanies().then(setCompanies).catch(() => {});
-    receiptsService.summary(12).then(r => setSummary(r.series)).catch(() => {});
+    let cancelled = false;
+    erpService.listCompanies()
+      .then(c => { if (!cancelled) setCompanies(c); })
+      .catch(() => {});
+    receiptsService.summary(12)
+      .then(r => { if (!cancelled) setSummary(r.series); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const [y, m] = competencia.split('-').map(Number);
     if (!y || !m) return;
     const ult = new Date(y, m, 0).getDate();
     const from = `${y}-${String(m).padStart(2, '0')}-01`;
     const to   = `${y}-${String(m).padStart(2, '0')}-${String(ult).padStart(2, '0')}`;
     expensesService.list({ from, to, origem: 'all' })
-      .then(list => setGastosMes(list.reduce((a, e) => a + Number(e.valor || 0), 0)))
-      .catch(() => setGastosMes(0));
+      .then(list => { if (!cancelled) setGastosMes(list.reduce((a, e) => a + Number(e.valor || 0), 0)); })
+      .catch(() => { if (!cancelled) setGastosMes(0); });
+    return () => { cancelled = true; };
   }, [competencia, recibos]);
 
   const today = todayISO();
