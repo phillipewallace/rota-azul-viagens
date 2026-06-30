@@ -1023,9 +1023,12 @@ function GastosPanel() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div
+            ref={gastosScrollRef}
+            className={`overflow-auto ${list.length > 50 ? 'max-h-[70vh]' : ''}`}
+          >
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Categoria</TableHead>
@@ -1039,42 +1042,49 @@ function GastosPanel() {
               </TableHeader>
               <TableBody>
                 {loading && (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     <Loader2 className="h-4 w-4 inline animate-spin mr-2" /> Carregando…
                   </TableCell></TableRow>
                 )}
                 {!loading && list.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Nenhum gasto no período.
                   </TableCell></TableRow>
                 )}
-                {list.map(e => (
-                  <TableRow key={`${e.origem || 'm'}-${e.id}`}>
-                    <TableCell className="text-xs">{D(e.data)}</TableCell>
-                    <TableCell className="text-xs">{catLabel(e.categoria)}</TableCell>
-                    <TableCell className="max-w-[260px] truncate">{e.descricao}</TableCell>
-                    <TableCell className="text-xs text-slate-500">{e.fornecedor || '—'}</TableCell>
-                    <TableCell className="text-xs">{e.notaFiscal || '—'}</TableCell>
-                    <TableCell className="text-right font-semibold text-rose-700">{BRL(Number(e.valor))}</TableCell>
-                    <TableCell>
-                      {e.origem === 'manutencao'
-                        ? <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">Manutenção</Badge>
-                        : <Badge variant="outline">Manual</Badge>}
-                    </TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      {e.origem !== 'manutencao' && (
-                        <>
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(e)} aria-label="Editar gasto">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="text-red-600" onClick={() => remove(e)} aria-label="Excluir gasto">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                <VirtualRows
+                  scrollRef={gastosScrollRef}
+                  items={list}
+                  colSpan={8}
+                  estimateSize={48}
+                  getKey={(e) => `${e.origem || 'm'}-${e.id}`}
+                  renderRow={(e) => (
+                    <TableRow key={`${e.origem || 'm'}-${e.id}`}>
+                      <TableCell className="text-xs">{D(e.data)}</TableCell>
+                      <TableCell className="text-xs">{catLabel(e.categoria)}</TableCell>
+                      <TableCell className="max-w-[260px] truncate">{e.descricao}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{e.fornecedor || '—'}</TableCell>
+                      <TableCell className="text-xs">{e.notaFiscal || '—'}</TableCell>
+                      <TableCell className="text-right font-semibold text-rose-700">{BRL(Number(e.valor))}</TableCell>
+                      <TableCell>
+                        {e.origem === 'manutencao'
+                          ? <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">Manutenção</Badge>
+                          : <Badge variant="outline">Manual</Badge>}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        {e.origem !== 'manutencao' && (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(e)} aria-label="Editar gasto">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-red-600" onClick={() => remove(e)} aria-label="Excluir gasto">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                />
               </TableBody>
             </Table>
           </div>
