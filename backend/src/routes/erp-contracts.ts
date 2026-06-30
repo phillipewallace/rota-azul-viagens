@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth } , requireRole from '../middleware/requireAuth';
 
 const router = Router();
 router.use(requireAuth);
@@ -167,7 +167,7 @@ router.put('/:id', async (req, res) => {
 });
 
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
   try {
     // [#26 baixo] Bloqueia exclusão de contrato com recibos associados.
     const dep = await pool.query(

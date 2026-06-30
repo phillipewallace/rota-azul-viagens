@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../config/database';
-import { requireAuth, AuthedRequest } from '../middleware/requireAuth';
+import { requireAuth, AuthedRequest } , requireRole from '../middleware/requireAuth';
 
 const router = Router();
 
@@ -63,7 +63,7 @@ router.put('/categories/:id', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/categories/:id', async (req: Request, res: Response) => {
+router.delete('/categories/:id', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_categories WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -127,7 +127,7 @@ router.put('/items/:id', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/items/:id', async (req: Request, res: Response) => {
+router.delete('/items/:id', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_items WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -167,7 +167,7 @@ router.put('/employees/:id', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/employees/:id', async (req: Request, res: Response) => {
+router.delete('/employees/:id', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_employees WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -321,7 +321,7 @@ router.put('/vehicles/:id', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/vehicles/:id', async (req: Request, res: Response) => {
+router.delete('/vehicles/:id', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_vehicles WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
@@ -376,7 +376,7 @@ router.put('/vehicles/:vid/comments/:cid', async (req: Request, res: Response) =
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/vehicles/:vid/comments/:cid', async (req: Request, res: Response) => {
+router.delete('/vehicles/:vid/comments/:cid', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_vehicle_comments WHERE id=$2 AND vehicle_id=$1',
       [req.params.vid, req.params.cid]);

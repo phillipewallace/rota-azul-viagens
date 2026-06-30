@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth } , requireRole from '../middleware/requireAuth';
 
 const router = Router();
 router.use(requireAuth);
@@ -366,7 +366,7 @@ router.get('/summary', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
   try {
     // [#24] não permitir deletar recibo pago sem flag explícita (?force=1).
     // Mantém histórico financeiro auditável.

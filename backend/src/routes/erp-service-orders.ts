@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth } , requireRole from '../middleware/requireAuth';
 
 const router = Router();
 router.use(requireAuth);
@@ -441,7 +441,7 @@ router.post('/:id/close', async (req: any, res) => {
   } finally { client.release(); }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
