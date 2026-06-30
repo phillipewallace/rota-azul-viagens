@@ -69,19 +69,19 @@ interface Movimentacao {
 
 const statusBadge = (s: string) => {
   switch (s) {
-    case 'em_cliente': return <Badge className="bg-blue-100 text-blue-700">Em cliente</Badge>;
-    case 'disponivel': return <Badge className="bg-green-100 text-green-700">Disponível</Badge>;
-    case 'manutencao': return <Badge className="bg-orange-100 text-orange-700">Manutenção</Badge>;
+    case 'em_cliente': return <Badge className="bg-info/15 text-info border-info/30">Em cliente</Badge>;
+    case 'disponivel': return <Badge className="bg-success/15 text-success border-success/30">Disponível</Badge>;
+    case 'manutencao': return <Badge className="bg-warning/15 text-warning border-warning/30">Manutenção</Badge>;
     default: return <Badge variant="secondary">Inativo</Badge>;
   }
 };
 
 const opIcon = (op: string) => {
   switch (op) {
-    case 'entrega': return <PackageOpen className="h-4 w-4 text-blue-600" />;
-    case 'recolhimento': return <PackageCheck className="h-4 w-4 text-green-600" />;
-    case 'manutencao': return <Wrench className="h-4 w-4 text-orange-600" />;
-    default: return <RefreshCcw className="h-4 w-4 text-gray-500" />;
+    case 'entrega': return <PackageOpen className="h-4 w-4 text-info" />;
+    case 'recolhimento': return <PackageCheck className="h-4 w-4 text-success" />;
+    case 'manutencao': return <Wrench className="h-4 w-4 text-warning" />;
+    default: return <RefreshCcw className="h-4 w-4 text-muted-foreground" />;
   }
 };
 
