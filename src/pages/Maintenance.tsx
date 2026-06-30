@@ -711,10 +711,10 @@ const AlertList: React.FC<{
 }> = ({ title, tone, items }) => {
   const dot =
     tone === 'destructive'
-      ? 'bg-red-500'
+      ? 'bg-destructive'
       : tone === 'warning'
-      ? 'bg-amber-500'
-      : 'bg-blue-500';
+      ? 'bg-warning'
+      : 'bg-info';
   return (
     <div>
       <p className="text-sm font-semibold mb-2 flex items-center gap-2">
