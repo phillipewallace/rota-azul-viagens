@@ -134,7 +134,7 @@ export default function SanitarioMultiCombobox({ value, onChange, placeholder }:
             </Command>
           </PopoverContent>
         </Popover>
-        <Button type="button" variant="ghost" size="icon" onClick={load} disabled={loading} title="Atualizar lista">
+        <Button type="button" variant="ghost" size="icon" onClick={load} disabled={loading} title="Atualizar lista" aria-label="Atualizar lista de sanitários" className="transition-colors duration-200">
           <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>

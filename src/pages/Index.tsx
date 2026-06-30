@@ -71,9 +71,9 @@ const Index = () => {
       {/* Sidebar */}
       <Sheet>
         <SheetTrigger asChild>
-          <Button 
-            size="icon" 
-            className="fixed top-4 left-4 z-20 bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+          <Button
+            size="icon"
+            className="fixed top-4 left-4 z-20 min-h-11 min-w-11 rounded-lg bg-primary text-primary-foreground shadow-md transition-all duration-200 hover:bg-primary/90 hover:shadow-lg active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             aria-label="Abrir menu de navegação"
           >
             <Menu className="h-4 w-4" />
