@@ -364,9 +364,12 @@ const ErpFinanceiro: React.FC = () => {
               </div>
             </CardContent>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div
+                ref={pendentesScrollRef}
+                className={`overflow-auto ${pendentes.length > 50 ? 'max-h-[70vh]' : ''}`}
+              >
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
                       <TableHead className="w-10">
                         <Checkbox aria-label="Selecionar todos"
@@ -383,37 +386,44 @@ const ErpFinanceiro: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {pendentes.length === 0 && (
-                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">
+                      <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Nenhuma cobrança pendente para {formatComp(competencia)}.
                       </TableCell></TableRow>
                     )}
-                    {pendentes.map(p => (
-                      <TableRow key={p.contractId} data-state={selected.has(p.contractId) ? 'selected' : undefined}>
-                        <TableCell>
-                          <Checkbox aria-label={`Selecionar ${p.contractNumero}`}
-                            checked={selected.has(p.contractId)}
-                            onCheckedChange={() => toggleSel(p.contractId)} />
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">{p.contractNumero}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{p.customerName || '—'}</TableCell>
-                        <TableCell className="text-xs text-slate-500 max-w-[160px] truncate">{p.companyRazaoSocial || '—'}</TableCell>
-                        <TableCell className="text-xs">dia {p.diaVencimento}</TableCell>
-                        <TableCell className="text-right font-semibold">{BRL(Number(p.valorMensal))}</TableCell>
-                        <TableCell className="text-right whitespace-nowrap space-x-1">
-                          <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
-                            disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
-                          </Button>
-                          <Button size="sm" onClick={() => gerar(p)} disabled={working === p.contractId}
-                            className="bg-emerald-600 hover:bg-emerald-700">
-                            {working === p.contractId
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                            Gerar recibo
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    <VirtualRows
+                      scrollRef={pendentesScrollRef}
+                      items={pendentes}
+                      colSpan={7}
+                      estimateSize={56}
+                      getKey={(p) => p.contractId}
+                      renderRow={(p) => (
+                        <TableRow key={p.contractId} data-state={selected.has(p.contractId) ? 'selected' : undefined}>
+                          <TableCell>
+                            <Checkbox aria-label={`Selecionar ${p.contractNumero}`}
+                              checked={selected.has(p.contractId)}
+                              onCheckedChange={() => toggleSel(p.contractId)} />
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{p.contractNumero}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{p.customerName || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{p.companyRazaoSocial || '—'}</TableCell>
+                          <TableCell className="text-xs">dia {p.diaVencimento}</TableCell>
+                          <TableCell className="text-right font-semibold">{BRL(Number(p.valorMensal))}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap space-x-1">
+                            <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
+                              disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
+                            </Button>
+                            <Button size="sm" onClick={() => gerar(p)} disabled={working === p.contractId}
+                              className="bg-emerald-600 hover:bg-emerald-700">
+                              {working === p.contractId
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                                : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                              Gerar recibo
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    />
                   </TableBody>
                 </Table>
               </div>
