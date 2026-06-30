@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { carretinhasService, Carretinha, CarretinhaLocacao } from '@/services/carretinhas';
 
+import { confirmDialog } from '@/lib/confirm';
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   galpao:      { label: 'No Galpão',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
   locada:      { label: 'Locada',     cls: 'bg-blue-100 text-blue-700 border-blue-300' },
@@ -86,7 +87,7 @@ export default function Carretinhas() {
     } catch (e: any) { toast.error(e.message); }
   };
   const remove = async (c: Carretinha) => {
-    if (!confirm(`Excluir carretinha ${c.name}? O histórico de locações também será removido.`)) return;
+    if (!(await confirmDialog({ description: `Excluir carretinha ${c.name}? O histórico de locações também será removido.`, destructive: true }))) return;
     try { await carretinhasService.remove(c.id); toast.success('Excluída'); load(); }
     catch (e: any) { toast.error(e.message); }
   };

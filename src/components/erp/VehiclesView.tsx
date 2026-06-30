@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner';
 import { erpService, ErpVehicle, ErpVehicleComment } from '@/services/erp';
 
+import { confirmDialog } from '@/lib/confirm';
 const VEHICLE_TYPES = [
   { value: 'caminhao',   label: 'Caminhão' },
   { value: 'carretinha', label: 'Carretinha' },
@@ -53,7 +54,7 @@ const VehiclesView: React.FC = () => {
   useEffect(() => { load(); }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir veículo? Isso apaga também todos os comentários.')) return;
+    if (!(await confirmDialog({ description: 'Excluir veículo? Isso apaga também todos os comentários.', destructive: true }))) return;
     try { await erpService.deleteVehicle(id); toast.success('Veículo excluído'); load(); }
     catch (e: any) { toast.error(e.message); }
   };
@@ -274,7 +275,7 @@ const VehicleCardModal: React.FC<{ vehicle: ErpVehicle; onClose: () => void }> =
   };
 
   const removeComment = async (c: ErpVehicleComment) => {
-    if (!confirm('Excluir esse registro?')) return;
+    if (!(await confirmDialog({ description: 'Excluir esse registro?', destructive: true }))) return;
     try { await erpService.deleteVehicleComment(vehicle.id, c.id); load(); }
     catch (e: any) { toast.error(e.message); }
   };

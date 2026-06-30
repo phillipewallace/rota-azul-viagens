@@ -24,6 +24,7 @@ import {
 import SanitarioMultiCombobox from './SanitarioMultiCombobox';
 import { formatDateBR } from '@/utils/dateFormat';
 
+import { confirmDialog } from '@/lib/confirm';
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDate = (d?: string | null) => d ? formatDateBR(d) : '—';
 
@@ -131,7 +132,7 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
     if ((os.tipoLocacao || '').toLowerCase() === 'evento') {
       setClosing({ os, descricao: '' });
     } else {
-      if (!confirm(`Fechar a OS ${os.numero}? Os sanitários permanecerão em cliente até a baixa manual em /sanitarios.`)) return;
+      if (!(await confirmDialog({ description: `Fechar a OS ${os.numero}? Os sanitários permanecerão em cliente até a baixa manual em /sanitarios.`, destructive: true }))) return;
       doClose(os);
     }
   };

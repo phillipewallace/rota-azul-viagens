@@ -31,6 +31,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 
 
+import { confirmDialog } from '@/lib/confirm';
 const movementLabel: Record<string, string> = {
   in: 'Entrada', out: 'Retirada', adjust: 'Ajuste', discard: 'Descarte',
 };
@@ -151,7 +152,7 @@ const InternalManagement: React.FC = () => {
                   onMovement={(item, type) => setMovementModal({ item, type })}
                   onHistory={(item) => setHistoryItem(item)}
                   onDelete={async (id) => {
-                    if (!confirm('Excluir este item?')) return;
+                    if (!(await confirmDialog({ description: 'Excluir este item?', destructive: true }))) return;
                     await erpService.deleteItem(id);
                     toast.success('Item excluído'); loadAll();
                   }}
@@ -170,7 +171,7 @@ const InternalManagement: React.FC = () => {
                     tracksExpiry: false, requiresSignedTerm: false,
                   } as ErpCategory)}
                   onDelete={async (id) => {
-                    if (!confirm('Excluir esta categoria?')) return;
+                    if (!(await confirmDialog({ description: 'Excluir esta categoria?', destructive: true }))) return;
                     try {
                       await erpService.deleteCategory(id);
                       toast.success('Categoria excluída'); loadAll();
@@ -187,7 +188,7 @@ const InternalManagement: React.FC = () => {
                     id: '', name: '', active: true,
                   } as ErpEmployee)}
                   onDelete={async (id) => {
-                    if (!confirm('Excluir funcionário?')) return;
+                    if (!(await confirmDialog({ description: 'Excluir funcionário?', destructive: true }))) return;
                     await erpService.deleteEmployee(id);
                     toast.success('Funcionário excluído'); loadAll();
                   }}

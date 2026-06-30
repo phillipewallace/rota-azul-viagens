@@ -23,6 +23,7 @@ import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog'
 import { formatDateBR } from '@/utils/dateFormat';
 import { calcVencimentoBoleto, describeFormaPagamento } from '@/utils/fixedObservations';
 
+import { confirmDialog } from '@/lib/confirm';
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string) => formatDateBR(s);
 const DT = (s?: string) => {
@@ -119,12 +120,12 @@ const ServiceOrders: React.FC = () => {
   }), [list]);
 
   const close = async (o: ServiceOrder) => {
-    if (!confirm(`Fechar OS ${o.numero} e devolver ${o.sanitariosAlocados || 0} sanitário(s) ao estoque?`)) return;
+    if (!(await confirmDialog({ description: `Fechar OS ${o.numero} e devolver ${o.sanitariosAlocados || 0} sanitário(s) ao estoque?`, destructive: true }))) return;
     try { await serviceOrdersService.close(o.id); toast.success('OS fechada · estoque atualizado'); load(); }
     catch (e: any) { toast.error(e.message); }
   };
   const remove = async (o: ServiceOrder) => {
-    if (!confirm(`Excluir OS ${o.numero}? Sanitários alocados voltam ao estoque.`)) return;
+    if (!(await confirmDialog({ description: `Excluir OS ${o.numero}? Sanitários alocados voltam ao estoque.`, destructive: true }))) return;
     try { await serviceOrdersService.remove(o.id); toast.success('Excluída'); load(); }
     catch (e: any) { toast.error(e.message); }
   };

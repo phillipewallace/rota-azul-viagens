@@ -11,6 +11,7 @@ import MobileOperatorHeader from './MobileOperatorHeader';
 import MobileOperatorNav from './MobileOperatorNav';
 import RouteMapPreview from '@/components/RouteMapPreview';
 import { cn } from '@/lib/utils';
+import { confirmDialog } from '@/lib/confirm';
 import {
   Sheet,
   SheetContent,
@@ -38,7 +39,7 @@ const MobileOperatorRoutes = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta rota?')) {
+    if ((await confirmDialog({ description: 'Tem certeza que deseja excluir esta rota?', destructive: true }))) {
       try {
         await deleteRoute(id);
         toast.success('Rota excluída!');
@@ -61,7 +62,7 @@ const MobileOperatorRoutes = () => {
   };
 
   const handleReset = async (route: any) => {
-    if (window.confirm(`Resetar a rota "${route.name}"?`)) {
+    if ((await confirmDialog({ description: `Resetar a rota "${route.name}"?`, destructive: true }))) {
       try {
         await resetRoute(route.id);
         toast.success('Rota resetada!');

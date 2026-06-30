@@ -68,6 +68,7 @@ import {
 } from '@/utils/maintenancePdf';
 import { formatDateBR } from '@/utils/dateFormat';
 
+import { confirmDialog } from '@/lib/confirm';
 const TYPE_LABEL: Record<string, string> = {
   preventiva: 'Preventiva',
   corretiva: 'Corretiva',
@@ -235,7 +236,7 @@ const Maintenance = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este registro de manutenção?')) return;
+    if (!(await confirmDialog({ description: 'Excluir este registro de manutenção?', destructive: true }))) return;
     try {
       await deleteMaintenance(id);
       toast({ title: 'Registro excluído' });

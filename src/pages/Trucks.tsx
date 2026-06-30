@@ -13,6 +13,7 @@ import { TruckModal } from '@/components/TruckModal';
 import { LinkRouteModal } from '@/components/LinkRouteModal';
 import { Truck as TruckType } from '@/hooks/useTrucks';
 
+import { confirmDialog } from '@/lib/confirm';
 const Trucks = () => {
   const { toast } = useToast();
   const [editingTruck, setEditingTruck] = useState<TruckType | null>(null);
@@ -47,7 +48,7 @@ const Trucks = () => {
   };
 
   const handleDeleteTruck = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este caminhão?')) {
+    if ((await confirmDialog({ description: 'Tem certeza que deseja excluir este caminhão?', destructive: true }))) {
       try {
         await deleteTruck(id);
         await refetch();
@@ -64,7 +65,7 @@ const Trucks = () => {
   };
 
   const handleUnlinkRoute = async (truck: TruckType) => {
-    if (!confirm(`Desvincular a rota atual de ${truck.name}?`)) return;
+    if (!(await confirmDialog({ description: `Desvincular a rota atual de ${truck.name}?`, destructive: true }))) return;
     try {
       const { API_CONFIG } = await import('@/services/config');
       const token = localStorage.getItem('auth_token');
