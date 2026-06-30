@@ -1,42 +1,44 @@
-
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfirmHost } from "@/lib/confirm";
 
-// Pages
-import Index from "./pages/Index";
-import Trucks from "./pages/Trucks";
-import Drivers from "./pages/Drivers";
-import RoutesPage from "./pages/Routes";
-import Settings from "./pages/Settings";
-// import Management from "./pages/Management"; // substituído por Maintenance refatorado
-import Maintenance from "./pages/Maintenance";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/Login";
-import MobileDriver from "./pages/MobileDriver";
-import CreateRoute from "./pages/CreateRoute";
-import Customers from "./pages/Customers";
-import CompletedRoutes from "./pages/CompletedRoutes";
-import Sanitarios from "./pages/Sanitarios";
-import InternalManagement from "./pages/InternalManagement";
-import Checklists from "./pages/Checklists";
-import PublicChecklist from "./pages/PublicChecklist";
-import Carretinhas from "./pages/Carretinhas";
-import ErpQuotes from "./pages/ErpQuotes";
-import ServiceOrders from "./pages/ServiceOrders";
-import ErpLayout from "./pages/erp/ErpLayout";
-import ErpDashboard from "./pages/erp/ErpDashboard";
-import ErpCompanies from "./pages/erp/ErpCompanies";
-import ErpFinanceiro from "./pages/erp/ErpFinanceiro";
-import ErpContracts from "./pages/erp/ErpContracts";
-
-// Components
+// Componentes críticos (carregados imediatamente — auth + fallback)
 import ProtectedRoute from "./components/ProtectedRoute";
+import RouteFallback from "./components/RouteFallback";
+import Login from "./pages/Login";
 
-// Mobile Operator Components
-import MobileOperatorMenuPage from "./components/mobile/operator/MobileOperatorMenuPage";
+// Pages — lazy (code-splitting por rota)
+const Index = lazy(() => import("./pages/Index"));
+const Trucks = lazy(() => import("./pages/Trucks"));
+const Drivers = lazy(() => import("./pages/Drivers"));
+const RoutesPage = lazy(() => import("./pages/Routes"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Maintenance = lazy(() => import("./pages/Maintenance"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const MobileDriver = lazy(() => import("./pages/MobileDriver"));
+const CreateRoute = lazy(() => import("./pages/CreateRoute"));
+const Customers = lazy(() => import("./pages/Customers"));
+const CompletedRoutes = lazy(() => import("./pages/CompletedRoutes"));
+const Sanitarios = lazy(() => import("./pages/Sanitarios"));
+const InternalManagement = lazy(() => import("./pages/InternalManagement"));
+const Checklists = lazy(() => import("./pages/Checklists"));
+const PublicChecklist = lazy(() => import("./pages/PublicChecklist"));
+const Carretinhas = lazy(() => import("./pages/Carretinhas"));
+const ErpQuotes = lazy(() => import("./pages/ErpQuotes"));
+const ServiceOrders = lazy(() => import("./pages/ServiceOrders"));
+const ErpLayout = lazy(() => import("./pages/erp/ErpLayout"));
+const ErpDashboard = lazy(() => import("./pages/erp/ErpDashboard"));
+const ErpCompanies = lazy(() => import("./pages/erp/ErpCompanies"));
+const ErpFinanceiro = lazy(() => import("./pages/erp/ErpFinanceiro"));
+const ErpContracts = lazy(() => import("./pages/erp/ErpContracts"));
+
+// Mobile Operator (lazy também — só pesa quando acessado)
+const MobileOperatorMenuPage = lazy(
+  () => import("./components/mobile/operator/MobileOperatorMenuPage"),
+);
 
 import "./App.css";
 
@@ -44,10 +46,17 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
       retry: 2,
+      refetchOnWindowFocus: false,
     },
   },
 });
+
+// Helper para reduzir boilerplate de <ProtectedRoute>
+const Protected = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>{children}</ProtectedRoute>
+);
 
 function App() {
   return (
@@ -56,161 +65,47 @@ function App() {
         <Toaster />
         <ConfirmHost />
         <BrowserRouter>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/mobile" element={<MobileDriver />} />
-            <Route path="/checklist" element={<PublicChecklist />} />
-            
-            {/* Protected Routes */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/trucks"
-              element={
-                <ProtectedRoute>
-                  <Trucks />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/drivers"
-              element={
-                <ProtectedRoute>
-                  <Drivers />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/routes"
-              element={
-                <ProtectedRoute>
-                  <RoutesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/routes/create"
-              element={
-                <ProtectedRoute>
-                  <CreateRoute />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/routes/edit"
-              element={
-                <ProtectedRoute>
-                  <CreateRoute />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/management"
-              element={
-                <ProtectedRoute>
-                  <Maintenance />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/maintenance"
-              element={
-                <ProtectedRoute>
-                  <Maintenance />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/customers"
-              element={
-                <ProtectedRoute>
-                  <Customers />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/rotas-concluidas"
-              element={
-                <ProtectedRoute>
-                  <CompletedRoutes />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/sanitarios"
-              element={
-                <ProtectedRoute>
-                  <Sanitarios />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/gestao-interna"
-              element={
-                <ProtectedRoute>
-                  <InternalManagement />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/checklists"
-              element={
-                <ProtectedRoute>
-                  <Checklists />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/carretinhas"
-              element={
-                <ProtectedRoute>
-                  <Carretinhas />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/erp"
-              element={
-                <ProtectedRoute>
-                  <ErpLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<ErpDashboard />} />
-              <Route path="orcamentos" element={<ErpQuotes />} />
-              <Route path="ordens-servico" element={<ServiceOrders />} />
-              <Route path="financeiro" element={<ErpFinanceiro />} />
-              <Route path="contratos" element={<ErpContracts />} />
-              <Route path="clientes" element={<Customers />} />
-              <Route path="estoque" element={<InternalManagement />} />
-              <Route path="empresas" element={<ErpCompanies />} />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute>
-                  <MobileOperatorMenuPage />
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* 404 Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/mobile" element={<MobileDriver />} />
+              <Route path="/checklist" element={<PublicChecklist />} />
+
+              {/* Protected Routes */}
+              <Route path="/" element={<Protected><Index /></Protected>} />
+              <Route path="/trucks" element={<Protected><Trucks /></Protected>} />
+              <Route path="/drivers" element={<Protected><Drivers /></Protected>} />
+              <Route path="/routes" element={<Protected><RoutesPage /></Protected>} />
+              <Route path="/routes/create" element={<Protected><CreateRoute /></Protected>} />
+              <Route path="/routes/edit" element={<Protected><CreateRoute /></Protected>} />
+              <Route path="/management" element={<Protected><Maintenance /></Protected>} />
+              <Route path="/maintenance" element={<Protected><Maintenance /></Protected>} />
+              <Route path="/settings" element={<Protected><Settings /></Protected>} />
+              <Route path="/customers" element={<Protected><Customers /></Protected>} />
+              <Route path="/rotas-concluidas" element={<Protected><CompletedRoutes /></Protected>} />
+              <Route path="/sanitarios" element={<Protected><Sanitarios /></Protected>} />
+              <Route path="/gestao-interna" element={<Protected><InternalManagement /></Protected>} />
+              <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
+              <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
+
+              <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
+                <Route index element={<ErpDashboard />} />
+                <Route path="orcamentos" element={<ErpQuotes />} />
+                <Route path="ordens-servico" element={<ServiceOrders />} />
+                <Route path="financeiro" element={<ErpFinanceiro />} />
+                <Route path="contratos" element={<ErpContracts />} />
+                <Route path="clientes" element={<Customers />} />
+                <Route path="estoque" element={<InternalManagement />} />
+                <Route path="empresas" element={<ErpCompanies />} />
+              </Route>
+
+              <Route element={<Protected><MobileOperatorMenuPage /></Protected>} />
+
+              {/* 404 Route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
