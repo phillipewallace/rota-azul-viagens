@@ -36,10 +36,10 @@ const movementLabel: Record<string, string> = {
   in: 'Entrada', out: 'Retirada', adjust: 'Ajuste', discard: 'Descarte',
 };
 const movementColor: Record<string, string> = {
-  in: 'bg-green-100 text-green-700',
-  out: 'bg-blue-100 text-blue-700',
-  adjust: 'bg-amber-100 text-amber-700',
-  discard: 'bg-red-100 text-red-700',
+  in: 'bg-success/15 text-success border-success/30',
+  out: 'bg-info/15 text-info border-info/30',
+  adjust: 'bg-warning/15 text-warning border-warning/30',
+  discard: 'bg-destructive/15 text-destructive border-destructive/30',
 };
 
 const InternalManagement: React.FC = () => {
