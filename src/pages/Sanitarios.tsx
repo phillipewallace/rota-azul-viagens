@@ -384,20 +384,20 @@ export default function Sanitarios() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="icon" asChild title="Voltar ao sistema" aria-label="Voltar ao sistema">
+            <Button variant="ghost" size="icon" asChild title="Voltar ao sistema" aria-label="Voltar ao sistema" className="-ml-2 text-muted-foreground hover:text-foreground transition-colors duration-200">
               <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
             </Button>
             <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold leading-tight truncate">Gerenciamento de Sanitários</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">
+              <h1 className="text-xl md:text-2xl font-semibold tracking-tight leading-tight truncate">Gerenciamento de Sanitários</h1>
+              <p className="text-sm text-muted-foreground mt-0.5 hidden sm:block">
                 Estoque por categoria, localização atual e histórico de cada banheiro químico.
               </p>
             </div>
           </div>
-          <Button onClick={() => { load(); loadStock(); loadTrucks(); setOsRefreshKey(k => k + 1); }} variant="outline" size="sm" disabled={loading} className="gap-2">
+          <Button onClick={() => { load(); loadStock(); loadTrucks(); setOsRefreshKey(k => k + 1); }} variant="outline" size="sm" disabled={loading} className="gap-2 transition-all duration-200">
             <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Atualizar</span>
           </Button>
