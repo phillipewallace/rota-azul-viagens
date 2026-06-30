@@ -8,6 +8,7 @@ import { ConfirmHost } from "@/lib/confirm";
 // Componentes críticos (carregados imediatamente — auth + fallback)
 import ProtectedRoute from "./components/ProtectedRoute";
 import RouteFallback from "./components/RouteFallback";
+import RouteErrorBoundary from "./components/RouteErrorBoundary";
 import Login from "./pages/Login";
 
 // Pages — lazy (code-splitting por rota)
@@ -65,7 +66,8 @@ function App() {
         <Toaster />
         <ConfirmHost />
         <BrowserRouter>
-          <Suspense fallback={<RouteFallback />}>
+          <RouteErrorBoundary>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
