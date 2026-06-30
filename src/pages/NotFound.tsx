@@ -2,6 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { Compass, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageMeta } from "@/components/PageMeta";
 
 const NotFound = () => {
   const location = useLocation();
@@ -14,6 +15,8 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
+    <>
+      <PageMeta title="Página não encontrada" noindex />
     <main className="min-h-[100dvh] flex items-center justify-center bg-gradient-to-b from-background to-muted/40 px-6 py-12">
       <div className="w-full max-w-md text-center space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
         <div
