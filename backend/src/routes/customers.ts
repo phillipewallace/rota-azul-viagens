@@ -62,13 +62,15 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 router.put('/', async (req: Request, res: Response) => {
-  const { customers } = req.body;
+  const { customers, clientLoadedAt } = req.body as {
+    customers: any[];
+    clientLoadedAt?: string; // ISO timestamp de quando o cliente carregou a lista
+  };
   if (!Array.isArray(customers)) { res.status(400).json({ error: 'Lista de clientes inválida' }); return; }
 
   const sentIds = customers.map(c => c?.id).filter(Boolean);
 
   // [#2 crítico] Guarda contra "DELETE FROM customers" acidental.
-  // Se o array não está vazio mas não tem nenhum id válido, é payload corrompido.
   if (customers.length > 0 && sentIds.length === 0) {
     res.status(400).json({ error: 'Payload inválido: nenhum cliente possui id' });
     return;
@@ -77,14 +79,64 @@ router.put('/', async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    // [concurrency] Detecta conflitos linha-a-linha: se algum registro no DB foi
+    // alterado depois do updatedAt que o cliente conhece, abortamos com 409.
+    const conflicts: Array<{ id: string; serverUpdatedAt: string; clientUpdatedAt: string | null }> = [];
     if (sentIds.length > 0) {
+      const placeholders = sentIds.map((_, i) => `$${i + 1}`).join(',');
+      const cur = await client.query(
+        `SELECT id, updated_at FROM customers WHERE id IN (${placeholders}) FOR UPDATE`,
+        sentIds
+      );
+      const serverMap = new Map<string, Date>(
+        cur.rows.map(r => [String(r.id), new Date(r.updated_at)])
+      );
+      for (const c of customers) {
+        const server = serverMap.get(String(c.id));
+        if (!server) continue; // novo registro — não há conflito
+        const clientTs = c.updatedAt ? new Date(c.updatedAt) : null;
+        // Se o cliente não enviou updatedAt OU o servidor é mais novo → conflito
+        if (!clientTs || server.getTime() > clientTs.getTime() + 500 /* tolerância ms */) {
+          conflicts.push({
+            id: c.id,
+            serverUpdatedAt: server.toISOString(),
+            clientUpdatedAt: clientTs ? clientTs.toISOString() : null,
+          });
+        }
+      }
+    }
+
+    if (conflicts.length > 0) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        error: 'Outro usuário modificou registros enquanto você editava. Recarregue antes de salvar novamente.',
+        conflicts,
+      });
+      return;
+    }
+
+    // [concurrency] DELETE seguro: NÃO apaga clientes criados depois do load
+    // do usuário (evita perder o que outro usuário cadastrou em paralelo).
+    if (sentIds.length > 0) {
+      const params: any[] = [...sentIds];
+      let cutoffClause = '';
+      if (clientLoadedAt) {
+        params.push(clientLoadedAt);
+        cutoffClause = ` AND created_at <= $${params.length}`;
+      }
       await client.query(
-        `DELETE FROM customers WHERE id NOT IN (${sentIds.map((_, i) => `$${i + 1}`).join(',')})`,
-        sentIds);
+        `DELETE FROM customers
+          WHERE id NOT IN (${sentIds.map((_, i) => `$${i + 1}`).join(',')})${cutoffClause}`,
+        params
+      );
+    } else if (clientLoadedAt) {
+      // Lista vazia + cutoff: só apaga o que existia antes do load
+      await client.query(`DELETE FROM customers WHERE created_at <= $1`, [clientLoadedAt]);
     } else {
-      // lista vazia explícita = limpar tudo
       await client.query('DELETE FROM customers');
     }
+
     for (const c of customers) {
       const doc = c.document ? String(c.document).replace(/\D/g, '') : null;
       await client.query(`
@@ -108,16 +160,16 @@ router.put('/', async (req: Request, res: Response) => {
           updated_at=NOW()
       `, [
         c.id,
-        (c.customerName || '').trim() || null,                  // [#5 médio] trim
+        (c.customerName || '').trim() || null,
         (c.address || '').trim() || null,
-        c.cep ? String(c.cep).replace(/\D/g, '') : null,        // [#5 médio] normaliza
+        c.cep ? String(c.cep).replace(/\D/g, '') : null,
         c.lat || null, c.lng || null,
         c.restroomsQty || null, c.cleaningsQty || null,
         (c.contactName || '').trim() || null,
         c.contactPhone ? String(c.contactPhone).trim() : null,
         c.notes || null,
         c.personType || 'PJ', doc, c.ie || null, c.im || null,
-        c.email ? String(c.email).trim().toLowerCase() : null,  // [#5 médio] normaliza email
+        c.email ? String(c.email).trim().toLowerCase() : null,
         c.numero || null, c.complemento || null, c.bairro || null,
         c.cidade || null, c.estado || null,
         c.responsavelNome || null, c.responsavelCpf || null, c.tipoCliente || null,
