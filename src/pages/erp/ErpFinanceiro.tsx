@@ -493,9 +493,12 @@ const ErpFinanceiro: React.FC = () => {
               </div>
             </CardContent>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div
+                ref={recibosScrollRef}
+                className={`overflow-auto ${recibosFiltrados.length > 50 ? 'max-h-[70vh]' : ''}`}
+              >
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
                       <TableHead>Nº</TableHead>
                       <TableHead>Contrato</TableHead>
@@ -509,88 +512,95 @@ const ErpFinanceiro: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {recibosFiltrados.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         Sem recibos para os filtros selecionados.
                       </TableCell></TableRow>
                     )}
-                    {recibosFiltrados.map(r => {
-                      const venc = r.dataVencimento || '';
-                      const atrasoDias = (r.status === 'aberto' || r.status === 'parcial') && venc && venc < today
-                        ? diffDays(today, venc) : 0;
-                      return (
-                        <TableRow key={r.id} className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
-                          <TableCell className="font-mono text-xs font-bold">{r.numero}</TableCell>
-                          <TableCell className="font-mono text-xs text-slate-500">{r.contractNumero}</TableCell>
-                          <TableCell className="max-w-[180px] truncate">{r.customerName || '—'}</TableCell>
-                          <TableCell className="text-xs">{D(r.dataEmissao)}</TableCell>
-                          <TableCell className="text-xs">
-                            <div className="flex flex-col gap-0.5">
-                              <span>{D(r.dataVencimento)}</span>
-                              {atrasoDias > 0 && (
-                                <Badge variant="outline" className="text-rose-700 border-rose-200 bg-rose-50 w-fit">
-                                  Atrasado {atrasoDias}d
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span>{BRL(Number(r.valor))}</span>
-                              {r.status === 'parcial' && (
-                                <span className="text-[10px] font-normal text-amber-700">
-                                  pago {BRL(Number(r.valorPago || 0))}
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge r={r} />
-                          </TableCell>
-                          <TableCell className="text-right whitespace-nowrap">
-                            <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
-                              <Download className="h-3.5 w-3.5 mr-1" /> PDF
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button size="sm" variant="ghost" aria-label="Mais ações" disabled={working === r.id}>
-                                  {working === r.id
-                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    : <MoreVertical className="h-3.5 w-3.5" />}
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-52">
-                                {r.status !== 'cancelado' && r.status !== 'pago' && (
-                                  <DropdownMenuItem onClick={() => setPayDialog(r)}>
-                                    <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" />
-                                    Registrar pagamento
-                                  </DropdownMenuItem>
+                    <VirtualRows
+                      scrollRef={recibosScrollRef}
+                      items={recibosFiltrados}
+                      colSpan={8}
+                      estimateSize={64}
+                      getKey={(r) => r.id}
+                      renderRow={(r) => {
+                        const venc = r.dataVencimento || '';
+                        const atrasoDias = (r.status === 'aberto' || r.status === 'parcial') && venc && venc < today
+                          ? diffDays(today, venc) : 0;
+                        return (
+                          <TableRow key={r.id} className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
+                            <TableCell className="font-mono text-xs font-bold">{r.numero}</TableCell>
+                            <TableCell className="font-mono text-xs text-muted-foreground">{r.contractNumero}</TableCell>
+                            <TableCell className="max-w-[180px] truncate">{r.customerName || '—'}</TableCell>
+                            <TableCell className="text-xs">{D(r.dataEmissao)}</TableCell>
+                            <TableCell className="text-xs">
+                              <div className="flex flex-col gap-0.5">
+                                <span>{D(r.dataVencimento)}</span>
+                                {atrasoDias > 0 && (
+                                  <Badge variant="outline" className="text-rose-700 border-rose-200 bg-rose-50 w-fit">
+                                    Atrasado {atrasoDias}d
+                                  </Badge>
                                 )}
-                                {(r.status === 'pago' || r.status === 'parcial') && (
-                                  <DropdownMenuItem onClick={() => setReabrirDialog(r)}>
-                                    <RefreshCw className="h-3.5 w-3.5 mr-2 text-slate-600" />
-                                    Reabrir (marcar em aberto)
-                                  </DropdownMenuItem>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span>{BRL(Number(r.valor))}</span>
+                                {r.status === 'parcial' && (
+                                  <span className="text-[10px] font-normal text-amber-700">
+                                    pago {BRL(Number(r.valorPago || 0))}
+                                  </span>
                                 )}
-                                <DropdownMenuItem onClick={() => regerar(r)} disabled={r.status === 'cancelado'}>
-                                  <RefreshCw className="h-3.5 w-3.5 mr-2 text-slate-600" />
-                                  Re-gerar PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {r.status !== 'cancelado' && (
-                                  <DropdownMenuItem
-                                    onClick={() => setCancelDialog(r)}
-                                    className="text-rose-600 focus:text-rose-700"
-                                  >
-                                    <XCircle className="h-3.5 w-3.5 mr-2" />
-                                    Cancelar recibo
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge r={r} />
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
+                                <Download className="h-3.5 w-3.5 mr-1" /> PDF
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="ghost" aria-label="Mais ações" disabled={working === r.id}>
+                                    {working === r.id
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <MoreVertical className="h-3.5 w-3.5" />}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                  {r.status !== 'cancelado' && r.status !== 'pago' && (
+                                    <DropdownMenuItem onClick={() => setPayDialog(r)}>
+                                      <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+                                      Registrar pagamento
+                                    </DropdownMenuItem>
+                                  )}
+                                  {(r.status === 'pago' || r.status === 'parcial') && (
+                                    <DropdownMenuItem onClick={() => setReabrirDialog(r)}>
+                                      <RefreshCw className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                      Reabrir (marcar em aberto)
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => regerar(r)} disabled={r.status === 'cancelado'}>
+                                    <RefreshCw className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                    Re-gerar PDF
                                   </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                                  <DropdownMenuSeparator />
+                                  {r.status !== 'cancelado' && (
+                                    <DropdownMenuItem
+                                      onClick={() => setCancelDialog(r)}
+                                      className="text-rose-600 focus:text-rose-700"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5 mr-2" />
+                                      Cancelar recibo
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }}
+                    />
                   </TableBody>
                 </Table>
               </div>
