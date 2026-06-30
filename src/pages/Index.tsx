@@ -104,8 +104,8 @@ const Index = () => {
               <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-700">
                 <h3 className="text-xs sm:text-sm font-semibold text-gray-400 mb-3">NAVEGAÇÃO</h3>
                 <div className="space-y-2">
-                  {navigationItems.map((item, index) => (
-                    <Button key={index} variant="ghost" className="w-full justify-start text-white hover:bg-gray-800 text-sm" asChild>
+                  {navigationItems.map((item) => (
+                    <Button key={item.to} variant="ghost" className="w-full justify-start text-white hover:bg-gray-800 text-sm" asChild>
                       <Link to={item.to}>
                         <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
                         <span className="truncate flex-1">{item.label}</span>
