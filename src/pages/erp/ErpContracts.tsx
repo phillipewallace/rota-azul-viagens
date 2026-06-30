@@ -150,6 +150,17 @@ const ErpContracts: React.FC = () => {
     try {
       const full = await contractsService.get(c.id);
       const src: any = buildPdfSource(full);
+      // [fix] Fallback: se o snapshot do contrato não trouxe itens (contratos
+      // antigos), busca direto da OS vinculada para que o PDF descreva os
+      // sanitários corretamente em vez de cair no placeholder genérico.
+      if ((!src.items || src.items.length === 0) && (full as any).osId) {
+        try {
+          const os = await serviceOrdersService.get((full as any).osId);
+          if (Array.isArray((os as any).items) && (os as any).items.length) {
+            src.items = (os as any).items;
+          }
+        } catch { /* mantém fallback */ }
+      }
       if (opts.dataVencimento) src.dataVencimento = opts.dataVencimento;
       await generateContractPdf(src, { preview: opts.preview });
       if (!opts.preview) toast.success('Contrato gerado');
