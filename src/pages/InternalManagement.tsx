@@ -97,18 +97,20 @@ const InternalManagement: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild aria-label="Voltar ao início">
+      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 sticky top-0 z-30">
+        <div className="container mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild aria-label="Voltar ao início" className="-ml-2 text-muted-foreground hover:text-foreground transition-colors duration-200">
             <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
           </Button>
-          <Building2 className="h-6 w-6 text-blue-600" />
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">Gestão Interna · ERP</h1>
-            <p className="text-xs text-muted-foreground">Estoque, EPIs, Produtos Químicos e mais</p>
+          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Building2 className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground truncate">Gestão Interna · ERP</h1>
+            <p className="text-sm text-muted-foreground mt-0.5 truncate">Estoque, EPIs, Produtos Químicos e mais</p>
           </div>
           {dashboard && dashboard.alertCount > 0 && (
-            <Badge variant="destructive" className="gap-1">
+            <Badge variant="destructive" className="gap-1 shrink-0">
               <AlertTriangle className="h-3 w-3" />
               {dashboard.alertCount} alerta(s)
             </Badge>
