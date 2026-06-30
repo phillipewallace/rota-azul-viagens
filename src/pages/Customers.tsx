@@ -143,9 +143,9 @@ const Customers: React.FC = () => {
     const target = confirmDelete;
     setDeleting(true);
     try {
+      const nextList = customers.filter(x => x.id !== target.id);
       deleteCustomer(target.id);
-      await new Promise(r => setTimeout(r, 0));
-      await saveCustomers();
+      await saveCustomers(nextList);
       toast.success(`"${target.customerName || 'Cliente'}" removido.`);
       setConfirmDelete(null);
     } catch (e) {
