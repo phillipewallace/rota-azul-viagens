@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { requireAuth } , requireRole from '../middleware/requireAuth';
+import { requireAuth, requireRole } from '../middleware/requireAuth';
 
 const router = Router();
 router.use(requireAuth);
