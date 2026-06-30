@@ -107,7 +107,8 @@ function App() {
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense>
+            </Suspense>
+          </RouteErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
