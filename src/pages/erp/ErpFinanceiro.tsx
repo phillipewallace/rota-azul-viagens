@@ -816,10 +816,157 @@ const ErpFinanceiro: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="clientes">
+          <Card>
+            <CardContent className="p-4 border-b flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Users2 className="h-4 w-4 text-indigo-600" />
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Resumo por cliente</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Agrupado a partir dos recibos filtrados. Cancelados não entram.
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline">{perCustomer.length} cliente(s)</Badge>
+            </CardContent>
+            <CardContent className="p-0">
+              <div className="overflow-auto max-h-[70vh]">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
+                    <TableRow>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead className="text-right">Recibos</TableHead>
+                      <TableHead className="text-right">Total emitido</TableHead>
+                      <TableHead className="text-right">Recebido</TableHead>
+                      <TableHead className="text-right">Em aberto</TableHead>
+                      <TableHead className="text-right">Vencido</TableHead>
+                      <TableHead className="text-right">% inad.</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {perCustomer.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                          Nenhum cliente no filtro atual.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {perCustomer.map(c => {
+                      const inad = c.total > 0 ? (c.aberto / c.total) * 100 : 0;
+                      return (
+                        <TableRow key={c.name}>
+                          <TableCell className="font-medium max-w-[260px] truncate">{c.name}</TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground">{c.count}</TableCell>
+                          <TableCell className="text-right font-semibold">{BRL(c.total)}</TableCell>
+                          <TableCell className="text-right text-emerald-700 dark:text-emerald-400">{BRL(c.recebido)}</TableCell>
+                          <TableCell className="text-right text-amber-700 dark:text-amber-400">{BRL(c.aberto)}</TableCell>
+                          <TableCell className="text-right">
+                            {c.vencido > 0
+                              ? <span className="font-semibold text-rose-700 dark:text-rose-400">{BRL(c.vencido)}</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge
+                              variant="outline"
+                              className={
+                                inad >= 30 ? 'border-rose-300 text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/60'
+                                : inad >= 10 ? 'border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/60'
+                                : 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60'
+                              }
+                            >
+                              {inad.toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="gastos">
           <GastosPanel />
         </TabsContent>
       </Tabs>
+
+      {/* Barra flutuante de ações em lote — recibos */}
+      {selectedRecibos.size > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none flex justify-center px-3 pb-4 md:pb-6 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="pointer-events-auto w-full max-w-3xl rounded-2xl border border-border bg-card/95 backdrop-blur shadow-xl px-3 py-2.5 md:px-4 md:py-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 pr-2 mr-auto">
+              <Badge className="bg-indigo-600 hover:bg-indigo-700">{selectedRecibos.size}</Badge>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">selecionado(s)</span>
+            </div>
+            <Button size="sm" variant="outline" disabled={batchWorking}
+              onClick={() => exportRecibosCsv(recibosFiltrados.filter(r => selectedRecibos.has(r.id)))}
+              className="transition-colors duration-200">
+              <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" disabled={batchWorking}
+              onClick={batchReopen}
+              className="border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:border-amber-800/60 dark:text-amber-400 dark:hover:bg-amber-950/40 transition-colors duration-200">
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Reabrir
+            </Button>
+            <Button size="sm" disabled={batchWorking} onClick={batchMarkPaid}
+              className="bg-emerald-600 hover:bg-emerald-700 transition-colors duration-200">
+              {batchWorking
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
+              Marcar pago
+            </Button>
+            <Button size="sm" variant="outline" disabled={batchWorking}
+              onClick={() => setBatchCancelOpen(true)}
+              className="border-rose-300 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-800/60 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors duration-200">
+              <XCircle className="h-3.5 w-3.5 mr-1" /> Cancelar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedRecibos(new Set())}
+              className="transition-colors duration-200" aria-label="Limpar seleção">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Diálogo de cancelamento em lote */}
+      <Dialog open={batchCancelOpen} onOpenChange={(o) => { if (!o) { setBatchCancelOpen(false); setBatchCancelMotivo(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-rose-600" /> Cancelar {selectedRecibos.size} recibo(s)
+            </DialogTitle>
+            <DialogDescription>
+              O motivo abaixo será registrado em todos os recibos selecionados. Recibos já cancelados serão ignorados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="batch-cancel-motivo" className="text-xs">Motivo</Label>
+            <Textarea
+              id="batch-cancel-motivo"
+              value={batchCancelMotivo}
+              onChange={(e) => setBatchCancelMotivo(e.target.value)}
+              placeholder="Ex.: erro de digitação, duplicidade, renegociação…"
+              className="min-h-[90px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setBatchCancelOpen(false); setBatchCancelMotivo(''); }}>
+              Voltar
+            </Button>
+            <Button
+              onClick={batchCancelSubmit}
+              disabled={batchWorking || !batchCancelMotivo.trim()}
+              className="bg-rose-600 hover:bg-rose-700 transition-colors duration-200"
+            >
+              {batchWorking ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+              Cancelar recibos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PayDialog
         receipt={payDialog}
