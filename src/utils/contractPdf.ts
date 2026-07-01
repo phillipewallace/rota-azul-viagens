@@ -239,13 +239,21 @@ function tipoToTemplateTipo(t?: 'locacao' | 'evento' | 'obra'): ContractTemplate
   return t === 'evento' ? 'evento' : 'obra';
 }
 
-export async function generateContractPdf(src: ContractSource, opts: { preview?: boolean } = {}) {
+/**
+ * Resolve o template + contexto e devolve o HTML já renderizado.
+ * Compartilhado entre gerador de PDF e gerador de .doc (Word).
+ */
+export async function buildContractDocument(src: ContractSource): Promise<{
+  tipoTpl: ContractTemplateTipo;
+  titulo: string;
+  corpoHtml: string;
+  ctx: Record<string, string>;
+}> {
   const tipoTpl = tipoToTemplateTipo(src.tipoContrato);
   let template: ContractTemplate | null = null;
   try {
     template = await contractTemplatesService.get(tipoTpl);
-  } catch (e) {
-    // Em último caso, segue com um fallback mínimo para não bloquear a geração.
+  } catch {
     template = {
       tipo: tipoTpl,
       titulo: tipoTpl === 'evento'
@@ -254,18 +262,24 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
       corpoHtml: `<p>Modelo de contrato não disponível. Configure em <strong>Configurações → Modelos de Contrato</strong>.</p>`,
     };
   }
-
   const ctx = buildContext(src);
-  // Fallback: se o modelo salvo no banco for antigo e não contiver o placeholder
-  // de frete, injeta uma cláusula automática quando houver frete > 0, para que o
-  // valor sempre apareça no contrato gerado.
   let rawBody = template.corpoHtml || '';
   const freteNum = Number(src.frete) || 0;
   if (freteNum > 0 && !/\{\{\s*contrato\.frete\s*\}\}/.test(rawBody)) {
     rawBody += `<p><strong>Frete:</strong> O valor referente ao frete de entrega e recolhimento dos equipamentos será cobrado <strong>uma única vez</strong>, no importe de <strong>{{contrato.frete}} ({{contrato.frete_extenso}})</strong>, lançado integralmente na primeira nota fiscal/recibo emitido.</p>`;
   }
-  const corpoHtml = applyTemplate(rawBody, ctx);
-  const titulo = applyTemplate(template.titulo, ctx);
+  return {
+    tipoTpl,
+    titulo: applyTemplate(template.titulo, ctx),
+    corpoHtml: applyTemplate(rawBody, ctx),
+    ctx,
+  };
+}
+
+export { fmtDateBr as _fmtDateBr, fmtDateLong as _fmtDateLong, maskDoc as _maskDoc };
+
+export async function generateContractPdf(src: ContractSource, opts: { preview?: boolean } = {}) {
+  const { tipoTpl, titulo, corpoHtml } = await buildContractDocument(src);
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();

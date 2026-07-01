@@ -168,17 +168,22 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
     } catch (e: any) { toast.error(e.message); }
   };
 
-  const downloadContractPdf = async (os: ServiceOrder, dataVencimento?: string, preview = false) => {
+  const downloadContractPdf = async (
+    os: ServiceOrder,
+    dataVencimento?: string,
+    preview = false,
+    format: 'pdf' | 'docx' = 'pdf',
+  ) => {
     try {
       const detail = await serviceOrdersService.get(os.id) as any;
-      await generateContractPdf({
+      const src = {
         numero: detail.numero || os.numero,
-        tipo: 'os',
+        tipo: 'os' as const,
         tipoContrato: (() => {
           const t = (detail.tipo_locacao || os.tipoLocacao || '').toLowerCase();
-          if (t === 'evento') return 'evento';
-          if (t === 'obra') return 'obra';
-          return 'locacao';
+          if (t === 'evento') return 'evento' as const;
+          if (t === 'obra') return 'obra' as const;
+          return 'locacao' as const;
         })(),
         modalidade: detail.modalidade || os.modalidade,
         dataEmissao: detail.data_inicio,
@@ -199,9 +204,15 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
         customerName: os.customerName,
         customerAddress: os.customerAddress,
         items: detail.items || [],
-      }, { preview });
-
-      if (!preview) toast.success('Contrato gerado');
+      };
+      if (format === 'docx') {
+        const { generateContractDoc } = await import('@/utils/contractDoc');
+        await generateContractDoc(src);
+        toast.success('Contrato Word gerado');
+      } else {
+        await generateContractPdf(src, { preview });
+        if (!preview) toast.success('Contrato gerado');
+      }
     } catch (e: any) { toast.error(e.message); }
   };
   const downloadServiceOrderPdf = async (os: ServiceOrder) => {
@@ -462,10 +473,10 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
         open={!!contractTarget}
         contractLabel={contractTarget ? `contrato da OS ${contractTarget.numero}` : undefined}
         onClose={() => setContractTarget(null)}
-        onConfirm={async ({ dataVencimento, preview }) => {
+        onConfirm={async ({ dataVencimento, preview, format }) => {
           const os = contractTarget;
           setContractTarget(null);
-          if (os) await downloadContractPdf(os, dataVencimento, preview);
+          if (os) await downloadContractPdf(os, dataVencimento, preview, format);
         }}
       />
     </div>
