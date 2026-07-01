@@ -335,6 +335,115 @@ const ErpFinanceiro: React.FC = () => {
     setFilterFrom(''); setFilterTo(''); setQuick('none'); setDateBase('emissao');
   };
 
+  // ===== recibos: seleção em lote =====
+  const toggleSelRec = (id: string) => {
+    setSelectedRecibos(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+  const toggleSelAllRec = () => {
+    if (selectedRecibos.size === recibosFiltrados.length) setSelectedRecibos(new Set());
+    else setSelectedRecibos(new Set(recibosFiltrados.map(r => r.id)));
+  };
+
+  const batchMarkPaid = async () => {
+    const alvos = recibosFiltrados.filter(r =>
+      selectedRecibos.has(r.id) && r.status !== 'cancelado' && r.status !== 'pago');
+    if (alvos.length === 0) { toast.info('Nenhum recibo elegível na seleção.'); return; }
+    setBatchWorking(true);
+    let ok = 0, fail = 0;
+    for (const r of alvos) {
+      try {
+        await receiptsExtraService.togglePaid(r.id, true, {
+          formaPagamento: (r.formaPagamento as FormaPagamento) || 'pix',
+          dataPagamento: todayISO(),
+          valorPago: Number(r.valor || 0),
+        });
+        ok++;
+      } catch { fail++; }
+    }
+    setSelectedRecibos(new Set());
+    setBatchWorking(false);
+    await load();
+    fail === 0
+      ? toast.success(`${ok} recibo(s) marcados como pagos`)
+      : toast.warning(`${ok} ok, ${fail} falharam`);
+  };
+
+  const batchReopen = async () => {
+    const ids = Array.from(selectedRecibos).filter(id => {
+      const r = recibos.find(x => x.id === id);
+      return r && (r.status === 'pago' || r.status === 'parcial');
+    });
+    if (ids.length === 0) { toast.info('Nenhum recibo pago/parcial na seleção.'); return; }
+    setBatchWorking(true);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await receiptsExtraService.togglePaid(id, false, { valorPago: 0 }); ok++; }
+      catch { fail++; }
+    }
+    setSelectedRecibos(new Set());
+    setBatchWorking(false);
+    await load();
+    fail === 0 ? toast.success(`${ok} recibo(s) reabertos`) : toast.warning(`${ok} ok, ${fail} falharam`);
+  };
+
+  const batchCancelSubmit = async () => {
+    const motivo = batchCancelMotivo.trim();
+    if (!motivo) { toast.error('Informe o motivo do cancelamento.'); return; }
+    const ids = Array.from(selectedRecibos).filter(id => {
+      const r = recibos.find(x => x.id === id);
+      return r && r.status !== 'cancelado';
+    });
+    if (ids.length === 0) { toast.info('Nenhum recibo elegível.'); return; }
+    setBatchWorking(true);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await receiptsService.cancel(id, motivo); ok++; }
+      catch { fail++; }
+    }
+    setSelectedRecibos(new Set());
+    setBatchWorking(false);
+    setBatchCancelOpen(false);
+    setBatchCancelMotivo('');
+    await load();
+    fail === 0 ? toast.success(`${ok} recibo(s) cancelados`) : toast.warning(`${ok} ok, ${fail} falharam`);
+  };
+
+  // ===== Exportação CSV =====
+  const exportRecibosCsv = (lista: Receipt[]) => {
+    if (lista.length === 0) { toast.info('Nada para exportar.'); return; }
+    const header = [
+      'Numero', 'Contrato', 'Cliente', 'Empresa', 'Emissao', 'Vencimento',
+      'Valor', 'ValorPago', 'Status', 'FormaPagamento', 'DataPagamento',
+    ];
+    const rows = lista.map(r => [
+      r.numero, r.contractNumero || '', r.customerName || '', r.companyRazaoSocial || '',
+      r.dataEmissao || '', r.dataVencimento || '',
+      Number(r.valor || 0).toFixed(2).replace('.', ','),
+      Number(r.valorPago || 0).toFixed(2).replace('.', ','),
+      r.status || '', r.formaPagamento || '', r.dataPagamento || '',
+    ]);
+    const csv = [header, ...rows]
+      .map(row => row.map(cell => {
+        const s = String(cell ?? '');
+        return /[";\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      }).join(';'))
+      .join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recibos-${todayISO()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`${lista.length} recibo(s) exportados`);
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
