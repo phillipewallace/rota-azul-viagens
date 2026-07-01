@@ -878,6 +878,7 @@ const ErpQuotes: React.FC = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 
