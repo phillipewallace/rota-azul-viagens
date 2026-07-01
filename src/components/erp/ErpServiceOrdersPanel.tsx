@@ -473,10 +473,10 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
         open={!!contractTarget}
         contractLabel={contractTarget ? `contrato da OS ${contractTarget.numero}` : undefined}
         onClose={() => setContractTarget(null)}
-        onConfirm={async ({ dataVencimento, preview }) => {
+        onConfirm={async ({ dataVencimento, preview, format }) => {
           const os = contractTarget;
           setContractTarget(null);
-          if (os) await downloadContractPdf(os, dataVencimento, preview);
+          if (os) await downloadContractPdf(os, dataVencimento, preview, format);
         }}
       />
     </div>
