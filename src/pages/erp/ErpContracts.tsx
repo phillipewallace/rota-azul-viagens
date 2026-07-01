@@ -195,17 +195,8 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message || 'Erro ao duplicar'); }
   };
 
-  const gerarReciboDoMes = async (c: Contract) => {
-    setGeneratingReceipt(c.id);
-    try {
-      const now = new Date();
-      const competencia = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      await receiptsService.generate({ contractId: c.id, competencia });
-      toast.success(`Recibo de ${competencia} gerado`);
-    } catch (e: any) {
-      toast.error(e.message || 'Erro ao gerar recibo');
-    } finally { setGeneratingReceipt(null); }
-  };
+
+
 
   const remove = async () => {
     if (!deleting) return;
