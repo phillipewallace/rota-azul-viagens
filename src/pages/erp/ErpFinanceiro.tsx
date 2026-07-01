@@ -10,7 +10,7 @@ import {
   DollarSign, Loader2, Download, RefreshCw, Receipt as ReceiptIcon,
   CalendarDays, CheckCircle2, AlertCircle, Filter, Plus, Trash2, Wrench,
   TrendingDown, TrendingUp, Search, AlertTriangle, Pencil, MoreVertical,
-  XCircle, Repeat, Tag, PlayCircle, BarChart3,
+  XCircle, Repeat, Tag, PlayCircle, BarChart3, FileSpreadsheet, Users2, TimerOff, X,
 } from 'lucide-react';
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
@@ -106,8 +106,12 @@ const ErpFinanceiro: React.FC = () => {
   const [quick, setQuick] = useState<QuickFilter>('none');
   const [search, setSearch] = useState('');
 
-  // seleção lote
+  // seleção lote (pendentes) e (recibos)
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
+  const [batchWorking, setBatchWorking] = useState(false);
+  const [batchCancelOpen, setBatchCancelOpen] = useState(false);
+  const [batchCancelMotivo, setBatchCancelMotivo] = useState('');
 
   // refs para scroll-parents das tabelas virtualizadas
   const pendentesScrollRef = useRef<HTMLDivElement>(null);
@@ -206,6 +210,11 @@ const ErpFinanceiro: React.FC = () => {
     const aberto = recibosFiltrados
       .filter(r => r.status === 'aberto' || r.status === 'parcial')
       .reduce((a, r) => a + Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0)), 0);
+    const vencidosArr = recibosFiltrados.filter(r =>
+      (r.status === 'aberto' || r.status === 'parcial') &&
+      r.dataVencimento && r.dataVencimento < today);
+    const vencidos = vencidosArr.reduce(
+      (a, r) => a + Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0)), 0);
     const pendente = pendentes.reduce((a, p) => a + Number(p.valorMensal || 0), 0);
     const previsto = recebido + aberto + pendente;
     const inadimp  = previsto > 0 ? (aberto + pendente) / previsto * 100 : 0;
@@ -214,9 +223,34 @@ const ErpFinanceiro: React.FC = () => {
       ? ativos.reduce((a, r) => a + Number(r.valor || 0), 0) / ativos.length : 0;
     return {
       recebido, aberto, pendente, total: previsto, inadimp, ticket,
+      vencidos, vencidosCount: vencidosArr.length,
       resultado: recebido - gastosMes,
     };
-  }, [recibosFiltrados, pendentes, gastosMes]);
+  }, [recibosFiltrados, pendentes, gastosMes, today]);
+
+  // Ranking por cliente (usa recibos filtrados; ignora cancelados)
+  const perCustomer = useMemo(() => {
+    const map = new Map<string, {
+      name: string; recebido: number; aberto: number; vencido: number; total: number; count: number;
+    }>();
+    recibosFiltrados.forEach(r => {
+      if (r.status === 'cancelado') return;
+      const key = r.customerName || '— sem cliente —';
+      const cur = map.get(key) || { name: key, recebido: 0, aberto: 0, vencido: 0, total: 0, count: 0 };
+      cur.count++;
+      cur.total += Number(r.valor || 0);
+      if (r.status === 'pago' || r.status === 'parcial') {
+        cur.recebido += Number(r.valorPago ?? (r.status === 'pago' ? r.valor : 0) ?? 0);
+      }
+      if (r.status === 'aberto' || r.status === 'parcial') {
+        const rest = Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0));
+        cur.aberto += rest;
+        if (r.dataVencimento && r.dataVencimento < today) cur.vencido += rest;
+      }
+      map.set(key, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [recibosFiltrados, today]);
 
   // ===== ações =====
   const generateOne = async (
@@ -301,6 +335,115 @@ const ErpFinanceiro: React.FC = () => {
     setFilterFrom(''); setFilterTo(''); setQuick('none'); setDateBase('emissao');
   };
 
+  // ===== recibos: seleção em lote =====
+  const toggleSelRec = (id: string) => {
+    setSelectedRecibos(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+  const toggleSelAllRec = () => {
+    if (selectedRecibos.size === recibosFiltrados.length) setSelectedRecibos(new Set());
+    else setSelectedRecibos(new Set(recibosFiltrados.map(r => r.id)));
+  };
+
+  const batchMarkPaid = async () => {
+    const alvos = recibosFiltrados.filter(r =>
+      selectedRecibos.has(r.id) && r.status !== 'cancelado' && r.status !== 'pago');
+    if (alvos.length === 0) { toast.info('Nenhum recibo elegível na seleção.'); return; }
+    setBatchWorking(true);
+    let ok = 0, fail = 0;
+    for (const r of alvos) {
+      try {
+        await receiptsExtraService.togglePaid(r.id, true, {
+          formaPagamento: (r.formaPagamento as FormaPagamento) || 'pix',
+          dataPagamento: todayISO(),
+          valorPago: Number(r.valor || 0),
+        });
+        ok++;
+      } catch { fail++; }
+    }
+    setSelectedRecibos(new Set());
+    setBatchWorking(false);
+    await load();
+    fail === 0
+      ? toast.success(`${ok} recibo(s) marcados como pagos`)
+      : toast.warning(`${ok} ok, ${fail} falharam`);
+  };
+
+  const batchReopen = async () => {
+    const ids = Array.from(selectedRecibos).filter(id => {
+      const r = recibos.find(x => x.id === id);
+      return r && (r.status === 'pago' || r.status === 'parcial');
+    });
+    if (ids.length === 0) { toast.info('Nenhum recibo pago/parcial na seleção.'); return; }
+    setBatchWorking(true);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await receiptsExtraService.togglePaid(id, false, { valorPago: 0 }); ok++; }
+      catch { fail++; }
+    }
+    setSelectedRecibos(new Set());
+    setBatchWorking(false);
+    await load();
+    fail === 0 ? toast.success(`${ok} recibo(s) reabertos`) : toast.warning(`${ok} ok, ${fail} falharam`);
+  };
+
+  const batchCancelSubmit = async () => {
+    const motivo = batchCancelMotivo.trim();
+    if (!motivo) { toast.error('Informe o motivo do cancelamento.'); return; }
+    const ids = Array.from(selectedRecibos).filter(id => {
+      const r = recibos.find(x => x.id === id);
+      return r && r.status !== 'cancelado';
+    });
+    if (ids.length === 0) { toast.info('Nenhum recibo elegível.'); return; }
+    setBatchWorking(true);
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await receiptsService.cancel(id, motivo); ok++; }
+      catch { fail++; }
+    }
+    setSelectedRecibos(new Set());
+    setBatchWorking(false);
+    setBatchCancelOpen(false);
+    setBatchCancelMotivo('');
+    await load();
+    fail === 0 ? toast.success(`${ok} recibo(s) cancelados`) : toast.warning(`${ok} ok, ${fail} falharam`);
+  };
+
+  // ===== Exportação CSV =====
+  const exportRecibosCsv = (lista: Receipt[]) => {
+    if (lista.length === 0) { toast.info('Nada para exportar.'); return; }
+    const header = [
+      'Numero', 'Contrato', 'Cliente', 'Empresa', 'Emissao', 'Vencimento',
+      'Valor', 'ValorPago', 'Status', 'FormaPagamento', 'DataPagamento',
+    ];
+    const rows = lista.map(r => [
+      r.numero, r.contractNumero || '', r.customerName || '', r.companyRazaoSocial || '',
+      r.dataEmissao || '', r.dataVencimento || '',
+      Number(r.valor || 0).toFixed(2).replace('.', ','),
+      Number(r.valorPago || 0).toFixed(2).replace('.', ','),
+      r.status || '', r.formaPagamento || '', r.dataPagamento || '',
+    ]);
+    const csv = [header, ...rows]
+      .map(row => row.map(cell => {
+        const s = String(cell ?? '');
+        return /[";\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      }).join(';'))
+      .join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recibos-${todayISO()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`${lista.length} recibo(s) exportados`);
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -332,7 +475,20 @@ const ErpFinanceiro: React.FC = () => {
         <KPI label="Total previsto" value={BRL(totals.total)} icon={DollarSign} accent="from-indigo-500 to-purple-600" />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <button
+          type="button"
+          onClick={() => { setQuick(quick === 'vencidos' ? 'none' : 'vencidos'); setFilterStatus('all'); }}
+          className="text-left rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 transition-transform duration-200 hover:-translate-y-0.5"
+          title="Filtrar apenas recibos vencidos"
+        >
+          <KPI label="Vencidos" value={BRL(totals.vencidos)}
+            sub={totals.vencidosCount > 0
+              ? `${totals.vencidosCount} recibo(s) em atraso`
+              : 'Nenhum em atraso 🎉'}
+            icon={TimerOff}
+            accent="from-rose-600 to-red-700" />
+        </button>
         <KPI label="Inadimplência" value={`${totals.inadimp.toFixed(1)}%`}
           sub={`${BRL(totals.aberto + totals.pendente)} a receber`} icon={AlertTriangle}
           accent="from-rose-500 to-orange-500" />
@@ -354,6 +510,9 @@ const ErpFinanceiro: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="emitidos">
             Recibos <Badge variant="outline" className="ml-2">{recibosFiltrados.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="clientes">
+            Por cliente <Badge variant="outline" className="ml-2">{perCustomer.length}</Badge>
           </TabsTrigger>
           <TabsTrigger value="gastos">Gastos</TabsTrigger>
         </TabsList>
@@ -501,6 +660,14 @@ const ErpFinanceiro: React.FC = () => {
                   </Select>
                 </div>
                 <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar</Button>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => exportRecibosCsv(recibosFiltrados)}
+                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800/60 dark:text-emerald-400 dark:hover:bg-emerald-950/40 transition-colors duration-200"
+                  title="Exportar recibos filtrados para CSV (Excel)"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Exportar CSV
+                </Button>
               </div>
               <div className="flex flex-wrap gap-2">
                 <QuickChip active={quick === 'none'} onClick={() => setQuick('none')}>Todos</QuickChip>
@@ -516,6 +683,11 @@ const ErpFinanceiro: React.FC = () => {
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox aria-label="Selecionar todos os recibos filtrados"
+                          checked={recibosFiltrados.length > 0 && selectedRecibos.size === recibosFiltrados.length}
+                          onCheckedChange={toggleSelAllRec} />
+                      </TableHead>
                       <TableHead>Nº</TableHead>
                       <TableHead>Contrato</TableHead>
                       <TableHead>Cliente</TableHead>
@@ -528,22 +700,30 @@ const ErpFinanceiro: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {recibosFiltrados.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         Sem recibos para os filtros selecionados.
                       </TableCell></TableRow>
                     )}
                     <VirtualRows
                       scrollRef={recibosScrollRef}
                       items={recibosFiltrados}
-                      colSpan={8}
+                      colSpan={9}
                       estimateSize={64}
                       getKey={(r) => r.id}
                       renderRow={(r) => {
                         const venc = r.dataVencimento || '';
                         const atrasoDias = (r.status === 'aberto' || r.status === 'parcial') && venc && venc < today
                           ? diffDays(today, venc) : 0;
+                        const isSel = selectedRecibos.has(r.id);
                         return (
-                          <TableRow key={r.id} className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
+                          <TableRow key={r.id}
+                            data-state={isSel ? 'selected' : undefined}
+                            className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
+                            <TableCell>
+                              <Checkbox aria-label={`Selecionar recibo ${r.numero}`}
+                                checked={isSel}
+                                onCheckedChange={() => toggleSelRec(r.id)} />
+                            </TableCell>
                             <TableCell className="font-mono text-xs font-bold">{r.numero}</TableCell>
                             <TableCell className="font-mono text-xs text-muted-foreground">{r.contractNumero}</TableCell>
                             <TableCell className="max-w-[180px] truncate">{r.customerName || '—'}</TableCell>
@@ -636,10 +816,157 @@ const ErpFinanceiro: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="clientes">
+          <Card>
+            <CardContent className="p-4 border-b flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Users2 className="h-4 w-4 text-indigo-600" />
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Resumo por cliente</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Agrupado a partir dos recibos filtrados. Cancelados não entram.
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline">{perCustomer.length} cliente(s)</Badge>
+            </CardContent>
+            <CardContent className="p-0">
+              <div className="overflow-auto max-h-[70vh]">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
+                    <TableRow>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead className="text-right">Recibos</TableHead>
+                      <TableHead className="text-right">Total emitido</TableHead>
+                      <TableHead className="text-right">Recebido</TableHead>
+                      <TableHead className="text-right">Em aberto</TableHead>
+                      <TableHead className="text-right">Vencido</TableHead>
+                      <TableHead className="text-right">% inad.</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {perCustomer.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                          Nenhum cliente no filtro atual.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {perCustomer.map(c => {
+                      const inad = c.total > 0 ? (c.aberto / c.total) * 100 : 0;
+                      return (
+                        <TableRow key={c.name}>
+                          <TableCell className="font-medium max-w-[260px] truncate">{c.name}</TableCell>
+                          <TableCell className="text-right text-xs text-muted-foreground">{c.count}</TableCell>
+                          <TableCell className="text-right font-semibold">{BRL(c.total)}</TableCell>
+                          <TableCell className="text-right text-emerald-700 dark:text-emerald-400">{BRL(c.recebido)}</TableCell>
+                          <TableCell className="text-right text-amber-700 dark:text-amber-400">{BRL(c.aberto)}</TableCell>
+                          <TableCell className="text-right">
+                            {c.vencido > 0
+                              ? <span className="font-semibold text-rose-700 dark:text-rose-400">{BRL(c.vencido)}</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge
+                              variant="outline"
+                              className={
+                                inad >= 30 ? 'border-rose-300 text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/60'
+                                : inad >= 10 ? 'border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/60'
+                                : 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60'
+                              }
+                            >
+                              {inad.toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="gastos">
           <GastosPanel />
         </TabsContent>
       </Tabs>
+
+      {/* Barra flutuante de ações em lote — recibos */}
+      {selectedRecibos.size > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none flex justify-center px-3 pb-4 md:pb-6 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="pointer-events-auto w-full max-w-3xl rounded-2xl border border-border bg-card/95 backdrop-blur shadow-xl px-3 py-2.5 md:px-4 md:py-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 pr-2 mr-auto">
+              <Badge className="bg-indigo-600 hover:bg-indigo-700">{selectedRecibos.size}</Badge>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">selecionado(s)</span>
+            </div>
+            <Button size="sm" variant="outline" disabled={batchWorking}
+              onClick={() => exportRecibosCsv(recibosFiltrados.filter(r => selectedRecibos.has(r.id)))}
+              className="transition-colors duration-200">
+              <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> CSV
+            </Button>
+            <Button size="sm" variant="outline" disabled={batchWorking}
+              onClick={batchReopen}
+              className="border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:border-amber-800/60 dark:text-amber-400 dark:hover:bg-amber-950/40 transition-colors duration-200">
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Reabrir
+            </Button>
+            <Button size="sm" disabled={batchWorking} onClick={batchMarkPaid}
+              className="bg-emerald-600 hover:bg-emerald-700 transition-colors duration-200">
+              {batchWorking
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
+              Marcar pago
+            </Button>
+            <Button size="sm" variant="outline" disabled={batchWorking}
+              onClick={() => setBatchCancelOpen(true)}
+              className="border-rose-300 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-800/60 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors duration-200">
+              <XCircle className="h-3.5 w-3.5 mr-1" /> Cancelar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedRecibos(new Set())}
+              className="transition-colors duration-200" aria-label="Limpar seleção">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Diálogo de cancelamento em lote */}
+      <Dialog open={batchCancelOpen} onOpenChange={(o) => { if (!o) { setBatchCancelOpen(false); setBatchCancelMotivo(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-rose-600" /> Cancelar {selectedRecibos.size} recibo(s)
+            </DialogTitle>
+            <DialogDescription>
+              O motivo abaixo será registrado em todos os recibos selecionados. Recibos já cancelados serão ignorados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="batch-cancel-motivo" className="text-xs">Motivo</Label>
+            <Textarea
+              id="batch-cancel-motivo"
+              value={batchCancelMotivo}
+              onChange={(e) => setBatchCancelMotivo(e.target.value)}
+              placeholder="Ex.: erro de digitação, duplicidade, renegociação…"
+              className="min-h-[90px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setBatchCancelOpen(false); setBatchCancelMotivo(''); }}>
+              Voltar
+            </Button>
+            <Button
+              onClick={batchCancelSubmit}
+              disabled={batchWorking || !batchCancelMotivo.trim()}
+              className="bg-rose-600 hover:bg-rose-700 transition-colors duration-200"
+            >
+              {batchWorking ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
+              Cancelar recibos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PayDialog
         receipt={payDialog}
