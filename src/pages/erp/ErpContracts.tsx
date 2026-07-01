@@ -941,7 +941,7 @@ function ContractFormDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={submit} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
+          <Button onClick={submit} disabled={saving} className="transition-all duration-200">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
             {editing ? 'Salvar' : 'Criar contrato'}
           </Button>
