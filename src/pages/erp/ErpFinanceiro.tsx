@@ -106,8 +106,12 @@ const ErpFinanceiro: React.FC = () => {
   const [quick, setQuick] = useState<QuickFilter>('none');
   const [search, setSearch] = useState('');
 
-  // seleção lote
+  // seleção lote (pendentes) e (recibos)
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
+  const [batchWorking, setBatchWorking] = useState(false);
+  const [batchCancelOpen, setBatchCancelOpen] = useState(false);
+  const [batchCancelMotivo, setBatchCancelMotivo] = useState('');
 
   // refs para scroll-parents das tabelas virtualizadas
   const pendentesScrollRef = useRef<HTMLDivElement>(null);
