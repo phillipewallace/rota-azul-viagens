@@ -820,10 +820,10 @@ const ServiceOrders: React.FC = () => {
         formaPagamento={(contractTarget as any)?.formaPagamento || 'boleto'}
         dataEntrega={contractTarget?.dataEntrega || null}
         onClose={() => setContractTarget(null)}
-        onConfirm={async ({ dataVencimento, preview }) => {
+        onConfirm={async ({ dataVencimento, preview, format }) => {
           const o = contractTarget;
           setContractTarget(null);
-          if (o) await downloadContract(o, dataVencimento, preview);
+          if (o) await downloadContract(o, dataVencimento, preview, format);
         }}
       />
     </div>
