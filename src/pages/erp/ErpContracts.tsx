@@ -6,7 +6,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FileSignature, Plus, Search, Upload, FileDown, Power, PowerOff,
-  Calendar, Loader2, Trash2, ExternalLink, FileText, Eye,
+  Calendar, Loader2, Trash2, Pencil, Copy, Receipt as ReceiptIcon,
+  AlertTriangle, TrendingUp, CheckCircle2, X,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,8 +27,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { contractsService, type Contract } from '@/services/contracts';
+import { contractsService, receiptsService, type Contract } from '@/services/contracts';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { serviceOrdersService } from '@/services/quotes';
 import { API_BASE_URL } from '@/services/config';
@@ -42,25 +45,40 @@ type Customer = { id: string; customerName: string; document?: string };
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D = (s?: string | null) => s ? formatDateBR(s) : '—';
 
+/** Dias até uma data (positivo = futuro, negativo = passado). Null se não houver data. */
+const daysUntil = (iso?: string | null): number | null => {
+  if (!iso) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const target = new Date(iso); target.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+};
+
+const TIPO_LABEL: Record<string, string> = {
+  locacao: 'Locação', evento: 'Evento', obra: 'Obra',
+};
+
 const ErpContracts: React.FC = () => {
   const [list, setList] = useState<Contract[]>([]);
   const [companies, setCompanies] = useState<ErpCompany[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [oses, setOses] = useState<any[]>([]);
   const [filterAtivo, setFilterAtivo] = useState<'all' | 'true' | 'false'>('all');
+  const [filterTipo, setFilterTipo] = useState<'all' | 'locacao' | 'evento' | 'obra'>('all');
+  const [filterCompany, setFilterCompany] = useState<string>('all');
+  const [filterVencendo, setFilterVencendo] = useState<boolean>(false);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<Contract | null>(null);
   const [openForm, setOpenForm] = useState(false);
   const [deleting, setDeleting] = useState<Contract | null>(null);
   const [vencTarget, setVencTarget] = useState<Contract | null>(null);
+  const [generatingReceipt, setGeneratingReceipt] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const params: any = {};
-      if (filterAtivo !== 'all') params.ativo = filterAtivo === 'true';
-      setList(await contractsService.list(params));
+      // Sempre traz tudo — status vira filtro de UI para permitir clicar nos KPIs.
+      setList(await contractsService.list());
     } catch (e: any) { toast.error(e.message); }
     finally { setLoading(false); }
   };
@@ -78,19 +96,62 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
-  useEffect(() => { load(); }, [filterAtivo]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []);
   useEffect(() => { loadAux(); }, []);
 
+  // ---- KPIs ----------------------------------------------------------------
+  const kpis = useMemo(() => {
+    const ativos = list.filter(c => c.ativo);
+    const mrr = ativos.reduce((s, c) => s + Number(c.valorMensal || 0), 0);
+    const vencendo = ativos.filter(c => {
+      const d = daysUntil(c.dataFim);
+      return d !== null && d >= 0 && d <= 30;
+    });
+    // Encerrados no mês corrente
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const encMes = list.filter(c => !c.ativo && (c.encerradoEm || '').startsWith(ym));
+    return {
+      ativos: ativos.length,
+      mrr,
+      vencendo: vencendo.length,
+      encerradosMes: encMes.length,
+    };
+  }, [list]);
+
+  // ---- Filtragem -----------------------------------------------------------
   const filtered = useMemo(() => {
-    if (!search.trim()) return list;
-    const s = search.toLowerCase();
-    return list.filter(c =>
-      (c.numero || '').toLowerCase().includes(s) ||
-      (c.customerName || '').toLowerCase().includes(s) ||
-      (c.companyRazaoSocial || '').toLowerCase().includes(s) ||
-      (c.descricao || '').toLowerCase().includes(s)
-    );
-  }, [list, search]);
+    const s = search.trim().toLowerCase();
+    return list.filter(c => {
+      if (filterAtivo === 'true'  && !c.ativo) return false;
+      if (filterAtivo === 'false' &&  c.ativo) return false;
+      if (filterTipo !== 'all' && (c.tipoContrato || 'locacao') !== filterTipo) return false;
+      if (filterCompany !== 'all' && c.companyId !== filterCompany) return false;
+      if (filterVencendo) {
+        const d = daysUntil(c.dataFim);
+        if (!(c.ativo && d !== null && d >= 0 && d <= 30)) return false;
+      }
+      if (s && !(
+        (c.numero || '').toLowerCase().includes(s) ||
+        (c.customerName || '').toLowerCase().includes(s) ||
+        (c.companyRazaoSocial || '').toLowerCase().includes(s) ||
+        (c.descricao || '').toLowerCase().includes(s)
+      )) return false;
+      return true;
+    });
+  }, [list, search, filterAtivo, filterTipo, filterCompany, filterVencendo]);
+
+  const activeFiltersCount =
+    (filterAtivo !== 'all' ? 1 : 0) +
+    (filterTipo !== 'all' ? 1 : 0) +
+    (filterCompany !== 'all' ? 1 : 0) +
+    (filterVencendo ? 1 : 0) +
+    (search.trim() ? 1 : 0);
+
+  const clearFilters = () => {
+    setFilterAtivo('all'); setFilterTipo('all');
+    setFilterCompany('all'); setFilterVencendo(false); setSearch('');
+  };
 
   const onSaved = async () => {
     setOpenForm(false); setEditing(null);
@@ -103,6 +164,47 @@ const ErpContracts: React.FC = () => {
       toast.success(c.ativo ? 'Contrato encerrado' : 'Contrato reativado');
       await load();
     } catch (e: any) { toast.error(e.message); }
+  };
+
+  const duplicate = async (c: Contract) => {
+    try {
+      const full = await contractsService.get(c.id);
+      const today = new Date().toISOString().slice(0, 10);
+      await contractsService.create({
+        companyId: full.companyId,
+        customerId: full.customerId,
+        osId: full.osId || null,
+        tipoContrato: full.tipoContrato,
+        descricao: full.descricao ? `${full.descricao} (cópia)` : '(cópia)',
+        dataInicio: today,
+        diaVencimento: full.diaVencimento,
+        valorMensal: Number(full.valorMensal || 0),
+        frete: 0,
+        renovacaoAutomatica: full.renovacaoAutomatica,
+        ativo: true,
+        observacoes: full.observacoes || null,
+        dataEvento: full.dataEvento || null,
+        dataRecolhimento: full.dataRecolhimento || null,
+        localEvento: full.localEvento || null,
+        horaEntrega: full.horaEntrega || null,
+        valorTotalEvento: full.valorTotalEvento || null,
+        origem: 'manual',
+      } as any);
+      toast.success('Contrato duplicado');
+      await load();
+    } catch (e: any) { toast.error(e.message || 'Erro ao duplicar'); }
+  };
+
+  const gerarReciboDoMes = async (c: Contract) => {
+    setGeneratingReceipt(c.id);
+    try {
+      const now = new Date();
+      const competencia = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      await receiptsService.generate({ contractId: c.id, competencia });
+      toast.success(`Recibo de ${competencia} gerado`);
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao gerar recibo');
+    } finally { setGeneratingReceipt(null); }
   };
 
   const remove = async () => {
@@ -150,9 +252,6 @@ const ErpContracts: React.FC = () => {
     try {
       const full = await contractsService.get(c.id);
       const src: any = buildPdfSource(full);
-      // [fix] Fallback: se o snapshot do contrato não trouxe itens (contratos
-      // antigos), busca direto da OS vinculada para que o PDF descreva os
-      // sanitários corretamente em vez de cair no placeholder genérico.
       if ((!src.items || src.items.length === 0) && (full as any).osId) {
         try {
           const os = await serviceOrdersService.get((full as any).osId);
@@ -167,43 +266,110 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
   };
 
-
-
-
-
-
+  // ---- Sub-render: badge de vencimento -------------------------------------
+  const vencimentoBadge = (c: Contract) => {
+    if (!c.ativo) return null;
+    const d = daysUntil(c.dataFim);
+    if (d === null) return null;
+    if (d < 0) {
+      return (
+        <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive gap-1">
+          <AlertTriangle className="h-3 w-3" /> Vencido
+        </Badge>
+      );
+    }
+    if (d <= 7) {
+      return (
+        <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive gap-1">
+          <AlertTriangle className="h-3 w-3" /> {d}d
+        </Badge>
+      );
+    }
+    if (d <= 30) {
+      return (
+        <Badge variant="outline" className="border-warning/40 bg-[hsl(var(--warning-soft))] text-[hsl(var(--warning-foreground))] gap-1">
+          <AlertTriangle className="h-3 w-3" /> {d}d
+        </Badge>
+      );
+    }
+    return null;
+  };
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-indigo-600 font-semibold mb-1">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold mb-1">
             <FileSignature className="h-3.5 w-3.5" /> Contratos
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Gestão de Contratos</h1>
-          <p className="text-slate-500 mt-1 text-sm">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Contratos</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Contratos ativos alimentam o módulo Financeiro com a geração mensal de recibos.
           </p>
         </div>
-        <Button onClick={() => { setEditing(null); setOpenForm(true); }} className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus className="h-4 w-4 mr-1" /> Novo contrato
+        <Button
+          onClick={() => { setEditing(null); setOpenForm(true); }}
+          className="transition-all duration-200 shadow-sm hover:shadow-md"
+        >
+          <Plus className="h-4 w-4 mr-1.5" /> Novo contrato
         </Button>
       </header>
 
-      <Card>
+      {/* ------- KPIs ------- */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="Ativos"
+          value={String(kpis.ativos)}
+          tone="success"
+          active={filterAtivo === 'true' && !filterVencendo}
+          onClick={() => { setFilterAtivo('true'); setFilterVencendo(false); }}
+        />
+        <KpiCard
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Receita mensal recorrente"
+          value={BRL(kpis.mrr)}
+          tone="brand"
+          hint="Soma de valorMensal dos ativos"
+        />
+        <KpiCard
+          icon={<AlertTriangle className="h-4 w-4" />}
+          label="Vencendo em 30 dias"
+          value={String(kpis.vencendo)}
+          tone="warning"
+          active={filterVencendo}
+          onClick={() => { setFilterVencendo(v => !v); setFilterAtivo('true'); }}
+        />
+        <KpiCard
+          icon={<PowerOff className="h-4 w-4" />}
+          label="Encerrados no mês"
+          value={String(kpis.encerradosMes)}
+          tone="muted"
+          active={filterAtivo === 'false'}
+          onClick={() => { setFilterAtivo(a => a === 'false' ? 'all' : 'false'); setFilterVencendo(false); }}
+        />
+      </div>
+
+      {/* ------- Filtros ------- */}
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-4 flex flex-wrap gap-3 items-end">
-          <div className="space-y-1 flex-1 min-w-[200px]">
-            <Label className="text-xs">Buscar</Label>
+          <div className="space-y-1 flex-1 min-w-[220px]">
+            <Label className="text-xs text-muted-foreground">Buscar</Label>
             <div className="relative">
-              <Search className="h-3.5 w-3.5 absolute left-2 top-2.5 text-slate-400" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)}
-                className="pl-7 h-9" placeholder="Nº, cliente, empresa, descrição…" />
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 h-9 transition-colors"
+                placeholder="Nº, cliente, empresa, descrição…"
+              />
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Status</Label>
+            <Label className="text-xs text-muted-foreground">Status</Label>
             <Select value={filterAtivo} onValueChange={(v: any) => setFilterAtivo(v)}>
-              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="true">Ativos</SelectItem>
@@ -211,83 +377,182 @@ const ErpContracts: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="ml-auto text-xs text-slate-500">{filtered.length} contratos</div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Tipo</Label>
+            <Select value={filterTipo} onValueChange={(v: any) => setFilterTipo(v)}>
+              <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="locacao">Locação</SelectItem>
+                <SelectItem value="evento">Evento</SelectItem>
+                <SelectItem value="obra">Obra</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {companies.length > 1 && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Empresa emissora</Label>
+              <Select value={filterCompany} onValueChange={setFilterCompany}>
+                <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {companies.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {activeFiltersCount > 0 && (
+            <Button
+              variant="ghost" size="sm" onClick={clearFilters}
+              className="h-9 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5 mr-1" /> Limpar ({activeFiltersCount})
+            </Button>
+          )}
+          <div className="ml-auto text-xs text-muted-foreground tabular-nums">
+            {filtered.length} de {list.length}
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
+      {/* ------- Tabela ------- */}
+      <Card className="border-border/60 shadow-sm overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Nº</TableHead>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="w-[110px]">Nº</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>Início</TableHead>
-                  <TableHead>Venc. Dia</TableHead>
-                  <TableHead className="text-right">Valor Mensal</TableHead>
-                  <TableHead>Renov.</TableHead>
+                  <TableHead className="hidden md:table-cell">Empresa</TableHead>
+                  <TableHead className="hidden lg:table-cell">Tipo</TableHead>
+                  <TableHead className="hidden md:table-cell">Vigência</TableHead>
+                  <TableHead className="text-right">Valor mensal</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>OS</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-right w-[220px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading && (
-                  <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-400">
+                  <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Carregando…
                   </TableCell></TableRow>
                 )}
                 {!loading && filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-400">
-                    Nenhum contrato encontrado.
+                  <TableRow><TableCell colSpan={8} className="text-center py-14 text-muted-foreground">
+                    <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <div className="text-sm">Nenhum contrato encontrado.</div>
+                    {activeFiltersCount > 0 && (
+                      <Button variant="link" size="sm" onClick={clearFilters} className="mt-1">
+                        Limpar filtros
+                      </Button>
+                    )}
                   </TableCell></TableRow>
                 )}
-                {filtered.map(c => (
-                  <TableRow key={c.id} className={!c.ativo ? 'opacity-60' : ''}>
-                    <TableCell className="font-mono text-xs">{c.numero}</TableCell>
-                    <TableCell className="max-w-[180px] truncate">{c.customerName || '—'}</TableCell>
-                    <TableCell className="text-xs text-slate-500 max-w-[140px] truncate">{c.companyRazaoSocial || '—'}</TableCell>
-                    <TableCell className="text-xs">{D(c.dataInicio)}</TableCell>
-                    <TableCell className="text-xs">dia {c.diaVencimento}</TableCell>
-                    <TableCell className="text-right font-semibold">{BRL(Number(c.valorMensal))}</TableCell>
-                    <TableCell>
-                      {c.renovacaoAutomatica
-                        ? <Badge variant="outline" className="text-emerald-700 border-emerald-200 bg-emerald-50">Auto</Badge>
-                        : <Badge variant="outline" className="text-slate-500">Manual</Badge>}
-                    </TableCell>
-                    <TableCell>
-                      {c.ativo
-                        ? <Badge className="bg-emerald-600">Ativo</Badge>
-                        : <Badge variant="secondary">Encerrado</Badge>}
-                    </TableCell>
-                    <TableCell className="text-xs">{c.osNumero || '—'}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      {c.pdfUrl ? (
-                        <Button variant="ghost" size="sm" title="Abrir PDF assinado anexado"
-                          onClick={() => window.open(toAbsoluteUrl(c.pdfUrl!), '_blank')}>
-                          <FileDown className="h-3.5 w-3.5 text-emerald-600" />
-                        </Button>
-                      ) : (
-                        <Button variant="ghost" size="sm" title="Nenhum PDF anexado — edite o contrato para anexar"
-                          onClick={() => { setEditing(c); setOpenForm(true); }}>
-                          <Upload className="h-3.5 w-3.5 text-slate-400" />
-                        </Button>
+                {!loading && filtered.map(c => {
+                  const venc = vencimentoBadge(c);
+                  const tipo = (c.tipoContrato || 'locacao') as string;
+                  return (
+                    <TableRow
+                      key={c.id}
+                      className={cn(
+                        'transition-colors',
+                        !c.ativo && 'opacity-60 hover:opacity-100'
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => { setEditing(c); setOpenForm(true); }}>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => toggleActive(c)}
-                        className={c.ativo ? 'text-amber-600' : 'text-emerald-600'}>
-                        {c.ativo ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleting(c)} className="text-red-600">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    >
+                      <TableCell className="font-mono text-xs text-muted-foreground">{c.numero}</TableCell>
+                      <TableCell className="max-w-[200px]">
+                        <div className="font-medium text-foreground truncate">{c.customerName || '—'}</div>
+                        {c.descricao && (
+                          <div className="text-[11px] text-muted-foreground truncate">{c.descricao}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[160px] truncate">
+                        {c.companyRazaoSocial || '—'}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <Badge variant="outline" className="text-[11px] font-normal">
+                          {TIPO_LABEL[tipo] || tipo}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-xs">
+                        <div className="text-foreground">{D(c.dataInicio)}</div>
+                        <div className="text-muted-foreground flex items-center gap-1.5">
+                          <span>até {D(c.dataFim)}</span>
+                          {venc}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="font-semibold tabular-nums">{BRL(Number(c.valorMensal))}</div>
+                        <div className="text-[11px] text-muted-foreground">venc. dia {c.diaVencimento}</div>
+                      </TableCell>
+                      <TableCell>
+                        {c.ativo
+                          ? <Badge className="bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-[hsl(var(--success-foreground))]">Ativo</Badge>
+                          : <Badge variant="secondary">Encerrado</Badge>}
+                        {c.renovacaoAutomatica && c.ativo && (
+                          <div className="text-[10px] text-muted-foreground mt-1">renov. auto</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-0.5">
+                          {c.ativo && (
+                            <IconAction
+                              label="Gerar recibo do mês"
+                              onClick={() => gerarReciboDoMes(c)}
+                              loading={generatingReceipt === c.id}
+                            >
+                              <ReceiptIcon className="h-3.5 w-3.5" />
+                            </IconAction>
+                          )}
+                          <IconAction
+                            label="Gerar contrato (PDF)"
+                            onClick={() => setVencTarget(c)}
+                          >
+                            <FileDown className="h-3.5 w-3.5" />
+                          </IconAction>
+                          {c.pdfUrl && (
+                            <IconAction
+                              label="Abrir PDF assinado"
+                              tone="success"
+                              onClick={() => window.open(toAbsoluteUrl(c.pdfUrl!), '_blank')}
+                            >
+                              <FileDown className="h-3.5 w-3.5" />
+                            </IconAction>
+                          )}
+                          <IconAction
+                            label="Duplicar"
+                            onClick={() => duplicate(c)}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </IconAction>
+                          <IconAction
+                            label="Editar"
+                            onClick={() => { setEditing(c); setOpenForm(true); }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </IconAction>
+                          <IconAction
+                            label={c.ativo ? 'Encerrar contrato' : 'Reativar contrato'}
+                            tone={c.ativo ? 'warning' : 'success'}
+                            onClick={() => toggleActive(c)}
+                          >
+                            {c.ativo ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                          </IconAction>
+                          <IconAction
+                            label="Excluir"
+                            tone="danger"
+                            onClick={() => setDeleting(c)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </IconAction>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -304,6 +569,20 @@ const ErpContracts: React.FC = () => {
         onSaved={onSaved}
       />
 
+      <BoletoVencimentoDialog
+        open={!!vencTarget}
+        onClose={() => setVencTarget(null)}
+        contractLabel={vencTarget?.numero}
+        formaPagamento="boleto"
+        dataEntrega={vencTarget?.dataEvento || vencTarget?.dataInicio || null}
+        onConfirm={async ({ dataVencimento, preview }) => {
+          if (vencTarget) {
+            await downloadContractPdf(vencTarget, { preview, dataVencimento });
+            setVencTarget(null);
+          }
+        }}
+      />
+
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -314,16 +593,102 @@ const ErpContracts: React.FC = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={remove} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+            <AlertDialogAction
+              onClick={remove}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
     </div>
+    </TooltipProvider>
   );
 };
 
 export default ErpContracts;
+
+// =====================
+// KPI Card
+// =====================
+type KpiTone = 'brand' | 'success' | 'warning' | 'muted';
+function KpiCard({
+  icon, label, value, tone, active, onClick, hint,
+}: {
+  icon: React.ReactNode; label: string; value: string; tone: KpiTone;
+  active?: boolean; onClick?: () => void; hint?: string;
+}) {
+  const toneRing: Record<KpiTone, string> = {
+    brand:   'text-primary',
+    success: 'text-[hsl(var(--success))]',
+    warning: 'text-[hsl(var(--warning))]',
+    muted:   'text-muted-foreground',
+  };
+  const toneBg: Record<KpiTone, string> = {
+    brand:   'bg-primary/10',
+    success: 'bg-[hsl(var(--success-soft))]',
+    warning: 'bg-[hsl(var(--warning-soft))]',
+    muted:   'bg-muted',
+  };
+  const Wrapper: any = onClick ? 'button' : 'div';
+  return (
+    <Wrapper
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      title={hint}
+      className={cn(
+        'group text-left rounded-xl border bg-card p-4 shadow-sm',
+        'transition-all duration-200',
+        onClick && 'hover:shadow-md hover:-translate-y-0.5 hover:border-primary/40',
+        onClick && 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        active && 'border-primary/60 ring-2 ring-primary/20',
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className={cn('h-8 w-8 rounded-lg grid place-items-center', toneBg[tone], toneRing[tone])}>
+          {icon}
+        </div>
+        {active && <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Filtrado</span>}
+      </div>
+      <div className="mt-3 text-2xl font-bold text-foreground tabular-nums leading-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
+    </Wrapper>
+  );
+}
+
+// =====================
+// Icon action button (row actions)
+// =====================
+function IconAction({
+  label, children, onClick, tone, loading,
+}: {
+  label: string; children: React.ReactNode; onClick: () => void;
+  tone?: 'success' | 'warning' | 'danger'; loading?: boolean;
+}) {
+  const toneCls =
+    tone === 'success' ? 'text-[hsl(var(--success))] hover:bg-[hsl(var(--success-soft))]' :
+    tone === 'warning' ? 'text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning-soft))]' :
+    tone === 'danger'  ? 'text-destructive hover:bg-destructive/10' :
+    'text-muted-foreground hover:text-foreground hover:bg-muted';
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost" size="sm"
+          onClick={onClick}
+          disabled={loading}
+          className={cn('h-8 w-8 p-0 transition-colors', toneCls)}
+          aria-label={label}
+        >
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 // =====================
 // Form Dialog
@@ -576,7 +941,7 @@ function ContractFormDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={submit} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
+          <Button onClick={submit} disabled={saving} className="transition-all duration-200">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
             {editing ? 'Salvar' : 'Criar contrato'}
           </Button>
