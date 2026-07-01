@@ -683,6 +683,11 @@ const ErpFinanceiro: React.FC = () => {
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox aria-label="Selecionar todos os recibos filtrados"
+                          checked={recibosFiltrados.length > 0 && selectedRecibos.size === recibosFiltrados.length}
+                          onCheckedChange={toggleSelAllRec} />
+                      </TableHead>
                       <TableHead>Nº</TableHead>
                       <TableHead>Contrato</TableHead>
                       <TableHead>Cliente</TableHead>
@@ -695,22 +700,30 @@ const ErpFinanceiro: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {recibosFiltrados.length === 0 && (
-                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         Sem recibos para os filtros selecionados.
                       </TableCell></TableRow>
                     )}
                     <VirtualRows
                       scrollRef={recibosScrollRef}
                       items={recibosFiltrados}
-                      colSpan={8}
+                      colSpan={9}
                       estimateSize={64}
                       getKey={(r) => r.id}
                       renderRow={(r) => {
                         const venc = r.dataVencimento || '';
                         const atrasoDias = (r.status === 'aberto' || r.status === 'parcial') && venc && venc < today
                           ? diffDays(today, venc) : 0;
+                        const isSel = selectedRecibos.has(r.id);
                         return (
-                          <TableRow key={r.id} className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
+                          <TableRow key={r.id}
+                            data-state={isSel ? 'selected' : undefined}
+                            className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
+                            <TableCell>
+                              <Checkbox aria-label={`Selecionar recibo ${r.numero}`}
+                                checked={isSel}
+                                onCheckedChange={() => toggleSelRec(r.id)} />
+                            </TableCell>
                             <TableCell className="font-mono text-xs font-bold">{r.numero}</TableCell>
                             <TableCell className="font-mono text-xs text-muted-foreground">{r.contractNumero}</TableCell>
                             <TableCell className="max-w-[180px] truncate">{r.customerName || '—'}</TableCell>
