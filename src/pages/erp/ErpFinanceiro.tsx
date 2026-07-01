@@ -210,6 +210,11 @@ const ErpFinanceiro: React.FC = () => {
     const aberto = recibosFiltrados
       .filter(r => r.status === 'aberto' || r.status === 'parcial')
       .reduce((a, r) => a + Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0)), 0);
+    const vencidosArr = recibosFiltrados.filter(r =>
+      (r.status === 'aberto' || r.status === 'parcial') &&
+      r.dataVencimento && r.dataVencimento < today);
+    const vencidos = vencidosArr.reduce(
+      (a, r) => a + Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0)), 0);
     const pendente = pendentes.reduce((a, p) => a + Number(p.valorMensal || 0), 0);
     const previsto = recebido + aberto + pendente;
     const inadimp  = previsto > 0 ? (aberto + pendente) / previsto * 100 : 0;
@@ -218,9 +223,34 @@ const ErpFinanceiro: React.FC = () => {
       ? ativos.reduce((a, r) => a + Number(r.valor || 0), 0) / ativos.length : 0;
     return {
       recebido, aberto, pendente, total: previsto, inadimp, ticket,
+      vencidos, vencidosCount: vencidosArr.length,
       resultado: recebido - gastosMes,
     };
-  }, [recibosFiltrados, pendentes, gastosMes]);
+  }, [recibosFiltrados, pendentes, gastosMes, today]);
+
+  // Ranking por cliente (usa recibos filtrados; ignora cancelados)
+  const perCustomer = useMemo(() => {
+    const map = new Map<string, {
+      name: string; recebido: number; aberto: number; vencido: number; total: number; count: number;
+    }>();
+    recibosFiltrados.forEach(r => {
+      if (r.status === 'cancelado') return;
+      const key = r.customerName || '— sem cliente —';
+      const cur = map.get(key) || { name: key, recebido: 0, aberto: 0, vencido: 0, total: 0, count: 0 };
+      cur.count++;
+      cur.total += Number(r.valor || 0);
+      if (r.status === 'pago' || r.status === 'parcial') {
+        cur.recebido += Number(r.valorPago ?? (r.status === 'pago' ? r.valor : 0) ?? 0);
+      }
+      if (r.status === 'aberto' || r.status === 'parcial') {
+        const rest = Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0));
+        cur.aberto += rest;
+        if (r.dataVencimento && r.dataVencimento < today) cur.vencido += rest;
+      }
+      map.set(key, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [recibosFiltrados, today]);
 
   // ===== ações =====
   const generateOne = async (
