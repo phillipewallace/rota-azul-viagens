@@ -308,14 +308,17 @@ router.get('/:id', async (req, res) => {
     // itens vindos do orçamento vinculado
     let items: any[] = [];
     let companySnapshot: any = null;
+    let freteFromQuote: number | null = null;
     const row = o.rows[0];
     if (row.quote_id) {
       const it = await pool.query(
         `SELECT produto, descricao, quantidade, valor_unitario AS "valorUnitario", valor_total AS "valorTotal", ordem
            FROM erp_quote_items WHERE quote_id=$1 ORDER BY ordem ASC, id ASC`, [row.quote_id]);
       items = it.rows;
-      const qs = await pool.query(`SELECT company_snapshot FROM erp_quotes WHERE id=$1`, [row.quote_id]);
+      const qs = await pool.query(
+        `SELECT company_snapshot, frete FROM erp_quotes WHERE id=$1`, [row.quote_id]);
       companySnapshot = qs.rows[0]?.company_snapshot || null;
+      freteFromQuote = qs.rows[0]?.frete != null ? Number(qs.rows[0].frete) : null;
     }
     if (!companySnapshot && row.razao_social) {
       companySnapshot = {
@@ -325,7 +328,9 @@ router.get('/:id', async (req, res) => {
         telefone: row.company_telefone, email: row.company_email,
       };
     }
-    res.json({ ...row, sanitarios: sans.rows, items, companySnapshot });
+    // [fix] Frete vive no orçamento (não há coluna na OS). Devolvemos aqui
+    // para o gerador de contrato separar corretamente locação × frete.
+    res.json({ ...row, sanitarios: sans.rows, items, companySnapshot, frete: freteFromQuote });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
