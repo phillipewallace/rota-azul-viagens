@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { contractsService, receiptsService, type Contract } from '@/services/contracts';
+import { contractsService, type Contract } from '@/services/contracts';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { serviceOrdersService } from '@/services/quotes';
 import { API_BASE_URL } from '@/services/config';
