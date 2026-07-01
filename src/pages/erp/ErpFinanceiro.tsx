@@ -475,7 +475,20 @@ const ErpFinanceiro: React.FC = () => {
         <KPI label="Total previsto" value={BRL(totals.total)} icon={DollarSign} accent="from-indigo-500 to-purple-600" />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <button
+          type="button"
+          onClick={() => { setQuick(quick === 'vencidos' ? 'none' : 'vencidos'); setFilterStatus('all'); }}
+          className="text-left rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 transition-transform duration-200 hover:-translate-y-0.5"
+          title="Filtrar apenas recibos vencidos"
+        >
+          <KPI label="Vencidos" value={BRL(totals.vencidos)}
+            sub={totals.vencidosCount > 0
+              ? `${totals.vencidosCount} recibo(s) em atraso`
+              : 'Nenhum em atraso 🎉'}
+            icon={TimerOff}
+            accent="from-rose-600 to-red-700" />
+        </button>
         <KPI label="Inadimplência" value={`${totals.inadimp.toFixed(1)}%`}
           sub={`${BRL(totals.aberto + totals.pendente)} a receber`} icon={AlertTriangle}
           accent="from-rose-500 to-orange-500" />
