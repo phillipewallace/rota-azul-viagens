@@ -3,10 +3,11 @@
  * conversão em OS (reserva sanitários do estoque automaticamente).
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   Plus, FileText, Trash2, Search, Loader2, Save, Download,
   CheckCircle2, RefreshCcw, FileDown, AlertCircle, Copy,
+  AlertTriangle, TrendingUp, Send, ClipboardCheck, X, Clock,
+  MoreHorizontal, Pencil, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { quotesService, Quote, QuoteItem } from '@/services/quotes';
 import { erpService, ErpCompany } from '@/services/erp';
@@ -26,6 +31,22 @@ import { formatDateBR } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+/** Dias até uma data ISO (positivo = futuro). */
+const daysBetween = (from: Date, iso?: string | null): number | null => {
+  if (!iso) return null;
+  const a = new Date(from); a.setHours(0, 0, 0, 0);
+  const b = new Date(iso); b.setHours(0, 0, 0, 0);
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+};
+
+/** Retorna quantos dias faltam pra validade expirar (positivo=futuro, negativo=vencido). */
+const daysUntilExpire = (dataEmissao?: string | null, validadeDias?: number): number | null => {
+  if (!dataEmissao || !validadeDias) return null;
+  const emissao = new Date(dataEmissao);
+  const expiry = new Date(emissao.getFullYear(), emissao.getMonth(), emissao.getDate() + validadeDias);
+  return daysBetween(new Date(), expiry.toISOString());
+};
 
 interface EditorState {
   id?: string;
@@ -59,12 +80,25 @@ const emptyEditor = (): EditorState => ({
   items: [withUid({ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 })],
 });
 
-const statusBadge: Record<string, string> = {
-  rascunho: 'bg-gray-100 text-gray-700',
-  enviado: 'bg-blue-100 text-blue-700',
-  aprovado: 'bg-green-100 text-green-700',
-  recusado: 'bg-red-100 text-red-700',
-  convertido: 'bg-purple-100 text-purple-700',
+// Badges por status — todas via tokens semânticos.
+type Status = Quote['status'];
+const STATUS_LABEL: Record<Status, string> = {
+  rascunho: 'Rascunho', enviado: 'Enviado', aprovado: 'Aprovado',
+  recusado: 'Recusado', convertido: 'Convertido',
+};
+const StatusBadge: React.FC<{ status: Status }> = ({ status }) => {
+  const cls: Record<Status, string> = {
+    rascunho:   'bg-muted text-muted-foreground border-border',
+    enviado:    'bg-primary/10 text-primary border-primary/30',
+    aprovado:   'bg-[hsl(var(--success-soft))] text-[hsl(var(--success))] border-[hsl(var(--success))]/30',
+    recusado:   'bg-destructive/10 text-destructive border-destructive/30',
+    convertido: 'bg-[hsl(var(--warning-soft))] text-[hsl(var(--warning-foreground))] border-[hsl(var(--warning))]/30',
+  };
+  return (
+    <Badge variant="outline" className={cn('text-[10px] font-medium uppercase tracking-wide', cls[status])}>
+      {STATUS_LABEL[status]}
+    </Badge>
+  );
 };
 
 const ErpQuotes: React.FC = () => {
@@ -76,6 +110,12 @@ const ErpQuotes: React.FC = () => {
   const [editing, setEditing] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // ---- Filtros ----
+  const [filterStatus, setFilterStatus] = useState<'all' | Status>('all');
+  const [filterModalidade, setFilterModalidade] = useState<'all' | 'diaria' | 'mensal'>('all');
+  const [filterCompany, setFilterCompany] = useState<string>('all');
+  const [filterExpiring, setFilterExpiring] = useState(false);
+
   const load = async () => {
     try {
       setLoading(true);
@@ -86,15 +126,56 @@ const ErpQuotes: React.FC = () => {
   };
   useEffect(() => { load(); }, []);
 
+  // ---- KPIs ----
+  const kpis = useMemo(() => {
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const rascunhos = list.filter(q => q.status === 'rascunho');
+    const enviados  = list.filter(q => q.status === 'enviado');
+    const aprovadosMes = list.filter(q => q.status === 'aprovado' && (q.updatedAt || '').startsWith(ym));
+    const consideraTicket = list.filter(q => q.status === 'aprovado' || q.status === 'convertido');
+    const ticketMedio = consideraTicket.length
+      ? consideraTicket.reduce((s, q) => s + Number(q.total || 0), 0) / consideraTicket.length
+      : 0;
+    return {
+      rascunhos: rascunhos.length,
+      enviados: enviados.length,
+      aprovadosMes: aprovadosMes.length,
+      valorAprovadosMes: aprovadosMes.reduce((s, q) => s + Number(q.total || 0), 0),
+      ticketMedio,
+    };
+  }, [list]);
+
   const filtered = useMemo(() => {
-    if (!search) return list;
-    const s = search.toLowerCase();
-    return list.filter(q =>
-      q.numero?.toLowerCase().includes(s) ||
-      q.customerName?.toLowerCase().includes(s) ||
-      q.companyRazaoSocial?.toLowerCase().includes(s)
-    );
-  }, [list, search]);
+    const s = search.trim().toLowerCase();
+    return list.filter(q => {
+      if (filterStatus !== 'all' && q.status !== filterStatus) return false;
+      if (filterModalidade !== 'all' && q.modalidade !== filterModalidade) return false;
+      if (filterCompany !== 'all' && q.companyId !== filterCompany) return false;
+      if (filterExpiring) {
+        const d = daysUntilExpire(q.dataEmissao, q.validadeDias);
+        if (!(q.status === 'enviado' && d !== null && d <= 7)) return false;
+      }
+      if (s && !(
+        (q.numero || '').toLowerCase().includes(s) ||
+        (q.customerName || '').toLowerCase().includes(s) ||
+        (q.companyRazaoSocial || '').toLowerCase().includes(s)
+      )) return false;
+      return true;
+    });
+  }, [list, search, filterStatus, filterModalidade, filterCompany, filterExpiring]);
+
+  const activeFiltersCount =
+    (filterStatus !== 'all' ? 1 : 0) +
+    (filterModalidade !== 'all' ? 1 : 0) +
+    (filterCompany !== 'all' ? 1 : 0) +
+    (filterExpiring ? 1 : 0) +
+    (search.trim() ? 1 : 0);
+
+  const clearFilters = () => {
+    setFilterStatus('all'); setFilterModalidade('all');
+    setFilterCompany('all'); setFilterExpiring(false); setSearch('');
+  };
 
   // ---- Editor helpers ----
   const subtotal = useMemo(() => {
@@ -239,105 +320,314 @@ const ErpQuotes: React.FC = () => {
     catch (e: any) { toast.error(e.message); }
   };
 
+  // Atualização rápida de status (sem abrir o editor).
+  const quickStatus = async (q: Quote, next: Status) => {
+    if (q.status === next) return;
+    try {
+      await quotesService.update(q.id, { status: next });
+      toast.success(`Status: ${STATUS_LABEL[next]}`);
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const quickConvert = async (q: Quote) => {
+    if (q.status === 'convertido') return;
+    if (!(await confirmDialog({ description: `Converter ${q.numero} em OS?` }))) return;
+    const dias = q.modalidade === 'diaria'
+      ? parseInt(prompt('Dias de locação?', '1') || '1') || 1 : 30;
+    try {
+      const r = await quotesService.convertToOs(q.id, { dias });
+      toast.success(`OS ${r.osNumero} criada · ${r.sanitariosReservados} reservados`);
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const duplicateQuote = async (q: Quote) => {
+    try {
+      const r = await quotesService.duplicate(q.id);
+      toast.success(`Orçamento ${r.numero} criado`);
+      await load();
+      openEdit(r.id);
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  // Badge de validade — só faz sentido em 'enviado' (aguardando resposta).
+  const validadeBadge = (q: Quote) => {
+    if (q.status !== 'enviado') return null;
+    const d = daysUntilExpire(q.dataEmissao, q.validadeDias);
+    if (d === null) return null;
+    if (d < 0) return (
+      <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive gap-1 text-[10px]">
+        <AlertTriangle className="h-3 w-3" /> Vencido
+      </Badge>
+    );
+    if (d <= 3) return (
+      <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive gap-1 text-[10px]">
+        <Clock className="h-3 w-3" /> Vence em {d}d
+      </Badge>
+    );
+    if (d <= 7) return (
+      <Badge variant="outline" className="border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning-soft))] text-[hsl(var(--warning-foreground))] gap-1 text-[10px]">
+        <Clock className="h-3 w-3" /> Vence em {d}d
+      </Badge>
+    );
+    return null;
+  };
+
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-bold">Orçamentos</h1>
-            <Badge variant="secondary">{list.length}</Badge>
+      {/* ---------- Header ---------- */}
+      <div className="sticky top-0 z-10 bg-background/85 backdrop-blur-md border-b border-border/70">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4 flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold mb-1">
+              <FileText className="h-3.5 w-3.5" /> Orçamentos
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight">Propostas comerciais</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Crie, envie e acompanhe orçamentos até a conversão em Ordem de Serviço.
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={load}><RefreshCcw className="h-4 w-4 mr-1" />Recarregar</Button>
-            <Button size="sm" onClick={openNew} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-1" />Novo orçamento
+            <Button variant="outline" size="sm" onClick={load} className="transition-all duration-200">
+              <RefreshCcw className="h-4 w-4 mr-1.5" />Recarregar
+            </Button>
+            <Button size="sm" onClick={openNew} className="transition-all duration-200 shadow-sm hover:shadow-md">
+              <Plus className="h-4 w-4 mr-1.5" />Novo orçamento
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
-        <Card>
-          <CardContent className="p-3">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-8" placeholder="Buscar por número, cliente ou empresa…"
-                     value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="max-w-[1400px] mx-auto p-4 md:p-6 space-y-6">
+        {/* ---------- KPIs ---------- */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard
+            icon={<Pencil className="h-4 w-4" />}
+            label="Rascunhos"
+            value={String(kpis.rascunhos)}
+            tone="muted"
+            active={filterStatus === 'rascunho'}
+            onClick={() => setFilterStatus(s => s === 'rascunho' ? 'all' : 'rascunho')}
+          />
+          <KpiCard
+            icon={<Send className="h-4 w-4" />}
+            label="Aguardando resposta"
+            value={String(kpis.enviados)}
+            tone="brand"
+            active={filterStatus === 'enviado'}
+            onClick={() => setFilterStatus(s => s === 'enviado' ? 'all' : 'enviado')}
+          />
+          <KpiCard
+            icon={<ClipboardCheck className="h-4 w-4" />}
+            label="Aprovados no mês"
+            value={String(kpis.aprovadosMes)}
+            hint={kpis.valorAprovadosMes > 0 ? BRL(kpis.valorAprovadosMes) : undefined}
+            tone="success"
+            active={filterStatus === 'aprovado'}
+            onClick={() => setFilterStatus(s => s === 'aprovado' ? 'all' : 'aprovado')}
+          />
+          <KpiCard
+            icon={<TrendingUp className="h-4 w-4" />}
+            label="Ticket médio"
+            value={BRL(kpis.ticketMedio)}
+            tone="warning"
+            hint="Média de aprovados + convertidos"
+          />
+        </div>
+
+        {/* ---------- Filtros ---------- */}
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-4 flex flex-wrap gap-3 items-end">
+            <div className="space-y-1 flex-1 min-w-[220px]">
+              <Label className="text-xs text-muted-foreground">Buscar</Label>
+              <div className="relative">
+                <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 h-9 transition-colors"
+                  placeholder="Nº, cliente ou empresa…"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Status</Label>
+              <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+                <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="rascunho">Rascunho</SelectItem>
+                  <SelectItem value="enviado">Enviado</SelectItem>
+                  <SelectItem value="aprovado">Aprovado</SelectItem>
+                  <SelectItem value="recusado">Recusado</SelectItem>
+                  <SelectItem value="convertido">Convertido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Modalidade</Label>
+              <Select value={filterModalidade} onValueChange={(v: any) => setFilterModalidade(v)}>
+                <SelectTrigger className="h-9 w-[130px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="diaria">Diária</SelectItem>
+                  <SelectItem value="mensal">Mensal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {companies.length > 1 && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Empresa emissora</Label>
+                <Select value={filterCompany} onValueChange={setFilterCompany}>
+                  <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {companies.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Validade</Label>
+              <Button
+                type="button"
+                variant={filterExpiring ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterExpiring(v => !v)}
+                className="h-9 transition-all duration-200"
+              >
+                <Clock className="h-3.5 w-3.5 mr-1.5" />
+                Vencendo (7d)
+              </Button>
+            </div>
+            {activeFiltersCount > 0 && (
+              <Button
+                variant="ghost" size="sm" onClick={clearFilters}
+                className="h-9 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5 mr-1" /> Limpar ({activeFiltersCount})
+              </Button>
+            )}
+            <div className="ml-auto text-xs text-muted-foreground tabular-nums">
+              {filtered.length} de {list.length}
             </div>
           </CardContent>
         </Card>
 
+        {/* ---------- Lista ---------- */}
         {loading ? (
-          <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          <div className="flex justify-center p-16"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : filtered.length === 0 ? (
-          <Card><CardContent className="p-12 text-center text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-3 opacity-40" />
-            <p className="font-medium">Nenhum orçamento</p>
-            <p className="text-sm">Clique em "Novo orçamento" para começar.</p>
+          <Card className="border-dashed border-border/60"><CardContent className="p-16 text-center text-muted-foreground">
+            <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="font-medium text-foreground">Nenhum orçamento encontrado</p>
+            <p className="text-sm mt-1">
+              {activeFiltersCount > 0
+                ? 'Ajuste ou limpe os filtros para ver mais resultados.'
+                : 'Clique em "Novo orçamento" para começar.'}
+            </p>
+            {activeFiltersCount > 0 && (
+              <Button variant="link" size="sm" onClick={clearFilters} className="mt-2">
+                Limpar filtros
+              </Button>
+            )}
           </CardContent></Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {filtered.map(q => (
-              <Card key={q.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-mono font-bold text-sm">{q.numero}</div>
-                      <div className="text-sm font-semibold truncate">{q.customerName || '—'}</div>
-                      <div className="text-xs text-muted-foreground">{q.companyRazaoSocial}</div>
+            {filtered.map(q => {
+              const venc = validadeBadge(q);
+              return (
+                <Card
+                  key={q.id}
+                  className="group border-border/70 hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer"
+                  onClick={() => openEdit(q.id)}
+                >
+                  <CardContent className="p-4 space-y-3">
+                    {/* Cabeçalho */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-mono text-[11px] text-muted-foreground">{q.numero}</div>
+                        <div className="text-sm font-semibold text-foreground truncate mt-0.5">
+                          {q.customerName || '—'}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate">
+                          {q.companyRazaoSocial}
+                        </div>
+                      </div>
+                      <StatusBadge status={q.status} />
                     </div>
-                    <Badge className={statusBadge[q.status]}>{q.status}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{q.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'}</span>
-                    <span>{formatDateBR(q.dataEmissao)}</span>
-                  </div>
-                  {q.tipoLocacao && (
-                    <Badge variant="outline" className="text-[10px]">
-                      {q.tipoLocacao === 'obra' ? '🏗️ Obra' :
-                       q.tipoLocacao === 'evento' ? '🎉 Evento' :
-                       q.tipoLocacao === 'industria' ? '🏭 Indústria' : 'Outro'}
-                    </Badge>
-                  )}
-                  <div className="text-right font-bold text-lg text-primary">{BRL(q.total)}</div>
-                  <div className="flex gap-1 pt-2 border-t">
-                    <Button size="sm" variant="ghost" className="flex-1" onClick={() => openEdit(q.id)}>Editar</Button>
-                    <Button size="sm" variant="ghost" className="text-blue-700 hover:bg-blue-50"
-                            title="Duplicar orçamento"
-                            onClick={async () => {
-                              try {
-                                const r = await quotesService.duplicate(q.id);
-                                toast.success(`Orçamento ${r.numero} criado`);
-                                await load();
-                                openEdit(r.id);
-                              } catch (e: any) { toast.error(e.message); }
-                            }}>
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                    {q.status !== 'convertido' && (
-                      <Button size="sm" variant="ghost" className="text-purple-700 hover:bg-purple-50"
-                              title="Converter em Ordem de Serviço"
-                              onClick={async () => {
-                                if (!(await confirmDialog({ description: `Converter ${q.numero} em OS?`, destructive: true }))) return;
-                                const dias = q.modalidade === 'diaria'
-                                  ? parseInt(prompt('Dias de locação?', '1') || '1') || 1 : 30;
-                                try {
-                                  const r = await quotesService.convertToOs(q.id, { dias });
-                                  toast.success(`OS ${r.osNumero} criada · ${r.sanitariosReservados} reservados`);
-                                  load();
-                                } catch (e: any) { toast.error(e.message); }
-                              }}>
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => removeQuote(q.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+
+                    {/* Meta */}
+                    <div className="flex items-center flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        {q.modalidade === 'diaria' ? 'Diária' : 'Mensal'}
+                      </Badge>
+                      {q.tipoLocacao && (
+                        <Badge variant="outline" className="text-[10px] font-normal capitalize">
+                          {q.tipoLocacao}
+                        </Badge>
+                      )}
+                      <span className="ml-auto tabular-nums">{formatDateBR(q.dataEmissao)}</span>
+                    </div>
+
+                    {venc && <div>{venc}</div>}
+
+                    {/* Total */}
+                    <div className="flex items-end justify-between pt-2 border-t border-border/60">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</div>
+                      <div className="text-xl font-bold text-foreground tabular-nums leading-none">
+                        {BRL(q.total)}
+                      </div>
+                    </div>
+
+                    {/* Ações rápidas */}
+                    <div
+                      className="flex items-center gap-0.5 pt-2 border-t border-border/60"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <IconAction label="Editar" onClick={() => openEdit(q.id)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </IconAction>
+                      {q.status === 'rascunho' && (
+                        <IconAction label="Marcar como enviado" tone="brand" onClick={() => quickStatus(q, 'enviado')}>
+                          <Send className="h-3.5 w-3.5" />
+                        </IconAction>
+                      )}
+                      {q.status === 'enviado' && (
+                        <>
+                          <IconAction label="Aprovar" tone="success" onClick={() => quickStatus(q, 'aprovado')}>
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </IconAction>
+                          <IconAction label="Recusar" tone="danger" onClick={() => quickStatus(q, 'recusado')}>
+                            <XCircle className="h-3.5 w-3.5" />
+                          </IconAction>
+                        </>
+                      )}
+                      <IconAction label="Baixar PDF" onClick={() => generateQuotePdf(q)}>
+                        <FileDown className="h-3.5 w-3.5" />
+                      </IconAction>
+                      <IconAction label="Duplicar" onClick={() => duplicateQuote(q)}>
+                        <Copy className="h-3.5 w-3.5" />
+                      </IconAction>
+                      {q.status !== 'convertido' && (
+                        <IconAction label="Converter em OS" tone="warning" onClick={() => quickConvert(q)}>
+                          <ClipboardCheck className="h-3.5 w-3.5" />
+                        </IconAction>
+                      )}
+                      <div className="ml-auto">
+                        <IconAction label="Excluir" tone="danger" onClick={() => removeQuote(q.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </IconAction>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
@@ -588,7 +878,89 @@ const ErpQuotes: React.FC = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 
 export default ErpQuotes;
+
+// =====================
+// KPI Card
+// =====================
+type KpiTone = 'brand' | 'success' | 'warning' | 'muted';
+function KpiCard({
+  icon, label, value, tone, active, onClick, hint,
+}: {
+  icon: React.ReactNode; label: string; value: string; tone: KpiTone;
+  active?: boolean; onClick?: () => void; hint?: string;
+}) {
+  const toneRing: Record<KpiTone, string> = {
+    brand:   'text-primary',
+    success: 'text-[hsl(var(--success))]',
+    warning: 'text-[hsl(var(--warning))]',
+    muted:   'text-muted-foreground',
+  };
+  const toneBg: Record<KpiTone, string> = {
+    brand:   'bg-primary/10',
+    success: 'bg-[hsl(var(--success-soft))]',
+    warning: 'bg-[hsl(var(--warning-soft))]',
+    muted:   'bg-muted',
+  };
+  const Wrapper: any = onClick ? 'button' : 'div';
+  return (
+    <Wrapper
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      title={hint}
+      className={cn(
+        'group text-left rounded-xl border border-border/70 bg-card p-4 shadow-sm',
+        'transition-all duration-200',
+        onClick && 'hover:shadow-md hover:-translate-y-0.5 hover:border-primary/40',
+        onClick && 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        active && 'border-primary/60 ring-2 ring-primary/20',
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className={cn('h-8 w-8 rounded-lg grid place-items-center', toneBg[tone], toneRing[tone])}>
+          {icon}
+        </div>
+        {active && <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Filtrado</span>}
+      </div>
+      <div className="mt-3 text-2xl font-bold text-foreground tabular-nums leading-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
+      {hint && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</div>}
+    </Wrapper>
+  );
+}
+
+// =====================
+// Icon action button (row actions)
+// =====================
+function IconAction({
+  label, children, onClick, tone,
+}: {
+  label: string; children: React.ReactNode; onClick: () => void;
+  tone?: 'brand' | 'success' | 'warning' | 'danger';
+}) {
+  const toneCls =
+    tone === 'brand'   ? 'text-primary hover:bg-primary/10' :
+    tone === 'success' ? 'text-[hsl(var(--success))] hover:bg-[hsl(var(--success-soft))]' :
+    tone === 'warning' ? 'text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning-soft))]' :
+    tone === 'danger'  ? 'text-destructive hover:bg-destructive/10' :
+    'text-muted-foreground hover:text-foreground hover:bg-muted';
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost" size="sm"
+          onClick={onClick}
+          className={cn('h-8 w-8 p-0 transition-colors', toneCls)}
+          aria-label={label}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
