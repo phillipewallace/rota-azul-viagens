@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FileSignature, Plus, Search, Upload, FileDown, Power, PowerOff,
-  Calendar, Loader2, Trash2, Pencil, Copy, Receipt as ReceiptIcon,
+  Calendar, Loader2, Trash2, Pencil, Copy,
   AlertTriangle, TrendingUp, CheckCircle2, X,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { contractsService, receiptsService, type Contract } from '@/services/contracts';
+import { contractsService, type Contract } from '@/services/contracts';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
 import { serviceOrdersService } from '@/services/quotes';
 import { API_BASE_URL } from '@/services/config';
@@ -72,7 +72,7 @@ const ErpContracts: React.FC = () => {
   const [openForm, setOpenForm] = useState(false);
   const [deleting, setDeleting] = useState<Contract | null>(null);
   const [vencTarget, setVencTarget] = useState<Contract | null>(null);
-  const [generatingReceipt, setGeneratingReceipt] = useState<string | null>(null);
+  
 
   const load = async () => {
     setLoading(true);
@@ -195,17 +195,8 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message || 'Erro ao duplicar'); }
   };
 
-  const gerarReciboDoMes = async (c: Contract) => {
-    setGeneratingReceipt(c.id);
-    try {
-      const now = new Date();
-      const competencia = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      await receiptsService.generate({ contractId: c.id, competencia });
-      toast.success(`Recibo de ${competencia} gerado`);
-    } catch (e: any) {
-      toast.error(e.message || 'Erro ao gerar recibo');
-    } finally { setGeneratingReceipt(null); }
-  };
+
+
 
   const remove = async () => {
     if (!deleting) return;
@@ -498,15 +489,7 @@ const ErpContracts: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-0.5">
-                          {c.ativo && (
-                            <IconAction
-                              label="Gerar recibo do mês"
-                              onClick={() => gerarReciboDoMes(c)}
-                              loading={generatingReceipt === c.id}
-                            >
-                              <ReceiptIcon className="h-3.5 w-3.5" />
-                            </IconAction>
-                          )}
+
                           <IconAction
                             label="Gerar contrato (PDF)"
                             onClick={() => setVencTarget(c)}
