@@ -883,3 +883,84 @@ const ErpQuotes: React.FC = () => {
 };
 
 export default ErpQuotes;
+
+// =====================
+// KPI Card
+// =====================
+type KpiTone = 'brand' | 'success' | 'warning' | 'muted';
+function KpiCard({
+  icon, label, value, tone, active, onClick, hint,
+}: {
+  icon: React.ReactNode; label: string; value: string; tone: KpiTone;
+  active?: boolean; onClick?: () => void; hint?: string;
+}) {
+  const toneRing: Record<KpiTone, string> = {
+    brand:   'text-primary',
+    success: 'text-[hsl(var(--success))]',
+    warning: 'text-[hsl(var(--warning))]',
+    muted:   'text-muted-foreground',
+  };
+  const toneBg: Record<KpiTone, string> = {
+    brand:   'bg-primary/10',
+    success: 'bg-[hsl(var(--success-soft))]',
+    warning: 'bg-[hsl(var(--warning-soft))]',
+    muted:   'bg-muted',
+  };
+  const Wrapper: any = onClick ? 'button' : 'div';
+  return (
+    <Wrapper
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      title={hint}
+      className={cn(
+        'group text-left rounded-xl border border-border/70 bg-card p-4 shadow-sm',
+        'transition-all duration-200',
+        onClick && 'hover:shadow-md hover:-translate-y-0.5 hover:border-primary/40',
+        onClick && 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        active && 'border-primary/60 ring-2 ring-primary/20',
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className={cn('h-8 w-8 rounded-lg grid place-items-center', toneBg[tone], toneRing[tone])}>
+          {icon}
+        </div>
+        {active && <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Filtrado</span>}
+      </div>
+      <div className="mt-3 text-2xl font-bold text-foreground tabular-nums leading-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
+      {hint && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</div>}
+    </Wrapper>
+  );
+}
+
+// =====================
+// Icon action button (row actions)
+// =====================
+function IconAction({
+  label, children, onClick, tone,
+}: {
+  label: string; children: React.ReactNode; onClick: () => void;
+  tone?: 'brand' | 'success' | 'warning' | 'danger';
+}) {
+  const toneCls =
+    tone === 'brand'   ? 'text-primary hover:bg-primary/10' :
+    tone === 'success' ? 'text-[hsl(var(--success))] hover:bg-[hsl(var(--success-soft))]' :
+    tone === 'warning' ? 'text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning-soft))]' :
+    tone === 'danger'  ? 'text-destructive hover:bg-destructive/10' :
+    'text-muted-foreground hover:text-foreground hover:bg-muted';
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost" size="sm"
+          onClick={onClick}
+          className={cn('h-8 w-8 p-0 transition-colors', toneCls)}
+          aria-label={label}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
