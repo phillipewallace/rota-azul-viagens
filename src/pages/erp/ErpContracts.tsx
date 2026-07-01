@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FileSignature, Plus, Search, Upload, FileDown, Power, PowerOff,
-  Calendar, Loader2, Trash2, Pencil, Copy, Receipt as ReceiptIcon,
+  Calendar, Loader2, Trash2, Pencil, Copy,
   AlertTriangle, TrendingUp, CheckCircle2, X,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
