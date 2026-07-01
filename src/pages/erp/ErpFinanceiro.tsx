@@ -660,6 +660,14 @@ const ErpFinanceiro: React.FC = () => {
                   </Select>
                 </div>
                 <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar</Button>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => exportRecibosCsv(recibosFiltrados)}
+                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800/60 dark:text-emerald-400 dark:hover:bg-emerald-950/40 transition-colors duration-200"
+                  title="Exportar recibos filtrados para CSV (Excel)"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Exportar CSV
+                </Button>
               </div>
               <div className="flex flex-wrap gap-2">
                 <QuickChip active={quick === 'none'} onClick={() => setQuick('none')}>Todos</QuickChip>
