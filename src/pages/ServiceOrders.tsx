@@ -167,15 +167,20 @@ const ServiceOrders: React.FC = () => {
     finally { setPdfBusy(null); }
   };
 
-  const downloadContract = async (o: ServiceOrder, dataVencimento: string, preview: boolean) => {
+  const downloadContract = async (
+    o: ServiceOrder,
+    dataVencimento: string,
+    preview: boolean,
+    format: 'pdf' | 'docx' = 'pdf',
+  ) => {
     setPdfBusy(o.id);
     try {
       const d = await serviceOrdersService.get(o.id) as any;
       const t = (d.tipo_locacao || (o as any).tipoLocacao || '').toLowerCase();
-      await generateContractPdf({
+      const src = {
         numero: d.numero || o.numero,
-        tipo: 'os',
-        tipoContrato: t === 'evento' ? 'evento' : t === 'obra' ? 'obra' : 'locacao',
+        tipo: 'os' as const,
+        tipoContrato: (t === 'evento' ? 'evento' : t === 'obra' ? 'obra' : 'locacao') as 'evento' | 'obra' | 'locacao',
         modalidade: d.modalidade || o.modalidade,
         dataEmissao: d.data_inicio,
         dataInicio: d.data_inicio,
@@ -197,11 +202,19 @@ const ServiceOrders: React.FC = () => {
         customerName: o.customerName,
         customerAddress: o.customerAddress,
         items: d.items || [],
-      }, { preview });
-      if (!preview) toast.success('Contrato gerado');
+      };
+      if (format === 'docx') {
+        const { generateContractDoc } = await import('@/utils/contractDoc');
+        await generateContractDoc(src);
+        toast.success('Contrato Word gerado');
+      } else {
+        await generateContractPdf(src, { preview });
+        if (!preview) toast.success('Contrato gerado');
+      }
     } catch (e: any) { toast.error(e.message); }
     finally { setPdfBusy(null); }
   };
+
 
 
   const openFinanceiro = async () => {
