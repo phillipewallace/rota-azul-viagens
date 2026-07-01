@@ -66,9 +66,11 @@ export function BoletoVencimentoDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="max-w-md p-0 overflow-hidden">
+      <DialogContent
+        className="p-0 gap-0 overflow-hidden sm:max-w-xl w-[calc(100vw-2rem)]"
+      >
         {/* Cabeçalho com fundo de marca sutil */}
-        <div className="bg-gradient-to-br from-primary/[0.06] via-accent/40 to-transparent px-6 pt-6 pb-4 border-b border-border/60">
+        <div className="bg-gradient-to-br from-primary/[0.06] via-accent/40 to-transparent px-6 pt-6 pb-5 border-b border-border/60">
           <DialogHeader className="space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
@@ -119,50 +121,48 @@ export function BoletoVencimentoDialog({
           )}
         </div>
 
-        {/* Rodapé de ações — hover/focus/active/disabled cobertos */}
+        {/* Rodapé de ações — layout que acomoda os 4 botões sem cortar */}
         <DialogFooter
-          className="flex flex-col-reverse gap-2 border-t border-border/60 bg-muted/30 px-6 py-4 sm:flex-row sm:justify-between sm:items-center"
+          className="flex flex-col-reverse gap-2 border-t border-border/60 bg-muted/30 px-5 py-3.5 sm:flex-row sm:flex-wrap sm:justify-end sm:items-center sm:gap-2 sm:space-x-0"
         >
           <Button
             variant="ghost"
             onClick={onClose}
             disabled={!!busy}
-            className="h-9 text-muted-foreground hover:text-foreground transition-colors duration-200"
+            className="h-9 px-3 text-muted-foreground hover:text-foreground transition-colors duration-200 sm:mr-auto"
           >
             Cancelar
           </Button>
 
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row sm:items-center">
-            <Button
-              variant="outline"
-              onClick={() => run('preview')}
-              disabled={!!busy}
-              className="h-9 gap-1.5 border-border/70 hover:bg-accent hover:text-accent-foreground hover:border-border focus-visible:ring-ring/60 active:scale-[.98] transition-all duration-200"
-            >
-              {busy === 'preview' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-              Pré-visualizar
-            </Button>
+          <Button
+            variant="outline"
+            onClick={() => run('preview')}
+            disabled={!!busy}
+            className="h-9 gap-1.5 px-3 border-border/70 hover:bg-accent hover:text-accent-foreground hover:border-border focus-visible:ring-ring/60 active:scale-[.98] transition-all duration-200"
+          >
+            {busy === 'preview' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+            Pré-visualizar
+          </Button>
 
-            <Button
-              variant="outline"
-              onClick={() => run('docx')}
-              disabled={!!busy}
-              title="Baixar contrato como Word (.doc) para editar manualmente"
-              className="h-9 gap-1.5 border-border/70 hover:bg-accent hover:text-accent-foreground hover:border-border focus-visible:ring-ring/60 active:scale-[.98] transition-all duration-200"
-            >
-              {busy === 'docx' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileType2 className="h-4 w-4" />}
-              Word (.doc)
-            </Button>
+          <Button
+            variant="outline"
+            onClick={() => run('docx')}
+            disabled={!!busy}
+            title="Baixar contrato como Word (.doc) para editar manualmente"
+            className="h-9 gap-1.5 px-3 border-border/70 hover:bg-accent hover:text-accent-foreground hover:border-border focus-visible:ring-ring/60 active:scale-[.98] transition-all duration-200"
+          >
+            {busy === 'docx' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileType2 className="h-4 w-4" />}
+            Word (.doc)
+          </Button>
 
-            <Button
-              onClick={() => run('pdf')}
-              disabled={!!busy}
-              className="h-9 gap-1.5 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md focus-visible:ring-ring/70 active:scale-[.98] active:shadow-sm transition-all duration-200"
-            >
-              {busy === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              Gerar PDF
-            </Button>
-          </div>
+          <Button
+            onClick={() => run('pdf')}
+            disabled={!!busy}
+            className="h-9 gap-1.5 px-4 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md focus-visible:ring-ring/70 active:scale-[.98] active:shadow-sm transition-all duration-200"
+          >
+            {busy === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            Gerar PDF
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
