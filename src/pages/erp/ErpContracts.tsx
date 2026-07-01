@@ -498,15 +498,7 @@ const ErpContracts: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-0.5">
-                          {c.ativo && (
-                            <IconAction
-                              label="Gerar recibo do mês"
-                              onClick={() => gerarReciboDoMes(c)}
-                              loading={generatingReceipt === c.id}
-                            >
-                              <ReceiptIcon className="h-3.5 w-3.5" />
-                            </IconAction>
-                          )}
+
                           <IconAction
                             label="Gerar contrato (PDF)"
                             onClick={() => setVencTarget(c)}
