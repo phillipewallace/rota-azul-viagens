@@ -1,16 +1,19 @@
 /**
  * Justificativas — CLT art. 473 + abonos e ajustes com aprovação em fluxo.
+ * Suporte a seleção múltipla + aprovação/recusa em lote (front-only).
  */
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Scale, CheckCircle2, XCircle, Clock, Plus, Paperclip, Search } from 'lucide-react';
+import { Scale, CheckCircle2, XCircle, Clock, Plus, Paperclip, Search, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { EMPLOYEES, JUSTIFICATIONS, JustificationStatus, JustificationType } from './pontoMock';
 
 const statusColor: Record<JustificationStatus, string> = {
