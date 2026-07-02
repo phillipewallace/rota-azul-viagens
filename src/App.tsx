@@ -36,6 +36,17 @@ const ErpCompanies = lazy(() => import("./pages/erp/ErpCompanies"));
 const ErpFinanceiro = lazy(() => import("./pages/erp/ErpFinanceiro"));
 const ErpContracts = lazy(() => import("./pages/erp/ErpContracts"));
 
+// Ponto Digital (módulo REP-P)
+const PontoLayout = lazy(() => import("./pages/ponto/PontoLayout"));
+const PontoDashboard = lazy(() => import("./pages/ponto/PontoDashboard"));
+const PontoRegistros = lazy(() => import("./pages/ponto/PontoRegistros"));
+const PontoEspelho = lazy(() => import("./pages/ponto/PontoEspelho"));
+const PontoJustificativas = lazy(() => import("./pages/ponto/PontoJustificativas"));
+const PontoBancoHoras = lazy(() => import("./pages/ponto/PontoBancoHoras"));
+const PontoFuncionarios = lazy(() => import("./pages/ponto/PontoFuncionarios"));
+const PontoRelatorios = lazy(() => import("./pages/ponto/PontoRelatorios"));
+const PontoConfiguracoes = lazy(() => import("./pages/ponto/PontoConfiguracoes"));
+
 // Mobile Operator (lazy também — só pesa quando acessado)
 const MobileOperatorMenuPage = lazy(
   () => import("./components/mobile/operator/MobileOperatorMenuPage"),
