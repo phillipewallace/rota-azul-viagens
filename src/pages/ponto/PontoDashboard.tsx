@@ -16,13 +16,19 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from 'recharts';
 import {
-  EMPLOYEES, PUNCHES, JUSTIFICATIONS, JORNADAS, computeDay, minutesToHHmm, groupPunchesByDay,
+  computeDay, minutesToHHmm,
   employeesMissingPunchToday, aniversariantesProximos, feriasVencendo, daysBetween,
-} from './pontoMock';
+} from './pontoUtils';
+import { useEmployees, usePunches, useJustifications, useJornadas } from '@/hooks/usePontoData';
 
 const weekDays = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 const PontoDashboard: React.FC = () => {
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: PUNCHES = [] } = usePunches({ limit: 500 });
+  const { data: JUSTIFICATIONS = [] } = useJustifications();
+  const { data: JORNADAS = [] } = useJornadas();
+
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const punchesToday = PUNCHES.filter((p) => p.timestamp.startsWith(today));
@@ -39,7 +45,7 @@ const PontoDashboard: React.FC = () => {
       ausentes: ativos - presentIds.size,
       pendencias: JUSTIFICATIONS.filter((j) => j.status === 'pendente').length,
     };
-  }, []);
+  }, [EMPLOYEES, PUNCHES, JUSTIFICATIONS]);
 
   const weekChart = useMemo(() => {
     const today = new Date();
@@ -49,7 +55,8 @@ const PontoDashboard: React.FC = () => {
       const iso = d.toISOString().slice(0, 10);
       const byEmp = new Map<string, ReturnType<typeof computeDay>>();
       EMPLOYEES.forEach((e) => {
-        const j = JORNADAS.find((x) => x.id === e.jornadaId)!;
+        const j = JORNADAS.find((x) => x.id === e.jornadaId);
+        if (!j) return;
         const pts = PUNCHES.filter((p) => p.employeeId === e.id && p.timestamp.startsWith(iso));
         if (pts.length) byEmp.set(e.id, computeDay(pts, j, iso));
       });
@@ -148,9 +155,9 @@ const PontoDashboard: React.FC = () => {
 
       {/* Alertas inteligentes */}
       {(() => {
-        const missing = employeesMissingPunchToday();
+        const missing = employeesMissingPunchToday(EMPLOYEES, PUNCHES, JORNADAS);
         const pend = JUSTIFICATIONS.filter((j) => j.status === 'pendente');
-        const feriasCriticas = feriasVencendo(30);
+        const feriasCriticas = feriasVencendo(EMPLOYEES, 30);
         const alertas = [
           missing.length > 0 && {
             key: 'missing',
@@ -360,8 +367,8 @@ const PontoDashboard: React.FC = () => {
 
       {/* Aniversariantes + Férias */}
       {(() => {
-        const bdays = aniversariantesProximos(30);
-        const ferias = feriasVencendo(60);
+        const bdays = aniversariantesProximos(EMPLOYEES, 30);
+        const ferias = feriasVencendo(EMPLOYEES, 60);
         if (bdays.length === 0 && ferias.length === 0) return null;
         return (
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">

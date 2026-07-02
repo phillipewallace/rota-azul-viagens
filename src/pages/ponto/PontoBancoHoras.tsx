@@ -12,11 +12,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { EMPLOYEES, minutesToHHmm } from './pontoMock';
+import { minutesToHHmm } from './pontoUtils';
+import { useEmployees } from '@/hooks/usePontoData';
 
 const PontoBancoHoras: React.FC = () => {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'todos' | 'credito' | 'debito'>('todos');
+  const { data: EMPLOYEES = [], isLoading } = useEmployees();
 
   const rows = useMemo(() => {
     return EMPLOYEES.filter((e) => {
@@ -26,13 +28,13 @@ const PontoBancoHoras: React.FC = () => {
       if (q && !e.nome.toLowerCase().includes(q.toLowerCase())) return false;
       return true;
     }).sort((a, b) => Math.abs(b.bancoHoras) - Math.abs(a.bancoHoras));
-  }, [q, tab]);
+  }, [q, tab, EMPLOYEES]);
 
   const totals = useMemo(() => {
     const credito = EMPLOYEES.filter((e) => e.bancoHoras > 0).reduce((a, b) => a + b.bancoHoras, 0);
     const debito = EMPLOYEES.filter((e) => e.bancoHoras < 0).reduce((a, b) => a + b.bancoHoras, 0);
     return { credito, debito, liquido: credito + debito };
-  }, []);
+  }, [EMPLOYEES]);
 
   const maxAbs = Math.max(...EMPLOYEES.map((e) => Math.abs(e.bancoHoras)), 1);
 

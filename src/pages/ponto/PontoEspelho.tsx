@@ -12,23 +12,33 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User, Activity, LogIn, Coffee, LogOut, UtensilsCrossed } from 'lucide-react';
-import {
-  EMPLOYEES, PUNCHES, JORNADAS, computeDay, minutesToHHmm,
-} from './pontoMock';
+import { computeDay, minutesToHHmm } from './pontoUtils';
+import { useEmployees, usePunches, useJornadas } from '@/hooks/usePontoData';
 
 const weekdayLabel = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 const PontoEspelho: React.FC = () => {
-  const [empId, setEmpId] = useState(EMPLOYEES[0].id);
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: JORNADAS = [] } = useJornadas();
+
+  const [empId, setEmpId] = useState<string>('');
+  React.useEffect(() => {
+    if (!empId && EMPLOYEES.length) setEmpId(EMPLOYEES[0].id);
+  }, [empId, EMPLOYEES]);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  const emp = EMPLOYEES.find((e) => e.id === empId)!;
-  const jornada = JORNADAS.find((j) => j.id === emp.jornadaId)!;
+  const [y, mNum] = month.split('-').map(Number);
+  const from = `${month}-01`;
+  const to = `${month}-${String(new Date(y, mNum, 0).getDate()).padStart(2, '0')}`;
+  const { data: PUNCHES = [] } = usePunches(empId ? { funcionario_id: empId, from, to, limit: 500 } : undefined);
+
+  const emp = EMPLOYEES.find((e) => e.id === empId);
+  const jornada = emp ? JORNADAS.find((j) => j.id === emp.jornadaId) : undefined;
 
   const days = useMemo(() => {
-    const [y, m] = month.split('-').map(Number);
-    const daysInMonth = new Date(y, m, 0).getDate();
+    if (!jornada) return [];
+    const daysInMonth = new Date(y, mNum, 0).getDate();
     return Array.from({ length: daysInMonth }, (_, i) => {
       const iso = `${month}-${String(i + 1).padStart(2, '0')}`;
       const pts = PUNCHES.filter((p) => p.employeeId === empId && p.timestamp.startsWith(iso))
@@ -38,7 +48,7 @@ const PontoEspelho: React.FC = () => {
       const comp = computeDay(pts, jornada, iso);
       return { iso, d, isWorkday, comp, hasPunches: pts.length > 0 };
     });
-  }, [empId, month, jornada]);
+  }, [empId, month, jornada, PUNCHES, y, mNum]);
 
   const totals = useMemo(() => {
     return days.reduce(
@@ -63,6 +73,14 @@ const PontoEspelho: React.FC = () => {
     const d = new Date(y, m - 1 + delta, 1);
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
+
+  if (!emp || !jornada) {
+    return (
+      <div className="p-8 text-sm text-muted-foreground">
+        {EMPLOYEES.length === 0 ? 'Nenhum funcionário cadastrado.' : 'Carregando espelho…'}
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">

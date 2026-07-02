@@ -14,7 +14,11 @@ import {
 } from '@/components/ui/table';
 import { Scale, CheckCircle2, XCircle, Clock, Plus, Paperclip, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { EMPLOYEES, JUSTIFICATIONS, JustificationStatus, JustificationType } from './pontoMock';
+import { JustificationStatus, JustificationType } from './pontoUtils';
+import { useEmployees, useJustifications, useReviewJustification, useBatchReviewJustifications, useCreateJustification } from '@/hooks/usePontoData';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 const statusColor: Record<JustificationStatus, string> = {
   pendente: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
@@ -38,6 +42,16 @@ const PontoJustificativas: React.FC = () => {
   const [status, setStatus] = useState<string>('all');
   const [tipo, setTipo] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [newOpen, setNewOpen] = useState(false);
+  const [newForm, setNewForm] = useState<{ funcionario_id: string; data: string; tipo: JustificationType; motivo: string }>(
+    { funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '' },
+  );
+
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: JUSTIFICATIONS = [] } = useJustifications();
+  const reviewOne = useReviewJustification();
+  const batchReviewM = useBatchReviewJustifications();
+  const createJust = useCreateJustification();
 
   const rows = useMemo(() => {
     return JUSTIFICATIONS.filter((j) => {
@@ -49,13 +63,13 @@ const PontoJustificativas: React.FC = () => {
       }
       return true;
     }).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
-  }, [q, status, tipo]);
+  }, [JUSTIFICATIONS, EMPLOYEES, q, status, tipo]);
 
   const counts = useMemo(() => ({
     pendentes: JUSTIFICATIONS.filter((j) => j.status === 'pendente').length,
     aprovadas: JUSTIFICATIONS.filter((j) => j.status === 'aprovada').length,
     recusadas: JUSTIFICATIONS.filter((j) => j.status === 'recusada').length,
-  }), []);
+  }), [JUSTIFICATIONS]);
 
   const pendentesVisiveis = rows.filter((j) => j.status === 'pendente');
   const allChecked = pendentesVisiveis.length > 0 && pendentesVisiveis.every((j) => selected.has(j.id));
@@ -70,15 +84,42 @@ const PontoJustificativas: React.FC = () => {
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
   };
-  const batchApprove = () => {
-    toast.success(`${selected.size} justificativa${selected.size > 1 ? 's' : ''} aprovada${selected.size > 1 ? 's' : ''}`, {
-      description: 'Registros atualizados no log de auditoria.',
-    });
-    setSelected(new Set());
+  const runBatch = (statusVal: 'aprovada' | 'recusada') => {
+    const ids = Array.from(selected);
+    batchReviewM.mutate(
+      { ids, status: statusVal },
+      {
+        onSuccess: (r) => {
+          toast.success(`${r.updated} justificativa${r.updated > 1 ? 's' : ''} ${statusVal}${statusVal === 'aprovada' ? '' : ''}`);
+          setSelected(new Set());
+        },
+        onError: (e: any) => toast.error(e.message || 'Falha ao atualizar em lote'),
+      },
+    );
   };
-  const batchReject = () => {
-    toast.info(`${selected.size} justificativa${selected.size > 1 ? 's' : ''} recusada${selected.size > 1 ? 's' : ''}`);
-    setSelected(new Set());
+  const batchApprove = () => runBatch('aprovada');
+  const batchReject = () => runBatch('recusada');
+
+  const reviewSingle = (id: string, statusVal: 'aprovada' | 'recusada') => {
+    reviewOne.mutate({ id, status: statusVal }, {
+      onSuccess: () => toast.success(`Justificativa ${statusVal}`),
+      onError: (e: any) => toast.error(e.message || 'Falha'),
+    });
+  };
+
+  const submitNew = () => {
+    if (!newForm.funcionario_id || !newForm.motivo.trim()) {
+      toast.error('Selecione funcionário e informe o motivo');
+      return;
+    }
+    createJust.mutate(newForm, {
+      onSuccess: () => {
+        toast.success('Justificativa criada');
+        setNewOpen(false);
+        setNewForm({ funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '' });
+      },
+      onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
+    });
   };
 
   return (
@@ -91,7 +132,7 @@ const PontoJustificativas: React.FC = () => {
           <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight mt-1">Justificativas & Abonos</h1>
           <p className="text-sm text-muted-foreground mt-1">Ajustes conforme CLT art. 473 (ausências legais) e política interna.</p>
         </div>
-        <Button size="sm" className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0">
+        <Button size="sm" onClick={() => setNewOpen(true)} className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0">
           <Plus className="h-4 w-4" /> Nova justificativa
         </Button>
       </header>
@@ -164,7 +205,8 @@ const PontoJustificativas: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {rows.map((j) => {
-                  const emp = EMPLOYEES.find((e) => e.id === j.employeeId)!;
+                  const emp = EMPLOYEES.find((e) => e.id === j.employeeId);
+                  if (!emp) return null;
                   return (
                     <TableRow key={j.id} data-state={selected.has(j.id) ? 'selected' : undefined} className="hover:bg-muted/40 data-[state=selected]:bg-emerald-500/5">
                       <TableCell>
@@ -205,10 +247,10 @@ const PontoJustificativas: React.FC = () => {
                       <TableCell className="text-right">
                         {j.status === 'pendente' ? (
                           <div className="flex gap-1 justify-end">
-                            <Button size="sm" variant="ghost" className="h-8 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10">
+                            <Button size="sm" variant="ghost" onClick={() => reviewSingle(j.id, 'aprovada')} className="h-8 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10">
                               <CheckCircle2 className="h-4 w-4" /> Aprovar
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10">
+                            <Button size="sm" variant="ghost" onClick={() => reviewSingle(j.id, 'recusada')} className="h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10">
                               <XCircle className="h-4 w-4" /> Recusar
                             </Button>
                           </div>
@@ -247,6 +289,49 @@ const PontoJustificativas: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Nova justificativa */}
+      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova justificativa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Funcionário</Label>
+              <Select value={newForm.funcionario_id} onValueChange={(v) => setNewForm((f) => ({ ...f, funcionario_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {EMPLOYEES.map((e) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Data</Label>
+                <Input type="date" value={newForm.data} onChange={(e) => setNewForm((f) => ({ ...f, data: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Tipo</Label>
+                <Select value={newForm.tipo} onValueChange={(v) => setNewForm((f) => ({ ...f, tipo: v as JustificationType }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(tipoLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Motivo</Label>
+              <Textarea rows={4} value={newForm.motivo} onChange={(e) => setNewForm((f) => ({ ...f, motivo: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewOpen(false)}>Cancelar</Button>
+            <Button onClick={submitNew} disabled={createJust.isPending}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

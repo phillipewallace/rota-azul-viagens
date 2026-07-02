@@ -10,12 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import {
-  JUSTIFICATIONS,
-  EMPLOYEES,
   employeesMissingPunchToday,
   aniversariantesProximos,
   feriasVencendo,
-} from '@/pages/ponto/pontoMock';
+} from '@/pages/ponto/pontoUtils';
+import { useEmployees, useJornadas, usePunches, useJustifications } from '@/hooks/usePontoData';
 
 type NotifKind = 'justificativa' | 'ausencia' | 'aniversario' | 'ferias';
 interface Notif {
@@ -25,14 +24,20 @@ interface Notif {
   detail: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: string; // classes de cor
+  tone: string;
 }
 
-const useNotifications = (): Notif[] =>
-  useMemo(() => {
+const useNotifications = (): Notif[] => {
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: JORNADAS = [] } = useJornadas();
+  const { data: JUSTIFICATIONS = [] } = useJustifications({ status: 'pendente' });
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: PUNCHES = [] } = usePunches({ from: today, to: today, limit: 500 });
+
+  return useMemo(() => {
     const out: Notif[] = [];
 
-    JUSTIFICATIONS.filter((j) => j.status === 'pendente').forEach((j) => {
+    JUSTIFICATIONS.forEach((j) => {
       const emp = EMPLOYEES.find((e) => e.id === j.employeeId);
       out.push({
         id: `just-${j.id}`,
@@ -45,7 +50,7 @@ const useNotifications = (): Notif[] =>
       });
     });
 
-    employeesMissingPunchToday().slice(0, 5).forEach((e) => {
+    employeesMissingPunchToday(EMPLOYEES, PUNCHES, JORNADAS).slice(0, 5).forEach((e) => {
       out.push({
         id: `abs-${e.id}`,
         kind: 'ausencia',
@@ -57,7 +62,7 @@ const useNotifications = (): Notif[] =>
       });
     });
 
-    aniversariantesProximos(7).forEach(({ e, date }) => {
+    aniversariantesProximos(EMPLOYEES, 7).forEach(({ e, date }) => {
       out.push({
         id: `bday-${e.id}`,
         kind: 'aniversario',
@@ -69,7 +74,7 @@ const useNotifications = (): Notif[] =>
       });
     });
 
-    feriasVencendo(30).forEach(({ e, diasRest }) => {
+    feriasVencendo(EMPLOYEES, 30).forEach(({ e, diasRest }) => {
       out.push({
         id: `vac-${e.id}`,
         kind: 'ferias',
@@ -82,7 +87,8 @@ const useNotifications = (): Notif[] =>
     });
 
     return out;
-  }, []);
+  }, [EMPLOYEES, JORNADAS, JUSTIFICATIONS, PUNCHES]);
+};
 
 export const NotificationsBell: React.FC<{ align?: 'start' | 'center' | 'end' }> = ({ align = 'end' }) => {
   const items = useNotifications();

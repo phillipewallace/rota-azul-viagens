@@ -12,7 +12,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Clock, Search, Download, MapPin, Smartphone, Monitor, Hand, Filter, ShieldCheck, Camera, ImageOff } from 'lucide-react';
-import { EMPLOYEES, PUNCHES, PunchType, PunchOrigin, Punch } from './pontoMock';
+import { PunchType, PunchOrigin, Punch } from './pontoUtils';
+import { useEmployees, usePunches } from '@/hooks/usePontoData';
 
 const tipoLabel: Record<PunchType, string> = {
   'entrada': 'Entrada',
@@ -38,6 +39,9 @@ const PontoRegistros: React.FC = () => {
   const [date, setDate] = useState<string>('');
   const [preview, setPreview] = useState<Punch | null>(null);
 
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: PUNCHES = [] } = usePunches({ limit: 1000 });
+
   const rows = useMemo(() => {
     return [...PUNCHES]
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
@@ -53,7 +57,7 @@ const PontoRegistros: React.FC = () => {
         }
         return true;
       });
-  }, [q, emp, tipo, origem, date]);
+  }, [PUNCHES, EMPLOYEES, q, emp, tipo, origem, date]);
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
@@ -132,7 +136,8 @@ const PontoRegistros: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {rows.slice(0, 100).map((p) => {
-                  const e = EMPLOYEES.find((x) => x.id === p.employeeId)!;
+                  const e = EMPLOYEES.find((x) => x.id === p.employeeId);
+                  if (!e) return null;
                   const OrigIcon = originIcon[p.origem as PunchOrigin];
                   return (
                     <TableRow key={p.id} className="hover:bg-muted/40">
@@ -227,7 +232,8 @@ const PontoRegistros: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           {preview && (() => {
-            const emp = EMPLOYEES.find((x) => x.id === preview.employeeId)!;
+            const emp = EMPLOYEES.find((x) => x.id === preview.employeeId);
+            if (!emp) return null;
             return (
               <div className="space-y-4">
                 <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-muted ring-1 ring-border">
