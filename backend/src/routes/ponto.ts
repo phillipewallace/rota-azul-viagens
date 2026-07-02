@@ -35,6 +35,11 @@ function isAdmin(req: AuthedRequest) {
   return r === 'admin' || r === 'manager' || req.user?.username === 'phillipe.sodre';
 }
 
+function canAccessFuncionario(req: AuthedRequest, funcionarioId?: string | null) {
+  if (!funcionarioId || isAdmin(req)) return true;
+  return req.user?.role === 'funcionario' && req.user?.funcionarioId === funcionarioId;
+}
+
 // ============================================================
 // JORNADAS
 // ============================================================
@@ -85,9 +90,10 @@ router.delete('/jornadas/:id', async (req: AuthedRequest, res) => {
 // ============================================================
 // PUNCHES
 // ============================================================
-router.get('/punches', async (req, res) => {
+router.get('/punches', async (req: AuthedRequest, res) => {
   try {
     const { funcionario_id, from, to, limit = '500', include_photo } = req.query as Record<string, string>;
+    if (!canAccessFuncionario(req, funcionario_id)) return res.status(403).json({ error: 'Acesso negado aos registros de outro funcionário' });
     const where: string[] = []; const values: any[] = []; let i = 1;
     if (funcionario_id) { where.push(`p.funcionario_id = $${i++}`); values.push(funcionario_id); }
     if (from) { where.push(`p.timestamp >= $${i++}`); values.push(from); }
@@ -129,6 +135,7 @@ router.post('/punches', async (req: AuthedRequest, res) => {
   try {
     const { funcionario_id, tipo, origem = 'web', latitude, longitude, endereco, foto_url, foto_base64, timestamp, motivo } = req.body || {};
     if (!funcionario_id || !tipo) return res.status(400).json({ error: 'funcionario_id e tipo são obrigatórios' });
+    if (!canAccessFuncionario(req, funcionario_id)) return res.status(403).json({ error: 'Acesso negado para registrar ponto de outro funcionário' });
     if (!['entrada','saida-almoco','volta-almoco','saida'].includes(tipo))
       return res.status(400).json({ error: 'Tipo de batida inválido' });
     if (!['web','mobile','manual','importado'].includes(origem))
@@ -208,9 +215,10 @@ router.put('/punches/:id/adjust', async (req: AuthedRequest, res) => {
 // ============================================================
 // JUSTIFICATIONS
 // ============================================================
-router.get('/justifications', async (req, res) => {
+router.get('/justifications', async (req: AuthedRequest, res) => {
   try {
     const { status, funcionario_id } = req.query as Record<string, string>;
+    if (!canAccessFuncionario(req, funcionario_id)) return res.status(403).json({ error: 'Acesso negado às justificativas de outro funcionário' });
     const where: string[] = []; const values: any[] = []; let i = 1;
     if (status && status !== 'all') { where.push(`j.status = $${i++}`); values.push(status); }
     if (funcionario_id) { where.push(`j.funcionario_id = $${i++}`); values.push(funcionario_id); }
@@ -231,6 +239,7 @@ router.post('/justifications', async (req: AuthedRequest, res) => {
     const { funcionario_id, data, tipo, motivo, anexo_url, horario } = req.body || {};
     if (!funcionario_id || !data || !tipo || !motivo)
       return res.status(400).json({ error: 'funcionario_id, data, tipo e motivo obrigatórios' });
+    if (!canAccessFuncionario(req, funcionario_id)) return res.status(403).json({ error: 'Acesso negado para justificar outro funcionário' });
     if (!JUSTIFICATION_TYPES.includes(tipo)) return res.status(400).json({ error: 'Tipo de justificativa inválido' });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data))) return res.status(400).json({ error: 'Data inválida' });
     if (String(motivo).trim().length < 5) return res.status(400).json({ error: 'Descreva o motivo com pelo menos 5 caracteres' });
@@ -245,6 +254,9 @@ router.post('/justifications', async (req: AuthedRequest, res) => {
     }
     if (tipo === 'atestado' && !anexo_url) {
       return res.status(400).json({ error: 'Anexo do atestado é obrigatório (PDF ou foto)' });
+    }
+    if (anexo_url && !/^\/uploads\/|^https?:\/\//i.test(String(anexo_url))) {
+      return res.status(400).json({ error: 'Anexo inválido' });
     }
     const fRes = await pool.query('SELECT id FROM funcionarios WHERE id = $1', [funcionario_id]);
     if (!fRes.rows.length) return res.status(404).json({ error: 'Funcionário não encontrado' });
