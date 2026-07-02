@@ -112,14 +112,21 @@ const PontoJustificativas: React.FC = () => {
       toast.error('Selecione funcionário e informe o motivo');
       return;
     }
-    createJust.mutate(newForm, {
-      onSuccess: () => {
-        toast.success('Justificativa criada');
-        setNewOpen(false);
-        setNewForm({ funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '' });
+    if (newForm.horario && !/^\d{2}:\d{2}$/.test(newForm.horario)) {
+      toast.error('Horário inválido (use HH:mm)');
+      return;
+    }
+    createJust.mutate(
+      { ...newForm, horario: newForm.horario || undefined },
+      {
+        onSuccess: () => {
+          toast.success('Justificativa criada');
+          setNewOpen(false);
+          setNewForm({ funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '', horario: '' });
+        },
+        onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
       },
-      onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
-    });
+    );
   };
 
   return (
