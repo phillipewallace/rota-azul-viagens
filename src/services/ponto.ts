@@ -40,6 +40,7 @@ export interface Justification {
   tipo: 'falta' | 'atraso' | 'saida-antecipada' | 'esquecimento' | 'atestado' | 'folga' | 'ferias' | 'licenca';
   status: 'pendente' | 'aprovada' | 'recusada';
   motivo: string;
+  horario?: string | null;
   anexo_url?: string | null;
   criado_em: string;
   revisado_por?: string | null;
@@ -58,6 +59,17 @@ export interface Closure {
 }
 
 export interface PontoSettings {
+  empresa_emissora_id?: string | null;
+  empresa_razao_social?: string | null;
+  empresa_nome_fantasia?: string | null;
+  empresa_cnpj?: string | null;
+  empresa_ie?: string | null;
+  empresa_endereco?: string | null;
+  empresa_cidade?: string | null;
+  empresa_estado?: string | null;
+  empresa_cep?: string | null;
+  empresa_telefone?: string | null;
+  empresa_email?: string | null;
   razao_social?: string | null;
   cnpj?: string | null;
   cei?: string | null;

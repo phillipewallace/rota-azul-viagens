@@ -168,13 +168,15 @@ router.get('/justifications', async (req, res) => {
 
 router.post('/justifications', async (req: AuthedRequest, res) => {
   try {
-    const { funcionario_id, data, tipo, motivo, anexo_url } = req.body || {};
+    const { funcionario_id, data, tipo, motivo, anexo_url, horario } = req.body || {};
     if (!funcionario_id || !data || !tipo || !motivo)
       return res.status(400).json({ error: 'funcionario_id, data, tipo e motivo obrigatórios' });
+    if (horario && !/^\d{2}:\d{2}(:\d{2})?$/.test(horario))
+      return res.status(400).json({ error: 'horario deve estar no formato HH:mm' });
     const r = await pool.query(
-      `INSERT INTO ponto_justifications (funcionario_id, data, tipo, motivo, anexo_url, criado_por)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [funcionario_id, data, tipo, motivo, anexo_url || null, req.user?.userId || null]
+      `INSERT INTO ponto_justifications (funcionario_id, data, tipo, motivo, anexo_url, horario, criado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [funcionario_id, data, tipo, motivo, anexo_url || null, horario || null, req.user?.userId || null]
     );
     res.status(201).json(r.rows[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -267,7 +269,21 @@ router.delete('/closures/:competencia', async (req: AuthedRequest, res) => {
 // ============================================================
 router.get('/settings', async (_req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM ponto_settings WHERE id = 1');
+    const r = await pool.query(`
+      SELECT s.*,
+             c.razao_social AS empresa_razao_social,
+             c.nome_fantasia AS empresa_nome_fantasia,
+             c.cnpj AS empresa_cnpj,
+             c.inscricao_estadual AS empresa_ie,
+             c.endereco AS empresa_endereco,
+             c.cidade AS empresa_cidade,
+             c.estado AS empresa_estado,
+             c.cep AS empresa_cep,
+             c.telefone AS empresa_telefone,
+             c.email AS empresa_email
+        FROM ponto_settings s
+        LEFT JOIN erp_companies c ON c.id = s.empresa_emissora_id
+       WHERE s.id = 1`);
     res.json(r.rows[0] || {});
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -275,10 +291,13 @@ router.get('/settings', async (_req, res) => {
 router.put('/settings', async (req: AuthedRequest, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Acesso negado' });
   try {
-    const allowed = ['razao_social','cnpj','cei','endereco','fuso_horario','usar_geoloc','exigir_foto',
+    const allowed = ['empresa_emissora_id','razao_social','cnpj','cei','endereco','fuso_horario','usar_geoloc','exigir_foto',
                      'banco_horas_ativo','limite_credito_min','limite_debito_min'];
     const fields: string[] = []; const values: any[] = []; let i = 1;
-    for (const k of allowed) if (req.body[k] !== undefined) { fields.push(`${k} = $${i++}`); values.push(req.body[k]); }
+    for (const k of allowed) if (req.body[k] !== undefined) {
+      fields.push(`${k} = $${i++}`);
+      values.push(req.body[k] === '' ? null : req.body[k]);
+    }
     if (!fields.length) return res.status(400).json({ error: 'Nada para atualizar' });
     fields.push(`updated_at = NOW()`);
     const r = await pool.query(

@@ -10,11 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Settings2, Clock, ShieldCheck, Bell, MapPin, KeyRound, Plus, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Settings2, Clock, Bell, MapPin, KeyRound, Plus, Loader2, Building2, AlertCircle } from 'lucide-react';
 import { useJornadas, useSettings, useUpdateSettings } from '@/hooks/usePontoData';
+import { useQuery } from '@tanstack/react-query';
+import { erpService } from '@/services/erp';
 import { toast } from 'sonner';
 import { JornadaDialog } from './JornadaDialog';
 import type { Jornada } from './pontoUtils';
+import { Link } from 'react-router-dom';
 
 const Section: React.FC<{ icon: React.ElementType; title: string; desc: string; children: React.ReactNode }> = ({ icon: Icon, title, desc, children }) => (
   <Card className="border-border/60">
@@ -48,24 +52,44 @@ const PontoConfiguracoes: React.FC = () => {
   const { data: JORNADAS = [] } = useJornadas();
   const { data: settings } = useSettings();
   const updateMut = useUpdateSettings();
+  const { data: companies = [], isLoading: loadingCompanies, isError: errCompanies } = useQuery({
+    queryKey: ['erp', 'companies'],
+    queryFn: () => erpService.listCompanies(),
+    staleTime: 60_000,
+  });
   const [jornadaOpen, setJornadaOpen] = useState(false);
   const [jornadaEdit, setJornadaEdit] = useState<Jornada | null>(null);
 
   const [form, setForm] = useState({
-    razao_social: '', cnpj: '', cei: '', endereco: '', fuso_horario: 'America/Sao_Paulo',
+    empresa_emissora_id: '' as string | null | '',
+    fuso_horario: 'America/Sao_Paulo',
     usar_geoloc: true, exigir_foto: true, banco_horas_ativo: true,
     limite_credito_min: 2400, limite_debito_min: -1200,
   });
 
   useEffect(() => {
-    if (settings) setForm((f) => ({ ...f, ...settings }));
+    if (settings) setForm((f) => ({
+      ...f,
+      empresa_emissora_id: settings.empresa_emissora_id ?? '',
+      fuso_horario: settings.fuso_horario ?? 'America/Sao_Paulo',
+      usar_geoloc: settings.usar_geoloc,
+      exigir_foto: settings.exigir_foto,
+      banco_horas_ativo: settings.banco_horas_ativo,
+      limite_credito_min: settings.limite_credito_min,
+      limite_debito_min: settings.limite_debito_min,
+    }));
   }, [settings]);
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
+  const selectedCompany = companies.find((c) => c.id === form.empresa_emissora_id);
+
   const salvar = async () => {
     try {
-      await updateMut.mutateAsync(form);
+      await updateMut.mutateAsync({
+        ...form,
+        empresa_emissora_id: form.empresa_emissora_id || null,
+      } as any);
       toast.success('Configurações salvas com sucesso.');
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao salvar configurações.');
@@ -82,13 +106,59 @@ const PontoConfiguracoes: React.FC = () => {
         <p className="text-sm text-muted-foreground mt-1">Políticas de jornada, compliance e segurança do sistema de ponto.</p>
       </header>
 
-      <Section icon={ShieldCheck} title="Empresa (REP-P)" desc="Dados exigidos no cabeçalho do AFD e relatórios oficiais (Portaria MTP 671/2021).">
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div><Label className="text-xs">Razão Social</Label><Input className="mt-1" value={form.razao_social ?? ''} onChange={(e) => set('razao_social', e.target.value)} /></div>
-          <div><Label className="text-xs">CNPJ</Label><Input className="mt-1" value={form.cnpj ?? ''} onChange={(e) => set('cnpj', e.target.value)} /></div>
-          <div><Label className="text-xs">CEI/CAEPF (opcional)</Label><Input className="mt-1" value={form.cei ?? ''} onChange={(e) => set('cei', e.target.value)} /></div>
-          <div><Label className="text-xs">Fuso horário</Label><Input className="mt-1" value={form.fuso_horario} onChange={(e) => set('fuso_horario', e.target.value)} /></div>
-          <div className="sm:col-span-2"><Label className="text-xs">Endereço da sede</Label><Input className="mt-1" value={form.endereco ?? ''} onChange={(e) => set('endereco', e.target.value)} /></div>
+      <Section icon={Building2} title="Empresa emissora (REP-P)" desc="Selecione uma das empresas cadastradas no ERP. Os dados aparecem no cabeçalho do AFD e nos relatórios oficiais (Portaria MTP 671/2021).">
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Empresa emissora</Label>
+              {loadingCompanies ? (
+                <div className="mt-1 h-10 rounded-md border border-dashed flex items-center px-3 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Carregando empresas…
+                </div>
+              ) : errCompanies ? (
+                <div className="mt-1 flex items-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-xs text-rose-600">
+                  <AlertCircle className="h-3.5 w-3.5" /> Falha ao carregar empresas do ERP.
+                </div>
+              ) : companies.length === 0 ? (
+                <div className="mt-1 rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-3 text-xs text-amber-700 dark:text-amber-400">
+                  Nenhuma empresa emissora cadastrada. Cadastre em{' '}
+                  <Link to="/settings" className="underline font-medium">Configurações → Empresas</Link>.
+                </div>
+              ) : (
+                <Select
+                  value={form.empresa_emissora_id || 'none'}
+                  onValueChange={(v) => set('empresa_emissora_id', v === 'none' ? '' : v)}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Nenhuma —</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nomeFantasia || c.razaoSocial} · {c.cnpj}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs">Fuso horário</Label>
+              <Input className="mt-1" value={form.fuso_horario} onChange={(e) => set('fuso_horario', e.target.value)} />
+            </div>
+          </div>
+
+          {selectedCompany && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs space-y-1">
+              <p className="font-medium text-sm text-foreground">{selectedCompany.razaoSocial}</p>
+              <p className="text-muted-foreground tabular-nums">CNPJ: {selectedCompany.cnpj}</p>
+              {selectedCompany.endereco && (
+                <p className="text-muted-foreground">
+                  {selectedCompany.endereco}
+                  {selectedCompany.cidade ? ` — ${selectedCompany.cidade}/${selectedCompany.estado ?? ''}` : ''}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </Section>
 
@@ -150,7 +220,16 @@ const PontoConfiguracoes: React.FC = () => {
       </Section>
 
       <div className="flex justify-end gap-3 pt-2">
-        <Button variant="outline" onClick={() => settings && setForm((f) => ({ ...f, ...settings }))}>Cancelar</Button>
+        <Button variant="outline" onClick={() => settings && setForm((f) => ({
+          ...f,
+          empresa_emissora_id: settings.empresa_emissora_id ?? '',
+          fuso_horario: settings.fuso_horario ?? 'America/Sao_Paulo',
+          usar_geoloc: settings.usar_geoloc,
+          exigir_foto: settings.exigir_foto,
+          banco_horas_ativo: settings.banco_horas_ativo,
+          limite_credito_min: settings.limite_credito_min,
+          limite_debito_min: settings.limite_debito_min,
+        }))}>Cancelar</Button>
         <Button disabled={updateMut.isPending} onClick={salvar} className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0 gap-2">
           {updateMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Salvar alterações

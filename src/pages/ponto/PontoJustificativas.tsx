@@ -43,8 +43,8 @@ const PontoJustificativas: React.FC = () => {
   const [tipo, setTipo] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [newOpen, setNewOpen] = useState(false);
-  const [newForm, setNewForm] = useState<{ funcionario_id: string; data: string; tipo: JustificationType; motivo: string }>(
-    { funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '' },
+  const [newForm, setNewForm] = useState<{ funcionario_id: string; data: string; tipo: JustificationType; motivo: string; horario: string }>(
+    { funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '', horario: '' },
   );
 
   const { data: EMPLOYEES = [] } = useEmployees();
@@ -112,14 +112,21 @@ const PontoJustificativas: React.FC = () => {
       toast.error('Selecione funcionário e informe o motivo');
       return;
     }
-    createJust.mutate(newForm, {
-      onSuccess: () => {
-        toast.success('Justificativa criada');
-        setNewOpen(false);
-        setNewForm({ funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '' });
+    if (newForm.horario && !/^\d{2}:\d{2}$/.test(newForm.horario)) {
+      toast.error('Horário inválido (use HH:mm)');
+      return;
+    }
+    createJust.mutate(
+      { ...newForm, horario: newForm.horario || undefined },
+      {
+        onSuccess: () => {
+          toast.success('Justificativa criada');
+          setNewOpen(false);
+          setNewForm({ funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '', horario: '' });
+        },
+        onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
       },
-      onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
-    });
+    );
   };
 
   return (
@@ -235,11 +242,18 @@ const PontoJustificativas: React.FC = () => {
                       <TableCell className="text-sm tabular-nums">{new Date(j.data).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell className="max-w-[320px]">
                         <p className="text-sm line-clamp-2">{j.motivo}</p>
-                        {j.anexoUrl && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-primary mt-1">
-                            <Paperclip className="h-3 w-3" /> Anexo
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          {j.horario && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 tabular-nums">
+                              <Clock className="h-3 w-3" /> {j.horario}
+                            </span>
+                          )}
+                          {j.anexoUrl && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-primary">
+                              <Paperclip className="h-3 w-3" /> Anexo
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`${statusColor[j.status]} border capitalize`}>{j.status}</Badge>
@@ -306,7 +320,7 @@ const PontoJustificativas: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Data</Label>
                 <Input type="date" value={newForm.data} onChange={(e) => setNewForm((f) => ({ ...f, data: e.target.value }))} />
@@ -319,6 +333,11 @@ const PontoJustificativas: React.FC = () => {
                     {Object.entries(tipoLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>Horário da batida <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Input type="time" value={newForm.horario} onChange={(e) => setNewForm((f) => ({ ...f, horario: e.target.value }))} />
+                <p className="text-[10px] text-muted-foreground mt-1">Horário sugerido a incluir na batida ao aprovar.</p>
               </div>
             </div>
             <div>

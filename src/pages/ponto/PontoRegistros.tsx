@@ -6,14 +6,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Clock, Search, Download, MapPin, Smartphone, Monitor, Hand, Filter, ShieldCheck, Camera, ImageOff } from 'lucide-react';
 import { PunchType, PunchOrigin, Punch } from './pontoUtils';
-import { useEmployees, usePunches } from '@/hooks/usePontoData';
+import { useEmployees, usePunches, useCreatePunch } from '@/hooks/usePontoData';
+import { downloadCSV } from './reportGenerators';
+import { toast } from 'sonner';
 
 const tipoLabel: Record<PunchType, string> = {
   'entrada': 'Entrada',
@@ -38,9 +41,14 @@ const PontoRegistros: React.FC = () => {
   const [origem, setOrigem] = useState<string>('all');
   const [date, setDate] = useState<string>('');
   const [preview, setPreview] = useState<Punch | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manual, setManual] = useState<{ funcionario_id: string; tipo: PunchType; timestamp: string; motivo: string }>({
+    funcionario_id: '', tipo: 'entrada', timestamp: '', motivo: '',
+  });
 
   const { data: EMPLOYEES = [] } = useEmployees();
   const { data: PUNCHES = [] } = usePunches({ limit: 1000 });
+  const createPunch = useCreatePunch();
 
   const rows = useMemo(() => {
     return [...PUNCHES]
@@ -70,12 +78,120 @@ const PontoRegistros: React.FC = () => {
           <p className="text-sm text-muted-foreground mt-1">Todas as batidas com NSR sequencial, geolocalização e assinatura SHA-256.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2"><Download className="h-4 w-4" /> Exportar CSV</Button>
-          <Button size="sm" className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={!rows.length}
+            onClick={() => {
+              try {
+                const header = ['NSR','Funcionario','Matricula','Tipo','Data','Hora','Origem','Latitude','Longitude','Endereco','Hash'];
+                const body = rows.map((p) => {
+                  const e = EMPLOYEES.find((x) => x.id === p.employeeId);
+                  const d = new Date(p.timestamp);
+                  return [
+                    p.nsr,
+                    e?.nome ?? '',
+                    e?.matricula ?? '',
+                    tipoLabel[p.tipo],
+                    d.toLocaleDateString('pt-BR'),
+                    d.toLocaleTimeString('pt-BR'),
+                    p.origem,
+                    p.latitude ?? '',
+                    p.longitude ?? '',
+                    p.endereco ?? '',
+                    p.hash,
+                  ];
+                });
+                downloadCSV(`registros-ponto-${new Date().toISOString().slice(0,10)}.csv`, [header, ...body]);
+                toast.success(`${rows.length} registro(s) exportado(s)`);
+              } catch (err: any) {
+                toast.error('Falha ao exportar CSV', { description: err?.message });
+              }
+            }}
+          >
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Button
+            size="sm"
+            className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0"
+            onClick={() => {
+              const now = new Date();
+              const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+              setManual({ funcionario_id: '', tipo: 'entrada', timestamp: local, motivo: '' });
+              setManualOpen(true);
+            }}
+          >
             <Hand className="h-4 w-4" /> Batida Manual
           </Button>
         </div>
       </header>
+
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Hand className="h-4 w-4 text-emerald-600" /> Batida manual</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Funcionário *</Label>
+              <Select value={manual.funcionario_id} onValueChange={(v) => setManual((s) => ({ ...s, funcionario_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {EMPLOYEES.filter((e) => e.status === 'ativo').map((e) => (
+                    <SelectItem key={e.id} value={e.id}>{e.nome} — Mat. {e.matricula}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Tipo *</Label>
+                <Select value={manual.tipo} onValueChange={(v) => setManual((s) => ({ ...s, tipo: v as PunchType }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(tipoLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Data e hora *</Label>
+                <Input type="datetime-local" value={manual.timestamp} onChange={(e) => setManual((s) => ({ ...s, timestamp: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Motivo / justificativa *</Label>
+              <Input placeholder="Ex.: esquecimento de bater ao entrar" value={manual.motivo} onChange={(e) => setManual((s) => ({ ...s, motivo: e.target.value }))} />
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Batidas manuais ficam marcadas como <b>origem: manual</b> e preservam NSR sequencial (Portaria 671/2021).
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={createPunch.isPending || !manual.funcionario_id || !manual.timestamp || !manual.motivo.trim()}
+              onClick={async () => {
+                try {
+                  await createPunch.mutateAsync({
+                    funcionario_id: manual.funcionario_id,
+                    tipo: manual.tipo,
+                    origem: 'manual',
+                    timestamp: new Date(manual.timestamp).toISOString(),
+                    endereco: `Manual — ${manual.motivo.trim()}`,
+                  });
+                  toast.success('Batida manual registrada');
+                  setManualOpen(false);
+                } catch (err: any) {
+                  toast.error('Falha ao registrar batida', { description: err?.message });
+                }
+              }}
+            >
+              {createPunch.isPending ? 'Salvando…' : 'Registrar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Filtros */}
       <Card className="border-border/60">
