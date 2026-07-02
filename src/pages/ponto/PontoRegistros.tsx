@@ -121,6 +121,7 @@ const PontoRegistros: React.FC = () => {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-24">NSR</TableHead>
+                  <TableHead className="w-16">Foto</TableHead>
                   <TableHead>Funcionário</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Data / Hora</TableHead>
@@ -131,6 +132,37 @@ const PontoRegistros: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {rows.slice(0, 100).map((p) => {
+                  const e = EMPLOYEES.find((x) => x.id === p.employeeId)!;
+                  const OrigIcon = originIcon[p.origem as PunchOrigin];
+                  return (
+                    <TableRow key={p.id} className="hover:bg-muted/40">
+                      <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
+                        #{String(p.nsr).padStart(6, '0')}
+                      </TableCell>
+                      <TableCell>
+                        {p.fotoUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreview(p)}
+                            className="group relative h-10 w-10 rounded-full overflow-hidden ring-1 ring-border hover:ring-2 hover:ring-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all duration-200"
+                            aria-label={`Ver foto da batida ${p.nsr}`}
+                          >
+                            <img
+                              src={p.fotoUrl}
+                              alt={`Foto de ${e.nome} no momento da batida`}
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                            />
+                            <span className="absolute inset-0 flex items-center justify-center bg-background/70 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <Camera className="h-3.5 w-3.5 text-emerald-600" />
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground/60" title="Sem foto (batida manual)">
+                            <ImageOff className="h-4 w-4" />
+                          </div>
+                        )}
+                      </TableCell>
                   const e = EMPLOYEES.find((x) => x.id === p.employeeId)!;
                   const OrigIcon = originIcon[p.origem as PunchOrigin];
                   return (
