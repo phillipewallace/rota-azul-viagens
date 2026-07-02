@@ -13,10 +13,59 @@ import { Progress } from '@/components/ui/progress';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
-import { minutesToHHmm, computeDay, type Employee } from './pontoUtils';
+import { Badge } from '@/components/ui/badge';
+import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight, Loader2, ChevronDown, ChevronRight, CheckCircle2, MinusCircle } from 'lucide-react';
+import { minutesToHHmm, computeDay, type Employee, type Punch, type Jornada } from './pontoUtils';
 import { useEmployees, useJornadas, usePunches } from '@/hooks/usePontoData';
 import { BancoHorasAdjustDialog } from './BancoHorasAdjustDialog';
+
+type DayDetail = {
+  iso: string;
+  label: string;
+  considerado: boolean;
+  motivo: string;
+  trabalhado: number;
+  previsto: number;
+  saldo: number;
+  batidas: number;
+};
+
+const buildDetail = (employeeId: string, jornada: Jornada | undefined, punches: Punch[], year: number, monthIdx: number): DayDetail[] => {
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+  const pts = punches.filter((p) => p.employeeId === employeeId);
+  const byDay = new Map<string, Punch[]>();
+  pts.forEach((p) => {
+    const k = p.timestamp.slice(0, 10);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k)!.push(p);
+  });
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const rows: DayDetail[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, monthIdx, d);
+    const iso = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayPts = (byDay.get(iso) || []).sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const dow = dt.getDay();
+    const isWorkDay = jornada?.diasSemana.includes(dow) ?? false;
+    const future = dt > today;
+    let considerado = false;
+    let motivo = '';
+    let trabalhado = 0, previsto = 0, saldo = 0;
+    if (!jornada) motivo = 'Sem jornada atribuída';
+    else if (future) motivo = 'Dia futuro';
+    else if (!isWorkDay) motivo = 'Fora da jornada (folga)';
+    else if (dayPts.length < 2) motivo = dayPts.length === 0 ? 'Sem batidas' : 'Batidas insuficientes (< 2)';
+    else {
+      const c = computeDay(dayPts, jornada, iso);
+      trabalhado = c.trabalhado; previsto = c.previsto; saldo = c.saldo;
+      considerado = true;
+      motivo = saldo > 0 ? `+${minutesToHHmm(saldo)} de crédito` : saldo < 0 ? `${minutesToHHmm(saldo)} de débito` : 'Neutro';
+    }
+    const wd = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dow];
+    rows.push({ iso, label: `${String(d).padStart(2, '0')}/${String(monthIdx + 1).padStart(2, '0')} · ${wd}`, considerado, motivo, trabalhado, previsto, saldo, batidas: dayPts.length });
+  }
+  return rows;
+};
 
 const PontoBancoHoras: React.FC = () => {
   const [q, setQ] = useState('');
@@ -24,6 +73,7 @@ const PontoBancoHoras: React.FC = () => {
   const { data: EMPLOYEES = [], isLoading, isError, refetch } = useEmployees();
   const { data: JORNADAS = [] } = useJornadas();
   const [adjustEmp, setAdjustEmp] = useState<Employee | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Mês corrente — busca batidas de todos para compor saldo dinâmico
   const now = new Date();
@@ -194,33 +244,111 @@ const PontoBancoHoras: React.FC = () => {
               {!isLoading && !isError && rows.map((e) => {
                 const pct = Math.round((Math.abs(e.bancoHoras) / maxAbs) * 100);
                 const positive = e.bancoHoras >= 0;
+                const isOpen = expandedId === e.id;
+                const jornada = JORNADAS.find((j) => j.id === e.jornadaId);
+                const detail = isOpen ? buildDetail(e.id, jornada, PUNCHES, y, mNum - 1) : [];
+                const considerados = detail.filter((d) => d.considerado);
+                const somaMes = considerados.reduce((s, d) => s + d.saldo, 0);
                 return (
-                  <TableRow key={e.id} className="hover:bg-muted/40">
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
-                          {e.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                  <React.Fragment key={e.id}>
+                    <TableRow className="hover:bg-muted/40">
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            onClick={() => setExpandedId(isOpen ? null : e.id)}
+                            className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-label={isOpen ? 'Ocultar detalhamento' : 'Ver detalhamento'}
+                          >
+                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
+                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                            {e.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{e.nome}</p>
+                            <p className="text-[11px] text-muted-foreground">Mat. {e.matricula} · {e.cargo}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium">{e.nome}</p>
-                          <p className="text-[11px] text-muted-foreground">Mat. {e.matricula} · {e.cargo}</p>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{e.departamento}</TableCell>
+                      <TableCell>
+                        <div className={`inline-flex items-center gap-1 font-bold tabular-nums text-sm ${positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {positive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                          {positive ? '+' : ''}{minutesToHHmm(e.bancoHoras)}
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{e.departamento}</TableCell>
-                    <TableCell>
-                      <div className={`inline-flex items-center gap-1 font-bold tabular-nums text-sm ${positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                        {positive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                        {positive ? '+' : ''}{minutesToHHmm(e.bancoHoras)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="w-[240px]">
-                      <Progress value={pct} className={`h-2 ${positive ? '[&>*]:bg-emerald-500' : '[&>*]:bg-rose-500'}`} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setAdjustEmp(e)}>Ajustar / Extrato</Button>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell className="w-[240px]">
+                        <Progress value={pct} className={`h-2 ${positive ? '[&>*]:bg-emerald-500' : '[&>*]:bg-rose-500'}`} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="ghost" onClick={() => setAdjustEmp(e)}>Ajustar / Extrato</Button>
+                      </TableCell>
+                    </TableRow>
+                    {isOpen && (
+                      <TableRow className="bg-muted/20 hover:bg-muted/20">
+                        <TableCell colSpan={5} className="p-0">
+                          <div className="p-4 md:p-5 border-l-2 border-l-primary/40 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Detalhamento diário · {String(mNum).padStart(2, '0')}/{y}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                <span className="font-medium text-foreground">{considerados.length}</span> dia(s) considerado(s) ·
+                                Saldo do mês: <span className={`font-bold tabular-nums ${somaMes >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{somaMes >= 0 ? '+' : ''}{minutesToHHmm(somaMes)}</span> ·
+                                Ajustes: <span className="font-medium text-foreground tabular-nums">{minutesToHHmm(e.bancoHoras - somaMes)}</span>
+                              </p>
+                            </div>
+                            {!jornada ? (
+                              <p className="text-xs text-muted-foreground py-2">Funcionário sem jornada atribuída — não é possível calcular saldo diário.</p>
+                            ) : (
+                              <div className="rounded-lg border border-border/60 overflow-hidden bg-background">
+                                <div className="max-h-[320px] overflow-auto">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-muted/40 sticky top-0">
+                                      <tr className="text-left text-muted-foreground">
+                                        <th className="px-3 py-2 font-medium">Dia</th>
+                                        <th className="px-3 py-2 font-medium">Status</th>
+                                        <th className="px-3 py-2 font-medium">Batidas</th>
+                                        <th className="px-3 py-2 font-medium tabular-nums">Trab.</th>
+                                        <th className="px-3 py-2 font-medium tabular-nums">Prev.</th>
+                                        <th className="px-3 py-2 font-medium tabular-nums text-right">Saldo</th>
+                                        <th className="px-3 py-2 font-medium">Motivo</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/60">
+                                      {detail.map((d) => (
+                                        <tr key={d.iso} className={d.considerado ? '' : 'text-muted-foreground'}>
+                                          <td className="px-3 py-1.5 font-medium tabular-nums">{d.label}</td>
+                                          <td className="px-3 py-1.5">
+                                            {d.considerado ? (
+                                              <Badge variant="outline" className="gap-1 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-emerald-500/5">
+                                                <CheckCircle2 className="h-3 w-3" /> Considerado
+                                              </Badge>
+                                            ) : (
+                                              <Badge variant="outline" className="gap-1 border-border text-muted-foreground">
+                                                <MinusCircle className="h-3 w-3" /> Ignorado
+                                              </Badge>
+                                            )}
+                                          </td>
+                                          <td className="px-3 py-1.5 tabular-nums">{d.batidas}</td>
+                                          <td className="px-3 py-1.5 tabular-nums">{d.considerado ? minutesToHHmm(d.trabalhado) : '—'}</td>
+                                          <td className="px-3 py-1.5 tabular-nums">{d.considerado ? minutesToHHmm(d.previsto) : '—'}</td>
+                                          <td className={`px-3 py-1.5 tabular-nums text-right font-semibold ${d.considerado ? (d.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400') : ''}`}>
+                                            {d.considerado ? `${d.saldo >= 0 ? '+' : ''}${minutesToHHmm(d.saldo)}` : '—'}
+                                          </td>
+                                          <td className="px-3 py-1.5 text-muted-foreground">{d.motivo}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </TableBody>
