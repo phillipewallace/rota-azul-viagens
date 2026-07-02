@@ -163,6 +163,29 @@ export async function generateReceiptPdf(rec: Receipt) {
     for (const w of wrap) { doc.text(w, M, y); y += 5; }
   }
 
+  // ---------- Endereço da obra/evento + CNO / OC (quando informados) ----------
+  const enderecoObra = ct.enderecoObra || ct.localEvento;
+  const cno = ct.cno;
+  if (enderecoObra || cno) {
+    y += 2;
+    doc.setTextColor(...PRIMARY);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    doc.text('LOCAL DE PRESTAÇÃO / REFERÊNCIAS', M, y);
+    doc.setDrawColor(...ACCENT); doc.setLineWidth(0.6);
+    doc.line(M, y + 1, M + 66, y + 1);
+    y += 6;
+
+    doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    if (enderecoObra) {
+      const label = (ct.tipoContrato === 'evento' ? 'Endereço do evento' : 'Endereço da obra') + ':  ';
+      const wrap = doc.splitTextToSize(label + enderecoObra, W - 2 * M);
+      for (const w of wrap) { doc.text(w, M, y); y += 5; }
+    }
+    if (cno) {
+      doc.text(`CNO / Ordem de Compra:  ${cno}`, M, y); y += 5;
+    }
+  }
+
   // ---------- Tabela de itens ----------
   y += 4;
   const freteIncluso = Number(snap.freteIncluso || 0);
