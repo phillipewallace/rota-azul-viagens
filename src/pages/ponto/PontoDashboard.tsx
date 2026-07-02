@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import {
   Users, UserCheck, UserX, AlertCircle, Timer, TrendingUp, ArrowRight, Clock,
   Scale, BarChart3, FileCheck2, Settings2, ShieldCheck, Fingerprint,
+  Cake, Umbrella, ClockAlert, CalendarClock,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +17,7 @@ import {
 } from 'recharts';
 import {
   EMPLOYEES, PUNCHES, JUSTIFICATIONS, JORNADAS, computeDay, minutesToHHmm, groupPunchesByDay,
+  employeesMissingPunchToday, aniversariantesProximos, feriasVencendo, daysBetween,
 } from './pontoMock';
 
 const weekDays = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
