@@ -338,7 +338,9 @@ export interface UnifiedReceiptItem {
 }
 export interface UnifiedReceiptInput {
   numero: string;
-  competencia: string;         // YYYY-MM
+  competencia: string;         // YYYY-MM (fallback do rótulo)
+  periodoInicio?: string | null; // YYYY-MM-DD — período exato
+  periodoFim?: string | null;    // YYYY-MM-DD
   dataEmissao: string;         // YYYY-MM-DD
   dataVencimento?: string | null;
   company: any;
@@ -511,10 +513,13 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   afterY += 4;
 
   // Linha "Competência / Vencimento / Total"
+  const compLabel = (input.periodoInicio || input.periodoFim)
+    ? formatPeriodo(input.periodoInicio, input.periodoFim, formatComp(input.competencia))
+    : formatComp(input.competencia);
   autoTable(doc, {
     startY: afterY,
     head: [['Competência', 'Vencimento', 'Total da Cobrança']],
-    body: [[formatComp(input.competencia), D(input.dataVencimento || undefined), BRL(input.total)]],
+    body: [[compLabel, D(input.dataVencimento || undefined), BRL(input.total)]],
     styles: { fontSize: 9.5, cellPadding: 3 },
     headStyles: { fillColor: [240, 242, 247], textColor: PRIMARY, fontStyle: 'bold' },
     columnStyles: { 2: { halign: 'right', fontStyle: 'bold', textColor: PRIMARY } },
@@ -539,7 +544,7 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
   const txt =
     `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(input.total)} ` +
-    `referente à locação de bens móveis (${input.items.length} contrato(s)) na competência ${formatComp(input.competencia)}, ` +
+    `referente à locação de bens móveis (${input.items.length} contrato(s)) no período ${compLabel}, ` +
     `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
   const wrap = doc.splitTextToSize(txt, W - 2 * M);
   doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
