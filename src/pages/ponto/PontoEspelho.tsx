@@ -35,7 +35,7 @@ const PontoEspelho: React.FC = () => {
   const from = `${month}-01T00:00:00`;
   const lastDay = String(new Date(y, mNum, 0).getDate()).padStart(2, '0');
   const to = `${month}-${lastDay}T23:59:59`;
-  const { data: PUNCHES = [], isLoading: loadingPunches } = usePunches(
+  const { data: PUNCHES = [] } = usePunches(
     empId ? { funcionario_id: empId, from, to, limit: 500, include_photo: false } : undefined
   );
 
