@@ -661,6 +661,20 @@ const ErpFinanceiro: React.FC = () => {
                 {selected.size > 0 && (
                   <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar</Button>
                 )}
+                {unifiedGroup && (
+                  <Button
+                    size="sm"
+                    disabled={working === '__unified__'}
+                    onClick={gerarUnificado}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
+                    title="Gera um único PDF somando todos os contratos selecionados"
+                  >
+                    {working === '__unified__'
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                      : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                    Gerar recibo unificado
+                  </Button>
+                )}
                 <Button size="sm" disabled={selected.size === 0 || working === '__batch__'} onClick={gerarLote}
                   className="bg-emerald-600 hover:bg-emerald-700">
                   {working === '__batch__'
