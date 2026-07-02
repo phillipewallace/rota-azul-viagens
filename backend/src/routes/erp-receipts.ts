@@ -7,6 +7,7 @@ router.use(requireAuth);
 
 const SELECT = `
   r.id, r.numero, r.contract_id AS "contractId", r.competencia,
+  r.periodo_inicio AS "periodoInicio", r.periodo_fim AS "periodoFim",
   r.data_emissao AS "dataEmissao", r.data_vencimento AS "dataVencimento",
   r.valor, r.pago, r.snapshot, r.pdf_gerado_em AS "pdfGeradoEm", r.created_at AS "createdAt",
   r.forma_pagamento AS "formaPagamento", r.data_pagamento AS "dataPagamento",
