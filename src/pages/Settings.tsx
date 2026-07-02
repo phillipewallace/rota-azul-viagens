@@ -135,7 +135,7 @@ const Settings = () => {
         <div className="grid gap-6 max-w-5xl">
           {isSuperAdmin && <UsersSettings />}
           <CompaniesSettings />
-          <CargosSettings />
+          
           <ContractTemplatesSettings />
 
 
