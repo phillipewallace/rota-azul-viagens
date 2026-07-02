@@ -17,7 +17,10 @@ const TIPO_LABEL: Record<JustTipo, string> = {
 };
 
 function fmtDate(d: string) {
-  const dt = new Date(d);
+  // Evita shift de fuso: parseia YYYY-MM-DD como data local, sem UTC.
+  const s = String(d).slice(0, 10).split('-');
+  if (s.length !== 3) return String(d);
+  const dt = new Date(Number(s[0]), Number(s[1]) - 1, Number(s[2]));
   return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
