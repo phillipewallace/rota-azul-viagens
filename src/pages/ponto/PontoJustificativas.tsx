@@ -239,7 +239,7 @@ const PontoJustificativas: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell><Badge variant="outline">{tipoLabel[j.tipo]}</Badge></TableCell>
-                      <TableCell className="text-sm tabular-nums">{new Date(j.data).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell className="text-sm tabular-nums">{(() => { const s = String(j.data).slice(0,10).split('-'); return s.length === 3 ? `${s[2]}/${s[1]}/${s[0]}` : String(j.data); })()}</TableCell>
                       <TableCell className="max-w-[320px]">
                         <p className="text-sm line-clamp-2">{j.motivo}</p>
                         <div className="flex items-center gap-2 mt-1">
