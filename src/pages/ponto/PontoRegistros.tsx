@@ -136,7 +136,8 @@ const PontoRegistros: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {rows.slice(0, 100).map((p) => {
-                  const e = EMPLOYEES.find((x) => x.id === p.employeeId)!;
+                  const e = EMPLOYEES.find((x) => x.id === p.employeeId);
+                  if (!e) return null;
                   const OrigIcon = originIcon[p.origem as PunchOrigin];
                   return (
                     <TableRow key={p.id} className="hover:bg-muted/40">
