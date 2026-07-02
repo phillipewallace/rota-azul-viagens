@@ -41,9 +41,14 @@ const PontoRegistros: React.FC = () => {
   const [origem, setOrigem] = useState<string>('all');
   const [date, setDate] = useState<string>('');
   const [preview, setPreview] = useState<Punch | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manual, setManual] = useState<{ funcionario_id: string; tipo: PunchType; timestamp: string; motivo: string }>({
+    funcionario_id: '', tipo: 'entrada', timestamp: '', motivo: '',
+  });
 
   const { data: EMPLOYEES = [] } = useEmployees();
   const { data: PUNCHES = [] } = usePunches({ limit: 1000 });
+  const createPunch = useCreatePunch();
 
   const rows = useMemo(() => {
     return [...PUNCHES]
