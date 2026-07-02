@@ -18,8 +18,8 @@ import { useEmployees, usePunches, useJornadas } from '@/hooks/usePontoData';
 const weekdayLabel = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 const PontoEspelho: React.FC = () => {
-  const { data: EMPLOYEES = [] } = useEmployees();
-  const { data: JORNADAS = [] } = useJornadas();
+  const { data: EMPLOYEES = [], isLoading: loadingEmps, isError: errEmps, refetch: refetchEmps } = useEmployees();
+  const { data: JORNADAS = [], isLoading: loadingJorn } = useJornadas();
 
   const [empId, setEmpId] = useState<string>('');
   React.useEffect(() => {
@@ -35,26 +35,33 @@ const PontoEspelho: React.FC = () => {
   const from = `${month}-01T00:00:00`;
   const lastDay = String(new Date(y, mNum, 0).getDate()).padStart(2, '0');
   const to = `${month}-${lastDay}T23:59:59`;
-  const { data: PUNCHES = [] } = usePunches(
+  const { data: PUNCHES = [], isLoading: loadingPunches } = usePunches(
     empId ? { funcionario_id: empId, from, to, limit: 500, include_photo: false } : undefined
   );
 
   const emp = EMPLOYEES.find((e) => e.id === empId);
   const jornada = emp ? JORNADAS.find((j) => j.id === emp.jornadaId) : undefined;
 
+  // Fallback: se não houver jornada, previsto/atraso não são calculáveis, mas
+  // ainda mostramos batidas e "trabalhado" (pareamento simples).
+  const jornadaSafe = jornada ?? {
+    id: '', nome: '—', cargaSemanal: 44,
+    entrada: '', saidaAlmoco: '', voltaAlmoco: '', saida: '',
+    tolerancia: 0, diasSemana: [1, 2, 3, 4, 5],
+  };
+
   const days = useMemo(() => {
-    if (!jornada) return [];
     const daysInMonth = new Date(y, mNum, 0).getDate();
     return Array.from({ length: daysInMonth }, (_, i) => {
       const iso = `${month}-${String(i + 1).padStart(2, '0')}`;
       const pts = PUNCHES.filter((p) => p.employeeId === empId && p.timestamp.startsWith(iso))
         .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
       const d = new Date(iso);
-      const isWorkday = jornada.diasSemana.includes(d.getDay());
-      const comp = computeDay(pts, jornada, iso);
+      const isWorkday = jornadaSafe.diasSemana.includes(d.getDay());
+      const comp = computeDay(pts, jornadaSafe, iso);
       return { iso, d, isWorkday, comp, hasPunches: pts.length > 0 };
     });
-  }, [empId, month, jornada, PUNCHES, y, mNum]);
+  }, [empId, month, jornadaSafe, PUNCHES, y, mNum]);
 
   const totals = useMemo(() => {
     return days.reduce(
@@ -80,12 +87,22 @@ const PontoEspelho: React.FC = () => {
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
-  if (!emp || !jornada) {
+  if (loadingEmps || loadingJorn) {
+    return <div className="p-8 text-sm text-muted-foreground">Carregando espelho…</div>;
+  }
+  if (errEmps) {
     return (
-      <div className="p-8 text-sm text-muted-foreground">
-        {EMPLOYEES.length === 0 ? 'Nenhum funcionário cadastrado.' : 'Carregando espelho…'}
+      <div className="p-8 space-y-3">
+        <p className="text-sm text-rose-600">Falha ao carregar funcionários.</p>
+        <Button size="sm" variant="outline" onClick={() => refetchEmps()}>Tentar novamente</Button>
       </div>
     );
+  }
+  if (EMPLOYEES.length === 0) {
+    return <div className="p-8 text-sm text-muted-foreground">Nenhum funcionário cadastrado.</div>;
+  }
+  if (!emp) {
+    return <div className="p-8 text-sm text-muted-foreground">Selecione um funcionário.</div>;
   }
 
   return (
@@ -141,9 +158,11 @@ const PontoEspelho: React.FC = () => {
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Jornada</p>
-            <p className="text-sm font-medium mt-0.5">{jornada.nome}</p>
+            <p className="text-sm font-medium mt-0.5">{jornada?.nome ?? 'Sem jornada'}</p>
             <p className="text-xs text-muted-foreground tabular-nums">
-              {jornada.entrada}–{jornada.saidaAlmoco} · {jornada.voltaAlmoco}–{jornada.saida}
+              {jornada
+                ? `${jornada.entrada}–${jornada.saidaAlmoco} · ${jornada.voltaAlmoco}–${jornada.saida}`
+                : 'Atribua uma jornada ao funcionário'}
             </p>
           </div>
           <div>

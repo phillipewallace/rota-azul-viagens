@@ -47,6 +47,10 @@ import path from 'path';
 const app = express();
 const PORT = process.env.PORT || 3002;
 
+// Rodamos atrás de nginx em produção — necessário para que rate-limit e req.ip
+// leiam corretamente o X-Forwarded-For (evita ERR_ERL_UNEXPECTED_X_FORWARDED_FOR).
+app.set('trust proxy', 1);
+
 // Segurança HTTP — headers seguros (sem CSP para não quebrar assets servidos)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
