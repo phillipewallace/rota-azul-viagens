@@ -41,6 +41,7 @@ const MobileBottomNav = () => {
   if (HIDDEN_PREFIXES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))) {
     return null;
   }
+  return (
     <nav
       aria-label="Navegação principal"
       className={cn(
