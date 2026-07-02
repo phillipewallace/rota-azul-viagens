@@ -11,9 +11,11 @@ import { Input } from '@/components/ui/input';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User, Activity, LogIn, Coffee, LogOut, UtensilsCrossed } from 'lucide-react';
+import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User, Activity, LogIn, Coffee, LogOut, UtensilsCrossed, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { computeDay, minutesToHHmm } from './pontoUtils';
-import { useEmployees, usePunches, useJornadas } from '@/hooks/usePontoData';
+import { useEmployees, usePunches, useJornadas, useSettings } from '@/hooks/usePontoData';
+import { generateEspelhoIndividualPdf } from './pontoPdf';
 
 const weekdayLabel = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
