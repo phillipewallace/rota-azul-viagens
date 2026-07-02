@@ -368,8 +368,14 @@ const ErpFinanceiro: React.FC = () => {
     return { arr, companyId: cId };
   }, [selected, pendentes]);
 
-  const gerarUnificado = async () => {
+  const gerarUnificado = async (periodoInicio: string, periodoFim: string) => {
     if (!unifiedGroup) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
+      toast.error('Datas inválidas'); return;
+    }
+    if (periodoFim < periodoInicio) {
+      toast.error('A data final deve ser igual ou posterior à inicial'); return;
+    }
     setWorking('__unified__');
     try {
       const { arr, companyId } = unifiedGroup;
@@ -391,11 +397,28 @@ const ErpFinanceiro: React.FC = () => {
         valor: Number(arr[i].valorMensal),
       }));
       const total = items.reduce((s, it) => s + it.valor, 0);
+
+      // Persiste um recibo por contrato para o período informado
+      // (assim aparecem na aba Recibos e saem da fila de pendentes).
+      let okCount = 0, failCount = 0;
+      for (const p of arr) {
+        try {
+          await receiptsService.generate({
+            contractId: p.contractId,
+            periodoInicio, periodoFim,
+            valor: Number(p.valorMensal),
+            pago: true,
+          });
+          okCount++;
+        } catch { failCount++; }
+      }
+
+      // Gera UM PDF unificado
       const now = new Date();
       const numero = `UNIF-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
       await generateUnifiedReceiptPdf({
         numero,
-        competencia,
+        competencia: periodoInicio.slice(0, 7),
         dataEmissao: todayISO(),
         dataVencimento: null,
         company,
@@ -403,7 +426,13 @@ const ErpFinanceiro: React.FC = () => {
         items,
         total,
       });
-      toast.success(`Recibo unificado gerado · ${items.length} contratos`);
+
+      setSelected(new Set());
+      setUnifOpen(false);
+      await load();
+      setActiveTab('emitidos');
+      if (failCount === 0) toast.success(`Recibo unificado gerado · ${okCount} contratos · ${formatPeriodo(periodoInicio, periodoFim)}`);
+      else toast.warning(`PDF gerado. ${okCount} recibos ok, ${failCount} falharam`);
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao gerar recibo unificado');
     } finally {
