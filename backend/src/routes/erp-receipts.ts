@@ -297,6 +297,21 @@ router.post('/:id/cancel', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// POST /:id/reopen — reverte um recibo CANCELADO ao estado "não faturado",
+// removendo-o para que a competência volte à lista de pendentes.
+// Uso típico: clique acidental no cancelar. Só funciona para status='cancelado'.
+router.post('/:id/reopen', async (req, res) => {
+  try {
+    const cur = await pool.query('SELECT status FROM erp_receipts WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (cur.rows[0].status !== 'cancelado') {
+      return res.status(409).json({ error: 'Só é possível reabrir recibos cancelados.' });
+    }
+    await pool.query('DELETE FROM erp_receipts WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /summary?months=12 — série mensal para gráfico
 router.get('/summary', async (req, res) => {
   try {
