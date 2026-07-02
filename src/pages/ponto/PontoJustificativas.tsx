@@ -315,10 +315,6 @@ const PontoJustificativas: React.FC = () => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Data</Label>
-                <Input type="date" value={newForm.data} onChange={(e) => setNewForm((f) => ({ ...f, data: e.target.value }))} />
-              </div>
-              <div>
                 <Label>Tipo</Label>
                 <Select value={newForm.tipo} onValueChange={(v) => setNewForm((f) => ({ ...f, tipo: v as JustificationType }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -326,6 +322,11 @@ const PontoJustificativas: React.FC = () => {
                     {Object.entries(tipoLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>Horário da batida <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Input type="time" value={newForm.horario} onChange={(e) => setNewForm((f) => ({ ...f, horario: e.target.value }))} />
+                <p className="text-[10px] text-muted-foreground mt-1">Horário sugerido a incluir na batida ao aprovar.</p>
               </div>
             </div>
             <div>
