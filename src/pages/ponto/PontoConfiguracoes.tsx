@@ -111,10 +111,6 @@ const PontoConfiguracoes: React.FC = () => (
       <div className="divide-y divide-border/60">
         <Toggle label="MFA obrigatório para gestores" defaultChecked />
         <Toggle label="Log de auditoria de acessos" defaultChecked />
-        <div className="grid sm:grid-cols-2 gap-3 pt-4">
-          <div><Label className="text-xs">Token de API (integração folha)</Label><Input placeholder="••••••••••••" defaultValue="pk_live_xxxxxxxxxxxxxxxx" readOnly className="mt-1 font-mono text-xs" /></div>
-          <div className="flex items-end"><Button variant="outline" size="sm" className="w-full">Rotacionar token</Button></div>
-        </div>
       </div>
     </Section>
 
