@@ -323,7 +323,7 @@ const ErpFinanceiro: React.FC = () => {
     const ok = await confirmDialog({
       title: 'Voltar recibo para pendentes?',
       description: `O recibo ${r.numero} será removido e a competência voltará à lista de pendentes, como se ainda não tivesse sido faturado. Essa ação apaga o registro do cancelamento.`,
-      confirmText: 'Voltar para pendentes',
+      confirmLabel: 'Voltar para pendentes',
     });
     if (!ok) return;
     setWorking(r.id);
