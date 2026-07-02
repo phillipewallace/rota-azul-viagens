@@ -1206,6 +1206,12 @@ const GerarReciboPopover: React.FC<{
               && fim >= inicio;
   const dias = valido ? diffDays(fim, inicio) + 1 : 0;
 
+  // Vencimento = 28 dias após a entrega (início do período) ou, na falta,
+  // após o início do contrato. Atualiza em tempo real conforme as datas mudam.
+  const baseVenc = /^\d{4}-\d{2}-\d{2}$/.test(inicio) ? inicio : dataInicioContrato;
+  const vencimento = baseVenc ? addDaysISO(baseVenc, 28) : '';
+
+
   return (
     <Popover open={open} onOpenChange={(o) => !working && setOpen(o)}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
