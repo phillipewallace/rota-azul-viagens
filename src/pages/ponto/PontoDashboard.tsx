@@ -16,9 +16,10 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from 'recharts';
 import {
-  EMPLOYEES, PUNCHES, JUSTIFICATIONS, JORNADAS, computeDay, minutesToHHmm, groupPunchesByDay,
+  computeDay, minutesToHHmm,
   employeesMissingPunchToday, aniversariantesProximos, feriasVencendo, daysBetween,
-} from './pontoMock';
+} from './pontoUtils';
+import { useEmployees, usePunches, useJustifications, useJornadas } from '@/hooks/usePontoData';
 
 const weekDays = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
