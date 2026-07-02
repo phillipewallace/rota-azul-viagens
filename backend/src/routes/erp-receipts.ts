@@ -157,12 +157,18 @@ router.post('/generate', async (req, res) => {
     const baseValor = Number(valor ?? ct.valor_mensal ?? 0);
     const valorFinal = baseValor + freteAplicado;
 
-    // [#21 médio] Vencimento da competência — respeita dia_vencimento mesmo > 28,
-    // limitando ao último dia real do mês quando necessário.
-    const [ano, mes] = competencia.split('-').map(Number);
-    const ultimoDia = new Date(ano, mes, 0).getDate(); // dia 0 do mês seguinte
-    const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
-    const dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    // [#21 médio] Vencimento — se período exato foi informado, usamos o `periodoFim`
+    // como vencimento (o recibo passa a valer para as 2 datas escolhidas).
+    // Caso contrário, mantém a regra antiga: dia_vencimento do contrato dentro do mês.
+    let dataVenc: string;
+    if (periodoFim) {
+      dataVenc = periodoFim;
+    } else {
+      const [ano, mes] = competencia.split('-').map(Number);
+      const ultimoDia = new Date(ano, mes, 0).getDate();
+      const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
+      dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
 
 
     const snapshot = {
