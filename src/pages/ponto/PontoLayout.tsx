@@ -46,10 +46,10 @@ const PontoLayout: React.FC = () => {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 border ${
+                `group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border ${
                   isActive
                     ? 'bg-gradient-to-r from-emerald-500/25 to-teal-500/5 text-white border-emerald-400/40 shadow-sm shadow-emerald-900/30'
-                    : 'text-slate-300 hover:bg-white/5 hover:text-white border-transparent'
+                    : 'text-slate-100/90 hover:bg-white/10 hover:text-white border-transparent'
                 }`
               }
             >
