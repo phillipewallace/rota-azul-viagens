@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User } from 'lucide-react';
+import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User, Activity, LogIn, Coffee, LogOut, UtensilsCrossed } from 'lucide-react';
 import {
   EMPLOYEES, PUNCHES, JORNADAS, computeDay, minutesToHHmm,
 } from './pontoMock';
