@@ -92,12 +92,12 @@ router.post('/', async (req, res) => {
          data_evento, data_recolhimento, local_evento, hora_entrega, valor_total_evento,
          dia_vencimento, valor_mensal,
          renovacao_automatica, ativo, pdf_url, observacoes,
-         company_snapshot, customer_snapshot, frete)
+         company_snapshot, customer_snapshot, frete, endereco_obra, cno)
        VALUES ($1,$2,$3,$4,COALESCE($5,'manual'),$6,
                COALESCE($7,'locacao'),$8,$9,
                $10,$11,$12,$13,$14,
                COALESCE($15,10),COALESCE($16,0),
-               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0))
+               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25)
        RETURNING id, numero`,
       [numero, c.companyId || null, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
@@ -107,7 +107,8 @@ router.post('/', async (req, res) => {
        c.horaEntrega || null, c.valorTotalEvento != null ? Number(c.valorTotalEvento) : null,
        c.diaVencimento ?? 10, c.valorMensal ?? 0,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null, c.observacoes || null,
-       companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0]
+       companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0,
+       c.enderecoObra || null, c.cno || null]
     );
 
     await client.query('COMMIT');
