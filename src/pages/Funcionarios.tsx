@@ -50,6 +50,7 @@ const fmtMinutes = (m: number) => {
 };
 
 const Funcionarios: React.FC = () => {
+  const { nomes: CARGOS } = useCargos();
   const [rows, setRows] = useState<Funcionario[]>([]);
   const [jornadas, setJornadas] = useState<Jornada[]>([]);
   const [loading, setLoading] = useState(true);
