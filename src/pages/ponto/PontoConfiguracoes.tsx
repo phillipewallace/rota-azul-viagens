@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { JornadaDialog } from './JornadaDialog';
 import type { Jornada } from './pontoUtils';
 import { Link } from 'react-router-dom';
+import { TIMEZONES, TIMEZONE_GROUPS } from './timezones';
 
 const Section: React.FC<{ icon: React.ElementType; title: string; desc: string; children: React.ReactNode }> = ({ icon: Icon, title, desc, children }) => (
   <Card className="border-border/60">
