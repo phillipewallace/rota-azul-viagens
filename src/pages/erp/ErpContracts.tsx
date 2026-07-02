@@ -693,6 +693,7 @@ function ContractFormDialog({
     pdfUrl: '', observacoes: '',
     dataEvento: '', dataRecolhimento: '', localEvento: '', horaEntrega: '',
     valorTotalEvento: 0,
+    enderecoObra: '', cno: '',
   };
 
   const [form, setForm] = useState<any>(empty);
