@@ -26,7 +26,10 @@ export interface Funcionario {
   updated_at?: string;
 }
 
-export type FuncionarioInput = Partial<Omit<Funcionario, 'id' | 'created_at' | 'updated_at' | 'jornada_nome'>>;
+export type FuncionarioInput = Partial<Omit<Funcionario, 'id' | 'created_at' | 'updated_at' | 'jornada_nome'>> & {
+  password?: string;
+};
+
 
 function h(): HeadersInit {
   const t = localStorage.getItem('auth_token');

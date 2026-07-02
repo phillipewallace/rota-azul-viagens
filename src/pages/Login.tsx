@@ -31,8 +31,10 @@ const Login = () => {
     setLoading(true);
     setError(null);
     try {
-      await login(username, password);
-      navigate('/');
+      const res = await login(username, password);
+      // Funcionário só acessa o Ponto
+      if (res?.user?.role === 'funcionario') navigate('/ponto');
+      else navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');
       toast.error('Erro ao fazer login');
@@ -40,6 +42,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
 
   return (
     <>

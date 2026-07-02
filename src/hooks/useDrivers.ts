@@ -14,7 +14,9 @@ export interface Driver {
   currentRoute?: string;
   totalTrips?: number;
   truckCount?: number;
+  source?: 'driver' | 'funcionario';
 }
+
 
 class DriversService extends BaseApiService {
   async getDrivers(): Promise<Driver[]> {

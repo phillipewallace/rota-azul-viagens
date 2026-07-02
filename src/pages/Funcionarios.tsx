@@ -21,11 +21,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Users, Plus, Search, ArrowLeft, Pencil, Trash2, IdCard, Building2,
-  BadgeCheck, Clock, TrendingUp, TrendingDown,
+  Users, Plus, Search, ArrowLeft, Pencil, Trash2, IdCard,
+  BadgeCheck, Clock, TrendingUp, TrendingDown, KeyRound, Eye, EyeOff,
 } from 'lucide-react';
 import { funcionariosService, Funcionario, FuncionarioInput, FuncionarioStatus } from '@/services/funcionarios';
 import { pontoService, Jornada } from '@/services/ponto';
+import { CARGOS } from '@/lib/cargos';
 
 const STATUS_META: Record<FuncionarioStatus, { label: string; className: string; dot: string }> = {
   ativo:     { label: 'Ativo',      className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-500' },
@@ -36,9 +37,10 @@ const STATUS_META: Record<FuncionarioStatus, { label: string; className: string;
 
 const INITIAL: FuncionarioInput = {
   nome: '', matricula: '', cpf: '', pis: '', rg: '', email: '', telefone: '',
-  cargo: '', departamento: '', admissao: '', status: 'ativo', jornada_id: null,
-  salario_base: null, observacoes: '',
+  cargo: '', admissao: '', status: 'ativo', jornada_id: null,
+  observacoes: '', password: '',
 };
+
 
 const fmtMinutes = (m: number) => {
   const abs = Math.abs(m);
@@ -52,13 +54,15 @@ const Funcionarios: React.FC = () => {
   const [jornadas, setJornadas] = useState<Jornada[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [dep, setDep] = useState('all');
+  const [cargoFilter, setCargoFilter] = useState('all');
   const [status, setStatus] = useState('all');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<FuncionarioInput>(INITIAL);
+  const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState<Funcionario | null>(null);
+
 
   const load = async () => {
     setLoading(true);
@@ -71,17 +75,15 @@ const Funcionarios: React.FC = () => {
   };
   useEffect(() => { load(); }, []);
 
-  const departamentos = useMemo(
-    () => [...new Set(rows.map(r => r.departamento).filter(Boolean) as string[])],
-    [rows]
-  );
+
+
 
   const filtered = useMemo(() => rows.filter(r => {
-    if (dep !== 'all' && r.departamento !== dep) return false;
+    if (cargoFilter !== 'all' && (r.cargo ?? '') !== cargoFilter) return false;
     if (status !== 'all' && r.status !== status) return false;
     if (q && !`${r.nome} ${r.matricula} ${r.cargo ?? ''}`.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }), [rows, q, dep, status]);
+  }), [rows, q, cargoFilter, status]);
 
   const kpis = useMemo(() => {
     const total = rows.length;
@@ -91,27 +93,40 @@ const Funcionarios: React.FC = () => {
     return { total, ativos, ferias, bhSaldo };
   }, [rows]);
 
-  const startCreate = () => { setEditing(null); setForm(INITIAL); setOpen(true); };
+  const startCreate = () => { setEditing(null); setForm(INITIAL); setShowPw(false); setOpen(true); };
   const startEdit = (f: Funcionario) => {
     setEditing(f);
     setForm({
       nome: f.nome, matricula: f.matricula, cpf: f.cpf ?? '', pis: f.pis ?? '',
       rg: f.rg ?? '', email: f.email ?? '', telefone: f.telefone ?? '',
-      cargo: f.cargo ?? '', departamento: f.departamento ?? '',
+      cargo: f.cargo ?? '',
       admissao: f.admissao ? f.admissao.slice(0, 10) : '',
       status: f.status, jornada_id: f.jornada_id ?? null,
-      salario_base: f.salario_base ?? null, observacoes: f.observacoes ?? '',
+      observacoes: f.observacoes ?? '',
+      password: '',
     });
+    setShowPw(false);
     setOpen(true);
   };
+
 
   const save = async () => {
     if (!form.nome || !form.matricula) {
       toast.error('Nome e matrícula são obrigatórios'); return;
     }
+    if (form.password && !form.cpf) {
+      toast.error('Informe o CPF — ele é usado como login no Ponto'); return;
+    }
+    if (form.password && String(form.password).length < 4) {
+      toast.error('Senha deve ter ao menos 4 caracteres'); return;
+    }
     setSaving(true);
     try {
-      const payload: FuncionarioInput = { ...form, jornada_id: form.jornada_id || null };
+      const payload: FuncionarioInput = {
+        ...form,
+        jornada_id: form.jornada_id || null,
+        password: form.password ? form.password : undefined,
+      };
       if (editing) await funcionariosService.update(editing.id, payload);
       else await funcionariosService.create(payload);
       toast.success(editing ? 'Funcionário atualizado' : 'Funcionário cadastrado');
@@ -120,6 +135,7 @@ const Funcionarios: React.FC = () => {
       toast.error('Erro ao salvar', { description: e.message });
     } finally { setSaving(false); }
   };
+
 
   const remove = async () => {
     if (!confirmDel) return;
@@ -183,13 +199,14 @@ const Funcionarios: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Nome, matrícula, cargo…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 h-10" />
             </div>
-            <Select value={dep} onValueChange={setDep}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Departamento" /></SelectTrigger>
+            <Select value={cargoFilter} onValueChange={setCargoFilter}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Cargo" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos departamentos</SelectItem>
-                {departamentos.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                <SelectItem value="all">Todos cargos</SelectItem>
+                {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
+
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="h-10"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
@@ -237,11 +254,8 @@ const Funcionarios: React.FC = () => {
                         <p className="text-xs text-muted-foreground truncate mt-0.5">
                           <IdCard className="h-3 w-3 inline mr-1" />Mat. {f.matricula}{f.cargo ? ` · ${f.cargo}` : ''}
                         </p>
-                        {f.departamento && (
-                          <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                            <Building2 className="h-3 w-3" /> {f.departamento}
-                          </p>
-                        )}
+                        
+
                       </div>
                     </div>
 
@@ -325,12 +339,14 @@ const Funcionarios: React.FC = () => {
               <Input id="telefone" value={form.telefone ?? ''} onChange={e => setForm(s => ({ ...s, telefone: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cargo">Cargo</Label>
-              <Input id="cargo" value={form.cargo ?? ''} onChange={e => setForm(s => ({ ...s, cargo: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="departamento">Departamento</Label>
-              <Input id="departamento" value={form.departamento ?? ''} onChange={e => setForm(s => ({ ...s, departamento: e.target.value }))} />
+              <Label>Cargo</Label>
+              <Select value={form.cargo || 'none'} onValueChange={v => setForm(s => ({ ...s, cargo: v === 'none' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione o cargo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Não informado —</SelectItem>
+                  {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="admissao">Admissão</Label>
@@ -355,11 +371,40 @@ const Funcionarios: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="salario">Salário base (R$)</Label>
-              <Input id="salario" type="number" step="0.01" value={form.salario_base ?? ''}
-                     onChange={e => setForm(s => ({ ...s, salario_base: e.target.value ? Number(e.target.value) : null }))} />
+
+            <div className="md:col-span-2 rounded-lg border border-dashed border-border/70 bg-muted/30 p-3.5 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <KeyRound className="h-3.5 w-3.5" /> Acesso ao Ponto Digital
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                O funcionário faz login no ponto usando o <strong className="text-foreground">CPF</strong> como usuário e a senha definida abaixo. Não terá acesso a nenhuma outra área do sistema.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-xs">
+                  Senha {editing && <span className="text-muted-foreground font-normal">(deixe em branco para manter)</span>}
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPw ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder={editing ? '••••••••' : 'Mínimo 4 caracteres'}
+                    value={form.password ?? ''}
+                    onChange={e => setForm(s => ({ ...s, password: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(v => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+                    aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'}
+                  >
+                    {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
             </div>
+
             <div className="md:col-span-2 space-y-1.5">
               <Label htmlFor="obs">Observações</Label>
               <Textarea id="obs" rows={3} value={form.observacoes ?? ''} onChange={e => setForm(s => ({ ...s, observacoes: e.target.value }))} />
