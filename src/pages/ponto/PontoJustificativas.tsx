@@ -166,12 +166,6 @@ const PontoJustificativas: React.FC = () => {
                 {rows.map((j) => {
                   const emp = EMPLOYEES.find((e) => e.id === j.employeeId)!;
                   return (
-                    <TableRow key={j.id} className="hover:bg-muted/40">
-                      <TableCell>
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
-                            {emp.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
-                          </div>
                     <TableRow key={j.id} data-state={selected.has(j.id) ? 'selected' : undefined} className="hover:bg-muted/40 data-[state=selected]:bg-emerald-500/5">
                       <TableCell>
                         {j.status === 'pendente' ? (
