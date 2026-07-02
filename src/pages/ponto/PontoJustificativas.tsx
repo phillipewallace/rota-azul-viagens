@@ -14,7 +14,11 @@ import {
 } from '@/components/ui/table';
 import { Scale, CheckCircle2, XCircle, Clock, Plus, Paperclip, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { EMPLOYEES, JUSTIFICATIONS, JustificationStatus, JustificationType } from './pontoMock';
+import { JustificationStatus, JustificationType } from './pontoUtils';
+import { useEmployees, useJustifications, useReviewJustification, useBatchReviewJustifications, useCreateJustification } from '@/hooks/usePontoData';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 const statusColor: Record<JustificationStatus, string> = {
   pendente: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
