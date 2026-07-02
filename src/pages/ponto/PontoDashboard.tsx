@@ -24,6 +24,11 @@ import { useEmployees, usePunches, useJustifications, useJornadas } from '@/hook
 const weekDays = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 const PontoDashboard: React.FC = () => {
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: PUNCHES = [] } = usePunches({ limit: 500 });
+  const { data: JUSTIFICATIONS = [] } = useJustifications();
+  const { data: JORNADAS = [] } = useJornadas();
+
   const stats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const punchesToday = PUNCHES.filter((p) => p.timestamp.startsWith(today));
@@ -40,7 +45,7 @@ const PontoDashboard: React.FC = () => {
       ausentes: ativos - presentIds.size,
       pendencias: JUSTIFICATIONS.filter((j) => j.status === 'pendente').length,
     };
-  }, []);
+  }, [EMPLOYEES, PUNCHES, JUSTIFICATIONS]);
 
   const weekChart = useMemo(() => {
     const today = new Date();
