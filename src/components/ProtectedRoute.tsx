@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -8,7 +8,8 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, loading, checkAuthStatus } = useAuth();
+  const { isAuthenticated, loading, checkAuthStatus, user } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -35,7 +36,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Funcionários só acessam o módulo de Ponto.
+  if (user?.role === 'funcionario' && !location.pathname.startsWith('/ponto')) {
+    return <Navigate to="/ponto" replace />;
+  }
+
   return <>{children}</>;
 };
 
 export default ProtectedRoute;
+
