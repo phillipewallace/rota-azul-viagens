@@ -75,10 +75,8 @@ const Funcionarios: React.FC = () => {
   };
   useEffect(() => { load(); }, []);
 
-  const departamentos = useMemo(
-    () => [...new Set(rows.map(r => r.departamento).filter(Boolean) as string[])],
-    [rows]
-  );
+
+
 
   const filtered = useMemo(() => rows.filter(r => {
     if (cargoFilter !== 'all' && (r.cargo ?? '') !== cargoFilter) return false;
