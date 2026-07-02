@@ -52,24 +52,44 @@ const PontoConfiguracoes: React.FC = () => {
   const { data: JORNADAS = [] } = useJornadas();
   const { data: settings } = useSettings();
   const updateMut = useUpdateSettings();
+  const { data: companies = [], isLoading: loadingCompanies, isError: errCompanies } = useQuery({
+    queryKey: ['erp', 'companies'],
+    queryFn: () => erpService.listCompanies(),
+    staleTime: 60_000,
+  });
   const [jornadaOpen, setJornadaOpen] = useState(false);
   const [jornadaEdit, setJornadaEdit] = useState<Jornada | null>(null);
 
   const [form, setForm] = useState({
-    razao_social: '', cnpj: '', cei: '', endereco: '', fuso_horario: 'America/Sao_Paulo',
+    empresa_emissora_id: '' as string | null | '',
+    fuso_horario: 'America/Sao_Paulo',
     usar_geoloc: true, exigir_foto: true, banco_horas_ativo: true,
     limite_credito_min: 2400, limite_debito_min: -1200,
   });
 
   useEffect(() => {
-    if (settings) setForm((f) => ({ ...f, ...settings }));
+    if (settings) setForm((f) => ({
+      ...f,
+      empresa_emissora_id: settings.empresa_emissora_id ?? '',
+      fuso_horario: settings.fuso_horario ?? 'America/Sao_Paulo',
+      usar_geoloc: settings.usar_geoloc,
+      exigir_foto: settings.exigir_foto,
+      banco_horas_ativo: settings.banco_horas_ativo,
+      limite_credito_min: settings.limite_credito_min,
+      limite_debito_min: settings.limite_debito_min,
+    }));
   }, [settings]);
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
+  const selectedCompany = companies.find((c) => c.id === form.empresa_emissora_id);
+
   const salvar = async () => {
     try {
-      await updateMut.mutateAsync(form);
+      await updateMut.mutateAsync({
+        ...form,
+        empresa_emissora_id: form.empresa_emissora_id || null,
+      } as any);
       toast.success('Configurações salvas com sucesso.');
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao salvar configurações.');
