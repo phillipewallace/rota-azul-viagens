@@ -21,11 +21,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Users, Plus, Search, ArrowLeft, Pencil, Trash2, IdCard, Building2,
-  BadgeCheck, Clock, TrendingUp, TrendingDown,
+  Users, Plus, Search, ArrowLeft, Pencil, Trash2, IdCard,
+  BadgeCheck, Clock, TrendingUp, TrendingDown, KeyRound, Eye, EyeOff,
 } from 'lucide-react';
 import { funcionariosService, Funcionario, FuncionarioInput, FuncionarioStatus } from '@/services/funcionarios';
 import { pontoService, Jornada } from '@/services/ponto';
+import { CARGOS } from '@/lib/cargos';
 
 const STATUS_META: Record<FuncionarioStatus, { label: string; className: string; dot: string }> = {
   ativo:     { label: 'Ativo',      className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-500' },
@@ -36,9 +37,10 @@ const STATUS_META: Record<FuncionarioStatus, { label: string; className: string;
 
 const INITIAL: FuncionarioInput = {
   nome: '', matricula: '', cpf: '', pis: '', rg: '', email: '', telefone: '',
-  cargo: '', departamento: '', admissao: '', status: 'ativo', jornada_id: null,
-  salario_base: null, observacoes: '',
+  cargo: '', admissao: '', status: 'ativo', jornada_id: null,
+  observacoes: '', password: '',
 };
+
 
 const fmtMinutes = (m: number) => {
   const abs = Math.abs(m);
@@ -52,13 +54,15 @@ const Funcionarios: React.FC = () => {
   const [jornadas, setJornadas] = useState<Jornada[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [dep, setDep] = useState('all');
+  const [cargoFilter, setCargoFilter] = useState('all');
   const [status, setStatus] = useState('all');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Funcionario | null>(null);
   const [form, setForm] = useState<FuncionarioInput>(INITIAL);
+  const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState<Funcionario | null>(null);
+
 
   const load = async () => {
     setLoading(true);
@@ -77,11 +81,11 @@ const Funcionarios: React.FC = () => {
   );
 
   const filtered = useMemo(() => rows.filter(r => {
-    if (dep !== 'all' && r.departamento !== dep) return false;
+    if (cargoFilter !== 'all' && (r.cargo ?? '') !== cargoFilter) return false;
     if (status !== 'all' && r.status !== status) return false;
     if (q && !`${r.nome} ${r.matricula} ${r.cargo ?? ''}`.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }), [rows, q, dep, status]);
+  }), [rows, q, cargoFilter, status]);
 
   const kpis = useMemo(() => {
     const total = rows.length;
@@ -91,27 +95,40 @@ const Funcionarios: React.FC = () => {
     return { total, ativos, ferias, bhSaldo };
   }, [rows]);
 
-  const startCreate = () => { setEditing(null); setForm(INITIAL); setOpen(true); };
+  const startCreate = () => { setEditing(null); setForm(INITIAL); setShowPw(false); setOpen(true); };
   const startEdit = (f: Funcionario) => {
     setEditing(f);
     setForm({
       nome: f.nome, matricula: f.matricula, cpf: f.cpf ?? '', pis: f.pis ?? '',
       rg: f.rg ?? '', email: f.email ?? '', telefone: f.telefone ?? '',
-      cargo: f.cargo ?? '', departamento: f.departamento ?? '',
+      cargo: f.cargo ?? '',
       admissao: f.admissao ? f.admissao.slice(0, 10) : '',
       status: f.status, jornada_id: f.jornada_id ?? null,
-      salario_base: f.salario_base ?? null, observacoes: f.observacoes ?? '',
+      observacoes: f.observacoes ?? '',
+      password: '',
     });
+    setShowPw(false);
     setOpen(true);
   };
+
 
   const save = async () => {
     if (!form.nome || !form.matricula) {
       toast.error('Nome e matrícula são obrigatórios'); return;
     }
+    if (form.password && !form.cpf) {
+      toast.error('Informe o CPF — ele é usado como login no Ponto'); return;
+    }
+    if (form.password && String(form.password).length < 4) {
+      toast.error('Senha deve ter ao menos 4 caracteres'); return;
+    }
     setSaving(true);
     try {
-      const payload: FuncionarioInput = { ...form, jornada_id: form.jornada_id || null };
+      const payload: FuncionarioInput = {
+        ...form,
+        jornada_id: form.jornada_id || null,
+        password: form.password ? form.password : undefined,
+      };
       if (editing) await funcionariosService.update(editing.id, payload);
       else await funcionariosService.create(payload);
       toast.success(editing ? 'Funcionário atualizado' : 'Funcionário cadastrado');
@@ -120,6 +137,7 @@ const Funcionarios: React.FC = () => {
       toast.error('Erro ao salvar', { description: e.message });
     } finally { setSaving(false); }
   };
+
 
   const remove = async () => {
     if (!confirmDel) return;
