@@ -269,7 +269,21 @@ router.delete('/closures/:competencia', async (req: AuthedRequest, res) => {
 // ============================================================
 router.get('/settings', async (_req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM ponto_settings WHERE id = 1');
+    const r = await pool.query(`
+      SELECT s.*,
+             c.razao_social AS empresa_razao_social,
+             c.nome_fantasia AS empresa_nome_fantasia,
+             c.cnpj AS empresa_cnpj,
+             c.inscricao_estadual AS empresa_ie,
+             c.endereco AS empresa_endereco,
+             c.cidade AS empresa_cidade,
+             c.estado AS empresa_estado,
+             c.cep AS empresa_cep,
+             c.telefone AS empresa_telefone,
+             c.email AS empresa_email
+        FROM ponto_settings s
+        LEFT JOIN erp_companies c ON c.id = s.empresa_emissora_id
+       WHERE s.id = 1`);
     res.json(r.rows[0] || {});
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -277,10 +291,13 @@ router.get('/settings', async (_req, res) => {
 router.put('/settings', async (req: AuthedRequest, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Acesso negado' });
   try {
-    const allowed = ['razao_social','cnpj','cei','endereco','fuso_horario','usar_geoloc','exigir_foto',
+    const allowed = ['empresa_emissora_id','razao_social','cnpj','cei','endereco','fuso_horario','usar_geoloc','exigir_foto',
                      'banco_horas_ativo','limite_credito_min','limite_debito_min'];
     const fields: string[] = []; const values: any[] = []; let i = 1;
-    for (const k of allowed) if (req.body[k] !== undefined) { fields.push(`${k} = $${i++}`); values.push(req.body[k]); }
+    for (const k of allowed) if (req.body[k] !== undefined) {
+      fields.push(`${k} = $${i++}`);
+      values.push(req.body[k] === '' ? null : req.body[k]);
+    }
     if (!fields.length) return res.status(400).json({ error: 'Nada para atualizar' });
     fields.push(`updated_at = NOW()`);
     const r = await pool.query(
