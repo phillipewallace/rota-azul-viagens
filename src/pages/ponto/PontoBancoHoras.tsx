@@ -13,10 +13,59 @@ import { Progress } from '@/components/ui/progress';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
-import { minutesToHHmm, computeDay, type Employee } from './pontoUtils';
+import { Badge } from '@/components/ui/badge';
+import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight, Loader2, ChevronDown, ChevronRight, CheckCircle2, MinusCircle } from 'lucide-react';
+import { minutesToHHmm, computeDay, type Employee, type Punch, type Jornada } from './pontoUtils';
 import { useEmployees, useJornadas, usePunches } from '@/hooks/usePontoData';
 import { BancoHorasAdjustDialog } from './BancoHorasAdjustDialog';
+
+type DayDetail = {
+  iso: string;
+  label: string;
+  considerado: boolean;
+  motivo: string;
+  trabalhado: number;
+  previsto: number;
+  saldo: number;
+  batidas: number;
+};
+
+const buildDetail = (employeeId: string, jornada: Jornada | undefined, punches: Punch[], year: number, monthIdx: number): DayDetail[] => {
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+  const pts = punches.filter((p) => p.employeeId === employeeId);
+  const byDay = new Map<string, Punch[]>();
+  pts.forEach((p) => {
+    const k = p.timestamp.slice(0, 10);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k)!.push(p);
+  });
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const rows: DayDetail[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, monthIdx, d);
+    const iso = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayPts = (byDay.get(iso) || []).sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const dow = dt.getDay();
+    const isWorkDay = jornada?.diasSemana.includes(dow) ?? false;
+    const future = dt > today;
+    let considerado = false;
+    let motivo = '';
+    let trabalhado = 0, previsto = 0, saldo = 0;
+    if (!jornada) motivo = 'Sem jornada atribuída';
+    else if (future) motivo = 'Dia futuro';
+    else if (!isWorkDay) motivo = 'Fora da jornada (folga)';
+    else if (dayPts.length < 2) motivo = dayPts.length === 0 ? 'Sem batidas' : 'Batidas insuficientes (< 2)';
+    else {
+      const c = computeDay(dayPts, jornada, iso);
+      trabalhado = c.trabalhado; previsto = c.previsto; saldo = c.saldo;
+      considerado = true;
+      motivo = saldo > 0 ? `+${minutesToHHmm(saldo)} de crédito` : saldo < 0 ? `${minutesToHHmm(saldo)} de débito` : 'Neutro';
+    }
+    const wd = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dow];
+    rows.push({ iso, label: `${String(d).padStart(2, '0')}/${String(monthIdx + 1).padStart(2, '0')} · ${wd}`, considerado, motivo, trabalhado, previsto, saldo, batidas: dayPts.length });
+  }
+  return rows;
+};
 
 const PontoBancoHoras: React.FC = () => {
   const [q, setQ] = useState('');
