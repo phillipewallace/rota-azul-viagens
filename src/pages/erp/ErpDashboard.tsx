@@ -65,7 +65,7 @@ const KpiCard: React.FC<KpiProps> = ({ label, value, hint, icon: Icon, tone = 'd
             {label}
           </span>
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-            <Icon className="h-4.5 w-4.5" />
+            <Icon className="h-[18px] w-[18px]" />
           </span>
         </div>
         <div>
@@ -311,7 +311,7 @@ const ErpDashboard: React.FC = () => {
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <TruckIcon className="h-4.5 w-4.5" />
+                    <TruckIcon className="h-[18px] w-[18px]" />
                   </span>
                   <div>
                     <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-foreground">
