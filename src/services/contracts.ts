@@ -41,6 +41,8 @@ export interface Contract {
   dataEvento?: string | null;
   dataRecolhimento?: string | null;
   localEvento?: string | null;
+  enderecoObra?: string | null;
+  cno?: string | null;
   horaEntrega?: string | null;
   valorTotalEvento?: number | null;
   diaVencimento: number;
