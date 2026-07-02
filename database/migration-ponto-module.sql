@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS ponto_justifications (
   status        VARCHAR(20) NOT NULL DEFAULT 'pendente'
                   CHECK (status IN ('pendente','aprovada','recusada')),
   motivo        TEXT NOT NULL,
+  horario       TIME NULL,
   anexo_url     TEXT,
   criado_em     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   criado_por    UUID,
