@@ -28,6 +28,7 @@ const InternalManagement = lazy(() => import("./pages/InternalManagement"));
 const Checklists = lazy(() => import("./pages/Checklists"));
 const PublicChecklist = lazy(() => import("./pages/PublicChecklist"));
 const Carretinhas = lazy(() => import("./pages/Carretinhas"));
+const Funcionarios = lazy(() => import("./pages/Funcionarios"));
 const ErpQuotes = lazy(() => import("./pages/ErpQuotes"));
 const ServiceOrders = lazy(() => import("./pages/ServiceOrders"));
 const ErpLayout = lazy(() => import("./pages/erp/ErpLayout"));
@@ -102,6 +103,7 @@ function App() {
               <Route path="/gestao-interna" element={<Protected><InternalManagement /></Protected>} />
               <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
               <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
+              <Route path="/funcionarios" element={<Protected><Funcionarios /></Protected>} />
 
               <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
                 <Route index element={<ErpDashboard />} />
