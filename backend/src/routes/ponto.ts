@@ -168,13 +168,15 @@ router.get('/justifications', async (req, res) => {
 
 router.post('/justifications', async (req: AuthedRequest, res) => {
   try {
-    const { funcionario_id, data, tipo, motivo, anexo_url } = req.body || {};
+    const { funcionario_id, data, tipo, motivo, anexo_url, horario } = req.body || {};
     if (!funcionario_id || !data || !tipo || !motivo)
       return res.status(400).json({ error: 'funcionario_id, data, tipo e motivo obrigatórios' });
+    if (horario && !/^\d{2}:\d{2}(:\d{2})?$/.test(horario))
+      return res.status(400).json({ error: 'horario deve estar no formato HH:mm' });
     const r = await pool.query(
-      `INSERT INTO ponto_justifications (funcionario_id, data, tipo, motivo, anexo_url, criado_por)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [funcionario_id, data, tipo, motivo, anexo_url || null, req.user?.userId || null]
+      `INSERT INTO ponto_justifications (funcionario_id, data, tipo, motivo, anexo_url, horario, criado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [funcionario_id, data, tipo, motivo, anexo_url || null, horario || null, req.user?.userId || null]
     );
     res.status(201).json(r.rows[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
