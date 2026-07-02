@@ -72,7 +72,7 @@ function App() {
         <BrowserRouter>
           <RouteErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
-            <Routes>
+            <AppShell />
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/mobile" element={<MobileDriver />} />
