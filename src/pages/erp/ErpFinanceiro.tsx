@@ -1095,13 +1095,6 @@ const ErpFinanceiro: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <GerarReciboDialog
-        pending={gerarDialog}
-        working={working === gerarDialog?.contractId}
-        onClose={() => setGerarDialog(null)}
-        onConfirm={(from, to, opts) => gerarDialog && gerarIntervalo(gerarDialog, from, to, opts)}
-      />
     </div>
   );
 };
