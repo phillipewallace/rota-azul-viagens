@@ -12,7 +12,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Clock, Search, Download, MapPin, Smartphone, Monitor, Hand, Filter, ShieldCheck, Camera, ImageOff } from 'lucide-react';
-import { EMPLOYEES, PUNCHES, PunchType, PunchOrigin, Punch } from './pontoMock';
+import { PunchType, PunchOrigin, Punch } from './pontoUtils';
+import { useEmployees, usePunches } from '@/hooks/usePontoData';
 
 const tipoLabel: Record<PunchType, string> = {
   'entrada': 'Entrada',
