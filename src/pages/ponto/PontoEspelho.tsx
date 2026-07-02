@@ -74,6 +74,14 @@ const PontoEspelho: React.FC = () => {
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
+  if (!emp || !jornada) {
+    return (
+      <div className="p-8 text-sm text-muted-foreground">
+        {EMPLOYEES.length === 0 ? 'Nenhum funcionário cadastrado.' : 'Carregando espelho…'}
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
       <header className="flex flex-wrap items-end justify-between gap-4">
