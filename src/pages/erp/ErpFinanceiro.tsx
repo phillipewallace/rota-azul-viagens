@@ -762,7 +762,19 @@ const ErpFinanceiro: React.FC = () => {
                                   <span className="text-[10px] font-normal text-amber-700">
                                     pago {BRL(Number(r.valorPago || 0))}
                                   </span>
-                                )}
+                              )}
+                              {r.status === 'cancelado' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => voltarParaPendentes(r)}
+                                  aria-label="Voltar recibo para pendentes"
+                                  title="Voltar para pendentes — como se não tivesse sido faturado"
+                                  className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/40 transition-colors duration-200"
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5 mr-1" /> Voltar p/ pendentes
+                                </Button>
+                              )}
                               </div>
                             </TableCell>
                             <TableCell>
