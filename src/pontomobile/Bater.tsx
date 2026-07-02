@@ -69,15 +69,17 @@ export default function PontoMobileBater() {
     };
   }, []);
 
-  // GPS
-  useEffect(() => {
+  // GPS — obrigatório para bater ponto
+  function requestGps() {
     if (!navigator.geolocation) { setGpsStatus('error'); return; }
+    setGpsStatus('loading');
     navigator.geolocation.getCurrentPosition(
       (pos) => { setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsStatus('ok'); },
-      () => setGpsStatus('error'),
-      { enableHighAccuracy: true, timeout: 8000 },
+      () => { setGps(null); setGpsStatus('error'); },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
-  }, []);
+  }
+  useEffect(() => { requestGps(); }, []);
 
   function capture() {
     const v = videoRef.current;
