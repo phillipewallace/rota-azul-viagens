@@ -205,7 +205,8 @@ const PontoJustificativas: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {rows.map((j) => {
-                  const emp = EMPLOYEES.find((e) => e.id === j.employeeId)!;
+                  const emp = EMPLOYEES.find((e) => e.id === j.employeeId);
+                  if (!emp) return null;
                   return (
                     <TableRow key={j.id} data-state={selected.has(j.id) ? 'selected' : undefined} className="hover:bg-muted/40 data-[state=selected]:bg-emerald-500/5">
                       <TableCell>
