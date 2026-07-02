@@ -42,7 +42,7 @@ const Index = () => {
 
   // Render mobile version for operator
   if (isMobile) {
-    return <MobileOperatorIndex />;
+    return <MobileHome />;
   }
 
   const menuItems = [
