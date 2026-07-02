@@ -318,6 +318,23 @@ const ErpFinanceiro: React.FC = () => {
     finally { setWorking(null); }
   };
 
+  // Reverte um recibo CANCELADO ao estado "não faturado" (volta à lista de pendentes).
+  const voltarParaPendentes = async (r: Receipt) => {
+    const ok = await confirmDialog({
+      title: 'Voltar recibo para pendentes?',
+      description: `O recibo ${r.numero} será removido e a competência voltará à lista de pendentes, como se ainda não tivesse sido faturado. Essa ação apaga o registro do cancelamento.`,
+      confirmLabel: 'Voltar para pendentes',
+    });
+    if (!ok) return;
+    setWorking(r.id);
+    try {
+      await receiptsService.reopen(r.id);
+      toast.success('Recibo removido — competência disponível para faturar novamente');
+      await load();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setWorking(null); }
+  };
+
   const toggleSel = (id: string) => {
     setSelected(prev => {
       const n = new Set(prev);
@@ -745,7 +762,19 @@ const ErpFinanceiro: React.FC = () => {
                                   <span className="text-[10px] font-normal text-amber-700">
                                     pago {BRL(Number(r.valorPago || 0))}
                                   </span>
-                                )}
+                              )}
+                              {r.status === 'cancelado' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => voltarParaPendentes(r)}
+                                  aria-label="Voltar recibo para pendentes"
+                                  title="Voltar para pendentes — como se não tivesse sido faturado"
+                                  className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/40 transition-colors duration-200"
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5 mr-1" /> Voltar p/ pendentes
+                                </Button>
+                              )}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -800,6 +829,15 @@ const ErpFinanceiro: React.FC = () => {
                                     >
                                       <XCircle className="h-3.5 w-3.5 mr-2" />
                                       Cancelar recibo
+                                    </DropdownMenuItem>
+                                  )}
+                                  {r.status === 'cancelado' && (
+                                    <DropdownMenuItem
+                                      onClick={() => voltarParaPendentes(r)}
+                                      className="text-primary focus:text-primary"
+                                    >
+                                      <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                      Voltar para pendentes
                                     </DropdownMenuItem>
                                   )}
                                 </DropdownMenuContent>

@@ -150,6 +150,8 @@ export const receiptsService = {
     req<{ ok: true }>('DELETE', `/erp/receipts/${id}${force ? '?force=1' : ''}`),
   cancel: (id: string, motivo: string) =>
     req<{ ok: true }>('POST', `/erp/receipts/${id}/cancel`, { motivo }),
+  reopen: (id: string) =>
+    req<{ ok: true }>('POST', `/erp/receipts/${id}/reopen`),
   summary: (months = 12) =>
     req<{ series: ReceiptsSummaryPoint[] }>('GET', `/erp/receipts/summary?months=${months}`),
 };
