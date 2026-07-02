@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import {
   Users, UserCheck, UserX, AlertCircle, Timer, TrendingUp, ArrowRight, Clock,
   Scale, BarChart3, FileCheck2, Settings2, ShieldCheck, Fingerprint,
+  Cake, Umbrella, ClockAlert, CalendarClock,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +17,7 @@ import {
 } from 'recharts';
 import {
   EMPLOYEES, PUNCHES, JUSTIFICATIONS, JORNADAS, computeDay, minutesToHHmm, groupPunchesByDay,
+  employeesMissingPunchToday, aniversariantesProximos, feriasVencendo, daysBetween,
 } from './pontoMock';
 
 const weekDays = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -143,6 +145,69 @@ const PontoDashboard: React.FC = () => {
           </Card>
         ))}
       </section>
+
+      {/* Alertas inteligentes */}
+      {(() => {
+        const missing = employeesMissingPunchToday();
+        const pend = JUSTIFICATIONS.filter((j) => j.status === 'pendente');
+        const feriasCriticas = feriasVencendo(30);
+        const alertas = [
+          missing.length > 0 && {
+            key: 'missing',
+            icon: ClockAlert,
+            title: `${missing.length} funcionário${missing.length > 1 ? 's' : ''} sem entrada hoje`,
+            desc: missing.slice(0, 3).map((e) => e.nome.split(' ')[0]).join(', ') + (missing.length > 3 ? ` +${missing.length - 3}` : ''),
+            tone: 'rose',
+            to: '/ponto/registros',
+          },
+          pend.length > 0 && {
+            key: 'pend',
+            icon: Scale,
+            title: `${pend.length} justificativa${pend.length > 1 ? 's' : ''} pendente${pend.length > 1 ? 's' : ''}`,
+            desc: 'Aguardando análise do RH',
+            tone: 'amber',
+            to: '/ponto/justificativas',
+          },
+          feriasCriticas.length > 0 && {
+            key: 'ferias',
+            icon: Umbrella,
+            title: `${feriasCriticas.length} colaborador${feriasCriticas.length > 1 ? 'es' : ''} com férias vencendo`,
+            desc: `Próximo limite em ${Math.max(feriasCriticas[0].diasRest, 0)} dias · CLT art. 134`,
+            tone: 'sky',
+            to: '/ponto/funcionarios',
+          },
+        ].filter(Boolean) as Array<{ key: string; icon: React.ComponentType<{ className?: string }>; title: string; desc: string; tone: 'rose' | 'amber' | 'sky'; to: string }>;
+
+        if (alertas.length === 0) return null;
+        const toneMap = {
+          rose: { border: 'border-l-rose-500', icon: 'bg-rose-500/15 text-rose-600 dark:text-rose-400', dot: 'bg-rose-500' },
+          amber: { border: 'border-l-amber-500', icon: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' },
+          sky: { border: 'border-l-sky-500', icon: 'bg-sky-500/15 text-sky-600 dark:text-sky-400', dot: 'bg-sky-500' },
+        };
+        return (
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {alertas.map((a) => {
+              const t = toneMap[a.tone];
+              return (
+                <Link
+                  key={a.key}
+                  to={a.to}
+                  className={`group relative flex items-start gap-3 rounded-xl border border-border/60 border-l-4 ${t.border} bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}
+                >
+                  <div className={`h-10 w-10 rounded-lg ${t.icon} flex items-center justify-center shrink-0`}>
+                    <a.icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-tight">{a.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{a.desc}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                </Link>
+              );
+            })}
+          </section>
+        );
+      })()}
 
       {/* Chart + Live */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -292,6 +357,112 @@ const PontoDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </section>
+
+      {/* Aniversariantes + Férias */}
+      {(() => {
+        const bdays = aniversariantesProximos(30);
+        const ferias = feriasVencendo(60);
+        if (bdays.length === 0 && ferias.length === 0) return null;
+        return (
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="border-border/60 overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500" />
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-lg bg-pink-500/15 flex items-center justify-center">
+                      <Cake className="h-4.5 w-4.5 text-pink-600 dark:text-pink-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-base font-semibold leading-none">Aniversariantes</h3>
+                      <p className="text-xs text-muted-foreground mt-1">Próximos 30 dias</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="tabular-nums">{bdays.length}</Badge>
+                </div>
+                {bdays.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Nenhum aniversário próximo</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {bdays.slice(0, 6).map(({ e, date }) => {
+                      const dRest = daysBetween(new Date(new Date().setHours(0,0,0,0)), date);
+                      return (
+                        <li key={e.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/60 transition-colors">
+                          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-pink-400 to-fuchsia-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                            {e.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{e.nome}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{e.cargo}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs font-semibold tabular-nums">
+                              {date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {dRest === 0 ? 'hoje 🎉' : `em ${dRest}d`}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60 overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-sky-500 via-cyan-500 to-teal-500" />
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-lg bg-sky-500/15 flex items-center justify-center">
+                      <Umbrella className="h-4.5 w-4.5 text-sky-600 dark:text-sky-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-base font-semibold leading-none">Férias vencendo</h3>
+                      <p className="text-xs text-muted-foreground mt-1">CLT art. 134 · limite concessivo</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="tabular-nums">{ferias.length}</Badge>
+                </div>
+                {ferias.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Ninguém no prazo crítico</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {ferias.slice(0, 6).map(({ e, limite, diasRest }) => {
+                      const critical = diasRest <= 30;
+                      return (
+                        <li key={e.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/60 transition-colors">
+                          <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
+                            {e.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{e.nome}</p>
+                            <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                              <CalendarClock className="h-3 w-3" />
+                              {limite.toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                          <div
+                            className={`px-2.5 py-1 rounded-md text-xs font-bold tabular-nums shrink-0 ${
+                              critical
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            {diasRest}d
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        );
+      })()}
 
       {/* Módulos */}
       <section>

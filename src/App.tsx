@@ -46,6 +46,7 @@ const PontoBancoHoras = lazy(() => import("./pages/ponto/PontoBancoHoras"));
 const PontoFuncionarios = lazy(() => import("./pages/ponto/PontoFuncionarios"));
 const PontoRelatorios = lazy(() => import("./pages/ponto/PontoRelatorios"));
 const PontoConfiguracoes = lazy(() => import("./pages/ponto/PontoConfiguracoes"));
+const PontoFechamento = lazy(() => import("./pages/ponto/PontoFechamento"));
 
 // Mobile Operator (lazy também — só pesa quando acessado)
 const MobileOperatorMenuPage = lazy(
@@ -122,6 +123,7 @@ function App() {
                 <Route path="funcionarios" element={<PontoFuncionarios />} />
                 <Route path="relatorios" element={<PontoRelatorios />} />
                 <Route path="configuracoes" element={<PontoConfiguracoes />} />
+                <Route path="fechamento" element={<PontoFechamento />} />
               </Route>
 
               <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />

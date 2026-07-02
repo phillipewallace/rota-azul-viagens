@@ -1,16 +1,19 @@
 /**
  * Justificativas — CLT art. 473 + abonos e ajustes com aprovação em fluxo.
+ * Suporte a seleção múltipla + aprovação/recusa em lote (front-only).
  */
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Scale, CheckCircle2, XCircle, Clock, Plus, Paperclip, Search } from 'lucide-react';
+import { Scale, CheckCircle2, XCircle, Clock, Plus, Paperclip, Search, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { EMPLOYEES, JUSTIFICATIONS, JustificationStatus, JustificationType } from './pontoMock';
 
 const statusColor: Record<JustificationStatus, string> = {
@@ -34,6 +37,7 @@ const PontoJustificativas: React.FC = () => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [tipo, setTipo] = useState<string>('all');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const rows = useMemo(() => {
     return JUSTIFICATIONS.filter((j) => {
@@ -52,6 +56,30 @@ const PontoJustificativas: React.FC = () => {
     aprovadas: JUSTIFICATIONS.filter((j) => j.status === 'aprovada').length,
     recusadas: JUSTIFICATIONS.filter((j) => j.status === 'recusada').length,
   }), []);
+
+  const pendentesVisiveis = rows.filter((j) => j.status === 'pendente');
+  const allChecked = pendentesVisiveis.length > 0 && pendentesVisiveis.every((j) => selected.has(j.id));
+  const toggleAll = () => {
+    const next = new Set(selected);
+    if (allChecked) pendentesVisiveis.forEach((j) => next.delete(j.id));
+    else pendentesVisiveis.forEach((j) => next.add(j.id));
+    setSelected(next);
+  };
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelected(next);
+  };
+  const batchApprove = () => {
+    toast.success(`${selected.size} justificativa${selected.size > 1 ? 's' : ''} aprovada${selected.size > 1 ? 's' : ''}`, {
+      description: 'Registros atualizados no log de auditoria.',
+    });
+    setSelected(new Set());
+  };
+  const batchReject = () => {
+    toast.info(`${selected.size} justificativa${selected.size > 1 ? 's' : ''} recusada${selected.size > 1 ? 's' : ''}`);
+    setSelected(new Set());
+  };
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
@@ -118,6 +146,14 @@ const PontoJustificativas: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allChecked}
+                      onCheckedChange={toggleAll}
+                      aria-label="Selecionar pendentes visíveis"
+                      disabled={pendentesVisiveis.length === 0}
+                    />
+                  </TableHead>
                   <TableHead>Funcionário</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Data</TableHead>
@@ -130,7 +166,18 @@ const PontoJustificativas: React.FC = () => {
                 {rows.map((j) => {
                   const emp = EMPLOYEES.find((e) => e.id === j.employeeId)!;
                   return (
-                    <TableRow key={j.id} className="hover:bg-muted/40">
+                    <TableRow key={j.id} data-state={selected.has(j.id) ? 'selected' : undefined} className="hover:bg-muted/40 data-[state=selected]:bg-emerald-500/5">
+                      <TableCell>
+                        {j.status === 'pendente' ? (
+                          <Checkbox
+                            checked={selected.has(j.id)}
+                            onCheckedChange={() => toggleOne(j.id)}
+                            aria-label={`Selecionar justificativa de ${emp.nome}`}
+                          />
+                        ) : (
+                          <span className="block h-4 w-4" aria-hidden />
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
                           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
@@ -179,6 +226,27 @@ const PontoJustificativas: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Floating batch bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center gap-3 rounded-full bg-slate-900 dark:bg-slate-100 text-slate-50 dark:text-slate-900 shadow-2xl shadow-emerald-900/20 pl-5 pr-2 py-2 border border-slate-800/40 dark:border-slate-300">
+            <span className="text-sm font-medium tabular-nums">
+              {selected.size} selecionada{selected.size > 1 ? 's' : ''}
+            </span>
+            <div className="h-5 w-px bg-slate-700 dark:bg-slate-300" />
+            <Button size="sm" onClick={batchApprove} className="h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white gap-1.5">
+              <CheckCircle2 className="h-4 w-4" /> Aprovar
+            </Button>
+            <Button size="sm" onClick={batchReject} variant="ghost" className="h-8 rounded-full gap-1.5 text-rose-300 hover:text-rose-200 hover:bg-rose-500/20 dark:text-rose-600 dark:hover:text-rose-700 dark:hover:bg-rose-500/10">
+              <XCircle className="h-4 w-4" /> Recusar
+            </Button>
+            <Button size="icon" variant="ghost" onClick={() => setSelected(new Set())} className="h-8 w-8 rounded-full hover:bg-slate-800 dark:hover:bg-slate-200" aria-label="Limpar seleção">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -8,9 +8,10 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Clock, FileCheck2, Scale, BarChart3, Settings2, Timer,
-  ShieldCheck, Menu, X, Fingerprint,
+  ShieldCheck, Menu, X, Fingerprint, Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { NotificationsBell } from '@/components/ponto/NotificationsBell';
 
 type NavItem = { to: string; label: string; icon: React.ComponentType<{ className?: string }>; end?: boolean };
 
@@ -24,6 +25,7 @@ const operationalItems: NavItem[] = [
 
 const adminItems: NavItem[] = [
   { to: '/ponto/funcionarios', label: 'Funcionários', icon: Users },
+  { to: '/ponto/fechamento', label: 'Fechamento', icon: Lock },
   { to: '/ponto/relatorios', label: 'Relatórios', icon: BarChart3 },
   { to: '/ponto/configuracoes', label: 'Configurações', icon: Settings2 },
 ];
@@ -152,6 +154,7 @@ const PontoLayout: React.FC = () => {
               Portaria 671 · REP-P
             </p>
           </div>
+          <NotificationsBell align="end" />
           <button
             type="button"
             aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
@@ -178,7 +181,11 @@ const PontoLayout: React.FC = () => {
       )}
 
       {/* Content */}
-      <main key={location.pathname} className="flex-1 min-w-0 pt-14 md:pt-0">
+      <main key={location.pathname} className="flex-1 min-w-0 pt-14 md:pt-0 relative">
+        {/* Desktop top action bar (bell) */}
+        <div className="hidden md:flex sticky top-0 z-30 h-12 items-center justify-end gap-2 px-6 bg-slate-100/80 dark:bg-slate-950/80 backdrop-blur border-b border-slate-200/60 dark:border-slate-800/60">
+          <NotificationsBell align="end" />
+        </div>
         <Outlet />
       </main>
     </div>

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User } from 'lucide-react';
+import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User, Activity, LogIn, Coffee, LogOut, UtensilsCrossed } from 'lucide-react';
 import {
   EMPLOYEES, PUNCHES, JORNADAS, computeDay, minutesToHHmm,
 } from './pontoMock';
@@ -21,6 +21,7 @@ const weekdayLabel = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const PontoEspelho: React.FC = () => {
   const [empId, setEmpId] = useState(EMPLOYEES[0].id);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const emp = EMPLOYEES.find((e) => e.id === empId)!;
   const jornada = JORNADAS.find((j) => j.id === emp.jornadaId)!;
@@ -130,6 +131,160 @@ const PontoEspelho: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Timeline visual */}
+      {(() => {
+        const daysWithPunches = days.filter((d) => d.hasPunches);
+        const dayIso = selectedDay ?? daysWithPunches[daysWithPunches.length - 1]?.iso ?? days[0]?.iso;
+        const day = days.find((d) => d.iso === dayIso);
+        if (!day) return null;
+        const dayPunches = PUNCHES.filter((p) => p.employeeId === empId && p.timestamp.startsWith(dayIso))
+          .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        const startHour = 5;
+        const endHour = 23;
+        const totalMin = (endHour - startHour) * 60;
+        const toPct = (iso: string) => {
+          const d = new Date(iso);
+          const min = d.getHours() * 60 + d.getMinutes() - startHour * 60;
+          return Math.max(0, Math.min(100, (min / totalMin) * 100));
+        };
+        // Intervalos "presente" e "almoço" para pintar faixas
+        const segments: Array<{ from: number; to: number; tone: 'work' | 'break' }> = [];
+        if (day.comp.entrada && day.comp.saida) {
+          const a = toPct(day.comp.entrada.timestamp);
+          const b = toPct(day.comp.saida.timestamp);
+          segments.push({ from: a, to: b, tone: 'work' });
+        }
+        if (day.comp.saidaAlmoco && day.comp.voltaAlmoco) {
+          const a = toPct(day.comp.saidaAlmoco.timestamp);
+          const b = toPct(day.comp.voltaAlmoco.timestamp);
+          segments.push({ from: a, to: b, tone: 'break' });
+        }
+        const iconOf = (tipo: string) => {
+          if (tipo === 'entrada') return LogIn;
+          if (tipo === 'saida') return LogOut;
+          if (tipo === 'saida-almoco') return UtensilsCrossed;
+          if (tipo === 'volta-almoco') return Coffee;
+          return Activity;
+        };
+        const hoursMarks = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
+        const daysWithPunchesList = daysWithPunches.slice(-14);
+        return (
+          <Card className="border-border/60 overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500" />
+            <CardContent className="p-5 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                    <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-base font-semibold leading-none">Linha do tempo</h3>
+                    <p className="text-xs text-muted-foreground mt-1 capitalize">
+                      {day.d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mr-2">
+                    <span className="h-2 w-3 rounded-sm bg-emerald-500/60" /> Trabalho
+                    <span className="h-2 w-3 rounded-sm bg-amber-500/60 ml-2" /> Intervalo
+                  </div>
+                  {daysWithPunchesList.map((dd) => (
+                    <button
+                      key={dd.iso}
+                      onClick={() => setSelectedDay(dd.iso)}
+                      className={`h-7 min-w-[36px] px-2 rounded-md text-[11px] font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                        dd.iso === dayIso
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                      }`}
+                    >
+                      {dd.d.getDate()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {dayPunches.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border/60 py-10 text-center text-sm text-muted-foreground">
+                  Sem batidas registradas neste dia.
+                </div>
+              ) : (
+                <div className="relative pt-6 pb-10">
+                  {/* Track */}
+                  <div className="relative h-3 rounded-full bg-muted overflow-hidden">
+                    {segments.map((s, i) => (
+                      <div
+                        key={i}
+                        className={`absolute top-0 bottom-0 ${s.tone === 'work' ? 'bg-emerald-500/60' : 'bg-amber-500/60'}`}
+                        style={{ left: `${s.from}%`, width: `${Math.max(s.to - s.from, 0.5)}%` }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Hour ticks */}
+                  <div className="relative mt-1.5 h-4">
+                    {hoursMarks.map((h) => {
+                      const pct = ((h - startHour) / (endHour - startHour)) * 100;
+                      return (
+                        <div key={h} className="absolute -translate-x-1/2 text-[9px] text-muted-foreground tabular-nums" style={{ left: `${pct}%` }}>
+                          {String(h).padStart(2, '0')}h
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Punch markers */}
+                  {dayPunches.map((p) => {
+                    const pct = toPct(p.timestamp);
+                    const Icon = iconOf(p.tipo);
+                    const tone = p.tipo.includes('almoco') ? 'amber' : p.tipo === 'saida' ? 'sky' : 'emerald';
+                    const ring = tone === 'amber' ? 'ring-amber-500/40 bg-amber-500' : tone === 'sky' ? 'ring-sky-500/40 bg-sky-500' : 'ring-emerald-500/40 bg-emerald-500';
+                    return (
+                      <div
+                        key={p.id}
+                        className="absolute -translate-x-1/2 group"
+                        style={{ left: `${pct}%`, top: 0 }}
+                      >
+                        <div className={`h-6 w-6 rounded-full ${ring} ring-4 ring-offset-2 ring-offset-background flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110`}>
+                          <Icon className="h-3 w-3" />
+                        </div>
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <div className="rounded-md bg-popover border border-border/60 px-2 py-1 shadow-lg text-[10px]">
+                            <p className="font-semibold capitalize">{p.tipo.replace('-', ' ')}</p>
+                            <p className="text-muted-foreground tabular-nums">
+                              {new Date(p.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Resumo do dia */}
+              <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/60">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Trabalhado</p>
+                  <p className="font-display font-bold tabular-nums text-primary mt-0.5">{minutesToHHmm(day.comp.trabalhado)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Extras</p>
+                  <p className="font-display font-bold tabular-nums text-amber-600 dark:text-amber-400 mt-0.5">{minutesToHHmm(day.comp.extra)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Saldo</p>
+                  <p className={`font-display font-bold tabular-nums mt-0.5 ${day.comp.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                    {day.comp.saldo >= 0 ? '+' : ''}{minutesToHHmm(day.comp.saldo)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Totais */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
