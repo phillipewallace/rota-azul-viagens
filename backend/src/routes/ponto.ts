@@ -93,9 +93,10 @@ router.delete('/jornadas/:id', async (req: AuthedRequest, res) => {
 router.get('/punches', async (req: AuthedRequest, res) => {
   try {
     const { funcionario_id, from, to, limit = '500', include_photo } = req.query as Record<string, string>;
-    if (!canAccessFuncionario(req, funcionario_id)) return res.status(403).json({ error: 'Acesso negado aos registros de outro funcionário' });
+    const effectiveFuncionarioId = req.user?.role === 'funcionario' ? req.user.funcionarioId : funcionario_id;
+    if (!canAccessFuncionario(req, effectiveFuncionarioId)) return res.status(403).json({ error: 'Acesso negado aos registros de outro funcionário' });
     const where: string[] = []; const values: any[] = []; let i = 1;
-    if (funcionario_id) { where.push(`p.funcionario_id = $${i++}`); values.push(funcionario_id); }
+    if (effectiveFuncionarioId) { where.push(`p.funcionario_id = $${i++}`); values.push(effectiveFuncionarioId); }
     if (from) { where.push(`p.timestamp >= $${i++}`); values.push(from); }
     if (to)   { where.push(`p.timestamp <= $${i++}`); values.push(to); }
     values.push(Math.min(parseInt(limit) || 500, 5000));
@@ -218,10 +219,11 @@ router.put('/punches/:id/adjust', async (req: AuthedRequest, res) => {
 router.get('/justifications', async (req: AuthedRequest, res) => {
   try {
     const { status, funcionario_id } = req.query as Record<string, string>;
-    if (!canAccessFuncionario(req, funcionario_id)) return res.status(403).json({ error: 'Acesso negado às justificativas de outro funcionário' });
+    const effectiveFuncionarioId = req.user?.role === 'funcionario' ? req.user.funcionarioId : funcionario_id;
+    if (!canAccessFuncionario(req, effectiveFuncionarioId)) return res.status(403).json({ error: 'Acesso negado às justificativas de outro funcionário' });
     const where: string[] = []; const values: any[] = []; let i = 1;
     if (status && status !== 'all') { where.push(`j.status = $${i++}`); values.push(status); }
-    if (funcionario_id) { where.push(`j.funcionario_id = $${i++}`); values.push(funcionario_id); }
+    if (effectiveFuncionarioId) { where.push(`j.funcionario_id = $${i++}`); values.push(effectiveFuncionarioId); }
     const sql = `
       SELECT j.*, f.nome AS funcionario_nome, f.matricula
       FROM ponto_justifications j
