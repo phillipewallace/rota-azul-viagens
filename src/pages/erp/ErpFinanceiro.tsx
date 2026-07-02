@@ -121,6 +121,7 @@ const ErpFinanceiro: React.FC = () => {
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Receipt | null>(null);
   const [reabrirDialog, setReabrirDialog] = useState<Receipt | null>(null);
+  const [gerarDialog, setGerarDialog] = useState<PendingReceipt | null>(null);
 
   // gastos do mês para resultado
   const [gastosMes, setGastosMes] = useState(0);
