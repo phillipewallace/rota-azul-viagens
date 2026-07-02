@@ -172,6 +172,23 @@ const PontoJustificativas: React.FC = () => {
                           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
                             {emp.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
                           </div>
+                    <TableRow key={j.id} data-state={selected.has(j.id) ? 'selected' : undefined} className="hover:bg-muted/40 data-[state=selected]:bg-emerald-500/5">
+                      <TableCell>
+                        {j.status === 'pendente' ? (
+                          <Checkbox
+                            checked={selected.has(j.id)}
+                            onCheckedChange={() => toggleOne(j.id)}
+                            aria-label={`Selecionar justificativa de ${emp.nome}`}
+                          />
+                        ) : (
+                          <span className="block h-4 w-4" aria-hidden />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
+                            {emp.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                          </div>
                           <div>
                             <p className="text-sm font-medium">{emp.nome}</p>
                             <p className="text-[11px] text-muted-foreground">{emp.cargo}</p>
