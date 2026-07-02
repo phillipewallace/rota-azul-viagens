@@ -455,17 +455,26 @@ const ErpContracts: React.FC = () => {
                     <TableRow
                       key={c.id}
                       className={cn(
-                        'transition-colors',
+                        'transition-colors hover:bg-primary/[0.03]',
                         !c.ativo && 'opacity-60 hover:opacity-100'
                       )}
                     >
-                      <TableCell className="font-mono text-xs text-muted-foreground">{c.numero}</TableCell>
+                      <TableCell className="font-mono text-xs relative">
+                        <span
+                          className={cn(
+                            'absolute left-0 top-2 bottom-2 w-[3px] rounded-r',
+                            c.ativo ? 'bg-[hsl(var(--success))]' : 'bg-muted-foreground/40'
+                          )}
+                        />
+                        <span className="pl-2 text-muted-foreground">{c.numero}</span>
+                      </TableCell>
                       <TableCell className="max-w-[200px]">
                         <div className="font-medium text-foreground truncate">{c.customerName || '—'}</div>
                         {c.descricao && (
                           <div className="text-[11px] text-muted-foreground truncate">{c.descricao}</div>
                         )}
                       </TableCell>
+
                       <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[160px] truncate">
                         {c.companyRazaoSocial || '—'}
                       </TableCell>
