@@ -247,10 +247,10 @@ const PontoJustificativas: React.FC = () => {
                       <TableCell className="text-right">
                         {j.status === 'pendente' ? (
                           <div className="flex gap-1 justify-end">
-                            <Button size="sm" variant="ghost" className="h-8 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10">
+                            <Button size="sm" variant="ghost" onClick={() => reviewSingle(j.id, 'aprovada')} className="h-8 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10">
                               <CheckCircle2 className="h-4 w-4" /> Aprovar
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10">
+                            <Button size="sm" variant="ghost" onClick={() => reviewSingle(j.id, 'recusada')} className="h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10">
                               <XCircle className="h-4 w-4" /> Recusar
                             </Button>
                           </div>
