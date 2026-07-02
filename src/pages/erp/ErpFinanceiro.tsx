@@ -325,7 +325,6 @@ const ErpFinanceiro: React.FC = () => {
       }
     }
     setWorking(null);
-    setGerarDialog(null);
     await load();
     if (fail === 0 && dup === 0) toast.success(unico ? 'Recibo gerado' : `${ok} recibo(s) gerados`);
     else if (fail === 0) toast.warning(`${ok} gerado(s), ${dup} já existiam`);
