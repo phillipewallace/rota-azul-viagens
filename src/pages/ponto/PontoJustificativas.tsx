@@ -49,7 +49,7 @@ const PontoJustificativas: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [newOpen, setNewOpen] = useState(false);
   const [newForm, setNewForm] = useState<{ funcionario_id: string; data: string; tipo: JustificationType; motivo: string; horario: string }>(
-    { funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '', horario: '' },
+    { funcionario_id: '', data: todayLocalYmd(), tipo: 'atraso', motivo: '', horario: '' },
   );
 
   const { data: EMPLOYEES = [] } = useEmployees();
@@ -127,7 +127,7 @@ const PontoJustificativas: React.FC = () => {
         onSuccess: () => {
           toast.success('Justificativa criada');
           setNewOpen(false);
-          setNewForm({ funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '', horario: '' });
+          setNewForm({ funcionario_id: '', data: todayLocalYmd(), tipo: 'atraso', motivo: '', horario: '' });
         },
         onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
       },
