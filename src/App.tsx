@@ -113,9 +113,6 @@ function App() {
                 <Route path="empresas" element={<ErpCompanies />} />
               </Route>
 
-              <Route path="/__nav-preview" element={<PontoLayout />}>
-                <Route index element={<PontoDashboard />} />
-              </Route>
               <Route path="/ponto" element={<Protected><PontoLayout /></Protected>}>
                 <Route index element={<PontoDashboard />} />
                 <Route path="registros" element={<PontoRegistros />} />
