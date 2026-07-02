@@ -10,7 +10,7 @@ import PageHeader from '@/components/PageHeader';
 import CompaniesSettings from '@/components/settings/CompaniesSettings';
 import ContractTemplatesSettings from '@/components/settings/ContractTemplatesSettings';
 import UsersSettings from '@/components/settings/UsersSettings';
-import CargosSettings from '@/components/settings/CargosSettings';
+
 import { useAuth } from '@/hooks/useAuth';
 
 const SUPER_ADMIN_USERNAME = 'phillipe.sodre';
@@ -135,7 +135,7 @@ const Settings = () => {
         <div className="grid gap-6 max-w-5xl">
           {isSuperAdmin && <UsersSettings />}
           <CompaniesSettings />
-          <CargosSettings />
+          
           <ContractTemplatesSettings />
 
 

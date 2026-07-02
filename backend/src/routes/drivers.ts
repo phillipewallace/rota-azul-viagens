@@ -47,33 +47,8 @@ router.get('/', async (req, res) => {
       source: 'driver' as const,
     }));
 
-    // Também expõe funcionários com cargo Motorista (somente-leitura aqui).
-    try {
-      const fRes = await pool.query(
-        `SELECT id, nome, cpf, telefone, email, admissao, status
-           FROM funcionarios
-          WHERE cargo = 'Motorista'
-          ORDER BY nome ASC`
-      );
-      for (const f of fRes.rows) {
-        drivers.push({
-          id: `func:${f.id}`,
-          name: f.nome,
-          license: f.cpf || '',
-          licenseCategory: undefined,
-          phone: f.telefone || '',
-          email: f.email || '',
-          hireDate: f.admissao,
-          status: f.status === 'ativo' ? 'active' : 'inactive',
-          currentRoute: undefined,
-          totalTrips: 0,
-          truckCount: 0,
-          source: 'funcionario' as const,
-        } as any);
-      }
-    } catch (err) {
-      console.warn('[DRIVERS GET] Falha ao anexar funcionários-motoristas:', (err as Error).message);
-    }
+
+
 
     res.json(drivers);
 

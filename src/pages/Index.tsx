@@ -60,7 +60,7 @@ const Index = () => {
     { icon: Users, label: 'Clientes', to: '/customers' },
     { icon: Settings, label: 'Gerenciamento', to: '/management' },
     { icon: Users, label: 'Motoristas', to: '/drivers' },
-    { icon: Users, label: 'Funcionários', to: '/funcionarios' },
+    
     { icon: Settings, label: 'Configurações', to: '/settings' },
   ];
 
@@ -151,27 +151,6 @@ const Index = () => {
                   Sistema complementar · dados sincronizados em tempo real
                 </p>
 
-                <a
-                  href="/ponto"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative block rounded-xl p-4 mt-3 bg-gradient-to-br from-emerald-600 via-teal-700 to-emerald-900 hover:from-emerald-500 hover:via-teal-600 hover:to-emerald-800 shadow-lg shadow-emerald-900/40 transition-all overflow-hidden"
-                >
-                  <div className="absolute -right-6 -top-6 h-24 w-24 bg-white/10 rounded-full blur-2xl" />
-                  <div className="relative flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-white/15 backdrop-blur flex items-center justify-center">
-                      <Clock className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-white">Ponto Digital</span>
-                        <Badge className="bg-white/20 text-white text-[10px] h-5">REP-P</Badge>
-                      </div>
-                      <p className="text-[11px] text-emerald-100/90 mt-0.5">Relógio de ponto · Portaria 671 · nova aba</p>
-                    </div>
-                    <span className="text-emerald-100 group-hover:translate-x-1 transition-transform">→</span>
-                  </div>
-                </a>
               </div>
 
             </div>
