@@ -544,13 +544,24 @@ const ErpQuotes: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filtered.map(q => {
               const venc = validadeBadge(q);
+              const accent =
+                q.status === 'aprovado'   ? 'before:bg-[hsl(var(--success))]' :
+                q.status === 'enviado'    ? 'before:bg-primary' :
+                q.status === 'recusado'   ? 'before:bg-destructive' :
+                q.status === 'convertido' ? 'before:bg-[hsl(var(--warning))]' :
+                                            'before:bg-muted-foreground/40';
               return (
                 <Card
                   key={q.id}
-                  className="group border-border/70 hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer"
+                  className={cn(
+                    'group relative overflow-hidden border-border/70 hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer',
+                    "before:content-[''] before:absolute before:inset-y-0 before:left-0 before:w-1",
+                    accent,
+                  )}
                   onClick={() => openEdit(q.id)}
                 >
                   <CardContent className="p-4 space-y-3">
+
                     {/* Cabeçalho */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
