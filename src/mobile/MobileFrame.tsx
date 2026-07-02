@@ -1,15 +1,8 @@
 import { ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Home,
-  Route as RouteIcon,
-  Truck,
-  Briefcase,
-  Menu as MenuIcon,
-  ChevronLeft,
-  Bell,
-} from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ChevronLeft, Bell, Home, Route as RouteIcon, Truck, Briefcase, Menu as MenuIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import MobileBottomNav from './MobileBottomNav';
 import MobileBottomNav from './MobileBottomNav';
 
 /**
