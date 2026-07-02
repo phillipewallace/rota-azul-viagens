@@ -22,7 +22,7 @@ type ReportId = 'afd' | 'aej' | 'espelho' | 'folha' | 'extras' | 'absenteismo' |
 const reports: { id: ReportId; title: string; desc: string; icon: any; tint: string; accent: string; legal: string }[] = [
   { id: 'afd', title: 'AFD — Arquivo Fonte de Dados', desc: 'Extração completa das batidas em formato oficial (Portaria 671/2021 art. 85).', icon: Database, tint: 'from-emerald-500/10', accent: 'bg-emerald-500', legal: 'Portaria MTP 671/2021' },
   { id: 'aej', title: 'AEJ — Arquivo Eletrônico de Jornada', desc: 'Consolidado da jornada com cálculos de saldo, horas extras e compensações.', icon: ShieldCheck, tint: 'from-teal-500/10', accent: 'bg-teal-500', legal: 'Portaria MTP 671/2021' },
-  { id: 'espelho', title: 'Espelho de Ponto', desc: 'Espelho oficial por funcionário, pronto para conferência mensal.', icon: FileText, tint: 'from-sky-500/10', accent: 'bg-sky-500', legal: 'CLT art. 74' },
+  { id: 'espelho', title: 'Espelho de Ponto (PDF)', desc: 'PDF oficial consolidado do período — resumo por funcionário com jornada vinculada.', icon: FileText, tint: 'from-sky-500/10', accent: 'bg-sky-500', legal: 'CLT art. 74' },
   { id: 'folha', title: 'Folha de Frequência', desc: 'Consolidado por departamento para envio à folha de pagamento.', icon: Calendar, tint: 'from-violet-500/10', accent: 'bg-violet-500', legal: 'eSocial' },
   { id: 'extras', title: 'Horas Extras & Adicionais', desc: 'Relatório de horas extras por dia e funcionário no período.', icon: Sigma, tint: 'from-amber-500/10', accent: 'bg-amber-500', legal: 'CLT art. 59, 73' },
   { id: 'absenteismo', title: 'Absenteísmo & Atrasos', desc: 'Métricas gerenciais de faltas, atrasos e justificativas.', icon: Users, tint: 'from-rose-500/10', accent: 'bg-rose-500', legal: 'Gestão' },
