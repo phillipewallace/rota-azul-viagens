@@ -198,6 +198,9 @@ router.post('/generate', async (req, res) => {
       valorLocacao: baseValor,
       freteIncluso: freteAplicado,
       primeiroRecibo: isPrimeiro,
+      periodo: (periodoInicio || periodoFim)
+        ? { inicio: periodoInicio || null, fim: periodoFim || null }
+        : null,
     };
 
     if (existing.rows[0]) {
@@ -206,9 +209,14 @@ router.post('/generate', async (req, res) => {
         return res.status(409).json({ error: 'Recibo desta competência já existe', existing: existing.rows[0] });
       }
       await client.query(
-        `UPDATE erp_receipts SET valor=$2, pago=$3, snapshot=$4, data_vencimento=$5, pdf_gerado_em=NOW()
-           WHERE id=$1`,
-        [existing.rows[0].id, valorFinal, !!pago, snapshot, dataVenc]
+        `UPDATE erp_receipts
+            SET valor=$2, pago=$3, snapshot=$4, data_vencimento=$5,
+                periodo_inicio = COALESCE($6, periodo_inicio),
+                periodo_fim    = COALESCE($7, periodo_fim),
+                pdf_gerado_em=NOW()
+          WHERE id=$1`,
+        [existing.rows[0].id, valorFinal, !!pago, snapshot, dataVenc,
+         periodoInicio || null, periodoFim || null]
       );
       await client.query('COMMIT');
       return res.json({ ok: true, id: existing.rows[0].id, numero: existing.rows[0].numero, regerado: true });
@@ -219,10 +227,12 @@ router.post('/generate', async (req, res) => {
 
     const ins = await client.query(
       `INSERT INTO erp_receipts
-         (numero, contract_id, competencia, data_emissao, data_vencimento, valor, pago, snapshot, pdf_gerado_em)
-       VALUES ($1,$2,$3,CURRENT_DATE,$4,$5,$6,$7,NOW())
+         (numero, contract_id, competencia, data_emissao, data_vencimento,
+          valor, pago, snapshot, pdf_gerado_em, periodo_inicio, periodo_fim)
+       VALUES ($1,$2,$3,CURRENT_DATE,$4,$5,$6,$7,NOW(),$8,$9)
        RETURNING id, numero`,
-      [numero, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot]
+      [numero, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
+       periodoInicio || null, periodoFim || null]
     );
 
     await client.query('COMMIT');
