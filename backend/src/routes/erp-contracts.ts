@@ -12,6 +12,7 @@ const SELECT = `
   c.data_inicio AS "dataInicio", c.data_fim AS "dataFim",
   c.data_evento AS "dataEvento", c.data_recolhimento AS "dataRecolhimento",
   c.local_evento AS "localEvento", c.hora_entrega AS "horaEntrega",
+  c.endereco_obra AS "enderecoObra", c.cno AS "cno",
   c.valor_total_evento AS "valorTotalEvento",
   c.dia_vencimento AS "diaVencimento",
   c.valor_mensal AS "valorMensal",
@@ -91,12 +92,12 @@ router.post('/', async (req, res) => {
          data_evento, data_recolhimento, local_evento, hora_entrega, valor_total_evento,
          dia_vencimento, valor_mensal,
          renovacao_automatica, ativo, pdf_url, observacoes,
-         company_snapshot, customer_snapshot, frete)
+         company_snapshot, customer_snapshot, frete, endereco_obra, cno)
        VALUES ($1,$2,$3,$4,COALESCE($5,'manual'),$6,
                COALESCE($7,'locacao'),$8,$9,
                $10,$11,$12,$13,$14,
                COALESCE($15,10),COALESCE($16,0),
-               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0))
+               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25)
        RETURNING id, numero`,
       [numero, c.companyId || null, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
@@ -106,7 +107,8 @@ router.post('/', async (req, res) => {
        c.horaEntrega || null, c.valorTotalEvento != null ? Number(c.valorTotalEvento) : null,
        c.diaVencimento ?? 10, c.valorMensal ?? 0,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null, c.observacoes || null,
-       companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0]
+       companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0,
+       c.enderecoObra || null, c.cno || null]
     );
 
     await client.query('COMMIT');
@@ -143,6 +145,8 @@ router.put('/:id', async (req, res) => {
          observacoes = $19,
          motivo_encerramento = $20,
          frete = COALESCE($21, frete),
+         endereco_obra = $22,
+         cno = $23,
          -- [#7 alto] encerrado_em só muda quando $17 vem definido; null deixa intacto.
          encerrado_em = CASE
            WHEN $17::boolean IS NULL THEN encerrado_em
@@ -160,7 +164,8 @@ router.put('/:id', async (req, res) => {
        c.diaVencimento ?? null, c.valorMensal ?? null,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null,
        c.observacoes ?? null, c.motivoEncerramento ?? null,
-       c.frete != null ? Number(c.frete) : null]
+       c.frete != null ? Number(c.frete) : null,
+       c.enderecoObra ?? null, c.cno ?? null]
     );
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

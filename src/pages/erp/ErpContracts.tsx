@@ -693,6 +693,7 @@ function ContractFormDialog({
     pdfUrl: '', observacoes: '',
     dataEvento: '', dataRecolhimento: '', localEvento: '', horaEntrega: '',
     valorTotalEvento: 0,
+    enderecoObra: '', cno: '',
   };
 
   const [form, setForm] = useState<any>(empty);
@@ -720,6 +721,8 @@ function ContractFormDialog({
         localEvento: editing.localEvento || '',
         horaEntrega: editing.horaEntrega || '',
         valorTotalEvento: Number(editing.valorTotalEvento || 0),
+        enderecoObra: (editing as any).enderecoObra || '',
+        cno: (editing as any).cno || '',
       });
 
     } else setForm(empty);
@@ -879,6 +882,26 @@ function ContractFormDialog({
                 ? 'Ex.: 3 banheiros químicos + 1 PNE para evento corporativo'
                 : 'Ex.: Locação mensal de 2 sanitários — Obra Castelo Branco'} />
           </div>
+
+          <div className="md:col-span-2">
+            <Label className="text-xs">
+              Endereço da {form.tipoContrato === 'evento' ? 'evento' : 'obra'} (entrega)
+            </Label>
+            <Input value={form.enderecoObra}
+              onChange={(e) => setForm({ ...form, enderecoObra: e.target.value })}
+              placeholder="Rua, número, bairro, cidade/UF — se diferente do endereço do cliente" />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Aparecerá em campo separado no recibo, para casos em que o endereço de entrega difere do cadastro do cliente.
+            </p>
+          </div>
+
+          <div className="md:col-span-2">
+            <Label className="text-xs">CNO / Ordem de Compra</Label>
+            <Input value={form.cno}
+              onChange={(e) => setForm({ ...form, cno: e.target.value })}
+              placeholder="Ex.: CNO 12.345.67890/12 ou OC nº 4500123456" />
+          </div>
+
 
           <div className="flex items-center justify-between border rounded-lg p-3 md:col-span-2">
             <div>
