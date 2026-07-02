@@ -19,7 +19,8 @@ import { BancoHorasAdjustDialog } from './BancoHorasAdjustDialog';
 const PontoBancoHoras: React.FC = () => {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'todos' | 'credito' | 'debito'>('todos');
-  const { data: EMPLOYEES = [], isLoading } = useEmployees();
+  const { data: EMPLOYEES = [], isLoading, isError, refetch } = useEmployees();
+  const [adjustEmp, setAdjustEmp] = useState<Employee | null>(null);
 
   const rows = useMemo(() => {
     return EMPLOYEES.filter((e) => {
