@@ -313,7 +313,11 @@ const PontoJustificativas: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Data</Label>
+                <Input type="date" value={newForm.data} onChange={(e) => setNewForm((f) => ({ ...f, data: e.target.value }))} />
+              </div>
               <div>
                 <Label>Tipo</Label>
                 <Select value={newForm.tipo} onValueChange={(v) => setNewForm((f) => ({ ...f, tipo: v as JustificationType }))}>
