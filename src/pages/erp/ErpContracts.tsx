@@ -737,7 +737,9 @@ function ContractFormDialog({
         cno: (editing as any).cno || '',
       });
 
-    } else setForm(empty);
+      // Editando um contrato existente: o dia já foi decidido, não sobrescreve.
+      setDiaVencTouched(true);
+    } else { setForm(empty); setDiaVencTouched(false); }
     // eslint-disable-next-line
   }, [editing, open]);
 
