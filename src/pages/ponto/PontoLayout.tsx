@@ -8,9 +8,10 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Clock, FileCheck2, Scale, BarChart3, Settings2, Timer,
-  ShieldCheck, Menu, X, Fingerprint,
+  ShieldCheck, Menu, X, Fingerprint, Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { NotificationsBell } from '@/components/ponto/NotificationsBell';
 
 type NavItem = { to: string; label: string; icon: React.ComponentType<{ className?: string }>; end?: boolean };
 
@@ -24,6 +25,7 @@ const operationalItems: NavItem[] = [
 
 const adminItems: NavItem[] = [
   { to: '/ponto/funcionarios', label: 'Funcionários', icon: Users },
+  { to: '/ponto/fechamento', label: 'Fechamento', icon: Lock },
   { to: '/ponto/relatorios', label: 'Relatórios', icon: BarChart3 },
   { to: '/ponto/configuracoes', label: 'Configurações', icon: Settings2 },
 ];
