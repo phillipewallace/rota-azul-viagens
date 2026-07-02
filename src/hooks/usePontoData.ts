@@ -43,7 +43,7 @@ export function useJornadas() {
   });
 }
 
-export function usePunches(params?: { funcionario_id?: string; from?: string; to?: string; limit?: number }) {
+export function usePunches(params?: { funcionario_id?: string; from?: string; to?: string; limit?: number; include_photo?: boolean }) {
   return useQuery<Punch[]>({
     queryKey: K.punches(params),
     queryFn: async () => (await pontoService.listPunches(params)).map(toPunch),

@@ -1,10 +1,12 @@
 /**
  * Banco de Horas — Lei 13.467/2017 (Reforma Trabalhista). Compensação em até 6 meses
  * por acordo individual escrito, ou 1 ano por acordo/convenção coletiva.
+ *
+ * Saldo exibido = saldo persistido (ajustes manuais) + saldo do mês corrente
+ * calculado a partir das batidas × jornada de cada funcionário.
  */
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -12,33 +14,80 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
-import { minutesToHHmm, type Employee } from './pontoUtils';
-import { useEmployees } from '@/hooks/usePontoData';
+import { minutesToHHmm, computeDay, type Employee } from './pontoUtils';
+import { useEmployees, useJornadas, usePunches } from '@/hooks/usePontoData';
 import { BancoHorasAdjustDialog } from './BancoHorasAdjustDialog';
 
 const PontoBancoHoras: React.FC = () => {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'todos' | 'credito' | 'debito'>('todos');
   const { data: EMPLOYEES = [], isLoading, isError, refetch } = useEmployees();
+  const { data: JORNADAS = [] } = useJornadas();
   const [adjustEmp, setAdjustEmp] = useState<Employee | null>(null);
 
-  const rows = useMemo(() => {
+  // Mês corrente — busca batidas de todos para compor saldo dinâmico
+  const now = new Date();
+  const month = now.toISOString().slice(0, 7);
+  const [y, mNum] = month.split('-').map(Number);
+  const lastDay = String(new Date(y, mNum, 0).getDate()).padStart(2, '0');
+  const { data: PUNCHES = [] } = usePunches({
+    from: `${month}-01T00:00:00`,
+    to: `${month}-${lastDay}T23:59:59`,
+    limit: 5000,
+    include_photo: false,
+  });
+
+  // Saldo dinâmico por funcionário: persistido + soma dos saldos diários do mês
+  const bancoByEmp = useMemo(() => {
+    const map = new Map<string, number>();
+    EMPLOYEES.forEach((e) => {
+      const jornada = JORNADAS.find((j) => j.id === e.jornadaId);
+      let mes = 0;
+      if (jornada) {
+        const pts = PUNCHES.filter((p) => p.employeeId === e.id);
+        const byDay = new Map<string, typeof pts>();
+        pts.forEach((p) => {
+          const k = p.timestamp.slice(0, 10);
+          if (!byDay.has(k)) byDay.set(k, [] as any);
+          (byDay.get(k) as any).push(p);
+        });
+        byDay.forEach((dayPts, iso) => {
+          const dow = new Date(iso).getDay();
+          if (!jornada.diasSemana.includes(dow)) return;
+          const comp = computeDay(dayPts.sort((a, b) => a.timestamp.localeCompare(b.timestamp)), jornada, iso);
+          if (dayPts.length >= 2) mes += comp.saldo;
+        });
+      }
+      map.set(e.id, (e.bancoHoras || 0) + mes);
+    });
+    return map;
+  }, [EMPLOYEES, JORNADAS, PUNCHES]);
+
+  const enrichedRows = useMemo(() => {
     return EMPLOYEES.filter((e) => {
       if (e.status === 'desligado') return false;
-      if (tab === 'credito' && e.bancoHoras <= 0) return false;
-      if (tab === 'debito' && e.bancoHoras >= 0) return false;
+      const saldo = bancoByEmp.get(e.id) || 0;
+      if (tab === 'credito' && saldo <= 0) return false;
+      if (tab === 'debito' && saldo >= 0) return false;
       if (q && !e.nome.toLowerCase().includes(q.toLowerCase())) return false;
       return true;
-    }).sort((a, b) => Math.abs(b.bancoHoras) - Math.abs(a.bancoHoras));
-  }, [q, tab, EMPLOYEES]);
+    }).map((e) => ({ ...e, bancoHoras: bancoByEmp.get(e.id) || 0 }))
+      .sort((a, b) => Math.abs(b.bancoHoras) - Math.abs(a.bancoHoras));
+  }, [q, tab, EMPLOYEES, bancoByEmp]);
+
+  const rows = enrichedRows;
 
   const totals = useMemo(() => {
-    const credito = EMPLOYEES.filter((e) => e.bancoHoras > 0).reduce((a, b) => a + b.bancoHoras, 0);
-    const debito = EMPLOYEES.filter((e) => e.bancoHoras < 0).reduce((a, b) => a + b.bancoHoras, 0);
+    let credito = 0, debito = 0;
+    EMPLOYEES.forEach((e) => {
+      const s = bancoByEmp.get(e.id) || 0;
+      if (s > 0) credito += s;
+      else if (s < 0) debito += s;
+    });
     return { credito, debito, liquido: credito + debito };
-  }, [EMPLOYEES]);
+  }, [EMPLOYEES, bancoByEmp]);
 
-  const maxAbs = Math.max(...EMPLOYEES.map((e) => Math.abs(e.bancoHoras)), 1);
+  const maxAbs = Math.max(...Array.from(bancoByEmp.values()).map((v) => Math.abs(v)), 1);
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
