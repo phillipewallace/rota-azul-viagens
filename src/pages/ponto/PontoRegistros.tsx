@@ -168,26 +168,56 @@ const PontoRegistros: React.FC = () => {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setManualOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setManualOpen(false)} disabled={createPunch.isPending}>Cancelar</Button>
             <Button
-              disabled={createPunch.isPending || !manual.funcionario_id || !manual.timestamp || !manual.motivo.trim()}
+              disabled={createPunch.isPending}
               onClick={async () => {
+                // Validação client-side com mensagens claras
+                if (!manual.funcionario_id) return toast.error('Selecione o funcionário');
+                if (!manual.timestamp) return toast.error('Informe a data e hora da batida');
+                const ts = new Date(manual.timestamp);
+                if (isNaN(ts.getTime())) return toast.error('Data/hora inválida');
+                if (ts.getTime() > Date.now() + 5 * 60_000) {
+                  return toast.error('Data/hora não pode estar no futuro');
+                }
+                if (ts.getTime() < Date.now() - 2 * 365 * 24 * 3600_000) {
+                  return toast.error('Data/hora muito antiga (limite: 2 anos)');
+                }
+                const motivo = manual.motivo.trim();
+                if (motivo.length < 5) return toast.error('Descreva o motivo (mínimo 5 caracteres)');
+                if (motivo.length > 300) return toast.error('Motivo muito longo (máx. 300 caracteres)');
+
+                if (!navigator.onLine) {
+                  return toast.error('Sem conexão', { description: 'Verifique sua internet e tente novamente.' });
+                }
+
                 try {
                   await createPunch.mutateAsync({
                     funcionario_id: manual.funcionario_id,
                     tipo: manual.tipo,
                     origem: 'manual',
-                    timestamp: new Date(manual.timestamp).toISOString(),
-                    endereco: `Manual — ${manual.motivo.trim()}`,
+                    timestamp: ts.toISOString(),
+                    motivo,
                   });
-                  toast.success('Batida manual registrada');
+                  toast.success('Batida manual registrada', {
+                    description: `${tipoLabel[manual.tipo]} — ${ts.toLocaleString('pt-BR')}`,
+                  });
                   setManualOpen(false);
                 } catch (err: any) {
-                  toast.error('Falha ao registrar batida', { description: err?.message });
+                  const msg = err?.message || 'Erro desconhecido';
+                  if (/network|failed to fetch/i.test(msg)) {
+                    toast.error('Falha de rede', { description: 'Não foi possível contatar o servidor.' });
+                  } else if (/403|gestores/i.test(msg)) {
+                    toast.error('Sem permissão', { description: 'Apenas gestores podem registrar batidas manuais.' });
+                  } else if (/inativo/i.test(msg)) {
+                    toast.error('Funcionário inativo', { description: msg });
+                  } else {
+                    toast.error('Falha ao registrar batida', { description: msg });
+                  }
                 }
               }}
             >
-              {createPunch.isPending ? 'Salvando…' : 'Registrar'}
+              {createPunch.isPending ? 'Salvando…' : 'Registrar batida'}
             </Button>
           </DialogFooter>
         </DialogContent>
