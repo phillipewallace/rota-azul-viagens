@@ -11,9 +11,10 @@ import { Progress } from '@/components/ui/progress';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { minutesToHHmm } from './pontoUtils';
+import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
+import { minutesToHHmm, type Employee } from './pontoUtils';
 import { useEmployees } from '@/hooks/usePontoData';
+import { BancoHorasAdjustDialog } from './BancoHorasAdjustDialog';
 
 const PontoBancoHoras: React.FC = () => {
   const [q, setQ] = useState('');
