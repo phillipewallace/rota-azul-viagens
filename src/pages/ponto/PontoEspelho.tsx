@@ -28,10 +28,16 @@ const PontoEspelho: React.FC = () => {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
+  // Reset do dia selecionado ao trocar funcionário ou mês
+  React.useEffect(() => { setSelectedDay(null); }, [empId, month]);
+
   const [y, mNum] = month.split('-').map(Number);
-  const from = `${month}-01`;
-  const to = `${month}-${String(new Date(y, mNum, 0).getDate()).padStart(2, '0')}`;
-  const { data: PUNCHES = [] } = usePunches(empId ? { funcionario_id: empId, from, to, limit: 500 } : undefined);
+  const from = `${month}-01T00:00:00`;
+  const lastDay = String(new Date(y, mNum, 0).getDate()).padStart(2, '0');
+  const to = `${month}-${lastDay}T23:59:59`;
+  const { data: PUNCHES = [], isLoading: loadingPunches } = usePunches(
+    empId ? { funcionario_id: empId, from, to, limit: 500, include_photo: false } : undefined
+  );
 
   const emp = EMPLOYEES.find((e) => e.id === empId);
   const jornada = emp ? JORNADAS.find((j) => j.id === emp.jornadaId) : undefined;
