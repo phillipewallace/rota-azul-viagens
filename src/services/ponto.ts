@@ -83,7 +83,7 @@ function h(): HeadersInit {
   const t = localStorage.getItem('auth_token');
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
 }
-async function j<T>(r: Response): Promise<T> {
+async function j(r: Response): Promise<any> {
   if (!r.ok) {
     let m = `HTTP ${r.status}`;
     try { const b = await r.json(); m = b.error || m; } catch {}
@@ -97,9 +97,9 @@ const base = `${API_BASE_URL}/ponto`;
 export const pontoService = {
   // Jornadas
   listJornadas: (): Promise<Jornada[]> => fetch(`${base}/jornadas`, { headers: h() }).then(j),
-  createJornada: (b: Partial<Jornada>) => fetch(`${base}/jornadas`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then<Jornada>(j),
-  updateJornada: (id: string, b: Partial<Jornada>) => fetch(`${base}/jornadas/${id}`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then<Jornada>(j),
-  deleteJornada: (id: string) => fetch(`${base}/jornadas/${id}`, { method: 'DELETE', headers: h() }).then<void>(j),
+  createJornada: (b: Partial<Jornada>) => fetch(`${base}/jornadas`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Jornada>,
+  updateJornada: (id: string, b: Partial<Jornada>) => fetch(`${base}/jornadas/${id}`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Jornada>,
+  deleteJornada: (id: string) => fetch(`${base}/jornadas/${id}`, { method: 'DELETE', headers: h() }).then(j) as Promise<void>,
 
   // Punches
   listPunches: (p?: { funcionario_id?: string; from?: string; to?: string; limit?: number }): Promise<Punch[]> => {
@@ -110,9 +110,9 @@ export const pontoService = {
     if (p?.limit) qs.set('limit', String(p.limit));
     return fetch(`${base}/punches?${qs}`, { headers: h() }).then(j);
   },
-  createPunch: (b: Partial<Punch>) => fetch(`${base}/punches`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then<Punch>(j),
+  createPunch: (b: Partial<Punch>) => fetch(`${base}/punches`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Punch>,
   adjustPunch: (id: string, b: { timestamp?: string; motivo: string }) =>
-    fetch(`${base}/punches/${id}/adjust`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then<Punch>(j),
+    fetch(`${base}/punches/${id}/adjust`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Punch>,
 
   // Justificativas
   listJustifications: (p?: { status?: string; funcionario_id?: string }): Promise<Justification[]> => {
@@ -122,31 +122,31 @@ export const pontoService = {
     return fetch(`${base}/justifications?${qs}`, { headers: h() }).then(j);
   },
   createJustification: (b: Partial<Justification>) =>
-    fetch(`${base}/justifications`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then<Justification>(j),
+    fetch(`${base}/justifications`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Justification>,
   reviewJustification: (id: string, b: { status: 'aprovada' | 'recusada'; observacao?: string }) =>
-    fetch(`${base}/justifications/${id}/review`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then<Justification>(j),
+    fetch(`${base}/justifications/${id}/review`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Justification>,
   batchReview: (b: { ids: string[]; status: 'aprovada' | 'recusada'; observacao?: string }) =>
-    fetch(`${base}/justifications/batch-review`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then<{ updated: number }>(j),
+    fetch(`${base}/justifications/batch-review`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<{ updated: number }>,
 
   // Fechamentos
   listClosures: (): Promise<Closure[]> => fetch(`${base}/closures`, { headers: h() }).then(j),
   createClosure: (b: { competencia: string; observacoes?: string }) =>
-    fetch(`${base}/closures`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then<Closure>(j),
+    fetch(`${base}/closures`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Closure>,
   deleteClosure: (competencia: string) =>
-    fetch(`${base}/closures/${competencia}`, { method: 'DELETE', headers: h() }).then<void>(j),
+    fetch(`${base}/closures/${competencia}`, { method: 'DELETE', headers: h() }).then(j) as Promise<void>,
 
   // Settings
   getSettings: (): Promise<PontoSettings> => fetch(`${base}/settings`, { headers: h() }).then(j),
   updateSettings: (b: Partial<PontoSettings>) =>
-    fetch(`${base}/settings`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then<PontoSettings>(j),
+    fetch(`${base}/settings`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<PontoSettings>,
 
   // Banco de horas — ajustes
   listBankAdjustments: (funcionario_id?: string) => {
     const qs = funcionario_id ? `?funcionario_id=${funcionario_id}` : '';
-    return fetch(`${base}/bank-adjustments${qs}`, { headers: h() }).then<any[]>(j);
+    return fetch(`${base}/bank-adjustments${qs}`, { headers: h() }).then(j) as Promise<any[]>;
   },
   createBankAdjustment: (b: { funcionario_id: string; minutos: number; motivo: string }) =>
-    fetch(`${base}/bank-adjustments`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then<any>(j),
+    fetch(`${base}/bank-adjustments`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<any>,
 
   // Dashboard
   dashboard: (): Promise<DashboardStats> => fetch(`${base}/dashboard`, { headers: h() }).then(j),

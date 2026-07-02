@@ -33,7 +33,7 @@ function h(): HeadersInit {
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
 }
 
-async function j<T>(r: Response): Promise<T> {
+async function j(r: Response): Promise<any> {
   if (!r.ok) {
     let m = `HTTP ${r.status}`;
     try { const b = await r.json(); m = b.error || m; } catch {}
@@ -48,7 +48,7 @@ export const funcionariosService = {
     if (params?.status) qs.set('status', params.status);
     if (params?.departamento) qs.set('departamento', params.departamento);
     if (params?.q) qs.set('q', params.q);
-    return fetch(`${API_BASE_URL}/funcionarios?${qs}`, { headers: h() }).then(j) as Promise<Funcionario[]>;
+    return fetch(`${API_BASE_URL}/funcionarios?${qs}`, { headers: h() }).then(j);
   },
   get:    (id: string): Promise<Funcionario> => fetch(`${API_BASE_URL}/funcionarios/${id}`, { headers: h() }).then(j),
   create: (body: FuncionarioInput): Promise<Funcionario> =>
