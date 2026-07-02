@@ -131,6 +131,12 @@ const PontoEspelho: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Timeline visual do dia selecionado */}
+      {(() => {
+        const [selectedDay, setSelectedDay] = [state_selectedDay, state_setSelectedDay];
+        return null;
+      })()}
+
       {/* Totais */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
