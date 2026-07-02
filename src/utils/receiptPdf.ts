@@ -9,7 +9,7 @@ import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { loadPdfImage, fitContain } from '@/utils/pdfImage';
 import { erpService } from '@/services/erp';
 import type { Receipt } from '@/services/contracts';
-import { formatDateBR } from '@/utils/dateFormat';
+import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D   = (s?: string) => s ? formatDateBR(s) : '—';
