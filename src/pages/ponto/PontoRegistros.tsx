@@ -6,14 +6,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Clock, Search, Download, MapPin, Smartphone, Monitor, Hand, Filter, ShieldCheck, Camera, ImageOff } from 'lucide-react';
 import { PunchType, PunchOrigin, Punch } from './pontoUtils';
-import { useEmployees, usePunches } from '@/hooks/usePontoData';
+import { useEmployees, usePunches, useCreatePunch } from '@/hooks/usePontoData';
+import { downloadCSV } from './reportGenerators';
+import { toast } from 'sonner';
 
 const tipoLabel: Record<PunchType, string> = {
   'entrada': 'Entrada',
