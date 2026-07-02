@@ -22,6 +22,8 @@ const weekdayLabel = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const PontoEspelho: React.FC = () => {
   const { data: EMPLOYEES = [], isLoading: loadingEmps, isError: errEmps, refetch: refetchEmps } = useEmployees();
   const { data: JORNADAS = [], isLoading: loadingJorn } = useJornadas();
+  const { data: settings } = useSettings();
+  const [exporting, setExporting] = React.useState<'print' | 'pdf' | null>(null);
 
   const [empId, setEmpId] = useState<string>('');
   React.useEffect(() => {
