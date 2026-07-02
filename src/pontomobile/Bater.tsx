@@ -181,23 +181,31 @@ export default function PontoMobileBater() {
 
       {/* Info + CTA */}
       <div className="pm-safe-bottom space-y-3 px-4 pt-4">
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-2">
           <div
             className={[
-              'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-medium',
+              'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-medium transition-colors duration-200',
               gpsStatus === 'ok'
-                ? 'border-border bg-card text-foreground'
+                ? 'border-primary/30 bg-primary/10 text-primary'
                 : gpsStatus === 'error'
                 ? 'border-destructive/30 bg-destructive/10 text-destructive'
                 : 'border-border bg-card text-muted-foreground',
             ].join(' ')}
           >
-            <MapPin className="h-3.5 w-3.5 text-primary" />
+            <MapPin className="h-3.5 w-3.5" />
             {gpsStatus === 'loading' && 'Obtendo localização...'}
-            {gpsStatus === 'ok' && 'GPS verificado'}
-            {gpsStatus === 'error' && 'GPS indisponível'}
+            {gpsStatus === 'ok' && 'Localização confirmada'}
+            {gpsStatus === 'error' && 'GPS obrigatório'}
             {gpsStatus === 'ok' && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-primary" />}
           </div>
+          {gpsStatus === 'error' && (
+            <button
+              onClick={requestGps}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Tentar
+            </button>
+          )}
         </div>
 
         <p className="pm-numeric text-center text-sm text-muted-foreground">
@@ -208,12 +216,16 @@ export default function PontoMobileBater() {
           <div className="space-y-2 pt-1">
             <button
               onClick={confirm}
-              disabled={submitting}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-base font-bold uppercase tracking-wide text-primary-foreground shadow-md hover:bg-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-              style={{ background: submitting ? undefined : 'var(--pm-gradient)' }}
+              disabled={submitting || !gps}
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-base font-bold uppercase tracking-wide text-primary-foreground shadow-md transition-all duration-200 hover:brightness-105 active:scale-[.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              style={{ background: submitting || !gps ? undefined : 'var(--pm-gradient)' }}
             >
               {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-              {submitting ? 'Enviando...' : `Confirmar ${TIPO_LABEL[tipo].replace('Registrar ', '')}`}
+              {submitting
+                ? 'Enviando...'
+                : !gps
+                ? 'Aguardando GPS...'
+                : `Confirmar ${TIPO_LABEL[tipo].replace('Registrar ', '')}`}
             </button>
             <button
               onClick={() => setPhoto(null)}
