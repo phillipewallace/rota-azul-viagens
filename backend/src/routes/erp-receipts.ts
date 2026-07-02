@@ -85,9 +85,24 @@ router.get('/pending', async (req, res) => {
 
 // Gera (ou regera) recibo da competência. Se já existir, atualiza valor e marca regerado.
 router.post('/generate', async (req, res) => {
-  const { contractId, competencia: comp, valor, pago = true, regerar = false } = req.body || {};
+  const {
+    contractId, competencia: comp, valor, pago = true, regerar = false,
+    periodoInicio, periodoFim,
+  } = req.body || {};
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
-  const competencia = comp || competenciaAtual();
+
+  // Validação e normalização do período (DD/MM exato a exibir no recibo).
+  const isISO = (s: any) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if ((periodoInicio && !isISO(periodoInicio)) || (periodoFim && !isISO(periodoFim))) {
+    return res.status(400).json({ error: 'periodoInicio/periodoFim devem estar em YYYY-MM-DD' });
+  }
+  if (periodoInicio && periodoFim && periodoFim < periodoInicio) {
+    return res.status(400).json({ error: 'periodoFim não pode ser anterior a periodoInicio' });
+  }
+  // Competência (YYYY-MM) é derivada do mês do periodoInicio quando informado,
+  // preservando a unicidade por contrato+competência e a lógica de pendentes.
+  const competencia = periodoInicio ? String(periodoInicio).slice(0, 7)
+                    : (comp || competenciaAtual());
 
   const client = await pool.connect();
   try {
