@@ -82,14 +82,33 @@ router.delete('/jornadas/:id', async (req: AuthedRequest, res) => {
 // ============================================================
 router.get('/punches', async (req, res) => {
   try {
-    const { funcionario_id, from, to, limit = '500' } = req.query as Record<string, string>;
+    const { funcionario_id, from, to, limit = '500', include_photo } = req.query as Record<string, string>;
     const where: string[] = []; const values: any[] = []; let i = 1;
     if (funcionario_id) { where.push(`p.funcionario_id = $${i++}`); values.push(funcionario_id); }
     if (from) { where.push(`p.timestamp >= $${i++}`); values.push(from); }
     if (to)   { where.push(`p.timestamp <= $${i++}`); values.push(to); }
     values.push(Math.min(parseInt(limit) || 500, 5000));
+    const shouldIncludePhoto = include_photo !== 'false';
     const sql = `
-      SELECT p.*, f.nome AS funcionario_nome, f.matricula
+      SELECT
+        p.id,
+        p.funcionario_id,
+        p.timestamp,
+        p.tipo,
+        p.origem,
+        p.latitude,
+        p.longitude,
+        p.endereco,
+        p.nsr,
+        p.hash,
+        ${shouldIncludePhoto ? 'p.foto_url' : 'NULL::text AS foto_url'},
+        p.ajustado,
+        p.motivo_ajuste,
+        p.ajustado_por,
+        p.ajustado_em,
+        p.created_at,
+        f.nome AS funcionario_nome,
+        f.matricula
       FROM ponto_punches p
       JOIN funcionarios f ON f.id = p.funcionario_id
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}

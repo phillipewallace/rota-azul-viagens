@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, X, MapPin, Camera, RotateCcw, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,7 +15,8 @@ const ORDER: TodayPunch['tipo'][] = ['entrada', 'saida-almoco', 'volta-almoco', 
 
 export default function PontoMobileBater() {
   const navigate = useNavigate();
-  const user = currentUser();
+  const user = useMemo(() => currentUser(), []);
+  const funcionarioId = user?.funcionario_id || user?.id;
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -29,14 +30,13 @@ export default function PontoMobileBater() {
 
   // Descobre próximo tipo pendente
   useEffect(() => {
-    const fid = user?.funcionario_id || user?.id;
-    if (!fid) return;
-    listTodayPunches(fid).then((today) => {
+    if (!funcionarioId) return;
+    listTodayPunches(funcionarioId).then((today) => {
       const done = new Set(today.map((p) => p.tipo));
       const next = ORDER.find((t) => !done.has(t)) ?? 'saida';
       setTipo(next);
     }).catch(() => {});
-  }, [user]);
+  }, [funcionarioId]);
 
   // Relógio
   useEffect(() => {
@@ -96,8 +96,7 @@ export default function PontoMobileBater() {
   }
 
   async function confirm() {
-    const fid = user?.funcionario_id || user?.id;
-    if (!fid) { toast.error('Sessão expirada'); return; }
+    if (!funcionarioId) { toast.error('Sessão expirada'); return; }
     if (!photo) { toast.error('Tire a foto primeiro'); return; }
     if (!gps) {
       toast.error('Localização é obrigatória — ative o GPS');
@@ -107,7 +106,7 @@ export default function PontoMobileBater() {
     setSubmitting(true);
     try {
       await createPunch({
-        funcionario_id: fid,
+        funcionario_id: funcionarioId,
         tipo,
         latitude: gps.lat,
         longitude: gps.lng,

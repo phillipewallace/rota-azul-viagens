@@ -114,12 +114,13 @@ export const pontoService = {
   deleteJornada: (id: string) => fetch(`${base}/jornadas/${id}`, { method: 'DELETE', headers: h() }).then(j) as Promise<void>,
 
   // Punches
-  listPunches: (p?: { funcionario_id?: string; from?: string; to?: string; limit?: number }): Promise<Punch[]> => {
+  listPunches: (p?: { funcionario_id?: string; from?: string; to?: string; limit?: number; include_photo?: boolean }): Promise<Punch[]> => {
     const qs = new URLSearchParams();
     if (p?.funcionario_id) qs.set('funcionario_id', p.funcionario_id);
     if (p?.from) qs.set('from', p.from);
     if (p?.to) qs.set('to', p.to);
     if (p?.limit) qs.set('limit', String(p.limit));
+    if (p?.include_photo === false) qs.set('include_photo', 'false');
     return fetch(`${base}/punches?${qs}`, { headers: h() }).then(j);
   },
   createPunch: (b: Partial<Punch> & { motivo?: string }) => fetch(`${base}/punches`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Punch>,

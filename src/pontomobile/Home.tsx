@@ -18,7 +18,8 @@ function fmtTime(iso: string) {
 }
 
 export default function PontoMobileHome() {
-  const user = currentUser();
+  const user = useMemo(() => currentUser(), []);
+  const funcionarioId = user?.funcionario_id || user?.id;
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [punches, setPunches] = useState<TodayPunch[]>([]);
@@ -30,13 +31,12 @@ export default function PontoMobileHome() {
   }, []);
 
   useEffect(() => {
-    const fid = user?.funcionario_id || user?.id;
-    if (!fid) return;
-    listTodayPunches(fid)
+    if (!funcionarioId) return;
+    listTodayPunches(funcionarioId)
       .then(setPunches)
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Erro ao carregar registros'))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [funcionarioId]);
 
   const timeline = useMemo(() => {
     const map = new Map<TodayPunch['tipo'], TodayPunch>();

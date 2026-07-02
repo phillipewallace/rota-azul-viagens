@@ -74,7 +74,8 @@ export async function listTodayPunches(funcionarioId: string): Promise<TodayPunc
   const today = new Date();
   const from = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
   const to = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-  const url = `${API_BASE_URL}/ponto/punches?funcionario_id=${funcionarioId}&from=${from}&to=${to}`;
+  const qs = new URLSearchParams({ funcionario_id: funcionarioId, from, to, include_photo: 'false' });
+  const url = `${API_BASE_URL}/ponto/punches?${qs.toString()}`;
   const r = await fetch(url, { headers: authHeaders() });
   return handle<TodayPunch[]>(r);
 }
@@ -82,7 +83,14 @@ export async function listTodayPunches(funcionarioId: string): Promise<TodayPunc
 export async function listMonthPunches(funcionarioId: string, ref: Date): Promise<TodayPunch[]> {
   const from = new Date(ref.getFullYear(), ref.getMonth(), 1).toISOString();
   const to = new Date(ref.getFullYear(), ref.getMonth() + 1, 1).toISOString();
-  const url = `${API_BASE_URL}/ponto/punches?funcionario_id=${funcionarioId}&from=${from}&to=${to}&limit=500`;
+  const qs = new URLSearchParams({
+    funcionario_id: funcionarioId,
+    from,
+    to,
+    limit: '200',
+    include_photo: 'false',
+  });
+  const url = `${API_BASE_URL}/ponto/punches?${qs.toString()}`;
   const r = await fetch(url, { headers: authHeaders() });
   return handle<TodayPunch[]>(r);
 }
