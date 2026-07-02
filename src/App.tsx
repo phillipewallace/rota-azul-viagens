@@ -35,12 +35,15 @@ const ErpDashboard = lazy(() => import("./pages/erp/ErpDashboard"));
 const ErpCompanies = lazy(() => import("./pages/erp/ErpCompanies"));
 const ErpFinanceiro = lazy(() => import("./pages/erp/ErpFinanceiro"));
 const ErpContracts = lazy(() => import("./pages/erp/ErpContracts"));
+const MobileMenu = lazy(() => import("./mobile/MobileMenu"));
 
 // Mobile Operator (lazy também — só pesa quando acessado)
 const MobileOperatorMenuPage = lazy(
   () => import("./components/mobile/operator/MobileOperatorMenuPage"),
 );
 
+import MobileBottomNav from "./mobile/MobileBottomNav";
+import { useIsMobile } from "./hooks/use-mobile";
 
 import "./App.css";
 
