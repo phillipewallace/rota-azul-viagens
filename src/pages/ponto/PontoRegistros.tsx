@@ -39,6 +39,9 @@ const PontoRegistros: React.FC = () => {
   const [date, setDate] = useState<string>('');
   const [preview, setPreview] = useState<Punch | null>(null);
 
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: PUNCHES = [] } = usePunches({ limit: 1000 });
+
   const rows = useMemo(() => {
     return [...PUNCHES]
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
@@ -54,7 +57,7 @@ const PontoRegistros: React.FC = () => {
         }
         return true;
       });
-  }, [q, emp, tipo, origem, date]);
+  }, [PUNCHES, EMPLOYEES, q, emp, tipo, origem, date]);
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
