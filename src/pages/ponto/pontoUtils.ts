@@ -71,6 +71,43 @@ export interface Justification {
   revisadoEm?: string;
 }
 
+export const justificationLabels: Record<JustificationType, string> = {
+  falta: 'Falta',
+  atraso: 'Atraso',
+  'saida-antecipada': 'Saída antecipada',
+  esquecimento: 'Esquecimento de batida',
+  atestado: 'Atestado médico',
+  folga: 'Folga',
+  ferias: 'Férias',
+  licenca: 'Licença',
+};
+
+export const fullDayJustificationTypes = new Set<JustificationType>(['falta', 'atestado', 'folga', 'ferias', 'licenca']);
+export const abonoJustificationTypes = new Set<JustificationType>(['atestado', 'folga', 'ferias', 'licenca']);
+export const punchJustificationTypes = new Set<JustificationType>(['atraso', 'saida-antecipada', 'esquecimento']);
+
+export const localDateFromYmd = (ymd: string) => {
+  const [yy, mm, dd] = ymd.slice(0, 10).split('-').map(Number);
+  return new Date(yy, (mm || 1) - 1, dd || 1);
+};
+
+export const localTodayYmd = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+export const findApprovedDayJustification = (
+  justifications: Justification[] = [],
+  employeeId: string | undefined,
+  date: string,
+) => justifications
+  .filter((j) => j.status === 'aprovada' && (!employeeId || j.employeeId === employeeId) && String(j.data).slice(0, 10) === date)
+  .sort((a, b) => {
+    const pa = abonoJustificationTypes.has(a.tipo) ? 0 : fullDayJustificationTypes.has(a.tipo) ? 1 : 2;
+    const pb = abonoJustificationTypes.has(b.tipo) ? 0 : fullDayJustificationTypes.has(b.tipo) ? 1 : 2;
+    return pa - pb;
+  })[0];
+
 // ---------- Adaptadores backend → UI ----------
 const trimTime = (t?: string | null) => (t ? t.slice(0, 5) : ''); // "HH:mm:ss" → "HH:mm"
 
@@ -153,6 +190,9 @@ export interface DayComputed {
   atraso: number;
   extra: number;
   incompleto: boolean;
+  justification?: Justification;
+  abonado?: boolean;
+  observacao?: string;
 }
 
 const HHMM = (s?: string) => {
@@ -161,8 +201,22 @@ const HHMM = (s?: string) => {
   return [h || 0, m || 0];
 };
 
-export const computeDay = (punches: Punch[], jornada: Jornada, date: string): DayComputed => {
+export const computeDay = (
+  punches: Punch[],
+  jornada: Jornada,
+  date: string,
+  justifications: Justification[] = [],
+  employeeId?: string,
+): DayComputed => {
   const day = { date } as DayComputed;
+  const approvedJustification = findApprovedDayJustification(justifications, employeeId, date);
+  if (approvedJustification) {
+    day.justification = approvedJustification;
+    day.abonado = abonoJustificationTypes.has(approvedJustification.tipo);
+    day.observacao = day.abonado
+      ? `Abonado por ${justificationLabels[approvedJustification.tipo]}`
+      : `${justificationLabels[approvedJustification.tipo]} aprovada`;
+  }
   const byType = (t: PunchType) => punches.find((p) => p.tipo === t);
   day.entrada = byType('entrada');
   day.saidaAlmoco = byType('saida-almoco');
@@ -184,6 +238,16 @@ export const computeDay = (punches: Punch[], jornada: Jornada, date: string): Da
   const previsto = jornada.saidaAlmoco && jornada.voltaAlmoco
     ? (sh * 60 + sm) - (vh * 60 + vm) + (ah * 60 + am) - (eh * 60 + em)
     : (sh * 60 + sm) - (eh * 60 + em);
+
+  if (day.abonado) {
+    day.trabalhado = 0;
+    day.previsto = 0;
+    day.saldo = 0;
+    day.atraso = 0;
+    day.extra = 0;
+    day.incompleto = false;
+    return day;
+  }
 
   day.trabalhado = Math.max(0, trabalhado);
   day.previsto = previsto;

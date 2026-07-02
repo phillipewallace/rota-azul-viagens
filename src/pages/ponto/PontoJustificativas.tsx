@@ -12,35 +12,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Scale, CheckCircle2, XCircle, Clock, Plus, Paperclip, Search, X } from 'lucide-react';
+import { Scale, CheckCircle2, XCircle, Clock, Plus, Paperclip, Search, X, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { JustificationStatus, JustificationType } from './pontoUtils';
+import {
+  JustificationStatus,
+  JustificationType,
+  abonoJustificationTypes,
+  fullDayJustificationTypes,
+  justificationLabels,
+  localTodayYmd,
+  punchJustificationTypes,
+} from './pontoUtils';
 import { useEmployees, useJustifications, useReviewJustification, useBatchReviewJustifications, useCreateJustification } from '@/hooks/usePontoData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { uploadPontoAttachment } from '@/services/ponto';
 
-// YYYY-MM-DD em fuso local (evita retroceder um dia à noite por causa de UTC).
-const todayLocalYmd = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
 const statusColor: Record<JustificationStatus, string> = {
   pendente: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
   aprovada: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
   recusada: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20',
 };
 
-const tipoLabel: Record<JustificationType, string> = {
-  falta: 'Falta',
-  atraso: 'Atraso',
-  'saida-antecipada': 'Saída antecipada',
-  esquecimento: 'Esquecimento',
-  atestado: 'Atestado médico',
-  folga: 'Folga',
-  ferias: 'Férias',
-  licenca: 'Licença',
-};
+const tipoLabel = justificationLabels;
 
 const PontoJustificativas: React.FC = () => {
   const [q, setQ] = useState('');
@@ -48,9 +43,10 @@ const PontoJustificativas: React.FC = () => {
   const [tipo, setTipo] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [newOpen, setNewOpen] = useState(false);
-  const [newForm, setNewForm] = useState<{ funcionario_id: string; data: string; tipo: JustificationType; motivo: string; horario: string }>(
-    { funcionario_id: '', data: todayLocalYmd(), tipo: 'atraso', motivo: '', horario: '' },
+  const [newForm, setNewForm] = useState<{ funcionario_id: string; data: string; tipo: JustificationType; motivo: string; horario: string; anexo_url: string }>(
+    { funcionario_id: '', data: localTodayYmd(), tipo: 'atraso', motivo: '', horario: '', anexo_url: '' },
   );
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   const { data: EMPLOYEES = [] } = useEmployees();
   const { data: JUSTIFICATIONS = [] } = useJustifications();
@@ -113,8 +109,24 @@ const PontoJustificativas: React.FC = () => {
   };
 
   const submitNew = () => {
-    if (!newForm.funcionario_id || !newForm.motivo.trim()) {
+    if (!newForm.funcionario_id || !newForm.data || !newForm.tipo || !newForm.motivo.trim()) {
       toast.error('Selecione funcionário e informe o motivo');
+      return;
+    }
+    if (newForm.motivo.trim().length < 5) {
+      toast.error('Descreva o motivo com pelo menos 5 caracteres');
+      return;
+    }
+    if (fullDayJustificationTypes.has(newForm.tipo) && newForm.horario) {
+      toast.error('Esse tipo abona/justifica o dia inteiro; deixe o horário vazio');
+      return;
+    }
+    if (punchJustificationTypes.has(newForm.tipo) && !newForm.horario) {
+      toast.error('Informe o horário da batida para atraso, saída antecipada ou esquecimento');
+      return;
+    }
+    if (newForm.tipo === 'atestado' && !newForm.anexo_url) {
+      toast.error('Anexe o atestado em PDF ou foto antes de salvar');
       return;
     }
     if (newForm.horario && !/^\d{2}:\d{2}$/.test(newForm.horario)) {
@@ -122,16 +134,30 @@ const PontoJustificativas: React.FC = () => {
       return;
     }
     createJust.mutate(
-      { ...newForm, horario: newForm.horario || undefined },
+      { ...newForm, horario: newForm.horario || undefined, anexo_url: newForm.anexo_url || undefined },
       {
         onSuccess: () => {
           toast.success('Justificativa criada');
           setNewOpen(false);
-          setNewForm({ funcionario_id: '', data: todayLocalYmd(), tipo: 'atraso', motivo: '', horario: '' });
+          setNewForm({ funcionario_id: '', data: localTodayYmd(), tipo: 'atraso', motivo: '', horario: '', anexo_url: '' });
         },
         onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
       },
     );
+  };
+
+  const handleAttachment = async (file?: File) => {
+    if (!file) return;
+    setUploadingAttachment(true);
+    try {
+      const url = await uploadPontoAttachment(file);
+      setNewForm((f) => ({ ...f, anexo_url: url }));
+      toast.success('Anexo vinculado à justificativa');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao enviar anexo');
+    } finally {
+      setUploadingAttachment(false);
+    }
   };
 
   return (
@@ -254,9 +280,9 @@ const PontoJustificativas: React.FC = () => {
                             </span>
                           )}
                           {j.anexoUrl && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-primary">
+                            <a href={j.anexoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
                               <Paperclip className="h-3 w-3" /> Anexo
-                            </span>
+                            </a>
                           )}
                         </div>
                       </TableCell>
@@ -332,7 +358,7 @@ const PontoJustificativas: React.FC = () => {
               </div>
               <div>
                 <Label>Tipo</Label>
-                <Select value={newForm.tipo} onValueChange={(v) => setNewForm((f) => ({ ...f, tipo: v as JustificationType }))}>
+                <Select value={newForm.tipo} onValueChange={(v) => setNewForm((f) => ({ ...f, tipo: v as JustificationType, horario: fullDayJustificationTypes.has(v as JustificationType) ? '' : f.horario }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(tipoLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
@@ -340,11 +366,34 @@ const PontoJustificativas: React.FC = () => {
                 </Select>
               </div>
               <div>
-                <Label>Horário da batida <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                <Input type="time" value={newForm.horario} onChange={(e) => setNewForm((f) => ({ ...f, horario: e.target.value }))} />
-                <p className="text-[10px] text-muted-foreground mt-1">Horário sugerido a incluir na batida ao aprovar.</p>
+                <Label>Horário da batida <span className="text-muted-foreground font-normal">{punchJustificationTypes.has(newForm.tipo) ? '(obrig.)' : '(não usar)'}</span></Label>
+                <Input type="time" value={newForm.horario} disabled={fullDayJustificationTypes.has(newForm.tipo)} onChange={(e) => setNewForm((f) => ({ ...f, horario: e.target.value }))} />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {fullDayJustificationTypes.has(newForm.tipo) ? 'Justificativa do dia inteiro; não vira batida.' : 'Ao aprovar, entra na hierarquia cronológica das batidas.'}
+                </p>
               </div>
             </div>
+            {abonoJustificationTypes.has(newForm.tipo) && (
+              <div className="rounded-lg border border-border/60 p-3 space-y-2">
+                <Label>{newForm.tipo === 'atestado' ? 'Anexo do atestado' : 'Anexo do abono'} <span className="text-muted-foreground font-normal">{newForm.tipo === 'atestado' ? '(obrig.)' : '(opcional)'}</span></Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(e) => handleAttachment(e.target.files?.[0])}
+                    disabled={uploadingAttachment}
+                    className="max-w-xs"
+                  />
+                  {uploadingAttachment && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando…</span>}
+                  {newForm.anexo_url && (
+                    <a href={newForm.anexo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                      <Upload className="h-3.5 w-3.5" /> Anexo pronto
+                    </a>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">PDF ou foto, até 10MB. Ao aprovar, o dia fica abonado no espelho e no banco de horas.</p>
+              </div>
+            )}
             <div>
               <Label>Motivo</Label>
               <Textarea rows={4} value={newForm.motivo} onChange={(e) => setNewForm((f) => ({ ...f, motivo: e.target.value }))} />

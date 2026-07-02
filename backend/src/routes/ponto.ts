@@ -25,6 +25,11 @@ const HMAC_SECRET = process.env.PONTO_HMAC_SECRET || process.env.JWT_SECRET || '
 const signPunch = (funcId: string, ts: string, tipo: string, nsr: number) =>
   crypto.createHmac('sha256', HMAC_SECRET).update(`${funcId}|${ts}|${tipo}|${nsr}`).digest('hex').slice(0, 32).toUpperCase();
 
+const JUSTIFICATION_TYPES = ['falta','atraso','saida-antecipada','esquecimento','atestado','folga','ferias','licenca'] as const;
+const FULL_DAY_TYPES = new Set(['falta','atestado','folga','ferias','licenca']);
+const ABONO_TYPES = new Set(['atestado','folga','ferias','licenca']);
+const PUNCH_ADJUST_TYPES = new Set(['atraso','saida-antecipada','esquecimento']);
+
 function isAdmin(req: AuthedRequest) {
   const r = (req.user?.role || '').toLowerCase();
   return r === 'admin' || r === 'manager' || req.user?.username === 'phillipe.sodre';
@@ -226,12 +231,27 @@ router.post('/justifications', async (req: AuthedRequest, res) => {
     const { funcionario_id, data, tipo, motivo, anexo_url, horario } = req.body || {};
     if (!funcionario_id || !data || !tipo || !motivo)
       return res.status(400).json({ error: 'funcionario_id, data, tipo e motivo obrigatórios' });
+    if (!JUSTIFICATION_TYPES.includes(tipo)) return res.status(400).json({ error: 'Tipo de justificativa inválido' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data))) return res.status(400).json({ error: 'Data inválida' });
+    if (String(motivo).trim().length < 5) return res.status(400).json({ error: 'Descreva o motivo com pelo menos 5 caracteres' });
+    if (String(motivo).length > 1000) return res.status(400).json({ error: 'Motivo muito longo (máx. 1000 caracteres)' });
     if (horario && !/^\d{2}:\d{2}(:\d{2})?$/.test(horario))
       return res.status(400).json({ error: 'horario deve estar no formato HH:mm' });
+    if (PUNCH_ADJUST_TYPES.has(tipo) && !horario) {
+      return res.status(400).json({ error: 'Horário é obrigatório para esquecimento, atraso ou saída antecipada' });
+    }
+    if (FULL_DAY_TYPES.has(tipo) && horario) {
+      return res.status(400).json({ error: 'Este tipo de justificativa é por dia inteiro; informe somente a data' });
+    }
+    if (tipo === 'atestado' && !anexo_url) {
+      return res.status(400).json({ error: 'Anexo do atestado é obrigatório (PDF ou foto)' });
+    }
+    const fRes = await pool.query('SELECT id FROM funcionarios WHERE id = $1', [funcionario_id]);
+    if (!fRes.rows.length) return res.status(404).json({ error: 'Funcionário não encontrado' });
     const r = await pool.query(
       `INSERT INTO ponto_justifications (funcionario_id, data, tipo, motivo, anexo_url, horario, criado_por)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [funcionario_id, data, tipo, motivo, anexo_url || null, horario || null, req.user?.userId || null]
+      [funcionario_id, data, tipo, String(motivo).trim(), anexo_url || null, horario || null, req.user?.userId || null]
     );
     res.status(201).json(r.rows[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -270,7 +290,7 @@ async function reallocateDayTipos(
   funcionarioId: string,
   dataRaw: any,
   horarioRaw: string | null | undefined,
-  reviewer?: string,
+  reviewerId?: string,
 ) {
   const data = toYmd(dataRaw);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) throw new Error('Data inválida');
@@ -315,7 +335,7 @@ async function reallocateDayTipos(
           (funcionario_id, timestamp, tipo, origem, nsr, hash,
            ajustado, motivo_ajuste, ajustado_por, ajustado_em)
          VALUES ($1,$2,'entrada','manual',$3,$4,TRUE,$5,$6,NOW())`,
-        [funcionarioId, tsIso, nsr, hash, 'Justificativa aprovada', reviewer || null],
+        [funcionarioId, tsIso, nsr, hash, 'Justificativa aprovada', reviewerId || null],
       );
     }
 
@@ -352,14 +372,13 @@ async function reallocateDayTipos(
   }
 }
 
-async function applyApprovedJustifications(rows: any[], reviewer?: string) {
+async function applyApprovedJustifications(rows: any[], reviewerId?: string) {
   for (const j of rows) {
     if (j.status !== 'aprovada' || !j.data) continue;
-    // Sem horário? Ainda materializa — usa jornada do funcionário como fallback.
-    try {
-      await reallocateDayTipos(j.funcionario_id, j.data, j.horario, reviewer);
-    } catch (e) {
-      console.error('[JUSTIFICATION APPLY]', j.id, e);
+    if (ABONO_TYPES.has(j.tipo)) continue;
+    if (j.tipo === 'falta') continue;
+    if (PUNCH_ADJUST_TYPES.has(j.tipo)) {
+      await reallocateDayTipos(j.funcionario_id, j.data, j.horario, reviewerId);
     }
   }
 }
@@ -371,9 +390,12 @@ router.put('/justifications/:id/review', async (req: AuthedRequest, res) => {
     if (!['aprovada','recusada'].includes(status)) return res.status(400).json({ error: 'status inválido' });
     const rows = await reviewMany([req.params.id], status, req.user?.username || 'sistema', observacao);
     if (!rows.length) return res.status(404).json({ error: 'Não encontrada' });
-    if (status === 'aprovada') await applyApprovedJustifications(rows, req.user?.username);
+    if (status === 'aprovada') await applyApprovedJustifications(rows, req.user?.userId);
     res.json(rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    console.error('[JUSTIFICATION REVIEW]', e);
+    res.status(500).json({ error: e.message || 'Falha ao aplicar justificativa aprovada' });
+  }
 });
 
 router.post('/justifications/batch-review', async (req: AuthedRequest, res) => {
@@ -383,9 +405,12 @@ router.post('/justifications/batch-review', async (req: AuthedRequest, res) => {
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids obrigatórios' });
     if (!['aprovada','recusada'].includes(status)) return res.status(400).json({ error: 'status inválido' });
     const rows = await reviewMany(ids, status, req.user?.username || 'sistema', observacao);
-    if (status === 'aprovada') await applyApprovedJustifications(rows, req.user?.username);
+    if (status === 'aprovada') await applyApprovedJustifications(rows, req.user?.userId);
     res.json({ updated: rows.length, rows });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    console.error('[JUSTIFICATION BATCH REVIEW]', e);
+    res.status(500).json({ error: e.message || 'Falha ao aplicar justificativas aprovadas' });
+  }
 });
 
 // ============================================================

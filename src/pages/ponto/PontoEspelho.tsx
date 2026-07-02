@@ -13,8 +13,8 @@ import {
 } from '@/components/ui/table';
 import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User, Activity, LogIn, Coffee, LogOut, UtensilsCrossed, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { computeDay, minutesToHHmm } from './pontoUtils';
-import { useEmployees, usePunches, useJornadas, useSettings } from '@/hooks/usePontoData';
+import { computeDay, localDateFromYmd, minutesToHHmm } from './pontoUtils';
+import { useEmployees, usePunches, useJornadas, useSettings, useJustifications } from '@/hooks/usePontoData';
 import { generateEspelhoIndividualPdf } from './pontoPdf';
 
 const weekdayLabel = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -42,6 +42,9 @@ const PontoEspelho: React.FC = () => {
   const { data: PUNCHES = [], isLoading: loadingPunches } = usePunches(
     empId ? { funcionario_id: empId, from, to, limit: 500, include_photo: false } : undefined
   );
+  const { data: JUSTIFICATIONS = [], isLoading: loadingJustifications } = useJustifications(
+    empId ? { funcionario_id: empId } : undefined,
+  );
 
   const emp = EMPLOYEES.find((e) => e.id === empId);
   const jornada = emp ? JORNADAS.find((j) => j.id === emp.jornadaId) : undefined;
@@ -60,23 +63,26 @@ const PontoEspelho: React.FC = () => {
       const iso = `${month}-${String(i + 1).padStart(2, '0')}`;
       const pts = PUNCHES.filter((p) => p.employeeId === empId && p.timestamp.startsWith(iso))
         .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-      const d = new Date(iso);
+      const d = localDateFromYmd(iso);
       const isWorkday = jornadaSafe.diasSemana.includes(d.getDay());
-      const comp = computeDay(pts, jornadaSafe, iso);
-      return { iso, d, isWorkday, comp, hasPunches: pts.length > 0 };
+      const comp = computeDay(pts, jornadaSafe, iso, JUSTIFICATIONS, empId);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const isFuture = d > today;
+      const considered = comp.abonado || pts.length > 0 || (isWorkday && !isFuture);
+      return { iso, d, isWorkday, isFuture, considered, comp, hasPunches: pts.length > 0 };
     });
-  }, [empId, month, jornadaSafe, PUNCHES, y, mNum]);
+  }, [empId, month, jornadaSafe, PUNCHES, JUSTIFICATIONS, y, mNum]);
 
   const totals = useMemo(() => {
     return days.reduce(
       (acc, x) => {
-        if (x.hasPunches) {
+        if (x.considered) {
           acc.trabalhado += x.comp.trabalhado;
           acc.extras += x.comp.extra;
           acc.atrasos += x.comp.atraso;
           acc.saldo += x.comp.saldo;
         }
-        if (x.isWorkday) acc.previsto += x.comp.previsto || 0;
+        if (x.considered && x.isWorkday) acc.previsto += x.comp.previsto || 0;
         return acc;
       },
       { trabalhado: 0, extras: 0, atrasos: 0, saldo: 0, previsto: 0 },
@@ -93,7 +99,7 @@ const PontoEspelho: React.FC = () => {
 
   const handleExport = async (mode: 'print' | 'pdf') => {
     if (!emp) { toast.error('Selecione um funcionário.'); return; }
-    if (loadingPunches) { toast.info('Aguarde o carregamento das batidas.'); return; }
+    if (loadingPunches || loadingJustifications) { toast.info('Aguarde o carregamento das batidas e justificativas.'); return; }
     setExporting(mode);
     try {
       const empresa = {
@@ -108,6 +114,7 @@ const PontoEspelho: React.FC = () => {
         employee: emp,
         jornada,
         punches: empPunches,
+        justifications: JUSTIFICATIONS,
         month,
         filename: `Espelho_${emp.matricula || emp.nome.replace(/\s+/g, '_')}_${month}.pdf`,
       });
@@ -152,7 +159,7 @@ const PontoEspelho: React.FC = () => {
             variant="outline"
             size="sm"
             className="gap-2"
-            disabled={exporting !== null || loadingPunches}
+            disabled={exporting !== null || loadingPunches || loadingJustifications}
             onClick={() => handleExport('print')}
           >
             {exporting === 'print' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
@@ -161,7 +168,7 @@ const PontoEspelho: React.FC = () => {
           <Button
             size="sm"
             className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0"
-            disabled={exporting !== null || loadingPunches}
+            disabled={exporting !== null || loadingPunches || loadingJustifications}
             onClick={() => handleExport('pdf')}
           >
             {exporting === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -415,7 +422,7 @@ const PontoEspelho: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {days.map(({ iso, d, isWorkday, comp, hasPunches }) => {
+                {days.map(({ iso, d, isWorkday, comp, hasPunches, considered }) => {
                   const weekend = !isWorkday;
                   return (
                     <TableRow key={iso} className={weekend ? 'bg-muted/30 hover:bg-muted/40' : 'hover:bg-muted/30'}>
@@ -426,18 +433,20 @@ const PontoEspelho: React.FC = () => {
                       <TableCell className="text-center text-sm tabular-nums">{fmtTime(comp.voltaAlmoco?.timestamp)}</TableCell>
                       <TableCell className="text-center text-sm tabular-nums">{fmtTime(comp.saida?.timestamp)}</TableCell>
                       <TableCell className="text-center text-sm tabular-nums font-medium">
-                        {hasPunches ? minutesToHHmm(comp.trabalhado) : '—'}
+                        {considered ? minutesToHHmm(comp.trabalhado) : '—'}
                       </TableCell>
                       <TableCell className="text-center text-sm tabular-nums font-semibold">
-                        {hasPunches ? (
+                        {considered ? (
                           <span className={comp.saldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
                             {comp.saldo >= 0 ? '+' : ''}{minutesToHHmm(comp.saldo)}
                           </span>
                         ) : '—'}
                       </TableCell>
                       <TableCell>
-                        {weekend && !hasPunches && <Badge variant="secondary" className="text-[10px]">DSR</Badge>}
-                        {isWorkday && !hasPunches && <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20">Falta</Badge>}
+                        {comp.abonado && <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20">{comp.observacao}</Badge>}
+                        {!comp.abonado && weekend && !hasPunches && <Badge variant="secondary" className="text-[10px]">DSR</Badge>}
+                        {!comp.abonado && isWorkday && !hasPunches && <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20">Falta</Badge>}
+                        {!comp.abonado && comp.justification && <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20">{comp.observacao}</Badge>}
                         {hasPunches && comp.incompleto && <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">Incompleto</Badge>}
                         {hasPunches && comp.atraso > 0 && !comp.incompleto && <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">Atraso {minutesToHHmm(comp.atraso)}</Badge>}
                       </TableCell>

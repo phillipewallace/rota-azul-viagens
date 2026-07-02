@@ -1,20 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, Loader2, Plus, CheckCircle2, XCircle, Clock3, Send, X } from 'lucide-react';
+import { FileText, Loader2, Plus, CheckCircle2, XCircle, Clock3, Send, X, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   currentUser,
   listMyJustifications,
   createJustification,
+  uploadJustificationAttachment,
   type Justification,
   type JustTipo,
 } from './api';
 
 const TIPO_LABEL: Record<JustTipo, string> = {
-  atestado: 'Atestado',
   falta: 'Falta',
+  atraso: 'Atraso',
+  'saida-antecipada': 'Saída antecipada',
   esquecimento: 'Esqueci de bater',
-  outro: 'Outro',
+  atestado: 'Atestado',
+  folga: 'Folga',
+  ferias: 'Férias',
+  licenca: 'Licença',
 };
+const FULL_DAY_TYPES = new Set<JustTipo>(['falta', 'atestado', 'folga', 'ferias', 'licenca']);
+const ABONO_TYPES = new Set<JustTipo>(['atestado', 'folga', 'ferias', 'licenca']);
+const PUNCH_TYPES = new Set<JustTipo>(['atraso', 'saida-antecipada', 'esquecimento']);
 
 function fmtDate(d: string) {
   // Evita shift de fuso: parseia YYYY-MM-DD como data local, sem UTC.
@@ -132,6 +140,11 @@ function Section({ title, items }: { title: string; items: Justification[] }) {
                 <p className="text-xs text-muted-foreground">{fmtDate(j.data)}{j.horario ? ` · ${j.horario}` : ''}</p>
               </div>
               <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{j.motivo}</p>
+              {j.anexo_url && (
+                <a href={j.anexo_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                  <Paperclip className="h-3 w-3" /> Ver anexo
+                </a>
+              )}
               {j.observacao_revisao && (
                 <p className="mt-1 text-xs italic text-muted-foreground">Gestor: {j.observacao_revisao}</p>
               )}
@@ -176,11 +189,31 @@ function NewJustificationSheet({
   const [tipo, setTipo] = useState<JustTipo>('atestado');
   const [horario, setHorario] = useState('');
   const [motivo, setMotivo] = useState('');
+  const [anexoUrl, setAnexoUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  async function handleAttachment(file?: File) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadJustificationAttachment(file);
+      setAnexoUrl(url);
+      toast.success('Anexo vinculado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao enviar anexo');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!data) { toast.error('Informe a data'); return; }
     if (motivo.trim().length < 5) { toast.error('Descreva o motivo (mín. 5 caracteres)'); return; }
+    if (FULL_DAY_TYPES.has(tipo) && horario) { toast.error('Esse tipo é por dia inteiro; deixe o horário vazio'); return; }
+    if (PUNCH_TYPES.has(tipo) && !horario) { toast.error('Informe o horário da batida'); return; }
+    if (tipo === 'atestado' && !anexoUrl) { toast.error('Anexe o atestado em PDF ou foto'); return; }
     setSaving(true);
     try {
       await createJustification({
@@ -188,6 +221,7 @@ function NewJustificationSheet({
         data, tipo,
         motivo: motivo.trim(),
         horario: horario || undefined,
+        anexo_url: anexoUrl || undefined,
       });
       toast.success('Solicitação enviada');
       onCreated();
@@ -217,7 +251,7 @@ function NewJustificationSheet({
               {(Object.keys(TIPO_LABEL) as JustTipo[]).map((t) => (
                 <button
                   type="button" key={t}
-                  onClick={() => setTipo(t)}
+                  onClick={() => { setTipo(t); if (FULL_DAY_TYPES.has(t)) setHorario(''); }}
                   className={`h-11 rounded-xl border text-sm font-medium transition-all duration-150 ${
                     tipo === t
                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
@@ -240,14 +274,34 @@ function NewJustificationSheet({
               />
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="j-hora" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Horário <span className="lowercase text-muted-foreground/70">(opc.)</span></label>
+              <label htmlFor="j-hora" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Horário <span className="lowercase text-muted-foreground/70">{PUNCH_TYPES.has(tipo) ? '(obrig.)' : '(não usar)'}</span></label>
               <input
                 id="j-hora" type="time" value={horario}
+                disabled={FULL_DAY_TYPES.has(tipo)}
                 onChange={(e) => setHorario(e.target.value)}
-                className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground disabled:opacity-50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
+
+          {ABONO_TYPES.has(tipo) && (
+            <div className="space-y-1.5 rounded-2xl border border-border bg-card p-3">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {tipo === 'atestado' ? 'Atestado em PDF/foto (obrig.)' : 'Anexo (opcional)'}
+              </label>
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                capture="environment"
+                disabled={uploading || saving}
+                onChange={(e) => handleAttachment(e.target.files?.[0])}
+                className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-full file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-primary"
+              />
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {uploading ? 'Enviando anexo…' : anexoUrl ? 'Anexo pronto para envio.' : 'Pode ser PDF ou foto do documento.'}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label htmlFor="j-motivo" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Motivo</label>
@@ -260,11 +314,11 @@ function NewJustificationSheet({
           </div>
 
           <button
-            type="submit" disabled={saving}
+            type="submit" disabled={saving || uploading}
             className="mt-1 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold text-primary-foreground shadow-lg transition-all duration-200 hover:brightness-105 active:scale-[.99] disabled:opacity-60"
             style={{ background: 'var(--pm-gradient)' }}
           >
-            {saving ? <><Loader2 className="h-5 w-5 animate-spin" /> Enviando...</> : <><Send className="h-5 w-5" /> Enviar solicitação</>}
+            {saving || uploading ? <><Loader2 className="h-5 w-5 animate-spin" /> {uploading ? 'Enviando anexo...' : 'Enviando...'}</> : <><Send className="h-5 w-5" /> Enviar solicitação</>}
           </button>
         </form>
       </div>

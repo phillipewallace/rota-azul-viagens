@@ -9,6 +9,11 @@ function authHeaders(): HeadersInit {
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
 }
 
+function bearerHeaders(): HeadersInit {
+  const t = localStorage.getItem(TOKEN_KEY);
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 async function handle<T>(r: Response): Promise<T> {
   if (!r.ok) {
     let msg = `Erro ${r.status}`;
@@ -116,7 +121,7 @@ export async function createPunch(input: CreatePunchInput): Promise<TodayPunch> 
 // ============================================================
 // Justificativas
 // ============================================================
-export type JustTipo = 'atestado' | 'falta' | 'esquecimento' | 'outro';
+export type JustTipo = 'falta' | 'atraso' | 'saida-antecipada' | 'esquecimento' | 'atestado' | 'folga' | 'ferias' | 'licenca';
 export type JustStatus = 'pendente' | 'aprovada' | 'recusada';
 
 export interface Justification {
@@ -155,6 +160,21 @@ export async function createJustification(input: CreateJustInput): Promise<Justi
     body: JSON.stringify(input),
   });
   return handle<Justification>(r);
+}
+
+export async function uploadJustificationAttachment(file: File): Promise<string> {
+  const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type)) throw new Error('Envie PDF, JPG, PNG ou WEBP');
+  if (file.size > 10 * 1024 * 1024) throw new Error('Arquivo muito grande (máx. 10MB)');
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await fetch(`${API_BASE_URL}/upload`, {
+    method: 'POST',
+    headers: bearerHeaders(),
+    body: fd,
+  });
+  const data = await handle<{ url: string }>(r);
+  return data.url;
 }
 
 // ============================================================
