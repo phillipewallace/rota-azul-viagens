@@ -318,6 +318,23 @@ const ErpFinanceiro: React.FC = () => {
     finally { setWorking(null); }
   };
 
+  // Reverte um recibo CANCELADO ao estado "não faturado" (volta à lista de pendentes).
+  const voltarParaPendentes = async (r: Receipt) => {
+    const ok = await confirmDialog({
+      title: 'Voltar recibo para pendentes?',
+      description: `O recibo ${r.numero} será removido e a competência voltará à lista de pendentes, como se ainda não tivesse sido faturado. Essa ação apaga o registro do cancelamento.`,
+      confirmText: 'Voltar para pendentes',
+    });
+    if (!ok) return;
+    setWorking(r.id);
+    try {
+      await receiptsService.reopen(r.id);
+      toast.success('Recibo removido — competência disponível para faturar novamente');
+      await load();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setWorking(null); }
+  };
+
   const toggleSel = (id: string) => {
     setSelected(prev => {
       const n = new Set(prev);
