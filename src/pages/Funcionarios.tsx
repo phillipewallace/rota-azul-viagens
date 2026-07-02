@@ -339,12 +339,14 @@ const Funcionarios: React.FC = () => {
               <Input id="telefone" value={form.telefone ?? ''} onChange={e => setForm(s => ({ ...s, telefone: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cargo">Cargo</Label>
-              <Input id="cargo" value={form.cargo ?? ''} onChange={e => setForm(s => ({ ...s, cargo: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="departamento">Departamento</Label>
-              <Input id="departamento" value={form.departamento ?? ''} onChange={e => setForm(s => ({ ...s, departamento: e.target.value }))} />
+              <Label>Cargo</Label>
+              <Select value={form.cargo || 'none'} onValueChange={v => setForm(s => ({ ...s, cargo: v === 'none' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione o cargo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Não informado —</SelectItem>
+                  {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="admissao">Admissão</Label>
@@ -369,11 +371,40 @@ const Funcionarios: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="salario">Salário base (R$)</Label>
-              <Input id="salario" type="number" step="0.01" value={form.salario_base ?? ''}
-                     onChange={e => setForm(s => ({ ...s, salario_base: e.target.value ? Number(e.target.value) : null }))} />
+
+            <div className="md:col-span-2 rounded-lg border border-dashed border-border/70 bg-muted/30 p-3.5 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <KeyRound className="h-3.5 w-3.5" /> Acesso ao Ponto Digital
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                O funcionário faz login no ponto usando o <strong className="text-foreground">CPF</strong> como usuário e a senha definida abaixo. Não terá acesso a nenhuma outra área do sistema.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-xs">
+                  Senha {editing && <span className="text-muted-foreground font-normal">(deixe em branco para manter)</span>}
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPw ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder={editing ? '••••••••' : 'Mínimo 4 caracteres'}
+                    value={form.password ?? ''}
+                    onChange={e => setForm(s => ({ ...s, password: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(v => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+                    aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'}
+                  >
+                    {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
             </div>
+
             <div className="md:col-span-2 space-y-1.5">
               <Label htmlFor="obs">Observações</Label>
               <Textarea id="obs" rows={3} value={form.observacoes ?? ''} onChange={e => setForm(s => ({ ...s, observacoes: e.target.value }))} />
