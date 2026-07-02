@@ -9,7 +9,7 @@ import Map from '@/components/Map';
 import TrackingPanel from '@/components/TrackingPanel';
 import LinkRouteModal from '@/components/LinkRouteModal';
 import { useIsMobile } from '@/hooks/use-mobile';
-import MobileOperatorIndex from '@/components/mobile/operator/MobileOperatorIndex';
+import MobileHome from '@/mobile/MobileHome';
 import { serviceOrdersService } from '@/services/quotes';
 import { toast } from 'sonner';
 
