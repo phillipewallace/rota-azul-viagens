@@ -358,6 +358,112 @@ const PontoDashboard: React.FC = () => {
         </Card>
       </section>
 
+      {/* Aniversariantes + Férias */}
+      {(() => {
+        const bdays = aniversariantesProximos(30);
+        const ferias = feriasVencendo(60);
+        if (bdays.length === 0 && ferias.length === 0) return null;
+        return (
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="border-border/60 overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500" />
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-lg bg-pink-500/15 flex items-center justify-center">
+                      <Cake className="h-4.5 w-4.5 text-pink-600 dark:text-pink-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-base font-semibold leading-none">Aniversariantes</h3>
+                      <p className="text-xs text-muted-foreground mt-1">Próximos 30 dias</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="tabular-nums">{bdays.length}</Badge>
+                </div>
+                {bdays.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Nenhum aniversário próximo</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {bdays.slice(0, 6).map(({ e, date }) => {
+                      const dRest = daysBetween(new Date(new Date().setHours(0,0,0,0)), date);
+                      return (
+                        <li key={e.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/60 transition-colors">
+                          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-pink-400 to-fuchsia-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                            {e.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{e.nome}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{e.cargo}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs font-semibold tabular-nums">
+                              {date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {dRest === 0 ? 'hoje 🎉' : `em ${dRest}d`}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/60 overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-sky-500 via-cyan-500 to-teal-500" />
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-lg bg-sky-500/15 flex items-center justify-center">
+                      <Umbrella className="h-4.5 w-4.5 text-sky-600 dark:text-sky-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-base font-semibold leading-none">Férias vencendo</h3>
+                      <p className="text-xs text-muted-foreground mt-1">CLT art. 134 · limite concessivo</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="tabular-nums">{ferias.length}</Badge>
+                </div>
+                {ferias.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Ninguém no prazo crítico</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {ferias.slice(0, 6).map(({ e, limite, diasRest }) => {
+                      const critical = diasRest <= 30;
+                      return (
+                        <li key={e.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/60 transition-colors">
+                          <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
+                            {e.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{e.nome}</p>
+                            <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                              <CalendarClock className="h-3 w-3" />
+                              {limite.toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                          <div
+                            className={`px-2.5 py-1 rounded-md text-xs font-bold tabular-nums shrink-0 ${
+                              critical
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            {diasRest}d
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        );
+      })()}
+
       {/* Módulos */}
       <section>
         <h3 className="font-display text-base font-semibold mb-3 px-1">Módulos</h3>
