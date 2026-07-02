@@ -351,6 +351,61 @@ const ErpFinanceiro: React.FC = () => {
     else toast.warning(`${ok} ok, ${fail} falharam`);
   };
 
+  // Habilita "recibo unificado" quando 2+ pendentes selecionados são
+  // da MESMA empresa emissora E do MESMO cliente.
+  const unifiedGroup = useMemo(() => {
+    if (selected.size < 2) return null;
+    const arr = pendentes.filter(p => selected.has(p.contractId));
+    if (arr.length < 2) return null;
+    const cId = arr[0].companyId, kId = arr[0].customerId;
+    if (!cId || !kId) return null;
+    if (!arr.every(p => p.companyId === cId && p.customerId === kId)) return null;
+    return { arr, companyId: cId };
+  }, [selected, pendentes]);
+
+  const gerarUnificado = async () => {
+    if (!unifiedGroup) return;
+    setWorking('__unified__');
+    try {
+      const { arr, companyId } = unifiedGroup;
+      const [companies, ...contracts] = await Promise.all([
+        erpService.listCompanies(),
+        ...arr.map(p => contractsService.get(p.contractId)),
+      ]);
+      const company = companies.find(c => c.id === companyId);
+      if (!company) throw new Error('Empresa emissora não encontrada');
+      const first = contracts[0];
+      const customer = first.customerSnapshot || {
+        name: first.customerName, document: first.customerDocument,
+      };
+      const items = contracts.map((c, i) => ({
+        contractNumero: c.numero,
+        descricao: c.descricao || `Locação mensal — Contrato ${c.numero}`,
+        enderecoObra: c.enderecoObra || c.localEvento || '',
+        cno: c.cno || '',
+        valor: Number(arr[i].valorMensal),
+      }));
+      const total = items.reduce((s, it) => s + it.valor, 0);
+      const now = new Date();
+      const numero = `UNIF-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+      await generateUnifiedReceiptPdf({
+        numero,
+        competencia,
+        dataEmissao: todayISO(),
+        dataVencimento: null,
+        company,
+        customer,
+        items,
+        total,
+      });
+      toast.success(`Recibo unificado gerado · ${items.length} contratos`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao gerar recibo unificado');
+    } finally {
+      setWorking(null);
+    }
+  };
+
   const regerar = async (r: Receipt) => {
     setWorking(r.id);
     try {
