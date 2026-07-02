@@ -106,13 +106,59 @@ const PontoConfiguracoes: React.FC = () => {
         <p className="text-sm text-muted-foreground mt-1">Políticas de jornada, compliance e segurança do sistema de ponto.</p>
       </header>
 
-      <Section icon={ShieldCheck} title="Empresa (REP-P)" desc="Dados exigidos no cabeçalho do AFD e relatórios oficiais (Portaria MTP 671/2021).">
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div><Label className="text-xs">Razão Social</Label><Input className="mt-1" value={form.razao_social ?? ''} onChange={(e) => set('razao_social', e.target.value)} /></div>
-          <div><Label className="text-xs">CNPJ</Label><Input className="mt-1" value={form.cnpj ?? ''} onChange={(e) => set('cnpj', e.target.value)} /></div>
-          <div><Label className="text-xs">CEI/CAEPF (opcional)</Label><Input className="mt-1" value={form.cei ?? ''} onChange={(e) => set('cei', e.target.value)} /></div>
-          <div><Label className="text-xs">Fuso horário</Label><Input className="mt-1" value={form.fuso_horario} onChange={(e) => set('fuso_horario', e.target.value)} /></div>
-          <div className="sm:col-span-2"><Label className="text-xs">Endereço da sede</Label><Input className="mt-1" value={form.endereco ?? ''} onChange={(e) => set('endereco', e.target.value)} /></div>
+      <Section icon={Building2} title="Empresa emissora (REP-P)" desc="Selecione uma das empresas cadastradas no ERP. Os dados aparecem no cabeçalho do AFD e nos relatórios oficiais (Portaria MTP 671/2021).">
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Empresa emissora</Label>
+              {loadingCompanies ? (
+                <div className="mt-1 h-10 rounded-md border border-dashed flex items-center px-3 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Carregando empresas…
+                </div>
+              ) : errCompanies ? (
+                <div className="mt-1 flex items-center gap-2 rounded-md border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-xs text-rose-600">
+                  <AlertCircle className="h-3.5 w-3.5" /> Falha ao carregar empresas do ERP.
+                </div>
+              ) : companies.length === 0 ? (
+                <div className="mt-1 rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-3 text-xs text-amber-700 dark:text-amber-400">
+                  Nenhuma empresa emissora cadastrada. Cadastre em{' '}
+                  <Link to="/settings" className="underline font-medium">Configurações → Empresas</Link>.
+                </div>
+              ) : (
+                <Select
+                  value={form.empresa_emissora_id || 'none'}
+                  onValueChange={(v) => set('empresa_emissora_id', v === 'none' ? '' : v)}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Nenhuma —</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nomeFantasia || c.razaoSocial} · {c.cnpj}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs">Fuso horário</Label>
+              <Input className="mt-1" value={form.fuso_horario} onChange={(e) => set('fuso_horario', e.target.value)} />
+            </div>
+          </div>
+
+          {selectedCompany && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs space-y-1">
+              <p className="font-medium text-sm text-foreground">{selectedCompany.razaoSocial}</p>
+              <p className="text-muted-foreground tabular-nums">CNPJ: {selectedCompany.cnpj}</p>
+              {selectedCompany.endereco && (
+                <p className="text-muted-foreground">
+                  {selectedCompany.endereco}
+                  {selectedCompany.cidade ? ` — ${selectedCompany.cidade}/${selectedCompany.estado ?? ''}` : ''}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </Section>
 
