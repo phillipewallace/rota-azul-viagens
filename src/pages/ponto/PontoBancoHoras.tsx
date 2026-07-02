@@ -73,6 +73,7 @@ const PontoBancoHoras: React.FC = () => {
   const { data: EMPLOYEES = [], isLoading, isError, refetch } = useEmployees();
   const { data: JORNADAS = [] } = useJornadas();
   const [adjustEmp, setAdjustEmp] = useState<Employee | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Mês corrente — busca batidas de todos para compor saldo dinâmico
   const now = new Date();
