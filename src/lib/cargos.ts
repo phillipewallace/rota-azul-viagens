@@ -1,14 +1,11 @@
 /** Lista fechada de cargos disponíveis no cadastro de funcionários. */
 export const CARGOS = [
+  'Financeiro',
+  'Comercial',
+  'Faxineiro',
+  'Gerente',
   'Motorista',
   'Ajudante',
-  'Operacional',
-  'Manutenção',
-  'Administrativo',
-  'Financeiro',
-  'Vendedor',
-  'Gerente',
-  'Outro',
 ] as const;
 
 export type Cargo = typeof CARGOS[number];

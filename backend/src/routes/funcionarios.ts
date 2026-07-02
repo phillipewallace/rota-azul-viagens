@@ -17,8 +17,7 @@ const BCRYPT_ROUNDS = 10;
 
 // Cargos aceitos — espelha src/lib/cargos.ts
 const CARGOS_ALLOWED = new Set([
-  'Motorista','Ajudante','Operacional','Manutenção',
-  'Administrativo','Financeiro','Vendedor','Gerente','Outro',
+  'Financeiro','Comercial','Faxineiro','Gerente','Motorista','Ajudante',
 ]);
 
 function stripSecret<T extends Record<string, any>>(row: T): Omit<T, 'password_hash'> {
