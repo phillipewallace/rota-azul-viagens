@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { funcionariosService, Funcionario, FuncionarioInput, FuncionarioStatus } from '@/services/funcionarios';
 import { pontoService, Jornada } from '@/services/ponto';
-import { CARGOS } from '@/lib/cargos';
+import { useCargos } from '@/hooks/useCargos';
 
 const STATUS_META: Record<FuncionarioStatus, { label: string; className: string; dot: string }> = {
   ativo:     { label: 'Ativo',      className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-500' },
@@ -50,6 +50,7 @@ const fmtMinutes = (m: number) => {
 };
 
 const Funcionarios: React.FC = () => {
+  const { nomes: CARGOS } = useCargos();
   const [rows, setRows] = useState<Funcionario[]>([]);
   const [jornadas, setJornadas] = useState<Jornada[]>([]);
   const [loading, setLoading] = useState(true);

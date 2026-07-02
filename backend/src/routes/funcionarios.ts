@@ -15,10 +15,11 @@ import { requireAuth, AuthedRequest } from '../middleware/requireAuth';
 const router = express.Router();
 const BCRYPT_ROUNDS = 10;
 
-// Cargos aceitos — espelha src/lib/cargos.ts
-const CARGOS_ALLOWED = new Set([
-  'Financeiro','Comercial','Faxineiro','Gerente','Motorista','Ajudante',
-]);
+// Cargos são gerenciados dinamicamente na tabela `cargos` (Configurações).
+async function isCargoAllowed(cargo: string): Promise<boolean> {
+  const r = await pool.query('SELECT 1 FROM cargos WHERE nome = $1 LIMIT 1', [cargo]);
+  return r.rowCount ? r.rowCount > 0 : false;
+}
 
 function stripSecret<T extends Record<string, any>>(row: T): Omit<T, 'password_hash'> {
   const { password_hash, ...rest } = row as any;
@@ -85,7 +86,7 @@ router.post('/', async (req: AuthedRequest, res) => {
     } = req.body || {};
 
     if (!nome || !matricula) return res.status(400).json({ error: 'nome e matricula são obrigatórios' });
-    if (cargo && !CARGOS_ALLOWED.has(cargo)) return res.status(400).json({ error: 'Cargo inválido' });
+    if (cargo && !(await isCargoAllowed(cargo))) return res.status(400).json({ error: 'Cargo inválido' });
 
     let password_hash: string | null = null;
     if (password) {
@@ -122,7 +123,7 @@ router.put('/:id', async (req: AuthedRequest, res) => {
     const values: any[] = [];
     let i = 1;
 
-    if (req.body.cargo !== undefined && req.body.cargo && !CARGOS_ALLOWED.has(req.body.cargo)) {
+    if (req.body.cargo !== undefined && req.body.cargo && !(await isCargoAllowed(req.body.cargo))) {
       return res.status(400).json({ error: 'Cargo inválido' });
     }
 
