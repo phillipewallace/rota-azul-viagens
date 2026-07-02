@@ -20,6 +20,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 
+// YYYY-MM-DD em fuso local (evita retroceder um dia à noite por causa de UTC).
+const todayLocalYmd = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const statusColor: Record<JustificationStatus, string> = {
   pendente: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
   aprovada: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
@@ -44,7 +49,7 @@ const PontoJustificativas: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [newOpen, setNewOpen] = useState(false);
   const [newForm, setNewForm] = useState<{ funcionario_id: string; data: string; tipo: JustificationType; motivo: string; horario: string }>(
-    { funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '', horario: '' },
+    { funcionario_id: '', data: todayLocalYmd(), tipo: 'atraso', motivo: '', horario: '' },
   );
 
   const { data: EMPLOYEES = [] } = useEmployees();
@@ -122,7 +127,7 @@ const PontoJustificativas: React.FC = () => {
         onSuccess: () => {
           toast.success('Justificativa criada');
           setNewOpen(false);
-          setNewForm({ funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '', horario: '' });
+          setNewForm({ funcionario_id: '', data: todayLocalYmd(), tipo: 'atraso', motivo: '', horario: '' });
         },
         onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
       },
@@ -239,7 +244,7 @@ const PontoJustificativas: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell><Badge variant="outline">{tipoLabel[j.tipo]}</Badge></TableCell>
-                      <TableCell className="text-sm tabular-nums">{new Date(j.data).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell className="text-sm tabular-nums">{(() => { const s = String(j.data).slice(0,10).split('-'); return s.length === 3 ? `${s[2]}/${s[1]}/${s[0]}` : String(j.data); })()}</TableCell>
                       <TableCell className="max-w-[320px]">
                         <p className="text-sm line-clamp-2">{j.motivo}</p>
                         <div className="flex items-center gap-2 mt-1">
