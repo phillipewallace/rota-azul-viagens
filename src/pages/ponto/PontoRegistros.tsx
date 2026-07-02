@@ -163,13 +163,6 @@ const PontoRegistros: React.FC = () => {
                           </div>
                         )}
                       </TableCell>
-                  const e = EMPLOYEES.find((x) => x.id === p.employeeId)!;
-                  const OrigIcon = originIcon[p.origem as PunchOrigin];
-                  return (
-                    <TableRow key={p.id} className="hover:bg-muted/40">
-                      <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
-                        #{String(p.nsr).padStart(6, '0')}
-                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
                           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
