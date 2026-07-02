@@ -21,6 +21,7 @@ const weekdayLabel = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const PontoEspelho: React.FC = () => {
   const [empId, setEmpId] = useState(EMPLOYEES[0].id);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const emp = EMPLOYEES.find((e) => e.id === empId)!;
   const jornada = JORNADAS.find((j) => j.id === emp.jornadaId)!;
