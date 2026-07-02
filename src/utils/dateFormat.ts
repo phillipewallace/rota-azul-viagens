@@ -14,3 +14,16 @@ export function formatDateBR(value?: string | Date | null): string {
   const dt = new Date(s);
   return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR');
 }
+
+// Formata período do recibo: "DD/MM/YYYY - DD/MM/YYYY" quando informado,
+// senão devolve o fallback (ex.: competência mensal "Jan/2026").
+export function formatPeriodo(
+  inicio?: string | null,
+  fim?: string | null,
+  fallback = '—',
+): string {
+  if (!inicio && !fim) return fallback;
+  const a = inicio ? formatDateBR(inicio) : '—';
+  const b = fim ? formatDateBR(fim) : '—';
+  return `${a} - ${b}`;
+}
