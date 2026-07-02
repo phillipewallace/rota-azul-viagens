@@ -54,6 +54,15 @@ const MobileOperatorMenuPage = lazy(
   () => import("./components/mobile/operator/MobileOperatorMenuPage"),
 );
 
+// Ponto Mobile (PWA — app do funcionário)
+const PontoMobileLayout = lazy(() => import("./pontomobile/Layout"));
+const PontoMobileLogin = lazy(() => import("./pontomobile/Login"));
+const PontoMobileHome = lazy(() => import("./pontomobile/Home"));
+const PontoMobileBater = lazy(() => import("./pontomobile/Bater"));
+const PontoMobileEspelho = lazy(() => import("./pontomobile/Espelho"));
+const PontoMobileJustificar = lazy(() => import("./pontomobile/Justificar"));
+const PontoMobilePerfil = lazy(() => import("./pontomobile/Perfil"));
+
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -129,6 +138,16 @@ function App() {
               </Route>
 
               <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />
+
+              {/* Ponto Mobile — PWA público (auth interna via token) */}
+              <Route path="/pontomobile" element={<PontoMobileLayout />}>
+                <Route index element={<PontoMobileHome />} />
+                <Route path="login" element={<PontoMobileLogin />} />
+                <Route path="bater" element={<PontoMobileBater />} />
+                <Route path="espelho" element={<PontoMobileEspelho />} />
+                <Route path="justificar" element={<PontoMobileJustificar />} />
+                <Route path="perfil" element={<PontoMobilePerfil />} />
+              </Route>
 
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />
