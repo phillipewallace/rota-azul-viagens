@@ -108,10 +108,10 @@ const PontoConfiguracoes: React.FC = () => {
                   {j.entrada} → {j.saidaAlmoco} · {j.voltaAlmoco} → {j.saida} · tolerância {j.tolerancia}min
                 </p>
               </div>
-              <Button variant="outline" size="sm">Editar</Button>
+              <Button variant="outline" size="sm" onClick={() => { setJornadaEdit(j); setJornadaOpen(true); }}>Editar</Button>
             </div>
           ))}
-          <Button variant="outline" size="sm" className="w-full gap-2 border-dashed">
+          <Button variant="outline" size="sm" className="w-full gap-2 border-dashed" onClick={() => { setJornadaEdit(null); setJornadaOpen(true); }}>
             <Plus className="h-4 w-4" /> Nova jornada
           </Button>
         </div>
