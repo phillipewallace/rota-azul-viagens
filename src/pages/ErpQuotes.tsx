@@ -378,11 +378,14 @@ const ErpQuotes: React.FC = () => {
     <TooltipProvider delayDuration={200}>
     <div className="min-h-screen bg-background">
       {/* ---------- Header ---------- */}
-      <div className="sticky top-0 z-10 bg-background/85 backdrop-blur-md border-b border-border/70">
+      <div className="sticky top-0 z-10 bg-gradient-to-r from-primary/10 via-background/85 to-[hsl(var(--warning-soft))]/40 backdrop-blur-md border-b border-border/70">
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4 flex items-end justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold mb-1">
-              <FileText className="h-3.5 w-3.5" /> Orçamentos
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
+                <FileText className="h-3 w-3" />
+              </span>
+              Orçamentos
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight">Propostas comerciais</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -393,12 +396,13 @@ const ErpQuotes: React.FC = () => {
             <Button variant="outline" size="sm" onClick={load} className="transition-all duration-200">
               <RefreshCcw className="h-4 w-4 mr-1.5" />Recarregar
             </Button>
-            <Button size="sm" onClick={openNew} className="transition-all duration-200 shadow-sm hover:shadow-md">
+            <Button size="sm" onClick={openNew} className="transition-all duration-200 shadow-sm hover:shadow-md bg-gradient-to-r from-primary to-primary/85 hover:brightness-110">
               <Plus className="h-4 w-4 mr-1.5" />Novo orçamento
             </Button>
           </div>
         </div>
       </div>
+
 
       <div className="max-w-[1400px] mx-auto p-4 md:p-6 space-y-6">
         {/* ---------- KPIs ---------- */}
