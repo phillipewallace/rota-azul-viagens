@@ -156,3 +156,34 @@ export async function createJustification(input: CreateJustInput): Promise<Justi
   });
   return handle<Justification>(r);
 }
+
+// ============================================================
+// Funcionário (para exibir saldo do banco de horas no espelho)
+// ============================================================
+export interface FuncionarioMini {
+  id: string;
+  nome: string;
+  banco_horas_min?: number;
+  jornada_id?: string | null;
+}
+
+export interface JornadaMini {
+  id: string;
+  nome: string;
+  entrada: string;
+  saida_almoco: string | null;
+  volta_almoco: string | null;
+  saida: string;
+  carga_semanal: number;
+  dias_semana: number[];
+}
+
+export async function getMyFuncionario(id: string): Promise<FuncionarioMini> {
+  const r = await fetch(`${API_BASE_URL}/funcionarios/${id}`, { headers: authHeaders() });
+  return handle<FuncionarioMini>(r);
+}
+
+export async function listJornadas(): Promise<JornadaMini[]> {
+  const r = await fetch(`${API_BASE_URL}/ponto/jornadas`, { headers: authHeaders() });
+  return handle<JornadaMini[]>(r);
+}
