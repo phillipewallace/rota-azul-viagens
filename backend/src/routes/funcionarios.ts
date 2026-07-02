@@ -36,10 +36,12 @@ router.use(requireAuth);
 // -------------------- LIST --------------------
 router.get('/', async (req, res) => {
   try {
+    const authReq = req as AuthedRequest;
     const { status, departamento, q } = req.query as Record<string, string>;
     const where: string[] = [];
     const values: any[] = [];
     let i = 1;
+    if (authReq.user?.role === 'funcionario') { where.push(`f.id = $${i++}`); values.push(authReq.user.funcionarioId || authReq.user.userId); }
     if (status && status !== 'all') { where.push(`f.status = $${i++}`); values.push(status); }
     if (departamento && departamento !== 'all') { where.push(`f.departamento = $${i++}`); values.push(departamento); }
     if (q) { where.push(`(f.nome ILIKE $${i} OR f.matricula ILIKE $${i} OR f.cargo ILIKE $${i})`); values.push(`%${q}%`); i++; }
@@ -62,6 +64,10 @@ router.get('/', async (req, res) => {
 // -------------------- GET one --------------------
 router.get('/:id', async (req, res) => {
   try {
+    const authReq = req as AuthedRequest;
+    if (authReq.user?.role === 'funcionario' && (authReq.user.funcionarioId || authReq.user.userId) !== req.params.id) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
     const r = await pool.query(
       `SELECT f.*, j.nome AS jornada_nome FROM funcionarios f
        LEFT JOIN ponto_jornadas j ON j.id = f.jornada_id

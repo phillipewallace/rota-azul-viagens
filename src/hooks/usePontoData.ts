@@ -129,7 +129,11 @@ export function useReviewJustification() {
   return useMutation({
     mutationFn: ({ id, ...b }: { id: string; status: 'aprovada' | 'recusada'; observacao?: string }) =>
       pontoService.reviewJustification(id, b),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['ponto', 'justifications'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ponto', 'justifications'] });
+      qc.invalidateQueries({ queryKey: ['ponto', 'punches'] });
+      qc.invalidateQueries({ queryKey: K.dashboard });
+    },
   });
 }
 
@@ -138,7 +142,11 @@ export function useBatchReviewJustifications() {
   return useMutation({
     mutationFn: (b: { ids: string[]; status: 'aprovada' | 'recusada'; observacao?: string }) =>
       pontoService.batchReview(b),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['ponto', 'justifications'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ponto', 'justifications'] });
+      qc.invalidateQueries({ queryKey: ['ponto', 'punches'] });
+      qc.invalidateQueries({ queryKey: K.dashboard });
+    },
   });
 }
 

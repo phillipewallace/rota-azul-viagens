@@ -91,6 +91,27 @@ export interface DashboardStats {
   ultimos_fechamentos: { competencia: string; fechado_em: string }[];
 }
 
+export async function uploadPontoAttachment(file: File): Promise<string> {
+  const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type)) throw new Error('Anexo inválido: envie PDF, JPG, PNG ou WEBP');
+  if (file.size > 10 * 1024 * 1024) throw new Error('Anexo muito grande (máx. 10MB)');
+  const fd = new FormData();
+  fd.append('file', file);
+  const t = localStorage.getItem('auth_token');
+  const res = await fetch(`${API_BASE_URL}/upload`, {
+    method: 'POST',
+    headers: t ? { Authorization: `Bearer ${t}` } : undefined,
+    body: fd,
+  });
+  if (!res.ok) {
+    let msg = `Erro ${res.status}`;
+    try { const b = await res.json(); msg = b.error || msg; } catch {}
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  return data.url as string;
+}
+
 function h(): HeadersInit {
   const t = localStorage.getItem('auth_token');
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };

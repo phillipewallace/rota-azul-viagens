@@ -5,13 +5,20 @@ import {
 } from 'lucide-react';
 import {
   currentUser, listMonthPunches, getMyFuncionario, listJornadas,
-  type TodayPunch, type FuncionarioMini, type JornadaMini,
+  listMyJustifications,
+  type TodayPunch, type FuncionarioMini, type JornadaMini, type Justification, type JustTipo,
 } from './api';
 import { toast } from 'sonner';
 
 const TIPO_ABBR: Record<TodayPunch['tipo'], string> = {
   'entrada': 'E', 'saida-almoco': 'SA', 'volta-almoco': 'VA', 'saida': 'S',
 };
+
+const JUST_LABEL: Record<JustTipo, string> = {
+  falta: 'Falta', atraso: 'Atraso', 'saida-antecipada': 'Saída antecipada', esquecimento: 'Esquecimento',
+  atestado: 'Atestado médico', folga: 'Folga', ferias: 'Férias', licenca: 'Licença',
+};
+const ABONO_TYPES = new Set<JustTipo>(['atestado', 'folga', 'ferias', 'licenca']);
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -52,11 +59,21 @@ function previstoDia(j?: JornadaMini | null): number {
   return s - e;
 }
 
+function ymdLocal(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function workedByDay(list: TodayPunch[]) {
+  const w = workedMinutes(list);
+  return Number.isFinite(w) ? w : 0;
+}
+
 export default function PontoMobileEspelho() {
   const user = useMemo(() => currentUser(), []);
   const funcionarioId = user?.funcionario_id || user?.id;
   const [ref, setRef] = useState(() => new Date());
   const [punches, setPunches] = useState<TodayPunch[]>([]);
+  const [justifications, setJustifications] = useState<Justification[]>([]);
   const [func, setFunc] = useState<FuncionarioMini | null>(null);
   const [jornada, setJornada] = useState<JornadaMini | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,8 +109,15 @@ export default function PontoMobileEspelho() {
     }
     setLoading(true);
     setError(null);
-    listMonthPunches(funcionarioId, ref)
-      .then((data) => { if (active) setPunches(data); })
+    Promise.all([
+      listMonthPunches(funcionarioId, ref),
+      listMyJustifications(funcionarioId).catch(() => [] as Justification[]),
+    ])
+      .then(([data, justs]) => {
+        if (!active) return;
+        setPunches(data);
+        setJustifications(justs);
+      })
       .catch((e) => {
         if (!active) return;
         const message = e instanceof Error ? e.message : 'Erro ao carregar espelho';
@@ -109,36 +133,56 @@ export default function PontoMobileEspelho() {
   const grouped = useMemo(() => {
     const map = new Map<string, TodayPunch[]>();
     for (const p of punches) {
-      const key = new Date(p.timestamp).toISOString().slice(0, 10);
+      const key = p.timestamp.slice(0, 10);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
     }
-    return Array.from(map.entries())
-      .map(([k, list]) => ({
-        key: k,
-        list: list.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1)),
-      }))
-      .sort((a, b) => (a.key < b.key ? 1 : -1));
-  }, [punches]);
+    const justByDay = new Map<string, Justification[]>();
+    for (const j of justifications) {
+      if (j.status !== 'aprovada') continue;
+      const key = String(j.data).slice(0, 10);
+      if (key.slice(0, 7) !== ymdLocal(new Date(ref.getFullYear(), ref.getMonth(), 1)).slice(0, 7)) continue;
+      if (!justByDay.has(key)) justByDay.set(key, []);
+      justByDay.get(key)!.push(j);
+    }
+
+    const daysInMonth = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const out: { key: string; list: TodayPunch[]; justs: Justification[]; worked: number; previsto: number; saldo: number; abonado: boolean; considered: boolean; future: boolean }[] = [];
+    const diaPrev = previstoDia(jornada);
+    for (let i = 1; i <= daysInMonth; i++) {
+      const dt = new Date(ref.getFullYear(), ref.getMonth(), i);
+      const key = ymdLocal(dt);
+      const list = (map.get(key) || []).sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
+      const justs = justByDay.get(key) || [];
+      const abonado = justs.some((j) => ABONO_TYPES.has(j.tipo));
+      const isWorkday = !!jornada?.dias_semana?.includes(dt.getDay());
+      const future = dt > today;
+      const worked = abonado ? 0 : workedByDay(list);
+      const previsto = abonado || !isWorkday || future ? 0 : diaPrev;
+      const considered = list.length > 0 || justs.length > 0 || (isWorkday && !future);
+      if (considered) out.push({ key, list, justs, worked, previsto, saldo: worked - previsto, abonado, considered, future });
+    }
+    return out.sort((a, b) => (a.key < b.key ? 1 : -1));
+  }, [punches, justifications, ref, jornada]);
 
   // Resumo do mês (trabalhado, saldo, previsto)
   const resumo = useMemo(() => {
-    const diaPrev = previstoDia(jornada);
     let trabMin = 0;
     let previstoMin = 0;
+    let abonados = 0;
     let diasComPar = 0;
     let melhorDia = 0;
     for (const g of grouped) {
-      const w = workedMinutes(g.list);
+      const w = g.worked;
       if (w > 0) { trabMin += w; diasComPar += 1; melhorDia = Math.max(melhorDia, w); }
-      if (jornada) {
-        const dow = new Date(g.key + 'T00:00:00').getDay();
-        if (jornada.dias_semana?.includes(dow)) previstoMin += diaPrev;
-      }
+      previstoMin += g.previsto;
+      if (g.abonado) abonados += 1;
     }
     return {
       trabMin,
       previstoMin,
+      abonados,
       diasComPar,
       melhorDia,
       saldoMes: jornada ? trabMin - previstoMin : null,
@@ -221,6 +265,7 @@ export default function PontoMobileEspelho() {
         <div className="rounded-2xl bg-card p-3 shadow-sm">
           <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Batidas</p>
           <p className="pm-numeric mt-1 text-base font-bold text-foreground">{punches.length}</p>
+          {resumo.abonados > 0 && <p className="text-[10px] text-emerald-600">{resumo.abonados} abonado(s)</p>}
         </div>
       </div>
 
@@ -260,9 +305,8 @@ export default function PontoMobileEspelho() {
           </div>
         ) : (
           <ul className="space-y-2">
-            {grouped.map(({ key, list }) => {
+            {grouped.map(({ key, list, justs, worked, previsto, saldo, abonado }) => {
               const d = new Date(key + 'T00:00:00');
-              const w = workedMinutes(list);
               return (
                 <li key={key} className="overflow-hidden rounded-2xl bg-card shadow-sm">
                   <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
@@ -275,13 +319,14 @@ export default function PontoMobileEspelho() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="pm-numeric text-sm font-bold text-foreground">{w > 0 ? fmtHm(w) : '—'}</p>
+                      <p className="pm-numeric text-sm font-bold text-foreground">{worked > 0 ? fmtHm(worked) : abonado ? 'Abonado' : '—'}</p>
                       <p className="pm-numeric text-[11px] font-medium text-muted-foreground">
-                        {list.length} {list.length === 1 ? 'batida' : 'batidas'}
+                        Saldo {saldo >= 0 ? '+' : ''}{fmtHm(saldo)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 px-4 py-3">
+                  <div className="space-y-2 px-4 py-3">
+                    <div className="flex flex-wrap gap-1.5">
                     {list.map((p) => (
                       <span
                         key={p.id}
@@ -293,6 +338,18 @@ export default function PontoMobileEspelho() {
                         <span className="opacity-80">{TIPO_ABBR[p.tipo]}</span>
                       </span>
                     ))}
+                    {list.length === 0 && !abonado && <span className="text-xs text-muted-foreground">Sem batidas registradas.</span>}
+                    </div>
+                    {justs.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {justs.map((j) => (
+                          <span key={j.id} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${ABONO_TYPES.has(j.tipo) ? 'bg-emerald-500/10 text-emerald-700' : 'bg-amber-500/10 text-amber-700'}`}>
+                            {ABONO_TYPES.has(j.tipo) ? 'Abonado por ' : 'Justificado: '}{JUST_LABEL[j.tipo]}{j.horario ? ` · ${j.horario.slice(0,5)}` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {jornada && <p className="text-[11px] text-muted-foreground">Trabalhado {fmtHm(worked)} · Previsto {fmtHm(previsto)}</p>}
                   </div>
                 </li>
               );

@@ -13,7 +13,7 @@ if (!JWT_SECRET) {
 const SECRET = JWT_SECRET || 'dev-only-insecure-secret';
 
 export interface AuthedRequest extends Request {
-  user?: { userId: string; username: string; role: string };
+  user?: { userId: string; username: string; role: string; funcionarioId?: string };
 }
 
 /**
@@ -25,7 +25,7 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (!token) return res.status(401).json({ error: 'Token ausente' });
     const decoded = jwt.verify(token, SECRET) as any;
-    req.user = { userId: decoded.userId, username: decoded.username, role: decoded.role };
+    req.user = { userId: decoded.userId, username: decoded.username, role: decoded.role, funcionarioId: decoded.funcionario_id || (decoded.role === 'funcionario' ? decoded.userId : undefined) };
     next();
   } catch (e: any) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -41,7 +41,7 @@ export function softAuth(req: AuthedRequest, _res: Response, next: NextFunction)
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (token) {
       const decoded = jwt.verify(token, SECRET) as any;
-      req.user = { userId: decoded.userId, username: decoded.username, role: decoded.role };
+      req.user = { userId: decoded.userId, username: decoded.username, role: decoded.role, funcionarioId: decoded.funcionario_id || (decoded.role === 'funcionario' ? decoded.userId : undefined) };
     }
   } catch {}
   next();

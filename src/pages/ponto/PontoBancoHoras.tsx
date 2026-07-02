@@ -15,8 +15,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Timer, TrendingUp, TrendingDown, Search, AlertTriangle, ArrowUpRight, ArrowDownRight, Loader2, ChevronDown, ChevronRight, CheckCircle2, MinusCircle } from 'lucide-react';
-import { minutesToHHmm, computeDay, type Employee, type Punch, type Jornada } from './pontoUtils';
-import { useEmployees, useJornadas, usePunches } from '@/hooks/usePontoData';
+import { minutesToHHmm, computeDay, localDateFromYmd, type Employee, type Punch, type Jornada, type Justification } from './pontoUtils';
+import { useEmployees, useJornadas, usePunches, useJustifications } from '@/hooks/usePontoData';
 import { BancoHorasAdjustDialog } from './BancoHorasAdjustDialog';
 
 type DayDetail = {
@@ -67,11 +67,40 @@ const buildDetail = (employeeId: string, jornada: Jornada | undefined, punches: 
   return rows;
 };
 
+const buildDetailWithJustifications = (
+  employeeId: string,
+  jornada: Jornada | undefined,
+  punches: Punch[],
+  justifications: Justification[],
+  year: number,
+  monthIdx: number,
+): DayDetail[] => {
+  const base = buildDetail(employeeId, jornada, punches, year, monthIdx);
+  if (!jornada) return base;
+  return base.map((row) => {
+    const dayPts = punches
+      .filter((p) => p.employeeId === employeeId && p.timestamp.slice(0, 10) === row.iso)
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const dt = localDateFromYmd(row.iso);
+    const isWorkDay = jornada.diasSemana.includes(dt.getDay());
+    const comp = computeDay(dayPts, jornada, row.iso, justifications, employeeId);
+    if (comp.abonado) {
+      return { ...row, considerado: true, motivo: comp.observacao || 'Dia abonado', trabalhado: 0, previsto: 0, saldo: 0 };
+    }
+    if (comp.justification) return { ...row, motivo: comp.observacao || row.motivo };
+    if (isWorkDay && dayPts.length === 0) {
+      return { ...row, considerado: true, motivo: 'Falta sem abono', trabalhado: 0, previsto: comp.previsto, saldo: -comp.previsto };
+    }
+    return row;
+  });
+};
+
 const PontoBancoHoras: React.FC = () => {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'todos' | 'credito' | 'debito'>('todos');
   const { data: EMPLOYEES = [], isLoading, isError, refetch } = useEmployees();
   const { data: JORNADAS = [] } = useJornadas();
+  const { data: JUSTIFICATIONS = [] } = useJustifications();
   const [adjustEmp, setAdjustEmp] = useState<Employee | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -102,16 +131,27 @@ const PontoBancoHoras: React.FC = () => {
           (byDay.get(k) as any).push(p);
         });
         byDay.forEach((dayPts, iso) => {
-          const dow = new Date(iso).getDay();
+          const dow = localDateFromYmd(iso).getDay();
           if (!jornada.diasSemana.includes(dow)) return;
-          const comp = computeDay(dayPts.sort((a, b) => a.timestamp.localeCompare(b.timestamp)), jornada, iso);
+          const comp = computeDay(dayPts.sort((a, b) => a.timestamp.localeCompare(b.timestamp)), jornada, iso, JUSTIFICATIONS, e.id);
+          if (comp.abonado) return;
           if (dayPts.length >= 2) mes += comp.saldo;
         });
+        const daysInMonth = new Date(y, mNum, 0).getDate();
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        for (let d = 1; d <= daysInMonth; d++) {
+          const iso = `${month}-${String(d).padStart(2, '0')}`;
+          if (byDay.has(iso)) continue;
+          const dt = localDateFromYmd(iso);
+          if (dt > today || !jornada.diasSemana.includes(dt.getDay())) continue;
+          const comp = computeDay([], jornada, iso, JUSTIFICATIONS, e.id);
+          if (!comp.abonado) mes -= comp.previsto;
+        }
       }
       map.set(e.id, (e.bancoHoras || 0) + mes);
     });
     return map;
-  }, [EMPLOYEES, JORNADAS, PUNCHES]);
+  }, [EMPLOYEES, JORNADAS, PUNCHES, JUSTIFICATIONS, month, mNum, y]);
 
   const enrichedRows = useMemo(() => {
     return EMPLOYEES.filter((e) => {
@@ -246,7 +286,7 @@ const PontoBancoHoras: React.FC = () => {
                 const positive = e.bancoHoras >= 0;
                 const isOpen = expandedId === e.id;
                 const jornada = JORNADAS.find((j) => j.id === e.jornadaId);
-                const detail = isOpen ? buildDetail(e.id, jornada, PUNCHES, y, mNum - 1) : [];
+                const detail = isOpen ? buildDetailWithJustifications(e.id, jornada, PUNCHES, JUSTIFICATIONS, y, mNum - 1) : [];
                 const considerados = detail.filter((d) => d.considerado);
                 const somaMes = considerados.reduce((s, d) => s + d.saldo, 0);
                 return (
