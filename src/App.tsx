@@ -123,6 +123,7 @@ function App() {
                 <Route path="funcionarios" element={<PontoFuncionarios />} />
                 <Route path="relatorios" element={<PontoRelatorios />} />
                 <Route path="configuracoes" element={<PontoConfiguracoes />} />
+                <Route path="fechamento" element={<PontoFechamento />} />
               </Route>
 
               <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />
