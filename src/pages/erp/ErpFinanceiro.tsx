@@ -419,6 +419,8 @@ const ErpFinanceiro: React.FC = () => {
       await generateUnifiedReceiptPdf({
         numero,
         competencia: periodoInicio.slice(0, 7),
+        periodoInicio,
+        periodoFim,
         dataEmissao: todayISO(),
         dataVencimento: null,
         company,
