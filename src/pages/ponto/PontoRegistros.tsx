@@ -36,6 +36,7 @@ const PontoRegistros: React.FC = () => {
   const [tipo, setTipo] = useState<string>('all');
   const [origem, setOrigem] = useState<string>('all');
   const [date, setDate] = useState<string>('');
+  const [preview, setPreview] = useState<Punch | null>(null);
 
   const rows = useMemo(() => {
     return [...PUNCHES]
