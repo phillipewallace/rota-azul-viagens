@@ -276,6 +276,44 @@ const ErpFinanceiro: React.FC = () => {
     finally { setWorking(null); }
   };
 
+  // Gera recibos para um intervalo de competências (inclusive). Se from == to, gera 1.
+  const gerarIntervalo = async (
+    p: PendingReceipt, from: string, to: string, opts?: { marcarPago?: boolean; baixarPdf?: boolean }
+  ) => {
+    const meses = enumerateComps(from, to);
+    if (meses.length === 0) { toast.error('Intervalo inválido'); return; }
+    setWorking(p.contractId);
+    let ok = 0, fail = 0, dup = 0;
+    const unico = meses.length === 1;
+    for (const comp of meses) {
+      try {
+        const out = await receiptsService.generate({
+          contractId: p.contractId,
+          competencia: comp,
+          valor: Number(p.valorMensal),
+          pago: opts?.marcarPago ?? true,
+        });
+        if (unico && opts?.baixarPdf !== false) {
+          try {
+            const list = await receiptsService.list({ competencia: comp, contractId: p.contractId });
+            const r = list.find(x => x.id === out.id);
+            if (r) await generateReceiptPdf(r);
+          } catch { /* PDF best-effort */ }
+        }
+        ok++;
+      } catch (e: any) {
+        if (String(e.message || '').toLowerCase().includes('já existe')) dup++;
+        else fail++;
+      }
+    }
+    setWorking(null);
+    setGerarDialog(null);
+    await load();
+    if (fail === 0 && dup === 0) toast.success(unico ? 'Recibo gerado' : `${ok} recibo(s) gerados`);
+    else if (fail === 0) toast.warning(`${ok} gerado(s), ${dup} já existiam`);
+    else toast.warning(`${ok} ok · ${dup} duplicado(s) · ${fail} erro(s)`);
+  };
+
   const gerarLote = async () => {
     if (selected.size === 0) return;
     const alvos = pendentes.filter(p => selected.has(p.contractId));
