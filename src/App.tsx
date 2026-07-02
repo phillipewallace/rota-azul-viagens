@@ -91,7 +91,6 @@ function App() {
               <Route path="/gestao-interna" element={<Protected><InternalManagement /></Protected>} />
               <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
               <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
-              <Route path="/funcionarios" element={<Protected><Funcionarios /></Protected>} />
 
               <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
                 <Route index element={<ErpDashboard />} />
@@ -104,29 +103,8 @@ function App() {
                 <Route path="empresas" element={<ErpCompanies />} />
               </Route>
 
-              <Route path="/ponto" element={<Protected><PontoLayout /></Protected>}>
-                <Route index element={<PontoDashboard />} />
-                <Route path="registros" element={<PontoRegistros />} />
-                <Route path="espelho" element={<PontoEspelho />} />
-                <Route path="justificativas" element={<PontoJustificativas />} />
-                <Route path="banco-horas" element={<PontoBancoHoras />} />
-                <Route path="funcionarios" element={<PontoFuncionarios />} />
-                <Route path="relatorios" element={<PontoRelatorios />} />
-                <Route path="configuracoes" element={<PontoConfiguracoes />} />
-                <Route path="fechamento" element={<PontoFechamento />} />
-              </Route>
-
               <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />
 
-              {/* Ponto Mobile — PWA público (auth interna via token) */}
-              <Route path="/pontomobile" element={<PontoMobileLayout />}>
-                <Route index element={<PontoMobileHome />} />
-                <Route path="login" element={<PontoMobileLogin />} />
-                <Route path="bater" element={<PontoMobileBater />} />
-                <Route path="espelho" element={<PontoMobileEspelho />} />
-                <Route path="justificar" element={<PontoMobileJustificar />} />
-                <Route path="perfil" element={<PontoMobilePerfil />} />
-              </Route>
 
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />
