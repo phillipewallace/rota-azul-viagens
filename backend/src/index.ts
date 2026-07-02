@@ -39,6 +39,8 @@ import erpExpenseCategoriesRoutes from './routes/erp-expense-categories';
 import erpRecurringExpensesRoutes from './routes/erp-recurring-expenses';
 import checklistsRoutes from './routes/checklists';
 import carretinhasRoutes from './routes/carretinhas';
+import funcionariosRoutes from './routes/funcionarios';
+import pontoRoutes from './routes/ponto';
 import path from 'path';
 
 const app = express();
@@ -137,6 +139,8 @@ app.use('/api/erp/expense-categories', erpExpenseCategoriesRoutes);
 app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
+app.use('/api/funcionarios', funcionariosRoutes);
+app.use('/api/ponto', pontoRoutes);
 
 // Servir uploads (fotos)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
