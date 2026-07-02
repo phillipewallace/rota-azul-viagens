@@ -48,6 +48,8 @@ const PontoConfiguracoes: React.FC = () => {
   const { data: JORNADAS = [] } = useJornadas();
   const { data: settings } = useSettings();
   const updateMut = useUpdateSettings();
+  const [jornadaOpen, setJornadaOpen] = useState(false);
+  const [jornadaEdit, setJornadaEdit] = useState<Jornada | null>(null);
 
   const [form, setForm] = useState({
     razao_social: '', cnpj: '', cei: '', endereco: '', fuso_horario: 'America/Sao_Paulo',
