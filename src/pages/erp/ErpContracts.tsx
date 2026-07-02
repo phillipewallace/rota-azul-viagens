@@ -699,6 +699,18 @@ function ContractFormDialog({
   const [form, setForm] = useState<any>(empty);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Se o usuário editou manualmente o dia, paramos de auto-preencher.
+  // Limpar o campo reativa o auto-preenchimento.
+  const [diaVencTouched, setDiaVencTouched] = useState(false);
+
+  // Vencimento sugerido = dia do mês em (dataInicio + 28 dias). Clampeado 1-28.
+  const suggestDiaVenc = (dataInicio: string): number | '' => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicio)) return '';
+    const [y, m, d] = dataInicio.split('-').map(Number);
+    const base = new Date(Date.UTC(y, m - 1, d));
+    const venc = new Date(base.getTime() + 28 * 24 * 60 * 60 * 1000);
+    return Math.min(28, Math.max(1, venc.getUTCDate()));
+  };
 
   useEffect(() => {
     if (editing) {
