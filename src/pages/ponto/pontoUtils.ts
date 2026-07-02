@@ -64,6 +64,7 @@ export interface Justification {
   tipo: JustificationType;
   status: JustificationStatus;
   motivo: string;
+  horario?: string;
   anexoUrl?: string;
   criadoEm: string;
   revisadoPor?: string;
