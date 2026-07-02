@@ -34,9 +34,13 @@ const ITEMS = [
   },
 ];
 
+const HIDDEN_PREFIXES = ['/login', '/mobile', '/checklist', '/operator'];
+
 const MobileBottomNav = () => {
   const location = useLocation();
-  return (
+  if (HIDDEN_PREFIXES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))) {
+    return null;
+  }
     <nav
       aria-label="Navegação principal"
       className={cn(
