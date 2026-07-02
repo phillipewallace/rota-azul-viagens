@@ -15,6 +15,7 @@ import {
   download, downloadCSV, generateAFD, generateEspelhoCSV, generateFolhaCSV,
   generateHorasExtrasCSV, generateAbsenteismoCSV, generateBancoHorasCSV, generateAnaliticoCSV,
 } from './reportGenerators';
+import { generateEspelhoConsolidadoPdf } from './pontoPdf';
 
 type ReportId = 'afd' | 'aej' | 'espelho' | 'folha' | 'extras' | 'absenteismo' | 'banco' | 'analitico';
 
