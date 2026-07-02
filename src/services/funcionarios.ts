@@ -43,12 +43,12 @@ async function j<T>(r: Response): Promise<T> {
 }
 
 export const funcionariosService = {
-  list: (params?: { status?: string; departamento?: string; q?: string }): Promise<Funcionario[]> => {
+  list: (params?: { status?: string; departamento?: string; q?: string }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set('status', params.status);
     if (params?.departamento) qs.set('departamento', params.departamento);
     if (params?.q) qs.set('q', params.q);
-    return fetch(`${API_BASE_URL}/funcionarios?${qs}`, { headers: h() }).then(j);
+    return fetch(`${API_BASE_URL}/funcionarios?${qs}`, { headers: h() }).then(j) as Promise<Funcionario[]>;
   },
   get:    (id: string): Promise<Funcionario> => fetch(`${API_BASE_URL}/funcionarios/${id}`, { headers: h() }).then(j),
   create: (body: FuncionarioInput): Promise<Funcionario> =>
