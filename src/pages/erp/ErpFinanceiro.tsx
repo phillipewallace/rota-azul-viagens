@@ -43,11 +43,12 @@ import {
   expensesService, type Expense,
   expenseCategoriesService, type ExpenseCategory,
   recurringExpensesService, type RecurringExpense,
+  contractsService,
 } from '@/services/contracts';
 import { erpService, type ErpCompany } from '@/services/erp';
 import { uploadSignedPdf } from '@/services/erp';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
-import { generateReceiptPdf } from '@/utils/receiptPdf';
+import { generateReceiptPdf, generateUnifiedReceiptPdf } from '@/utils/receiptPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
@@ -350,6 +351,61 @@ const ErpFinanceiro: React.FC = () => {
     else toast.warning(`${ok} ok, ${fail} falharam`);
   };
 
+  // Habilita "recibo unificado" quando 2+ pendentes selecionados são
+  // da MESMA empresa emissora E do MESMO cliente.
+  const unifiedGroup = useMemo(() => {
+    if (selected.size < 2) return null;
+    const arr = pendentes.filter(p => selected.has(p.contractId));
+    if (arr.length < 2) return null;
+    const cId = arr[0].companyId, kId = arr[0].customerId;
+    if (!cId || !kId) return null;
+    if (!arr.every(p => p.companyId === cId && p.customerId === kId)) return null;
+    return { arr, companyId: cId };
+  }, [selected, pendentes]);
+
+  const gerarUnificado = async () => {
+    if (!unifiedGroup) return;
+    setWorking('__unified__');
+    try {
+      const { arr, companyId } = unifiedGroup;
+      const [companies, ...contracts] = await Promise.all([
+        erpService.listCompanies(),
+        ...arr.map(p => contractsService.get(p.contractId)),
+      ]);
+      const company = companies.find(c => c.id === companyId);
+      if (!company) throw new Error('Empresa emissora não encontrada');
+      const first = contracts[0];
+      const customer = first.customerSnapshot || {
+        name: first.customerName, document: first.customerDocument,
+      };
+      const items = contracts.map((c, i) => ({
+        contractNumero: c.numero,
+        descricao: c.descricao || `Locação mensal — Contrato ${c.numero}`,
+        enderecoObra: c.enderecoObra || c.localEvento || '',
+        cno: c.cno || '',
+        valor: Number(arr[i].valorMensal),
+      }));
+      const total = items.reduce((s, it) => s + it.valor, 0);
+      const now = new Date();
+      const numero = `UNIF-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+      await generateUnifiedReceiptPdf({
+        numero,
+        competencia,
+        dataEmissao: todayISO(),
+        dataVencimento: null,
+        company,
+        customer,
+        items,
+        total,
+      });
+      toast.success(`Recibo unificado gerado · ${items.length} contratos`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao gerar recibo unificado');
+    } finally {
+      setWorking(null);
+    }
+  };
+
   const regerar = async (r: Receipt) => {
     setWorking(r.id);
     try {
@@ -604,6 +660,20 @@ const ErpFinanceiro: React.FC = () => {
               <div className="flex items-center gap-2">
                 {selected.size > 0 && (
                   <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar</Button>
+                )}
+                {unifiedGroup && (
+                  <Button
+                    size="sm"
+                    disabled={working === '__unified__'}
+                    onClick={gerarUnificado}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
+                    title="Gera um único PDF somando todos os contratos selecionados"
+                  >
+                    {working === '__unified__'
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                      : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                    Gerar recibo unificado
+                  </Button>
                 )}
                 <Button size="sm" disabled={selected.size === 0 || working === '__batch__'} onClick={gerarLote}
                   className="bg-emerald-600 hover:bg-emerald-700">

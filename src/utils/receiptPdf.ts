@@ -325,3 +325,253 @@ export async function toDataUrl(src: string): Promise<string> {
     fr.readAsDataURL(blob);
   });
 }
+
+// ============================================================
+// Recibo UNIFICADO — múltiplos contratos, mesma empresa/cliente
+// ============================================================
+export interface UnifiedReceiptItem {
+  contractNumero: string;
+  descricao: string;
+  enderecoObra?: string | null;
+  cno?: string | null;
+  valor: number;
+}
+export interface UnifiedReceiptInput {
+  numero: string;
+  competencia: string;         // YYYY-MM
+  dataEmissao: string;         // YYYY-MM-DD
+  dataVencimento?: string | null;
+  company: any;
+  customer: any;
+  items: UnifiedReceiptItem[];
+  total: number;
+}
+
+export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 14;
+  const co = input.company || {};
+  const cu = input.customer || {};
+
+  // ---------- Cabeçalho ----------
+  const HEADER_H = 42;
+  doc.setFillColor(...PRIMARY);
+  doc.rect(0, 0, W, HEADER_H, 'F');
+  doc.setFillColor(...ACCENT);
+  doc.rect(0, HEADER_H, W, 1.5, 'F');
+
+  const boxW = 58, boxH = 30, boxX = W - M - boxW, boxY = 6;
+
+  let textX = M;
+  const logo = co.logoDataUrl || co.logoUrl;
+  if (logo) {
+    try {
+      const img = await loadPdfImage(logo);
+      const cardX = M, cardY = 6, cardW = 30, cardH = 30;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(cardX, cardY, cardW, cardH, 2, 2, 'F');
+      const fit = fitContain(img, cardX, cardY, cardW, cardH, 2);
+      doc.addImage(img.dataUrl, img.format, fit.x, fit.y, fit.w, fit.h, undefined, 'FAST');
+      textX = cardX + cardW + 5;
+    } catch { /* ignore */ }
+  }
+
+  const textMaxW = boxX - textX - 4;
+  doc.setTextColor(255, 255, 255);
+  const rawName = String(co.razaoSocial || '—').toUpperCase();
+  doc.setFont('helvetica', 'bold');
+  let nameSize = 13;
+  doc.setFontSize(nameSize);
+  while (nameSize > 8 && doc.getTextWidth(rawName) > textMaxW) {
+    nameSize -= 0.5;
+    doc.setFontSize(nameSize);
+  }
+  let lineY = 13;
+  if (doc.getTextWidth(rawName) <= textMaxW) {
+    doc.text(rawName, textX, lineY); lineY += 6;
+  } else {
+    const wrapped = doc.splitTextToSize(rawName, textMaxW).slice(0, 2);
+    for (const w of wrapped) { doc.text(w, textX, lineY); lineY += 5; }
+    lineY += 1;
+  }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  const lin = [
+    co.cnpj ? `CNPJ ${maskCnpj(co.cnpj)}` : null,
+    co.inscricaoEstadual ? `IE ${co.inscricaoEstadual}` : null,
+  ].filter(Boolean).join('  ·  ');
+  if (lin) { doc.text(lin, textX, lineY, { maxWidth: textMaxW }); lineY += 5; }
+  const end = [co.endereco, co.cidade && `${co.cidade}/${co.estado || ''}`, co.cep && `CEP ${co.cep}`]
+    .filter(Boolean).join(' · ');
+  if (end) {
+    const wEnd = doc.splitTextToSize(end, textMaxW).slice(0, 2);
+    for (const w of wEnd) { doc.text(w, textX, lineY); lineY += 4.5; }
+  }
+  const cont = [co.telefone, co.email].filter(Boolean).join('  ·  ');
+  if (cont) doc.text(cont, textX, lineY, { maxWidth: textMaxW });
+
+  // Caixa Nº/data
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'F');
+  doc.setTextColor(...PRIMARY);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+  doc.text('RECIBO Nº', boxX + 3, boxY + 6);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+  doc.text(input.numero, boxX + boxW - 3, boxY + 14, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+  doc.text('Emissão', boxX + 3, boxY + 20);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+  doc.text(D(input.dataEmissao), boxX + boxW - 3, boxY + 20, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+  doc.text('Vencimento', boxX + 3, boxY + 27);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+  doc.text(D(input.dataVencimento || undefined), boxX + boxW - 3, boxY + 27, { align: 'right' });
+
+  // ---------- Título ----------
+  doc.setTextColor(...PRIMARY);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text('RECIBO UNIFICADO DE LOCAÇÃO DE BENS MÓVEIS', W / 2, 50, { align: 'center' });
+
+  // ---------- Valor em destaque ----------
+  doc.setFillColor(245, 247, 252);
+  doc.roundedRect(M, 56, W - 2 * M, 18, 2, 2, 'F');
+  doc.setFillColor(...PRIMARY);
+  doc.rect(M, 56, 1.5, 18, 'F');
+  doc.setTextColor(100, 110, 130); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.text('VALOR TOTAL RECEBIDO', M + 6, 62);
+  doc.setTextColor(...PRIMARY); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
+  doc.text(BRL(input.total), M + 6, 71);
+  doc.setFillColor(16, 130, 80);
+  doc.roundedRect(W - M - 30, 60, 26, 10, 5, 5, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text('PAGO', W - M - 17, 67, { align: 'center' });
+
+  // ---------- Cliente (sem seção "LOCAL DE PRESTAÇÃO") ----------
+  let y = 84;
+  doc.setTextColor(...PRIMARY);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  doc.text('DADOS DO LOCATÁRIO', M, y);
+  doc.setDrawColor(...ACCENT); doc.setLineWidth(0.6);
+  doc.line(M, y + 1, M + 50, y + 1);
+  y += 6;
+
+  doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+  const linhas: string[] = [];
+  linhas.push(`Nome / Razão Social:  ${cu.name || '—'}`);
+  if (cu.document) linhas.push(
+    `${cu.document.replace(/\D/g, '').length === 14 ? 'CNPJ' : 'CPF'}:  ${maskDoc(cu.document)}`
+  );
+  const endCli = [cu.address, cu.numero, cu.bairro].filter(Boolean).join(', ');
+  if (endCli) linhas.push(`Endereço:  ${endCli}`);
+  const muni = [cu.cidade && `${cu.cidade}/${cu.estado || ''}`, cu.cep && `CEP ${cu.cep}`]
+    .filter(Boolean).join(' · ');
+  if (muni) linhas.push(`Município:  ${muni}`);
+  for (const l of linhas) {
+    const wrap = doc.splitTextToSize(l, W - 2 * M);
+    for (const w of wrap) { doc.text(w, M, y); y += 5; }
+  }
+
+  // ---------- Itens (endereço da obra dentro da descrição) ----------
+  y += 4;
+  const body = input.items.map((it, idx) => {
+    const desc = it.enderecoObra ? `${it.descricao} — ${it.enderecoObra}` : it.descricao;
+    return [
+      String(idx + 1), 'MÊS',
+      `Contrato ${it.contractNumero} · ${desc}`,
+      BRL(it.valor), BRL(it.valor),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    head: [['#', 'Unid', 'Descrição', 'Valor Unitário', 'Total']],
+    body,
+    styles: { fontSize: 9, cellPadding: 3, lineColor: [220, 224, 230] },
+    headStyles: { fillColor: PRIMARY, textColor: 255, halign: 'center', fontStyle: 'bold' },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 10 },
+      1: { halign: 'center', cellWidth: 16 },
+      3: { halign: 'right',  cellWidth: 30 },
+      4: { halign: 'right',  cellWidth: 30, fontStyle: 'bold' },
+    },
+    margin: { left: M, right: M },
+  });
+  let afterY = (doc as any).lastAutoTable.finalY + 2;
+
+  // CNOs consolidados
+  const cnos = input.items.map(i => (i.cno || '').trim()).filter(Boolean);
+  if (cnos.length) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
+    const label = `CNO / Ordens de Compra: ${cnos.join(', ')}`;
+    const wrap = doc.splitTextToSize(label, W - 2 * M);
+    for (const w of wrap) { doc.text(w, M, afterY + 4); afterY += 4; }
+    afterY += 2;
+  }
+  afterY += 4;
+
+  // Linha "Competência / Vencimento / Total"
+  autoTable(doc, {
+    startY: afterY,
+    head: [['Competência', 'Vencimento', 'Total da Cobrança']],
+    body: [[formatComp(input.competencia), D(input.dataVencimento || undefined), BRL(input.total)]],
+    styles: { fontSize: 9.5, cellPadding: 3 },
+    headStyles: { fillColor: [240, 242, 247], textColor: PRIMARY, fontStyle: 'bold' },
+    columnStyles: { 2: { halign: 'right', fontStyle: 'bold', textColor: PRIMARY } },
+    margin: { left: M, right: M },
+  });
+  afterY = (doc as any).lastAutoTable.finalY + 8;
+
+  // ---------- Nota legal ----------
+  if (afterY > H - 80) { doc.addPage(); afterY = 20; }
+  doc.setFillColor(252, 248, 232);
+  doc.roundedRect(M, afterY, W - 2 * M, 14, 1.5, 1.5, 'F');
+  doc.setTextColor(120, 90, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+  doc.text('NÃO INCIDÊNCIA DE ISSQN', M + 3, afterY + 5);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  doc.text(
+    'Conforme Lei Complementar nº 116/2003 de 31/07/2003 — locação de bens móveis não está sujeita à incidência de ISSQN.',
+    M + 3, afterY + 10, { maxWidth: W - 2 * M - 6 }
+  );
+  afterY += 22;
+
+  // Quitação
+  doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+  const txt =
+    `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(input.total)} ` +
+    `referente à locação de bens móveis (${input.items.length} contrato(s)) na competência ${formatComp(input.competencia)}, ` +
+    `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
+  const wrap = doc.splitTextToSize(txt, W - 2 * M);
+  doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
+
+  // Assinatura
+  if (afterY > H - 60) { doc.addPage(); afterY = 30; }
+  doc.text(`${co.cidade || 'Belo Horizonte'}, ${D(input.dataEmissao)}.`, M, afterY);
+  afterY += 22;
+
+  let sigUrl: string | undefined = (co as any).assinaturaUrl || (co as any).assinatura_url;
+  if (sigUrl) {
+    try {
+      const sigImg = await loadPdfImage(sigUrl);
+      const sigH = 18, sigW = 80;
+      const sigX = W / 2 - sigW / 2;
+      const fit = fitContain(sigImg, sigX, afterY - sigH, sigW, sigH, 1);
+      doc.addImage(sigImg.dataUrl, sigImg.format, fit.x, fit.y, fit.w, fit.h);
+    } catch { /* segue */ }
+  }
+  doc.setDrawColor(60, 60, 60); doc.setLineWidth(0.3);
+  doc.line(M + 25, afterY, W - M - 25, afterY);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...PRIMARY);
+  doc.text(String(co.razaoSocial || '—').toUpperCase(), W / 2, afterY + 5, { align: 'center' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(80, 80, 80);
+  if (co.cnpj) doc.text(`CNPJ ${maskCnpj(co.cnpj)}`, W / 2, afterY + 10, { align: 'center' });
+  doc.text('LOCADORA', W / 2, afterY + 15, { align: 'center' });
+
+  doc.setFontSize(7); doc.setTextColor(140, 140, 140);
+  doc.text(
+    `Documento gerado eletronicamente em ${new Date().toLocaleString('pt-BR')}`,
+    W / 2, H - 6, { align: 'center' }
+  );
+
+  doc.save(`Recibo-${input.numero}.pdf`);
+}
