@@ -201,13 +201,14 @@ const Funcionarios: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Nome, matrícula, cargo…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 h-10" />
             </div>
-            <Select value={dep} onValueChange={setDep}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Departamento" /></SelectTrigger>
+            <Select value={cargoFilter} onValueChange={setCargoFilter}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Cargo" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos departamentos</SelectItem>
-                {departamentos.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                <SelectItem value="all">Todos cargos</SelectItem>
+                {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
+
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="h-10"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
@@ -255,11 +256,8 @@ const Funcionarios: React.FC = () => {
                         <p className="text-xs text-muted-foreground truncate mt-0.5">
                           <IdCard className="h-3 w-3 inline mr-1" />Mat. {f.matricula}{f.cargo ? ` · ${f.cargo}` : ''}
                         </p>
-                        {f.departamento && (
-                          <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                            <Building2 className="h-3 w-3" /> {f.departamento}
-                          </p>
-                        )}
+                        {form && f.password_hash ? null : null}
+
                       </div>
                     </div>
 
