@@ -155,9 +155,9 @@ const PontoDashboard: React.FC = () => {
 
       {/* Alertas inteligentes */}
       {(() => {
-        const missing = employeesMissingPunchToday();
+        const missing = employeesMissingPunchToday(EMPLOYEES, PUNCHES, JORNADAS);
         const pend = JUSTIFICATIONS.filter((j) => j.status === 'pendente');
-        const feriasCriticas = feriasVencendo(30);
+        const feriasCriticas = feriasVencendo(EMPLOYEES, 30);
         const alertas = [
           missing.length > 0 && {
             key: 'missing',
