@@ -141,6 +141,7 @@ app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
 app.use('/api/funcionarios', funcionariosRoutes);
+app.use('/api/cargos', cargosRoutes);
 app.use('/api/ponto', pontoRoutes);
 
 // Servir uploads (fotos)
