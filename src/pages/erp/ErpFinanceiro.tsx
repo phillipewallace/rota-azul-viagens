@@ -34,6 +34,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import {
@@ -138,7 +139,7 @@ const ErpFinanceiro: React.FC = () => {
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Receipt | null>(null);
   const [reabrirDialog, setReabrirDialog] = useState<Receipt | null>(null);
-  const [gerarDialog, setGerarDialog] = useState<PendingReceipt | null>(null);
+  
 
   // gastos do mês para resultado
   const [gastosMes, setGastosMes] = useState(0);
@@ -324,7 +325,6 @@ const ErpFinanceiro: React.FC = () => {
       }
     }
     setWorking(null);
-    setGerarDialog(null);
     await load();
     if (fail === 0 && dup === 0) toast.success(unico ? 'Recibo gerado' : `${ok} recibo(s) gerados`);
     else if (fail === 0) toast.warning(`${ok} gerado(s), ${dup} já existiam`);
@@ -661,17 +661,22 @@ const ErpFinanceiro: React.FC = () => {
                               disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
                               <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
                             </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => setGerarDialog(p)}
-                              disabled={working === p.contractId}
-                              className="bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
+                            <GerarReciboPopover
+                              pending={p}
+                              working={working === p.contractId}
+                              onConfirm={(from, to) => gerarIntervalo(p, from, to)}
                             >
-                              {working === p.contractId
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                                : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                              Gerar recibo
-                            </Button>
+                              <Button
+                                size="sm"
+                                disabled={working === p.contractId}
+                                className="bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
+                              >
+                                {working === p.contractId
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                                  : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                                Gerar recibo
+                              </Button>
+                            </GerarReciboPopover>
                           </TableCell>
                         </TableRow>
                       )}
@@ -1094,13 +1099,6 @@ const ErpFinanceiro: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <GerarReciboDialog
-        pending={gerarDialog}
-        working={working === gerarDialog?.contractId}
-        onClose={() => setGerarDialog(null)}
-        onConfirm={(from, to, opts) => gerarDialog && gerarIntervalo(gerarDialog, from, to, opts)}
-      />
     </div>
   );
 };
@@ -1176,215 +1174,106 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
   );
 };
 
-// ========================= GerarReciboDialog =========================
-// Diálogo para confirmar a emissão de recibo(s) a partir de um contrato pendente.
-// Permite escolher UMA competência ou um INTERVALO (De — Até) para gerar em lote,
-// exibindo a data de início do contrato como "colinha" para consulta rápida.
-const GerarReciboDialog: React.FC<{
-  pending: PendingReceipt | null;
+// ========================= GerarReciboPopover =========================
+// Cardzinho compacto: pede o intervalo (De/Até em competências YYYY-MM) e mostra
+// a data de início do contrato como referência. Ao confirmar, gera os recibos.
+const GerarReciboPopover: React.FC<{
+  pending: PendingReceipt;
   working: boolean;
-  onClose: () => void;
-  onConfirm: (from: string, to: string, opts: { marcarPago: boolean; baixarPdf: boolean }) => void;
-}> = ({ pending, working, onClose, onConfirm }) => {
-  const [mode, setMode] = useState<'single' | 'range'>('single');
+  onConfirm: (from: string, to: string) => void;
+  children: React.ReactNode;
+}> = ({ pending, working, onConfirm, children }) => {
+  const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(compAtual());
   const [to, setTo]     = useState(compAtual());
-  const [marcarPago, setMarcarPago] = useState(true);
-  const [baixarPdf, setBaixarPdf]   = useState(true);
 
-  // Reset ao abrir para um novo contrato
   useEffect(() => {
-    if (!pending) return;
-    setMode('single');
-    setFrom(compAtual());
-    setTo(compAtual());
-    setMarcarPago(true);
-    setBaixarPdf(true);
-  }, [pending?.contractId]); // eslint-disable-line
+    if (!open) return;
+    const start = pending.dataInicio ? (pending.dataInicio as string).slice(0, 7) : compAtual();
+    setFrom(start);
+    setTo(compAtual() < start ? start : compAtual());
+  }, [open, pending.contractId]); // eslint-disable-line
 
-  const dataInicio = pending?.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
-  const compInicio = dataInicio ? dataInicio.slice(0, 7) : '';
-
-  const effectiveFrom = mode === 'single' ? from : from;
-  const effectiveTo   = mode === 'single' ? from : to;
-  const meses = useMemo(
-    () => enumerateComps(effectiveFrom, effectiveTo),
-    [effectiveFrom, effectiveTo]
-  );
+  const meses = useMemo(() => enumerateComps(from, to), [from, to]);
   const invalido = meses.length === 0;
-  const totalEstimado = pending ? meses.length * Number(pending.valorMensal || 0) : 0;
-  const anteriorInicio = compInicio && effectiveFrom && effectiveFrom < compInicio;
-
-  const usarDataInicio = () => {
-    if (!compInicio) return;
-    setFrom(compInicio);
-    if (mode === 'single' || to < compInicio) setTo(compInicio);
-  };
-
-  const submit = () => {
-    if (invalido || !pending) return;
-    onConfirm(effectiveFrom, effectiveTo, { marcarPago, baixarPdf });
-  };
+  const dataInicio = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
   return (
-    <Dialog open={!!pending} onOpenChange={(o) => !o && !working && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ReceiptIcon className="h-4 w-4 text-primary" />
-            Gerar recibo
-          </DialogTitle>
-          <DialogDescription>
-            {pending ? (
-              <>Contrato <strong className="font-mono">{pending.contractNumero}</strong>
-                {pending.customerName ? <> · {pending.customerName}</> : null}
-              </>
-            ) : null}
-          </DialogDescription>
-        </DialogHeader>
+    <Popover open={open} onOpenChange={(o) => !working && setOpen(o)}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="end" className="w-[300px] p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b bg-muted/30">
+          <p className="text-sm font-semibold leading-tight">Gerar recibo</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Início do contrato:{' '}
+            <span className="font-medium text-foreground tabular-nums">
+              {dataInicio ? formatDateBR(dataInicio) : '—'}
+            </span>
+          </p>
+        </div>
 
-        {pending && (
-          <div className="space-y-5">
-            {/* Colinha: dados-chave do contrato */}
-            <div className="rounded-lg border bg-muted/40 p-3 text-xs grid grid-cols-2 gap-y-2 gap-x-4">
-              <div className="flex flex-col">
-                <span className="text-muted-foreground uppercase tracking-wide text-[10px]">Início do contrato</span>
-                <span className="font-medium tabular-nums">{dataInicio ? formatDateBR(dataInicio) : '—'}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-muted-foreground uppercase tracking-wide text-[10px]">Valor mensal</span>
-                <span className="font-medium tabular-nums">{BRL(Number(pending.valorMensal || 0))}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-muted-foreground uppercase tracking-wide text-[10px]">Dia de vencimento</span>
-                <span className="font-medium tabular-nums">dia {pending.diaVencimento}</span>
-              </div>
-              {compInicio && (
-                <div className="flex flex-col">
-                  <span className="text-muted-foreground uppercase tracking-wide text-[10px]">1ª competência</span>
-                  <button
-                    type="button"
-                    onClick={usarDataInicio}
-                    className="text-left font-medium text-primary hover:underline underline-offset-2 transition-colors duration-150 w-fit"
-                    title="Usar como competência inicial"
-                  >
-                    {formatComp(compInicio)}
-                  </button>
-                </div>
-              )}
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <Label htmlFor={`gr-from-${pending.contractId}`} className="text-[11px] text-muted-foreground">De</Label>
+              <Input
+                id={`gr-from-${pending.contractId}`}
+                type="month"
+                value={from}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  if (to && e.target.value && to < e.target.value) setTo(e.target.value);
+                }}
+                className="h-9 text-sm"
+              />
             </div>
-
-            {/* Modo */}
-            <Tabs value={mode} onValueChange={(v) => setMode(v as any)} className="w-full">
-              <TabsList className="grid grid-cols-2 w-full">
-                <TabsTrigger value="single">Competência única</TabsTrigger>
-                <TabsTrigger value="range">Intervalo (2 datas)</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="single" className="pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="comp-single" className="text-xs">Competência</Label>
-                  <Input
-                    id="comp-single"
-                    type="month"
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="range" className="pt-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="comp-from" className="text-xs">De</Label>
-                    <Input
-                      id="comp-from"
-                      type="month"
-                      value={from}
-                      onChange={(e) => {
-                        setFrom(e.target.value);
-                        if (to < e.target.value) setTo(e.target.value);
-                      }}
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="comp-to" className="text-xs">Até</Label>
-                    <Input
-                      id="comp-to"
-                      type="month"
-                      value={to}
-                      min={from}
-                      onChange={(e) => setTo(e.target.value)}
-                      className="h-10"
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            {/* Opções */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={marcarPago} onCheckedChange={(v) => setMarcarPago(!!v)} />
-                <span>Marcar como pago já na emissão</span>
-              </label>
-              {mode === 'single' && (
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox checked={baixarPdf} onCheckedChange={(v) => setBaixarPdf(!!v)} />
-                  <span>Baixar PDF em seguida</span>
-                </label>
-              )}
-            </div>
-
-            {/* Resumo / avisos */}
-            <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs space-y-1">
-              {invalido ? (
-                <p className="text-destructive font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  Intervalo inválido — a competência final deve ser maior ou igual à inicial (limite 60 meses).
-                </p>
-              ) : (
-                <>
-                  <p>
-                    <span className="text-muted-foreground">Serão emitidos </span>
-                    <strong className="tabular-nums">{meses.length}</strong>
-                    <span className="text-muted-foreground"> recibo(s) — </span>
-                    <strong>{formatComp(meses[0])}</strong>
-                    {meses.length > 1 && <> até <strong>{formatComp(meses[meses.length - 1])}</strong></>}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Total estimado: </span>
-                    <strong className="tabular-nums">{BRL(totalEstimado)}</strong>
-                  </p>
-                </>
-              )}
-              {anteriorInicio && !invalido && (
-                <p className="text-amber-700 dark:text-amber-500 flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  Competência inicial é anterior ao início do contrato ({formatComp(compInicio)}).
-                </p>
-              )}
+            <div className="space-y-1.5">
+              <Label htmlFor={`gr-to-${pending.contractId}`} className="text-[11px] text-muted-foreground">Até</Label>
+              <Input
+                id={`gr-to-${pending.contractId}`}
+                type="month"
+                value={to}
+                min={from}
+                onChange={(e) => setTo(e.target.value)}
+                className="h-9 text-sm"
+              />
             </div>
           </div>
-        )}
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose} disabled={working}>Cancelar</Button>
-          <Button
-            onClick={submit}
-            disabled={working || invalido}
-            className="bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
-          >
-            {working ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ReceiptIcon className="h-4 w-4 mr-1.5" />}
-            {meses.length > 1 ? `Gerar ${meses.length} recibos` : 'Gerar recibo'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            {invalido
+              ? <span className="text-destructive">Intervalo inválido.</span>
+              : meses.length === 1
+                ? <>1 recibo · <strong className="text-foreground">{formatComp(meses[0])}</strong></>
+                : <><strong className="text-foreground">{meses.length}</strong> recibos · {formatComp(meses[0])} → {formatComp(meses[meses.length - 1])}</>}
+          </p>
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setOpen(false)}
+              disabled={working}
+              className="h-8"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => { onConfirm(from, to); setOpen(false); }}
+              disabled={working || invalido}
+              className="h-8 bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
+            >
+              {working ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+              Gerar
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };
+
 
 
 const PayDialog: React.FC<{
