@@ -146,6 +146,69 @@ const PontoDashboard: React.FC = () => {
         ))}
       </section>
 
+      {/* Alertas inteligentes */}
+      {(() => {
+        const missing = employeesMissingPunchToday();
+        const pend = JUSTIFICATIONS.filter((j) => j.status === 'pendente');
+        const feriasCriticas = feriasVencendo(30);
+        const alertas = [
+          missing.length > 0 && {
+            key: 'missing',
+            icon: ClockAlert,
+            title: `${missing.length} funcionário${missing.length > 1 ? 's' : ''} sem entrada hoje`,
+            desc: missing.slice(0, 3).map((e) => e.nome.split(' ')[0]).join(', ') + (missing.length > 3 ? ` +${missing.length - 3}` : ''),
+            tone: 'rose',
+            to: '/ponto/registros',
+          },
+          pend.length > 0 && {
+            key: 'pend',
+            icon: Scale,
+            title: `${pend.length} justificativa${pend.length > 1 ? 's' : ''} pendente${pend.length > 1 ? 's' : ''}`,
+            desc: 'Aguardando análise do RH',
+            tone: 'amber',
+            to: '/ponto/justificativas',
+          },
+          feriasCriticas.length > 0 && {
+            key: 'ferias',
+            icon: Umbrella,
+            title: `${feriasCriticas.length} colaborador${feriasCriticas.length > 1 ? 'es' : ''} com férias vencendo`,
+            desc: `Próximo limite em ${Math.max(feriasCriticas[0].diasRest, 0)} dias · CLT art. 134`,
+            tone: 'sky',
+            to: '/ponto/funcionarios',
+          },
+        ].filter(Boolean) as Array<{ key: string; icon: React.ComponentType<{ className?: string }>; title: string; desc: string; tone: 'rose' | 'amber' | 'sky'; to: string }>;
+
+        if (alertas.length === 0) return null;
+        const toneMap = {
+          rose: { border: 'border-l-rose-500', icon: 'bg-rose-500/15 text-rose-600 dark:text-rose-400', dot: 'bg-rose-500' },
+          amber: { border: 'border-l-amber-500', icon: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' },
+          sky: { border: 'border-l-sky-500', icon: 'bg-sky-500/15 text-sky-600 dark:text-sky-400', dot: 'bg-sky-500' },
+        };
+        return (
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {alertas.map((a) => {
+              const t = toneMap[a.tone];
+              return (
+                <Link
+                  key={a.key}
+                  to={a.to}
+                  className={`group relative flex items-start gap-3 rounded-xl border border-border/60 border-l-4 ${t.border} bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}
+                >
+                  <div className={`h-10 w-10 rounded-lg ${t.icon} flex items-center justify-center shrink-0`}>
+                    <a.icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold leading-tight">{a.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{a.desc}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                </Link>
+              );
+            })}
+          </section>
+        );
+      })()}
+
       {/* Chart + Live */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 border-border/60">
