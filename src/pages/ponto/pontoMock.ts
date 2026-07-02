@@ -47,6 +47,7 @@ export interface Punch {
   endereco?: string;
   nsr: number; // Número Sequencial de Registro (Portaria 671)
   hash: string; // assinatura simulada
+  fotoUrl?: string; // captura facial no momento da batida (LGPD: consentimento obrigatório)
   ajustado?: boolean;
   motivoAjuste?: string;
 }
