@@ -72,11 +72,26 @@ const PontoRelatorios: React.FC = () => {
           download(`AFD_${suffix}.txt`, txt);
           break;
         }
-        case 'aej':
-        case 'espelho': {
+        case 'aej': {
           const rows = generateEspelhoCSV({ employees: EMPLOYEES, punches: PUNCHES, jornadas: JORNADAS, from, to });
           if (rows.length <= 1) throw new Error('Nada a exportar no período selecionado.');
-          downloadCSV(`${id === 'aej' ? 'AEJ' : 'Espelho'}_${suffix}.csv`, rows);
+          downloadCSV(`AEJ_${suffix}.csv`, rows);
+          break;
+        }
+        case 'espelho': {
+          const empresa = {
+            razao_social: (settings as any)?.empresa_razao_social ?? (settings as any)?.razao_social ?? '',
+            cnpj: (settings as any)?.empresa_cnpj ?? (settings as any)?.cnpj ?? '',
+            endereco: (settings as any)?.empresa_endereco ?? '',
+            cei: (settings as any)?.cei ?? '',
+          };
+          const elegiveis = EMPLOYEES.filter((e) => JORNADAS.some((j) => j.id === e.jornadaId));
+          if (elegiveis.length === 0) throw new Error('Nenhum funcionário com jornada vinculada — atribua jornadas antes de gerar.');
+          const res = generateEspelhoConsolidadoPdf({
+            empresa, employees: EMPLOYEES, jornadas: JORNADAS, punches: PUNCHES, from, to,
+            filename: `EspelhoConsolidado_${suffix}.pdf`,
+          });
+          if (res.included === 0) throw new Error('Sem dados para o período selecionado.');
           break;
         }
         case 'folha': {
