@@ -154,6 +154,8 @@ router.post('/generate', async (req, res) => {
         numero: ct.numero, descricao: ct.descricao,
         dataInicio: ct.data_inicio, valorMensal: ct.valor_mensal,
         diaVencimento: ct.dia_vencimento,
+        enderecoObra: ct.endereco_obra, localEvento: ct.local_evento,
+        cno: ct.cno, tipoContrato: ct.tipo_contrato,
       },
       company: {
         razaoSocial: ct.company_razao_social, cnpj: ct.company_cnpj,
