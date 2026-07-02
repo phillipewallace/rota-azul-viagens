@@ -242,11 +242,18 @@ const PontoJustificativas: React.FC = () => {
                       <TableCell className="text-sm tabular-nums">{new Date(j.data).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell className="max-w-[320px]">
                         <p className="text-sm line-clamp-2">{j.motivo}</p>
-                        {j.anexoUrl && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-primary mt-1">
-                            <Paperclip className="h-3 w-3" /> Anexo
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          {j.horario && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 tabular-nums">
+                              <Clock className="h-3 w-3" /> {j.horario}
+                            </span>
+                          )}
+                          {j.anexoUrl && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-primary">
+                              <Paperclip className="h-3 w-3" /> Anexo
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`${statusColor[j.status]} border capitalize`}>{j.status}</Badge>
