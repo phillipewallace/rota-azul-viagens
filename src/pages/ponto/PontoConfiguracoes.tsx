@@ -10,11 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Settings2, Clock, ShieldCheck, Bell, MapPin, KeyRound, Plus, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Settings2, Clock, ShieldCheck, Bell, MapPin, KeyRound, Plus, Loader2, Building2, AlertCircle } from 'lucide-react';
 import { useJornadas, useSettings, useUpdateSettings } from '@/hooks/usePontoData';
+import { useQuery } from '@tanstack/react-query';
+import { erpService } from '@/services/erp';
 import { toast } from 'sonner';
 import { JornadaDialog } from './JornadaDialog';
 import type { Jornada } from './pontoUtils';
+import { Link } from 'react-router-dom';
 
 const Section: React.FC<{ icon: React.ElementType; title: string; desc: string; children: React.ReactNode }> = ({ icon: Icon, title, desc, children }) => (
   <Card className="border-border/60">
