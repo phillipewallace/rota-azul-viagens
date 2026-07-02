@@ -220,7 +220,16 @@ const PontoConfiguracoes: React.FC = () => {
       </Section>
 
       <div className="flex justify-end gap-3 pt-2">
-        <Button variant="outline" onClick={() => settings && setForm((f) => ({ ...f, ...settings }))}>Cancelar</Button>
+        <Button variant="outline" onClick={() => settings && setForm((f) => ({
+          ...f,
+          empresa_emissora_id: settings.empresa_emissora_id ?? '',
+          fuso_horario: settings.fuso_horario ?? 'America/Sao_Paulo',
+          usar_geoloc: settings.usar_geoloc,
+          exigir_foto: settings.exigir_foto,
+          banco_horas_ativo: settings.banco_horas_ativo,
+          limite_credito_min: settings.limite_credito_min,
+          limite_debito_min: settings.limite_debito_min,
+        }))}>Cancelar</Button>
         <Button disabled={updateMut.isPending} onClick={salvar} className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0 gap-2">
           {updateMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Salvar alterações
