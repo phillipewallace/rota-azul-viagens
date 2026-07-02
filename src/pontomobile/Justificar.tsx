@@ -171,7 +171,7 @@ function StatusBadge({ status }: { status: Justification['status'] }) {
 function NewJustificationSheet({
   funcionarioId, onClose, onCreated,
 }: { funcionarioId: string; onClose: () => void; onCreated: () => void }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const [data, setData] = useState(today);
   const [tipo, setTipo] = useState<JustTipo>('atestado');
   const [horario, setHorario] = useState('');
