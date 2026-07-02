@@ -1,8 +1,8 @@
 /**
  * Configurações do módulo Ponto — jornadas, políticas, integração REP-P.
- * Somente UI (front-only). Toggle-based, sem persistência.
+ * Persistência real via API (settings + jornadas).
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Settings2, Clock, ShieldCheck, Bell, MapPin, KeyRound, Plus } from 'lucide-react';
-import { JORNADAS } from './pontoMock';
+import { Settings2, Clock, ShieldCheck, Bell, MapPin, KeyRound, Plus, Loader2 } from 'lucide-react';
+import { useJornadas, useSettings, useUpdateSettings } from '@/hooks/usePontoData';
+import { toast } from 'sonner';
 
 const Section: React.FC<{ icon: React.ElementType; title: string; desc: string; children: React.ReactNode }> = ({ icon: Icon, title, desc, children }) => (
   <Card className="border-border/60">
@@ -31,94 +32,128 @@ const Section: React.FC<{ icon: React.ElementType; title: string; desc: string; 
   </Card>
 );
 
-const Toggle: React.FC<{ label: string; desc?: string; defaultChecked?: boolean }> = ({ label, desc, defaultChecked }) => {
-  const [on, setOn] = useState(!!defaultChecked);
+const Row: React.FC<{ label: string; desc?: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, desc, checked, onChange }) => (
+  <div className="flex items-center justify-between gap-4 py-3">
+    <div className="min-w-0">
+      <p className="text-sm font-medium">{label}</p>
+      {desc && <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>}
+    </div>
+    <Switch checked={checked} onCheckedChange={onChange} />
+  </div>
+);
+
+const PontoConfiguracoes: React.FC = () => {
+  const { data: JORNADAS = [] } = useJornadas();
+  const { data: settings } = useSettings();
+  const updateMut = useUpdateSettings();
+
+  const [form, setForm] = useState({
+    razao_social: '', cnpj: '', cei: '', endereco: '', fuso_horario: 'America/Sao_Paulo',
+    usar_geoloc: true, exigir_foto: true, banco_horas_ativo: true,
+    limite_credito_min: 2400, limite_debito_min: -1200,
+  });
+
+  useEffect(() => {
+    if (settings) setForm((f) => ({ ...f, ...settings }));
+  }, [settings]);
+
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  const salvar = async () => {
+    try {
+      await updateMut.mutateAsync(form);
+      toast.success('Configurações salvas com sucesso.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao salvar configurações.');
+    }
+  };
+
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <div className="min-w-0">
-        <p className="text-sm font-medium">{label}</p>
-        {desc && <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>}
+    <div className="p-4 md:p-8 space-y-6 max-w-5xl mx-auto">
+      <header>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
+          <Settings2 className="h-3.5 w-3.5" /> Ponto Digital
+        </div>
+        <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight mt-1">Configurações</h1>
+        <p className="text-sm text-muted-foreground mt-1">Políticas de jornada, compliance e segurança do sistema de ponto.</p>
+      </header>
+
+      <Section icon={ShieldCheck} title="Empresa (REP-P)" desc="Dados exigidos no cabeçalho do AFD e relatórios oficiais (Portaria MTP 671/2021).">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div><Label className="text-xs">Razão Social</Label><Input className="mt-1" value={form.razao_social ?? ''} onChange={(e) => set('razao_social', e.target.value)} /></div>
+          <div><Label className="text-xs">CNPJ</Label><Input className="mt-1" value={form.cnpj ?? ''} onChange={(e) => set('cnpj', e.target.value)} /></div>
+          <div><Label className="text-xs">CEI/CAEPF (opcional)</Label><Input className="mt-1" value={form.cei ?? ''} onChange={(e) => set('cei', e.target.value)} /></div>
+          <div><Label className="text-xs">Fuso horário</Label><Input className="mt-1" value={form.fuso_horario} onChange={(e) => set('fuso_horario', e.target.value)} /></div>
+          <div className="sm:col-span-2"><Label className="text-xs">Endereço da sede</Label><Input className="mt-1" value={form.endereco ?? ''} onChange={(e) => set('endereco', e.target.value)} /></div>
+        </div>
+      </Section>
+
+      <Section icon={Clock} title="Jornadas de trabalho" desc="Modelos aplicados a cada funcionário. Tolerância máxima de 10 minutos por dia (CLT art. 58 §1º).">
+        <div className="space-y-3">
+          {JORNADAS.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nenhuma jornada cadastrada ainda.</p>
+          )}
+          {JORNADAS.map((j) => (
+            <div key={j.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border border-border/60 hover:border-emerald-500/40 transition-colors">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm">{j.nome}</p>
+                  <Badge variant="outline" className="text-[10px]">{j.cargaSemanal}h/sem</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                  {j.entrada} → {j.saidaAlmoco} · {j.voltaAlmoco} → {j.saida} · tolerância {j.tolerancia}min
+                </p>
+              </div>
+              <Button variant="outline" size="sm">Editar</Button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" className="w-full gap-2 border-dashed">
+            <Plus className="h-4 w-4" /> Nova jornada
+          </Button>
+        </div>
+      </Section>
+
+      <Section icon={MapPin} title="Registro & captura" desc="Regras para o app mobile e para o registro no portal web.">
+        <div className="divide-y divide-border/60">
+          <Row label="Exigir foto do funcionário na batida" desc="Recomendado para prevenir fraudes." checked={form.exigir_foto} onChange={(v) => set('exigir_foto', v)} />
+          <Row label="Exigir geolocalização (GPS)" desc="Bloqueia batidas sem localização válida." checked={form.usar_geoloc} onChange={(v) => set('usar_geoloc', v)} />
+        </div>
+      </Section>
+
+      <Section icon={Clock} title="Banco de horas" desc="Compensação conforme Lei 13.467/2017. Limites em minutos.">
+        <div className="divide-y divide-border/60">
+          <Row label="Banco de horas ativo" checked={form.banco_horas_ativo} onChange={(v) => set('banco_horas_ativo', v)} />
+          <div className="grid sm:grid-cols-2 gap-3 pt-4">
+            <div><Label className="text-xs">Limite de crédito (min)</Label><Input type="number" className="mt-1" value={form.limite_credito_min} onChange={(e) => set('limite_credito_min', Number(e.target.value))} /></div>
+            <div><Label className="text-xs">Limite de débito (min)</Label><Input type="number" className="mt-1" value={form.limite_debito_min} onChange={(e) => set('limite_debito_min', Number(e.target.value))} /></div>
+          </div>
+        </div>
+      </Section>
+
+      <Section icon={Bell} title="Compliance" desc="Recursos exigidos pela Portaria MTP 671/2021.">
+        <div className="divide-y divide-border/60">
+          <div className="py-3 flex items-center justify-between"><span className="text-sm">Assinatura SHA-256 nos registros</span><Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Ativo</Badge></div>
+          <div className="py-3 flex items-center justify-between"><span className="text-sm">NSR sequencial global</span><Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Ativo</Badge></div>
+          <div className="py-3 flex items-center justify-between"><span className="text-sm">Registros imutáveis (ajuste gera novo registro)</span><Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Ativo</Badge></div>
+        </div>
+      </Section>
+
+      <Section icon={KeyRound} title="Segurança & acesso" desc="Autenticação de gestores e integrações.">
+        <div className="divide-y divide-border/60">
+          <div className="py-3 flex items-center justify-between"><span className="text-sm">Autenticação obrigatória (JWT)</span><Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Ativo</Badge></div>
+          <div className="py-3 flex items-center justify-between"><span className="text-sm">Log de auditoria de acessos</span><Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">Ativo</Badge></div>
+        </div>
+      </Section>
+
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="outline" onClick={() => settings && setForm((f) => ({ ...f, ...settings }))}>Cancelar</Button>
+        <Button disabled={updateMut.isPending} onClick={salvar} className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0 gap-2">
+          {updateMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          Salvar alterações
+        </Button>
       </div>
-      <Switch checked={on} onCheckedChange={setOn} />
     </div>
   );
 };
-
-const PontoConfiguracoes: React.FC = () => (
-  <div className="p-4 md:p-8 space-y-6 max-w-5xl mx-auto">
-    <header>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
-        <Settings2 className="h-3.5 w-3.5" /> Ponto Digital
-      </div>
-      <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight mt-1">Configurações</h1>
-      <p className="text-sm text-muted-foreground mt-1">Políticas de jornada, compliance e segurança do sistema de ponto.</p>
-    </header>
-
-    <Section icon={Clock} title="Jornadas de trabalho" desc="Modelos aplicados a cada funcionário. Tolerância máxima de 10 minutos por dia (CLT art. 58 §1º).">
-      <div className="space-y-3">
-        {JORNADAS.map((j) => (
-          <div key={j.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border border-border/60 hover:border-emerald-500/40 transition-colors">
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-sm">{j.nome}</p>
-                <Badge variant="outline" className="text-[10px]">{j.cargaSemanal}h/sem</Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-                {j.entrada} → {j.saidaAlmoco} · {j.voltaAlmoco} → {j.saida} · tolerância {j.tolerancia}min
-              </p>
-            </div>
-            <Button variant="outline" size="sm">Editar</Button>
-          </div>
-        ))}
-        <Button variant="outline" size="sm" className="w-full gap-2 border-dashed">
-          <Plus className="h-4 w-4" /> Nova jornada
-        </Button>
-      </div>
-    </Section>
-
-    <Section icon={ShieldCheck} title="Compliance & REP-P" desc="Configurações exigidas pela Portaria MTP 671/2021 para sistemas de registro eletrônico de ponto.">
-      <div className="divide-y divide-border/60">
-        <Toggle label="Assinatura digital SHA-256 nos registros" desc="Cada batida é assinada e imutável. Recomendado." defaultChecked />
-        <Toggle label="NSR sequencial global" desc="Número Sequencial de Registro único e crescente." defaultChecked />
-        <Toggle label="Bloquear edição de registros originais" desc="Ajustes geram novo registro auditável em vez de alterar o original." defaultChecked />
-        <Toggle label="Retenção mínima de 5 anos" desc="Backup automático em nuvem com replicação geográfica." defaultChecked />
-        <Toggle label="Exportação automática AFD mensal" desc="Envia o AFD assinado para o e-mail do gestor no dia 1º." />
-      </div>
-    </Section>
-
-    <Section icon={MapPin} title="Registro por geolocalização" desc="Restringe onde funcionários podem bater ponto pelo app mobile.">
-      <div className="divide-y divide-border/60">
-        <Toggle label="Exigir GPS ao registrar" desc="Bloqueia batidas sem localização válida." defaultChecked />
-        <Toggle label="Cercar por raio geográfico (geofence)" desc="Aceita apenas batidas dentro do perímetro autorizado." />
-        <Toggle label="Detectar GPS mock/spoofed" desc="Recusa registros de aplicativos falsificadores de localização." defaultChecked />
-        <div className="grid sm:grid-cols-2 gap-3 pt-4">
-          <div><Label className="text-xs">Endereço da sede</Label><Input placeholder="Alameda Santos, 1000 — SP" defaultValue="Alameda Santos, 1000 — SP" className="mt-1" /></div>
-          <div><Label className="text-xs">Raio permitido (m)</Label><Input type="number" defaultValue={150} className="mt-1" /></div>
-        </div>
-      </div>
-    </Section>
-
-    <Section icon={Bell} title="Notificações" desc="Alertas para gestores e funcionários.">
-      <div className="divide-y divide-border/60">
-        <Toggle label="Alertar gestor sobre atrasos > 15min" defaultChecked />
-        <Toggle label="Aviso de justificativa pendente há mais de 48h" defaultChecked />
-        <Toggle label="Resumo semanal de banco de horas" defaultChecked />
-        <Toggle label="Aviso de horas extras próximas do limite mensal (Lei 13.467/17)" defaultChecked />
-      </div>
-    </Section>
-
-    <Section icon={KeyRound} title="Segurança & acesso" desc="Autenticação de gestores e integrações.">
-      <div className="divide-y divide-border/60">
-        <Toggle label="MFA obrigatório para gestores" defaultChecked />
-        <Toggle label="Log de auditoria de acessos" defaultChecked />
-      </div>
-    </Section>
-
-    <div className="flex justify-end gap-3 pt-2">
-      <Button variant="outline">Cancelar</Button>
-      <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0">Salvar alterações</Button>
-    </div>
-  </div>
-);
 
 export default PontoConfiguracoes;
