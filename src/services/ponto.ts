@@ -122,7 +122,7 @@ export const pontoService = {
     if (p?.limit) qs.set('limit', String(p.limit));
     return fetch(`${base}/punches?${qs}`, { headers: h() }).then(j);
   },
-  createPunch: (b: Partial<Punch>) => fetch(`${base}/punches`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Punch>,
+  createPunch: (b: Partial<Punch> & { motivo?: string }) => fetch(`${base}/punches`, { method: 'POST', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Punch>,
   adjustPunch: (id: string, b: { timestamp?: string; motivo: string }) =>
     fetch(`${base}/punches/${id}/adjust`, { method: 'PUT', headers: h(), body: JSON.stringify(b) }).then(j) as Promise<Punch>,
 

@@ -103,26 +103,51 @@ router.get('/punches', async (req, res) => {
 
 router.post('/punches', async (req: AuthedRequest, res) => {
   try {
-    const { funcionario_id, tipo, origem = 'web', latitude, longitude, endereco, foto_url, timestamp } = req.body || {};
-    if (!funcionario_id || !tipo) return res.status(400).json({ error: 'funcionario_id e tipo obrigatórios' });
+    const { funcionario_id, tipo, origem = 'web', latitude, longitude, endereco, foto_url, timestamp, motivo } = req.body || {};
+    if (!funcionario_id || !tipo) return res.status(400).json({ error: 'funcionario_id e tipo são obrigatórios' });
     if (!['entrada','saida-almoco','volta-almoco','saida'].includes(tipo))
-      return res.status(400).json({ error: 'tipo inválido' });
+      return res.status(400).json({ error: 'Tipo de batida inválido' });
+    if (!['web','mobile','manual','importado'].includes(origem))
+      return res.status(400).json({ error: 'Origem inválida' });
+    if (origem === 'manual' && (!motivo || !String(motivo).trim())) {
+      return res.status(400).json({ error: 'Motivo é obrigatório para batidas manuais' });
+    }
 
-    const ts = timestamp || new Date().toISOString();
+    // Timestamp válido e dentro de janela sensata (não mais que 5 min no futuro; até 2 anos no passado)
+    const ts = timestamp ? new Date(timestamp) : new Date();
+    if (isNaN(ts.getTime())) return res.status(400).json({ error: 'Data/hora inválida' });
+    const now = Date.now();
+    if (ts.getTime() > now + 5 * 60_000) return res.status(400).json({ error: 'Data/hora não pode estar no futuro' });
+    if (ts.getTime() < now - 2 * 365 * 24 * 3600_000) return res.status(400).json({ error: 'Data/hora muito antiga (>2 anos)' });
+    const tsIso = ts.toISOString();
+
+    // Funcionário precisa existir e estar ativo
+    const fRes = await pool.query('SELECT id, status FROM funcionarios WHERE id = $1', [funcionario_id]);
+    if (!fRes.rows.length) return res.status(404).json({ error: 'Funcionário não encontrado' });
+    if (fRes.rows[0].status && fRes.rows[0].status !== 'ativo')
+      return res.status(400).json({ error: 'Funcionário inativo — não é possível registrar batida' });
+
+    // Batida manual exige privilégio administrativo
+    if (origem === 'manual' && !isAdmin(req)) {
+      return res.status(403).json({ error: 'Apenas gestores podem registrar batidas manuais' });
+    }
+
     const nsrRow = await pool.query("SELECT nextval('ponto_nsr_seq') AS nsr");
     const nsr = Number(nsrRow.rows[0].nsr);
-    const hash = signPunch(funcionario_id, ts, tipo, nsr);
+    const hash = signPunch(funcionario_id, tsIso, tipo, nsr);
+    const ajustado = origem === 'manual';
+    const motivoAjuste = ajustado ? String(motivo).trim() : null;
 
     const r = await pool.query(
       `INSERT INTO ponto_punches
-        (funcionario_id, timestamp, tipo, origem, latitude, longitude, endereco, nsr, hash, foto_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [funcionario_id, ts, tipo, origem, latitude ?? null, longitude ?? null, endereco || null, nsr, hash, foto_url || null]
+        (funcionario_id, timestamp, tipo, origem, latitude, longitude, endereco, nsr, hash, foto_url, ajustado, motivo_ajuste, ajustado_por, ajustado_em)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, CASE WHEN $11 THEN NOW() ELSE NULL END) RETURNING *`,
+      [funcionario_id, tsIso, tipo, origem, latitude ?? null, longitude ?? null, endereco || null, nsr, hash, foto_url || null, ajustado, motivoAjuste, ajustado ? (req.user?.userId || null) : null]
     );
     res.status(201).json(r.rows[0]);
   } catch (e: any) {
     console.error('[PUNCH CREATE]', e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message || 'Erro interno ao registrar batida' });
   }
 });
 

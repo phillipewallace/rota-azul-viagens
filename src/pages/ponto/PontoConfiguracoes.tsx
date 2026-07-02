@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { JornadaDialog } from './JornadaDialog';
 import type { Jornada } from './pontoUtils';
 import { Link } from 'react-router-dom';
+import { TIMEZONES, TIMEZONE_GROUPS } from './timezones';
 
 const Section: React.FC<{ icon: React.ElementType; title: string; desc: string; children: React.ReactNode }> = ({ icon: Icon, title, desc, children }) => (
   <Card className="border-border/60">
@@ -143,7 +144,31 @@ const PontoConfiguracoes: React.FC = () => {
             </div>
             <div>
               <Label className="text-xs">Fuso horário</Label>
-              <Input className="mt-1" value={form.fuso_horario} onChange={(e) => set('fuso_horario', e.target.value)} />
+              <Select value={form.fuso_horario} onValueChange={(v) => set('fuso_horario', v)}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o fuso" /></SelectTrigger>
+                <SelectContent className="max-h-80">
+                  {TIMEZONE_GROUPS.map((g) => {
+                    const items = TIMEZONES.filter((t) => t.group === g);
+                    if (!items.length) return null;
+                    return (
+                      <React.Fragment key={g}>
+                        <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/40">
+                          {g}
+                        </div>
+                        {items.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            <span className="tabular-nums text-muted-foreground mr-2">{t.offset}</span>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Padrão para o Brasil: <b>America/Sao_Paulo</b> (Brasília).
+              </p>
             </div>
           </div>
 
