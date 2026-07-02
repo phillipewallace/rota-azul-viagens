@@ -699,6 +699,18 @@ function ContractFormDialog({
   const [form, setForm] = useState<any>(empty);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Se o usuário editou manualmente o dia, paramos de auto-preencher.
+  // Limpar o campo reativa o auto-preenchimento.
+  const [diaVencTouched, setDiaVencTouched] = useState(false);
+
+  // Vencimento sugerido = dia do mês em (dataInicio + 28 dias). Clampeado 1-28.
+  const suggestDiaVenc = (dataInicio: string): number | '' => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicio)) return '';
+    const [y, m, d] = dataInicio.split('-').map(Number);
+    const base = new Date(Date.UTC(y, m - 1, d));
+    const venc = new Date(base.getTime() + 28 * 24 * 60 * 60 * 1000);
+    return Math.min(28, Math.max(1, venc.getUTCDate()));
+  };
 
   useEffect(() => {
     if (editing) {
@@ -725,7 +737,9 @@ function ContractFormDialog({
         cno: (editing as any).cno || '',
       });
 
-    } else setForm(empty);
+      // Editando um contrato existente: o dia já foi decidido, não sobrescreve.
+      setDiaVencTouched(true);
+    } else { setForm(empty); setDiaVencTouched(false); }
     // eslint-disable-next-line
   }, [editing, open]);
 
@@ -820,14 +834,42 @@ function ContractFormDialog({
           <div>
             <Label className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Início do contrato *</Label>
             <Input type="date" value={form.dataInicio}
-              onChange={(e) => setForm({ ...form, dataInicio: e.target.value })} />
+              onChange={(e) => {
+                const dataInicio = e.target.value;
+                setForm((f: any) => {
+                  const next = { ...f, dataInicio };
+                  if (!diaVencTouched) {
+                    const sug = suggestDiaVenc(dataInicio);
+                    if (sug !== '') next.diaVencimento = sug;
+                  }
+                  return next;
+                });
+              }} />
           </div>
           {form.tipoContrato !== 'evento' ? (
             <>
               <div>
-                <Label className="text-xs">Dia de vencimento do boleto (1-28)</Label>
-                <Input type="number" min={1} max={28} value={form.diaVencimento}
-                  onChange={(e) => setForm({ ...form, diaVencimento: e.target.value })} />
+                <Label className="text-xs flex items-center justify-between gap-2">
+                  <span>Dia de vencimento do boleto (1-28)</span>
+                  {!diaVencTouched && form.dataInicio && (
+                    <span className="text-[10px] font-normal text-muted-foreground">auto · 28 dias após início</span>
+                  )}
+                </Label>
+                <Input
+                  type="number" min={1} max={28} value={form.diaVencimento}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '') {
+                      // Limpou → volta ao auto-preenchimento a partir da data de início.
+                      setDiaVencTouched(false);
+                      const sug = suggestDiaVenc(form.dataInicio);
+                      setForm({ ...form, diaVencimento: sug === '' ? '' : sug });
+                    } else {
+                      setDiaVencTouched(true);
+                      setForm({ ...form, diaVencimento: v });
+                    }
+                  }}
+                />
               </div>
               <div>
                 <Label className="text-xs">Valor mensal (R$)</Label>
