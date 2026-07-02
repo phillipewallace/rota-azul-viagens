@@ -156,6 +156,8 @@ const PontoConfiguracoes: React.FC = () => {
           Salvar alterações
         </Button>
       </div>
+
+      <JornadaDialog open={jornadaOpen} onClose={() => setJornadaOpen(false)} jornada={jornadaEdit} />
     </div>
   );
 };
