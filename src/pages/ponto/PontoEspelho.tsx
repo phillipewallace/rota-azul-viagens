@@ -158,9 +158,11 @@ const PontoEspelho: React.FC = () => {
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Jornada</p>
-            <p className="text-sm font-medium mt-0.5">{jornada.nome}</p>
+            <p className="text-sm font-medium mt-0.5">{jornada?.nome ?? 'Sem jornada'}</p>
             <p className="text-xs text-muted-foreground tabular-nums">
-              {jornada.entrada}–{jornada.saidaAlmoco} · {jornada.voltaAlmoco}–{jornada.saida}
+              {jornada
+                ? `${jornada.entrada}–${jornada.saidaAlmoco} · ${jornada.voltaAlmoco}–${jornada.saida}`
+                : 'Atribua uma jornada ao funcionário'}
             </p>
           </div>
           <div>
