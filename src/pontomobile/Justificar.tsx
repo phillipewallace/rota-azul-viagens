@@ -258,7 +258,7 @@ function NewJustificationSheet({
 
           <button
             type="submit" disabled={saving}
-            className="mt-1 flex h-13 min-h-12 w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-base font-semibold text-primary-foreground shadow-lg transition-all duration-200 hover:brightness-105 active:scale-[.99] disabled:opacity-60"
+            className="mt-1 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold text-primary-foreground shadow-lg transition-all duration-200 hover:brightness-105 active:scale-[.99] disabled:opacity-60"
             style={{ background: 'var(--pm-gradient)' }}
           >
             {saving ? <><Loader2 className="h-5 w-5 animate-spin" /> Enviando...</> : <><Send className="h-5 w-5" /> Enviar solicitação</>}
