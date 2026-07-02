@@ -144,11 +144,20 @@ const Drivers = () => {
           <div className="text-center py-8">Carregando motoristas...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDrivers.map((driver) => (
+            {filteredDrivers.map((driver) => {
+              const isFunc = driver.source === 'funcionario';
+              return (
               <Card key={driver.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{driver.name}</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {driver.name}
+                      {isFunc && (
+                        <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+                          Funcionário
+                        </Badge>
+                      )}
+                    </CardTitle>
                     <Badge className={getStatusColor(driver.status)}>
                       {getStatusText(driver.status)}
                     </Badge>
@@ -158,42 +167,49 @@ const Drivers = () => {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="h-4 w-4 text-gray-500" />
-                      <span>{driver.phone}</span>
+                      <span>{driver.phone || '—'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Mail className="h-4 w-4 text-gray-500" />
-                      <span>{driver.email}</span>
+                      <span>{driver.email || '—'}</span>
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">CNH:</span> {driver.license}
+                      <span className="font-medium">{isFunc ? 'CPF' : 'CNH'}:</span> {driver.license || '—'}
                     </div>
                     {driver.truckCount !== undefined && driver.truckCount > 0 && (
                       <div className="text-sm text-blue-600">
                         <span className="font-medium">Caminhões:</span> {driver.truckCount}
                       </div>
                     )}
-                    <div className="flex gap-2 mt-4">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => setEditingDriver(driver)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        onClick={() => handleDeleteDriverClick(driver)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {isFunc ? (
+                      <p className="text-xs text-muted-foreground mt-4">
+                        Cadastro gerenciado em <a href="/funcionarios" className="text-primary hover:underline">Funcionários</a>.
+                      </p>
+                    ) : (
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => setEditingDriver(driver)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteDriverClick(driver)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            );})}
+
           </div>
         )}
       </div>
