@@ -55,7 +55,8 @@ const PontoDashboard: React.FC = () => {
       const iso = d.toISOString().slice(0, 10);
       const byEmp = new Map<string, ReturnType<typeof computeDay>>();
       EMPLOYEES.forEach((e) => {
-        const j = JORNADAS.find((x) => x.id === e.jornadaId)!;
+        const j = JORNADAS.find((x) => x.id === e.jornadaId);
+        if (!j) return;
         const pts = PUNCHES.filter((p) => p.employeeId === e.id && p.timestamp.startsWith(iso));
         if (pts.length) byEmp.set(e.id, computeDay(pts, j, iso));
       });
