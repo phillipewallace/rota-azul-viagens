@@ -103,7 +103,7 @@ router.get('/punches', async (req, res) => {
 
 router.post('/punches', async (req: AuthedRequest, res) => {
   try {
-    const { funcionario_id, tipo, origem = 'web', latitude, longitude, endereco, foto_url, timestamp, motivo } = req.body || {};
+    const { funcionario_id, tipo, origem = 'web', latitude, longitude, endereco, foto_url, foto_base64, timestamp, motivo } = req.body || {};
     if (!funcionario_id || !tipo) return res.status(400).json({ error: 'funcionario_id e tipo são obrigatórios' });
     if (!['entrada','saida-almoco','volta-almoco','saida'].includes(tipo))
       return res.status(400).json({ error: 'Tipo de batida inválido' });
@@ -111,6 +111,17 @@ router.post('/punches', async (req: AuthedRequest, res) => {
       return res.status(400).json({ error: 'Origem inválida' });
     if (origem === 'manual' && (!motivo || !String(motivo).trim())) {
       return res.status(400).json({ error: 'Motivo é obrigatório para batidas manuais' });
+    }
+
+    // Aceita foto como URL já hospedada OU data URL base64 (mobile).
+    const fotoFinal: string | null = foto_url || foto_base64 || null;
+
+    // Regra crítica do app mobile: exige foto + geolocalização.
+    if (origem === 'mobile') {
+      if (!fotoFinal) return res.status(400).json({ error: 'Foto é obrigatória para bater ponto pelo app' });
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        return res.status(400).json({ error: 'Localização é obrigatória para bater ponto pelo app' });
+      }
     }
 
     // Timestamp válido e dentro de janela sensata (não mais que 5 min no futuro; até 2 anos no passado)
@@ -142,7 +153,7 @@ router.post('/punches', async (req: AuthedRequest, res) => {
       `INSERT INTO ponto_punches
         (funcionario_id, timestamp, tipo, origem, latitude, longitude, endereco, nsr, hash, foto_url, ajustado, motivo_ajuste, ajustado_por, ajustado_em)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, CASE WHEN $11 THEN NOW() ELSE NULL END) RETURNING *`,
-      [funcionario_id, tsIso, tipo, origem, latitude ?? null, longitude ?? null, endereco || null, nsr, hash, foto_url || null, ajustado, motivoAjuste, ajustado ? (req.user?.userId || null) : null]
+      [funcionario_id, tsIso, tipo, origem, latitude ?? null, longitude ?? null, endereco || null, nsr, hash, fotoFinal, ajustado, motivoAjuste, ajustado ? (req.user?.userId || null) : null]
     );
     res.status(201).json(r.rows[0]);
   } catch (e: any) {
