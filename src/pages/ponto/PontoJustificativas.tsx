@@ -146,6 +146,14 @@ const PontoJustificativas: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allChecked}
+                      onCheckedChange={toggleAll}
+                      aria-label="Selecionar pendentes visíveis"
+                      disabled={pendentesVisiveis.length === 0}
+                    />
+                  </TableHead>
                   <TableHead>Funcionário</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Data</TableHead>
