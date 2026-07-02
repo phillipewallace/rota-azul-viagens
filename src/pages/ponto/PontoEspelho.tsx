@@ -11,15 +11,19 @@ import { Input } from '@/components/ui/input';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User, Activity, LogIn, Coffee, LogOut, UtensilsCrossed } from 'lucide-react';
+import { FileCheck2, Printer, Download, ArrowLeft, ArrowRight, User, Activity, LogIn, Coffee, LogOut, UtensilsCrossed, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { computeDay, minutesToHHmm } from './pontoUtils';
-import { useEmployees, usePunches, useJornadas } from '@/hooks/usePontoData';
+import { useEmployees, usePunches, useJornadas, useSettings } from '@/hooks/usePontoData';
+import { generateEspelhoIndividualPdf } from './pontoPdf';
 
 const weekdayLabel = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 const PontoEspelho: React.FC = () => {
   const { data: EMPLOYEES = [], isLoading: loadingEmps, isError: errEmps, refetch: refetchEmps } = useEmployees();
   const { data: JORNADAS = [], isLoading: loadingJorn } = useJornadas();
+  const { data: settings } = useSettings();
+  const [exporting, setExporting] = React.useState<'print' | 'pdf' | null>(null);
 
   const [empId, setEmpId] = useState<string>('');
   React.useEffect(() => {
@@ -87,6 +91,34 @@ const PontoEspelho: React.FC = () => {
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
+  const handleExport = async (mode: 'print' | 'pdf') => {
+    if (!emp) { toast.error('Selecione um funcionário.'); return; }
+    if (loadingPunches) { toast.info('Aguarde o carregamento das batidas.'); return; }
+    setExporting(mode);
+    try {
+      const empresa = {
+        razao_social: (settings as any)?.empresa_razao_social ?? (settings as any)?.razao_social ?? '',
+        cnpj: (settings as any)?.empresa_cnpj ?? (settings as any)?.cnpj ?? '',
+        endereco: (settings as any)?.empresa_endereco ?? '',
+        cei: (settings as any)?.cei ?? '',
+      };
+      const empPunches = PUNCHES.filter((p) => p.employeeId === emp.id);
+      generateEspelhoIndividualPdf({
+        empresa,
+        employee: emp,
+        jornada,
+        punches: empPunches,
+        month,
+        filename: `Espelho_${emp.matricula || emp.nome.replace(/\s+/g, '_')}_${month}.pdf`,
+      });
+      toast.success(mode === 'print' ? 'PDF gerado — abra e use Imprimir do visualizador.' : 'PDF oficial gerado.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Falha ao gerar PDF.');
+    } finally {
+      setExporting(null);
+    }
+  };
+
   if (loadingEmps || loadingJorn) {
     return <div className="p-8 text-sm text-muted-foreground">Carregando espelho…</div>;
   }
@@ -116,9 +148,24 @@ const PontoEspelho: React.FC = () => {
           <p className="text-sm text-muted-foreground mt-1">Modelo conforme Portaria MTP 671/2021 — art. 84.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2"><Printer className="h-4 w-4" /> Imprimir</Button>
-          <Button size="sm" className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0">
-            <Download className="h-4 w-4" /> PDF Oficial
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={exporting !== null || loadingPunches}
+            onClick={() => handleExport('print')}
+          >
+            {exporting === 'print' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+            Imprimir
+          </Button>
+          <Button
+            size="sm"
+            className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0"
+            disabled={exporting !== null || loadingPunches}
+            onClick={() => handleExport('pdf')}
+          >
+            {exporting === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            PDF Oficial
           </Button>
         </div>
       </header>
