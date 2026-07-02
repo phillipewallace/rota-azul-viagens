@@ -232,7 +232,8 @@ const PontoRegistros: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           {preview && (() => {
-            const emp = EMPLOYEES.find((x) => x.id === preview.employeeId)!;
+            const emp = EMPLOYEES.find((x) => x.id === preview.employeeId);
+            if (!emp) return null;
             return (
               <div className="space-y-4">
                 <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-muted ring-1 ring-border">
