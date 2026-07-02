@@ -141,9 +141,7 @@ app.use('/api/erp/expense-categories', erpExpenseCategoriesRoutes);
 app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
-app.use('/api/funcionarios', funcionariosRoutes);
-app.use('/api/cargos', cargosRoutes);
-app.use('/api/ponto', pontoRoutes);
+
 
 // Servir uploads (fotos)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
