@@ -256,7 +256,7 @@ const Funcionarios: React.FC = () => {
                         <p className="text-xs text-muted-foreground truncate mt-0.5">
                           <IdCard className="h-3 w-3 inline mr-1" />Mat. {f.matricula}{f.cargo ? ` · ${f.cargo}` : ''}
                         </p>
-                        {form && f.password_hash ? null : null}
+                        
 
                       </div>
                     </div>
