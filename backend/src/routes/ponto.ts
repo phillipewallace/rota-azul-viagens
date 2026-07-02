@@ -153,7 +153,7 @@ router.post('/punches', async (req: AuthedRequest, res) => {
       `INSERT INTO ponto_punches
         (funcionario_id, timestamp, tipo, origem, latitude, longitude, endereco, nsr, hash, foto_url, ajustado, motivo_ajuste, ajustado_por, ajustado_em)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, CASE WHEN $11 THEN NOW() ELSE NULL END) RETURNING *`,
-      [funcionario_id, tsIso, tipo, origem, latitude ?? null, longitude ?? null, endereco || null, nsr, hash, foto_url || null, ajustado, motivoAjuste, ajustado ? (req.user?.userId || null) : null]
+      [funcionario_id, tsIso, tipo, origem, latitude ?? null, longitude ?? null, endereco || null, nsr, hash, fotoFinal, ajustado, motivoAjuste, ajustado ? (req.user?.userId || null) : null]
     );
     res.status(201).json(r.rows[0]);
   } catch (e: any) {
