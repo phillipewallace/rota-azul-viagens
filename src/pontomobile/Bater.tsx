@@ -99,13 +99,18 @@ export default function PontoMobileBater() {
     const fid = user?.funcionario_id || user?.id;
     if (!fid) { toast.error('Sessão expirada'); return; }
     if (!photo) { toast.error('Tire a foto primeiro'); return; }
+    if (!gps) {
+      toast.error('Localização é obrigatória — ative o GPS');
+      requestGps();
+      return;
+    }
     setSubmitting(true);
     try {
       await createPunch({
         funcionario_id: fid,
         tipo,
-        latitude: gps?.lat,
-        longitude: gps?.lng,
+        latitude: gps.lat,
+        longitude: gps.lng,
         foto_base64: photo,
       });
       toast.success('Ponto registrado!');
