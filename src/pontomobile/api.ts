@@ -1,7 +1,11 @@
 import { API_BASE_URL } from '@/services/config';
 
+// Chaves isoladas: o pontomobile NÃO compartilha sessão com o sistema principal.
+const TOKEN_KEY = 'pm_auth_token';
+const USER_KEY = 'pm_user_data';
+
 function authHeaders(): HeadersInit {
-  const t = localStorage.getItem('auth_token');
+  const t = localStorage.getItem(TOKEN_KEY);
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
 }
 
@@ -13,6 +17,10 @@ async function handle<T>(r: Response): Promise<T> {
       msg = d.error || d.message || msg;
     } catch {
       // ignora
+    }
+    if (r.status === 401) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
     }
     throw new Error(msg);
   }
@@ -34,20 +42,24 @@ export async function login(cpf: string, senha: string): Promise<{ token: string
     body: JSON.stringify({ username: cpf.replace(/\D/g, ''), password: senha }),
   });
   const data = await handle<{ token: string; user: MobileUser }>(r);
-  localStorage.setItem('auth_token', data.token);
-  localStorage.setItem('user_data', JSON.stringify(data.user));
+  localStorage.setItem(TOKEN_KEY, data.token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
   return data;
 }
 
 export function logout() {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('user_data');
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
 }
 
 export function currentUser(): MobileUser | null {
-  const raw = localStorage.getItem('user_data');
+  const raw = localStorage.getItem(USER_KEY);
   if (!raw) return null;
   try { return JSON.parse(raw); } catch { return null; }
+}
+
+export function currentToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 export interface TodayPunch {
@@ -91,4 +103,48 @@ export async function createPunch(input: CreatePunchInput): Promise<TodayPunch> 
     body: JSON.stringify({ ...input, origem: 'mobile' }),
   });
   return handle<TodayPunch>(r);
+}
+
+// ============================================================
+// Justificativas
+// ============================================================
+export type JustTipo = 'atestado' | 'falta' | 'esquecimento' | 'outro';
+export type JustStatus = 'pendente' | 'aprovada' | 'recusada';
+
+export interface Justification {
+  id: string;
+  funcionario_id: string;
+  data: string;
+  tipo: JustTipo;
+  motivo: string;
+  horario?: string | null;
+  anexo_url?: string | null;
+  status: JustStatus;
+  criado_em: string;
+  observacao_revisao?: string | null;
+}
+
+export async function listMyJustifications(funcionarioId: string): Promise<Justification[]> {
+  const r = await fetch(`${API_BASE_URL}/ponto/justifications?funcionario_id=${funcionarioId}`, {
+    headers: authHeaders(),
+  });
+  return handle<Justification[]>(r);
+}
+
+export interface CreateJustInput {
+  funcionario_id: string;
+  data: string;   // YYYY-MM-DD
+  tipo: JustTipo;
+  motivo: string;
+  horario?: string;
+  anexo_url?: string;
+}
+
+export async function createJustification(input: CreateJustInput): Promise<Justification> {
+  const r = await fetch(`${API_BASE_URL}/ponto/justifications`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+  return handle<Justification>(r);
 }
