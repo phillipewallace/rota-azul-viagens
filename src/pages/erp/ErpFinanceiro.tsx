@@ -661,17 +661,22 @@ const ErpFinanceiro: React.FC = () => {
                               disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
                               <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
                             </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => setGerarDialog(p)}
-                              disabled={working === p.contractId}
-                              className="bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
+                            <GerarReciboPopover
+                              pending={p}
+                              working={working === p.contractId}
+                              onConfirm={(from, to) => gerarIntervalo(p, from, to)}
                             >
-                              {working === p.contractId
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                                : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                              Gerar recibo
-                            </Button>
+                              <Button
+                                size="sm"
+                                disabled={working === p.contractId}
+                                className="bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
+                              >
+                                {working === p.contractId
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                                  : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                                Gerar recibo
+                              </Button>
+                            </GerarReciboPopover>
                           </TableCell>
                         </TableRow>
                       )}
