@@ -87,7 +87,9 @@ export interface Receipt {
   id: string;
   numero: string;
   contractId: string;
-  competencia: string; // YYYY-MM
+  competencia: string; // YYYY-MM (derivada do mês do periodoInicio quando houver)
+  periodoInicio?: string | null; // YYYY-MM-DD — data inicial exata do período
+  periodoFim?: string | null;    // YYYY-MM-DD — data final exata do período
   dataEmissao: string;
   dataVencimento?: string;
   valor: number;
