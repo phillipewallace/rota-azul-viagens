@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings2, Clock, ShieldCheck, Bell, MapPin, KeyRound, Plus, Loader2, Building2, AlertCircle } from 'lucide-react';
+import { Settings2, Clock, Bell, MapPin, KeyRound, Plus, Loader2, Building2, AlertCircle } from 'lucide-react';
 import { useJornadas, useSettings, useUpdateSettings } from '@/hooks/usePontoData';
 import { useQuery } from '@tanstack/react-query';
 import { erpService } from '@/services/erp';
