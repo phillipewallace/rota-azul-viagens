@@ -1,6 +1,6 @@
 /**
  * Configurações do módulo Ponto — jornadas, políticas, integração REP-P.
- * Persistência real via API (settings + jornadas).
+ * Persistência real via API (settings + jornadas CRUD).
  */
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +13,8 @@ import { Separator } from '@/components/ui/separator';
 import { Settings2, Clock, ShieldCheck, Bell, MapPin, KeyRound, Plus, Loader2 } from 'lucide-react';
 import { useJornadas, useSettings, useUpdateSettings } from '@/hooks/usePontoData';
 import { toast } from 'sonner';
+import { JornadaDialog } from './JornadaDialog';
+import type { Jornada } from './pontoUtils';
 
 const Section: React.FC<{ icon: React.ElementType; title: string; desc: string; children: React.ReactNode }> = ({ icon: Icon, title, desc, children }) => (
   <Card className="border-border/60">
