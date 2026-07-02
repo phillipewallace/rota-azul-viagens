@@ -832,14 +832,42 @@ function ContractFormDialog({
           <div>
             <Label className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Início do contrato *</Label>
             <Input type="date" value={form.dataInicio}
-              onChange={(e) => setForm({ ...form, dataInicio: e.target.value })} />
+              onChange={(e) => {
+                const dataInicio = e.target.value;
+                setForm((f: any) => {
+                  const next = { ...f, dataInicio };
+                  if (!diaVencTouched) {
+                    const sug = suggestDiaVenc(dataInicio);
+                    if (sug !== '') next.diaVencimento = sug;
+                  }
+                  return next;
+                });
+              }} />
           </div>
           {form.tipoContrato !== 'evento' ? (
             <>
               <div>
-                <Label className="text-xs">Dia de vencimento do boleto (1-28)</Label>
-                <Input type="number" min={1} max={28} value={form.diaVencimento}
-                  onChange={(e) => setForm({ ...form, diaVencimento: e.target.value })} />
+                <Label className="text-xs flex items-center justify-between gap-2">
+                  <span>Dia de vencimento do boleto (1-28)</span>
+                  {!diaVencTouched && form.dataInicio && (
+                    <span className="text-[10px] font-normal text-muted-foreground">auto · 28 dias após início</span>
+                  )}
+                </Label>
+                <Input
+                  type="number" min={1} max={28} value={form.diaVencimento}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '') {
+                      // Limpou → volta ao auto-preenchimento a partir da data de início.
+                      setDiaVencTouched(false);
+                      const sug = suggestDiaVenc(form.dataInicio);
+                      setForm({ ...form, diaVencimento: sug === '' ? '' : sug });
+                    } else {
+                      setDiaVencTouched(true);
+                      setForm({ ...form, diaVencimento: v });
+                    }
+                  }}
+                />
               </div>
               <div>
                 <Label className="text-xs">Valor mensal (R$)</Label>
