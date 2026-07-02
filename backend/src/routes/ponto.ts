@@ -323,21 +323,31 @@ async function reallocateDayTipos(
   if (!/^\d{2}:\d{2}$/.test(horario)) horario = '08:00';
 
   const [hh, mm] = horario.split(':').map(Number);
-  // Timestamp no horário local do servidor (o mesmo usado nas batidas normais).
-  const ts = new Date(`${data}T00:00:00`);
-  ts.setHours(hh || 0, mm || 0, 0, 0);
-  const tsIso = ts.toISOString();
+  const hhmm = `${String(hh || 0).padStart(2, '0')}:${String(mm || 0).padStart(2, '0')}`;
+
+  // Fuso configurado (fallback America/Sao_Paulo) — evita que 08:00 local vire 05:00.
+  const cfgRow = await pool.query(
+    `SELECT fuso_horario FROM ponto_configuracoes ORDER BY id ASC LIMIT 1`,
+  ).catch(() => ({ rows: [] as any[] }));
+  const tz = cfgRow.rows[0]?.fuso_horario || 'America/Sao_Paulo';
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
+    // Timestamp interpretado no fuso configurado → timestamptz correto.
+    const tsRow = await client.query(
+      `SELECT ($1::timestamp AT TIME ZONE $2) AS ts`,
+      [`${data} ${hhmm}:00`, tz],
+    );
+    const tsIso: string = new Date(tsRow.rows[0].ts).toISOString();
+
     // Evita duplicar se já existe uma batida no mesmo horário (± 60s) do dia
     const dup = await client.query(
       `SELECT id FROM ponto_punches
-        WHERE funcionario_id = $1 AND timestamp::date = $2::date
+        WHERE funcionario_id = $1 AND timestamp::date = ($3::timestamptz AT TIME ZONE $4)::date
           AND ABS(EXTRACT(EPOCH FROM (timestamp - $3::timestamptz))) < 60`,
-      [funcionarioId, data, tsIso],
+      [funcionarioId, data, tsIso, tz],
     );
 
     if (!dup.rows.length) {
