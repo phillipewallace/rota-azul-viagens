@@ -289,6 +289,49 @@ const PontoJustificativas: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Nova justificativa */}
+      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova justificativa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Funcionário</Label>
+              <Select value={newForm.funcionario_id} onValueChange={(v) => setNewForm((f) => ({ ...f, funcionario_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {EMPLOYEES.map((e) => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Data</Label>
+                <Input type="date" value={newForm.data} onChange={(e) => setNewForm((f) => ({ ...f, data: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Tipo</Label>
+                <Select value={newForm.tipo} onValueChange={(v) => setNewForm((f) => ({ ...f, tipo: v as JustificationType }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(tipoLabel).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Motivo</Label>
+              <Textarea rows={4} value={newForm.motivo} onChange={(e) => setNewForm((f) => ({ ...f, motivo: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewOpen(false)}>Cancelar</Button>
+            <Button onClick={submitNew} disabled={createJust.isPending}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
