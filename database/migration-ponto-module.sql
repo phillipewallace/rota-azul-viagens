@@ -159,10 +159,5 @@ DO $$ BEGIN
   END IF;
 END$$;
 
--- ---------- Seeds mínimos (jornadas padrão) ----------
-INSERT INTO ponto_jornadas (nome, carga_semanal, entrada, saida_almoco, volta_almoco, saida, tolerancia_min, dias_semana)
-VALUES
-  ('Comercial 44h',       44, '08:00', '12:00', '13:00', '17:48', 10, '{1,2,3,4,5}'),
-  ('Operacional 6x1',     44, '07:00', '11:00', '12:00', '15:20', 10, '{1,2,3,4,5,6}'),
-  ('Administrativa 40h',  40, '09:00', '12:00', '13:00', '18:00', 10, '{1,2,3,4,5}')
-ON CONFLICT DO NOTHING;
+-- (Jornadas padrão removidas — devem ser cadastradas manualmente pelo gestor
+--  em Ponto → Jornadas para evitar duplicação a cada deploy.)
