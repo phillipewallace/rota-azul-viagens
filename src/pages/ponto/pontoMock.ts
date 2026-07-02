@@ -398,3 +398,116 @@ export const groupPunchesByDay = (punches: Punch[]) => {
   });
   return map;
 };
+
+// ---------------------------------------------------------------------------
+// Alertas / Pendências / Notificações
+// ---------------------------------------------------------------------------
+
+/** Próxima data limite de gozo de férias: última data-base (aniversário de admissão)
+ *  + 12 meses (art. 134 CLT). Retorna Date no futuro mais próximo. */
+export const proximoLimiteFerias = (admissaoISO: string, ref = new Date()): Date => {
+  const adm = new Date(admissaoISO);
+  const base = new Date(ref.getFullYear(), adm.getMonth(), adm.getDate());
+  if (base <= ref) base.setFullYear(base.getFullYear() + 1);
+  return base;
+};
+
+export const proximoAniversario = (dataISO: string, ref = new Date()): Date => {
+  const d = new Date(dataISO);
+  const nxt = new Date(ref.getFullYear(), d.getMonth(), d.getDate());
+  if (nxt < new Date(ref.getFullYear(), ref.getMonth(), ref.getDate())) {
+    nxt.setFullYear(nxt.getFullYear() + 1);
+  }
+  return nxt;
+};
+
+export const daysBetween = (a: Date, b: Date) =>
+  Math.round((b.getTime() - a.getTime()) / 86400000);
+
+/** Funcionários ativos que ainda não bateram entrada hoje (dia útil da jornada). */
+export const employeesMissingPunchToday = (): Employee[] => {
+  const today = new Date();
+  const iso = today.toISOString().slice(0, 10);
+  const punchedIds = new Set(
+    PUNCHES.filter((p) => p.tipo === 'entrada' && p.timestamp.startsWith(iso)).map((p) => p.employeeId),
+  );
+  return EMPLOYEES.filter((e) => {
+    if (e.status !== 'ativo') return false;
+    const j = JORNADAS.find((x) => x.id === e.jornadaId);
+    if (!j || !j.diasSemana.includes(today.getDay())) return false;
+    return !punchedIds.has(e.id);
+  });
+};
+
+/** Aniversariantes dentro de N dias a partir de hoje. */
+export const aniversariantesProximos = (dias = 7): Array<{ e: Employee; date: Date }> => {
+  const ref = new Date();
+  ref.setHours(0, 0, 0, 0);
+  // Estimativa: usa admissão como aniversário fictício quando não temos data de nascimento.
+  return EMPLOYEES
+    .filter((e) => e.status === 'ativo')
+    .map((e) => ({ e, date: proximoAniversario(e.admissao, ref) }))
+    .filter(({ date }) => {
+      const d = daysBetween(ref, date);
+      return d >= 0 && d <= dias;
+    })
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+};
+
+/** Funcionários com prazo de férias vencendo nos próximos N dias. */
+export const feriasVencendo = (dias = 60): Array<{ e: Employee; limite: Date; diasRest: number }> => {
+  const ref = new Date();
+  ref.setHours(0, 0, 0, 0);
+  return EMPLOYEES
+    .filter((e) => e.status === 'ativo' || e.status === 'ferias')
+    .map((e) => {
+      const limite = proximoLimiteFerias(e.admissao, ref);
+      return { e, limite, diasRest: daysBetween(ref, limite) };
+    })
+    .filter((x) => x.diasRest <= dias)
+    .sort((a, b) => a.diasRest - b.diasRest);
+};
+
+/** Ativos com banco de horas acima do limite mensal (default 40h = 2400min). */
+export const funcionariosPertoLimiteHE = (limiteMin = 2400): Employee[] =>
+  EMPLOYEES.filter((e) => e.status === 'ativo' && e.bancoHoras >= limiteMin * 0.8);
+
+/** Justificativas com mais de N dias sem revisão. */
+export const justificativasVencendo = (dias = 2): Justification[] => {
+  const cutoff = Date.now() - dias * 86400000;
+  return JUSTIFICATIONS.filter(
+    (j) => j.status === 'pendente' && new Date(j.criadoEm).getTime() <= cutoff,
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Fechamento mensal (em memória, front-only)
+// ---------------------------------------------------------------------------
+
+const CLOSED_MONTHS_KEY = 'ponto.closedMonths.v1';
+
+const loadClosed = (): Record<string, { fechadoEm: string; fechadoPor: string }> => {
+  try {
+    return JSON.parse(localStorage.getItem(CLOSED_MONTHS_KEY) || '{}');
+  } catch { return {}; }
+};
+
+const saveClosed = (data: Record<string, { fechadoEm: string; fechadoPor: string }>) => {
+  try { localStorage.setItem(CLOSED_MONTHS_KEY, JSON.stringify(data)); } catch { /* noop */ }
+};
+
+export const getClosedMonths = () => loadClosed();
+
+export const isMonthClosed = (yyyymm: string) => !!loadClosed()[yyyymm];
+
+export const closeMonth = (yyyymm: string, by = 'RH') => {
+  const c = loadClosed();
+  c[yyyymm] = { fechadoEm: new Date().toISOString(), fechadoPor: by };
+  saveClosed(c);
+};
+
+export const reopenMonth = (yyyymm: string) => {
+  const c = loadClosed();
+  delete c[yyyymm];
+  saveClosed(c);
+};
