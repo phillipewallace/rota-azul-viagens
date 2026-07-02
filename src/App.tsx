@@ -28,7 +28,6 @@ const InternalManagement = lazy(() => import("./pages/InternalManagement"));
 const Checklists = lazy(() => import("./pages/Checklists"));
 const PublicChecklist = lazy(() => import("./pages/PublicChecklist"));
 const Carretinhas = lazy(() => import("./pages/Carretinhas"));
-const Funcionarios = lazy(() => import("./pages/Funcionarios"));
 const ErpQuotes = lazy(() => import("./pages/ErpQuotes"));
 const ServiceOrders = lazy(() => import("./pages/ServiceOrders"));
 const ErpLayout = lazy(() => import("./pages/erp/ErpLayout"));
@@ -37,31 +36,11 @@ const ErpCompanies = lazy(() => import("./pages/erp/ErpCompanies"));
 const ErpFinanceiro = lazy(() => import("./pages/erp/ErpFinanceiro"));
 const ErpContracts = lazy(() => import("./pages/erp/ErpContracts"));
 
-// Ponto Digital (módulo REP-P)
-const PontoLayout = lazy(() => import("./pages/ponto/PontoLayout"));
-const PontoDashboard = lazy(() => import("./pages/ponto/PontoDashboard"));
-const PontoRegistros = lazy(() => import("./pages/ponto/PontoRegistros"));
-const PontoEspelho = lazy(() => import("./pages/ponto/PontoEspelho"));
-const PontoJustificativas = lazy(() => import("./pages/ponto/PontoJustificativas"));
-const PontoBancoHoras = lazy(() => import("./pages/ponto/PontoBancoHoras"));
-const PontoFuncionarios = lazy(() => import("./pages/ponto/PontoFuncionarios"));
-const PontoRelatorios = lazy(() => import("./pages/ponto/PontoRelatorios"));
-const PontoConfiguracoes = lazy(() => import("./pages/ponto/PontoConfiguracoes"));
-const PontoFechamento = lazy(() => import("./pages/ponto/PontoFechamento"));
-
 // Mobile Operator (lazy também — só pesa quando acessado)
 const MobileOperatorMenuPage = lazy(
   () => import("./components/mobile/operator/MobileOperatorMenuPage"),
 );
 
-// Ponto Mobile (PWA — app do funcionário)
-const PontoMobileLayout = lazy(() => import("./pontomobile/Layout"));
-const PontoMobileLogin = lazy(() => import("./pontomobile/Login"));
-const PontoMobileHome = lazy(() => import("./pontomobile/Home"));
-const PontoMobileBater = lazy(() => import("./pontomobile/Bater"));
-const PontoMobileEspelho = lazy(() => import("./pontomobile/Espelho"));
-const PontoMobileJustificar = lazy(() => import("./pontomobile/Justificar"));
-const PontoMobilePerfil = lazy(() => import("./pontomobile/Perfil"));
 
 import "./App.css";
 
