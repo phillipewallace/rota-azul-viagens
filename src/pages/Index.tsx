@@ -60,7 +60,7 @@ const Index = () => {
     { icon: Users, label: 'Clientes', to: '/customers' },
     { icon: Settings, label: 'Gerenciamento', to: '/management' },
     { icon: Users, label: 'Motoristas', to: '/drivers' },
-    { icon: Users, label: 'Funcionários', to: '/funcionarios' },
+    
     { icon: Settings, label: 'Configurações', to: '/settings' },
   ];
 
