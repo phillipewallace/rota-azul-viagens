@@ -367,8 +367,8 @@ const PontoDashboard: React.FC = () => {
 
       {/* Aniversariantes + Férias */}
       {(() => {
-        const bdays = aniversariantesProximos(30);
-        const ferias = feriasVencendo(60);
+        const bdays = aniversariantesProximos(EMPLOYEES, 30);
+        const ferias = feriasVencendo(EMPLOYEES, 60);
         if (bdays.length === 0 && ferias.length === 0) return null;
         return (
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
