@@ -289,10 +289,15 @@ const ErpContracts: React.FC = () => {
   return (
     <TooltipProvider delayDuration={200}>
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
+      <header className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-primary/10 via-[hsl(var(--success-soft))]/50 to-[hsl(var(--warning-soft))]/40 p-5 md:p-6 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-10 h-52 w-52 rounded-full bg-[hsl(var(--success))]/10 blur-3xl" />
+        <div className="relative">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold mb-1">
-            <FileSignature className="h-3.5 w-3.5" /> Contratos
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
+              <FileSignature className="h-3 w-3" />
+            </span>
+            Contratos
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Contratos</h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -301,11 +306,12 @@ const ErpContracts: React.FC = () => {
         </div>
         <Button
           onClick={() => { setEditing(null); setOpenForm(true); }}
-          className="transition-all duration-200 shadow-sm hover:shadow-md"
+          className="relative transition-all duration-200 shadow-sm hover:shadow-md bg-gradient-to-r from-primary to-primary/85 hover:brightness-110"
         >
           <Plus className="h-4 w-4 mr-1.5" /> Novo contrato
         </Button>
       </header>
+
 
       {/* ------- KPIs ------- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
