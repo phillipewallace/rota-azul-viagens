@@ -217,6 +217,54 @@ const PontoRegistros: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Camera className="h-4 w-4 text-emerald-600" />
+              Captura facial da batida
+            </DialogTitle>
+          </DialogHeader>
+          {preview && (() => {
+            const emp = EMPLOYEES.find((x) => x.id === preview.employeeId)!;
+            return (
+              <div className="space-y-4">
+                <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-muted ring-1 ring-border">
+                  <img
+                    src={preview.fotoUrl}
+                    alt={`Foto de ${emp.nome} — NSR ${preview.nsr}`}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute bottom-2 left-2 rounded-md bg-background/85 backdrop-blur px-2 py-1 font-mono text-[10px] tabular-nums text-foreground/80 ring-1 ring-border">
+                    NSR #{String(preview.nsr).padStart(6, '0')}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Funcionário</p>
+                    <p className="font-medium text-sm mt-0.5">{emp.nome}</p>
+                    <p className="text-muted-foreground">Mat. {emp.matricula}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Registrada em</p>
+                    <p className="font-medium text-sm mt-0.5 tabular-nums">
+                      {new Date(preview.timestamp).toLocaleString('pt-BR')}
+                    </p>
+                    <p className="text-muted-foreground capitalize">via {preview.origem}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-600" />
+                  <span>
+                    Imagem armazenada de forma criptografada · LGPD art. 11 · retida pelo período legal de 5 anos.
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
