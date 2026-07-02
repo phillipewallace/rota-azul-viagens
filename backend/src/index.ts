@@ -39,9 +39,6 @@ import erpExpenseCategoriesRoutes from './routes/erp-expense-categories';
 import erpRecurringExpensesRoutes from './routes/erp-recurring-expenses';
 import checklistsRoutes from './routes/checklists';
 import carretinhasRoutes from './routes/carretinhas';
-import funcionariosRoutes from './routes/funcionarios';
-import cargosRoutes from './routes/cargos';
-import pontoRoutes from './routes/ponto';
 import path from 'path';
 
 const app = express();
