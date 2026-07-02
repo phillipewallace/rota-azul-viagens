@@ -18,25 +18,41 @@ import {
   Lock, Unlock, ShieldCheck, CalendarDays, FileSignature, Undo2, CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { computeDay, minutesToHHmm } from './pontoUtils';
 import {
-  EMPLOYEES, JORNADAS, PUNCHES, JUSTIFICATIONS,
-  computeDay, minutesToHHmm, getClosedMonths, closeMonth, reopenMonth, isMonthClosed,
-} from './pontoMock';
+  useEmployees, useJornadas, usePunches, useJustifications,
+  useClosures, useCreateClosure, useDeleteClosure,
+} from '@/hooks/usePontoData';
 
 const PontoFechamento: React.FC = () => {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [, force] = useState(0);
-  const refresh = () => force((n) => n + 1);
 
-  const closed = getClosedMonths();
-  const isClosed = isMonthClosed(month);
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: JORNADAS = [] } = useJornadas();
+  const [y, mNum] = month.split('-').map(Number);
+  const from = `${month}-01`;
+  const to = `${month}-${String(new Date(y, mNum, 0).getDate()).padStart(2, '0')}`;
+  const { data: PUNCHES = [] } = usePunches({ from, to, limit: 5000 });
+  const { data: JUSTIFICATIONS = [] } = useJustifications();
+  const { data: closuresList = [] } = useClosures();
+  const createClosure = useCreateClosure();
+  const deleteClosure = useDeleteClosure();
+
+  const closedMap = useMemo(() => {
+    const map: Record<string, { fechadoEm: string; fechadoPor: string }> = {};
+    (closuresList as any[]).forEach((c) => {
+      map[c.competencia] = { fechadoEm: c.fechado_em, fechadoPor: c.fechado_por };
+    });
+    return map;
+  }, [closuresList]);
+  const isClosed = !!closedMap[month];
 
   const summary = useMemo(() => {
-    const [y, m] = month.split('-').map(Number);
-    const daysInMonth = new Date(y, m, 0).getDate();
+    const daysInMonth = new Date(y, mNum, 0).getDate();
     let trabalhado = 0, extras = 0, atrasos = 0, faltas = 0;
     EMPLOYEES.forEach((e) => {
-      const j = JORNADAS.find((x) => x.id === e.jornadaId)!;
+      const j = JORNADAS.find((x) => x.id === e.jornadaId);
+      if (!j) return;
       for (let day = 1; day <= daysInMonth; day++) {
         const iso = `${month}-${String(day).padStart(2, '0')}`;
         const pts = PUNCHES.filter((p) => p.employeeId === e.id && p.timestamp.startsWith(iso));
@@ -51,29 +67,35 @@ const PontoFechamento: React.FC = () => {
       (j) => j.status === 'pendente' && j.data.startsWith(month),
     ).length;
     return { trabalhado, extras, atrasos, faltas, pendentes, funcionarios: EMPLOYEES.length };
-  }, [month]);
+  }, [month, EMPLOYEES, JORNADAS, PUNCHES, JUSTIFICATIONS, y, mNum]);
 
   const historyList = useMemo(
-    () => Object.entries(closed).sort((a, b) => b[0].localeCompare(a[0])),
-    [closed],
+    () => Object.entries(closedMap).sort((a, b) => b[0].localeCompare(a[0])),
+    [closedMap],
   );
 
   const monthLabel = new Date(month + '-01').toLocaleDateString('pt-BR', {
     month: 'long', year: 'numeric',
   });
 
-  const handleClose = () => {
-    closeMonth(month, 'RH');
-    toast.success(`Competência ${monthLabel} fechada`, {
-      description: 'Snapshot imutável gerado. Ajustes só via reabertura com justificativa.',
-    });
-    refresh();
+  const handleClose = async () => {
+    try {
+      await createClosure.mutateAsync({ competencia: month });
+      toast.success(`Competência ${monthLabel} fechada`, {
+        description: 'Snapshot imutável gerado. Ajustes só via reabertura com justificativa.',
+      });
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao fechar competência');
+    }
   };
 
-  const handleReopen = (m: string) => {
-    reopenMonth(m);
-    toast.info(`Competência ${m} reaberta`, { description: 'Registre o motivo no log de auditoria.' });
-    refresh();
+  const handleReopen = async (m: string) => {
+    try {
+      await deleteClosure.mutateAsync(m);
+      toast.info(`Competência ${m} reaberta`, { description: 'Registre o motivo no log de auditoria.' });
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao reabrir competência');
+    }
   };
 
   return (
