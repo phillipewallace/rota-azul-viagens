@@ -603,17 +603,29 @@ function KpiCard({
   icon: React.ReactNode; label: string; value: string; tone: KpiTone;
   active?: boolean; onClick?: () => void; hint?: string;
 }) {
-  const toneRing: Record<KpiTone, string> = {
+  const toneFg: Record<KpiTone, string> = {
     brand:   'text-primary',
     success: 'text-[hsl(var(--success))]',
     warning: 'text-[hsl(var(--warning))]',
     muted:   'text-muted-foreground',
   };
-  const toneBg: Record<KpiTone, string> = {
-    brand:   'bg-primary/10',
-    success: 'bg-[hsl(var(--success-soft))]',
-    warning: 'bg-[hsl(var(--warning-soft))]',
-    muted:   'bg-muted',
+  const toneIconBg: Record<KpiTone, string> = {
+    brand:   'bg-primary text-primary-foreground',
+    success: 'bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))]',
+    warning: 'bg-[hsl(var(--warning))] text-[hsl(var(--warning-foreground))]',
+    muted:   'bg-muted-foreground/80 text-background',
+  };
+  const toneAccent: Record<KpiTone, string> = {
+    brand:   'from-primary/12 via-primary/5 to-transparent',
+    success: 'from-[hsl(var(--success-soft))] via-[hsl(var(--success-soft))]/40 to-transparent',
+    warning: 'from-[hsl(var(--warning-soft))] via-[hsl(var(--warning-soft))]/40 to-transparent',
+    muted:   'from-muted via-muted/40 to-transparent',
+  };
+  const toneBar: Record<KpiTone, string> = {
+    brand:   'bg-primary',
+    success: 'bg-[hsl(var(--success))]',
+    warning: 'bg-[hsl(var(--warning))]',
+    muted:   'bg-muted-foreground/40',
   };
   const Wrapper: any = onClick ? 'button' : 'div';
   return (
@@ -622,24 +634,30 @@ function KpiCard({
       onClick={onClick}
       title={hint}
       className={cn(
-        'group text-left rounded-xl border bg-card p-4 shadow-sm',
+        'group relative overflow-hidden text-left rounded-xl border border-border/70 bg-card p-4 shadow-sm',
         'transition-all duration-200',
         onClick && 'hover:shadow-md hover:-translate-y-0.5 hover:border-primary/40',
         onClick && 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         active && 'border-primary/60 ring-2 ring-primary/20',
       )}
     >
-      <div className="flex items-center justify-between">
-        <div className={cn('h-8 w-8 rounded-lg grid place-items-center', toneBg[tone], toneRing[tone])}>
-          {icon}
+      <div className={cn('absolute inset-x-0 top-0 h-1', toneBar[tone])} />
+      <div className={cn('absolute inset-0 -z-0 bg-gradient-to-br opacity-70', toneAccent[tone])} />
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <div className={cn('h-9 w-9 rounded-lg grid place-items-center shadow-sm', toneIconBg[tone])}>
+            {icon}
+          </div>
+          {active && <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Filtrado</span>}
         </div>
-        {active && <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Filtrado</span>}
+        <div className={cn('mt-3 text-2xl font-bold tabular-nums leading-tight', toneFg[tone])}>{value}</div>
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
+        {hint && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</div>}
       </div>
-      <div className="mt-3 text-2xl font-bold text-foreground tabular-nums leading-tight">{value}</div>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
     </Wrapper>
   );
 }
+
 
 // =====================
 // Icon action button (row actions)
