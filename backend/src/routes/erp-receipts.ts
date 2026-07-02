@@ -7,6 +7,7 @@ router.use(requireAuth);
 
 const SELECT = `
   r.id, r.numero, r.contract_id AS "contractId", r.competencia,
+  r.periodo_inicio AS "periodoInicio", r.periodo_fim AS "periodoFim",
   r.data_emissao AS "dataEmissao", r.data_vencimento AS "dataVencimento",
   r.valor, r.pago, r.snapshot, r.pdf_gerado_em AS "pdfGeradoEm", r.created_at AS "createdAt",
   r.forma_pagamento AS "formaPagamento", r.data_pagamento AS "dataPagamento",
@@ -84,9 +85,24 @@ router.get('/pending', async (req, res) => {
 
 // Gera (ou regera) recibo da competência. Se já existir, atualiza valor e marca regerado.
 router.post('/generate', async (req, res) => {
-  const { contractId, competencia: comp, valor, pago = true, regerar = false } = req.body || {};
+  const {
+    contractId, competencia: comp, valor, pago = true, regerar = false,
+    periodoInicio, periodoFim,
+  } = req.body || {};
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
-  const competencia = comp || competenciaAtual();
+
+  // Validação e normalização do período (DD/MM exato a exibir no recibo).
+  const isISO = (s: any) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if ((periodoInicio && !isISO(periodoInicio)) || (periodoFim && !isISO(periodoFim))) {
+    return res.status(400).json({ error: 'periodoInicio/periodoFim devem estar em YYYY-MM-DD' });
+  }
+  if (periodoInicio && periodoFim && periodoFim < periodoInicio) {
+    return res.status(400).json({ error: 'periodoFim não pode ser anterior a periodoInicio' });
+  }
+  // Competência (YYYY-MM) é derivada do mês do periodoInicio quando informado,
+  // preservando a unicidade por contrato+competência e a lógica de pendentes.
+  const competencia = periodoInicio ? String(periodoInicio).slice(0, 7)
+                    : (comp || competenciaAtual());
 
   const client = await pool.connect();
   try {
@@ -141,12 +157,18 @@ router.post('/generate', async (req, res) => {
     const baseValor = Number(valor ?? ct.valor_mensal ?? 0);
     const valorFinal = baseValor + freteAplicado;
 
-    // [#21 médio] Vencimento da competência — respeita dia_vencimento mesmo > 28,
-    // limitando ao último dia real do mês quando necessário.
-    const [ano, mes] = competencia.split('-').map(Number);
-    const ultimoDia = new Date(ano, mes, 0).getDate(); // dia 0 do mês seguinte
-    const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
-    const dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    // [#21 médio] Vencimento — se período exato foi informado, usamos o `periodoFim`
+    // como vencimento (o recibo passa a valer para as 2 datas escolhidas).
+    // Caso contrário, mantém a regra antiga: dia_vencimento do contrato dentro do mês.
+    let dataVenc: string;
+    if (periodoFim) {
+      dataVenc = periodoFim;
+    } else {
+      const [ano, mes] = competencia.split('-').map(Number);
+      const ultimoDia = new Date(ano, mes, 0).getDate();
+      const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
+      dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
 
 
     const snapshot = {
@@ -176,6 +198,9 @@ router.post('/generate', async (req, res) => {
       valorLocacao: baseValor,
       freteIncluso: freteAplicado,
       primeiroRecibo: isPrimeiro,
+      periodo: (periodoInicio || periodoFim)
+        ? { inicio: periodoInicio || null, fim: periodoFim || null }
+        : null,
     };
 
     if (existing.rows[0]) {
@@ -184,9 +209,14 @@ router.post('/generate', async (req, res) => {
         return res.status(409).json({ error: 'Recibo desta competência já existe', existing: existing.rows[0] });
       }
       await client.query(
-        `UPDATE erp_receipts SET valor=$2, pago=$3, snapshot=$4, data_vencimento=$5, pdf_gerado_em=NOW()
-           WHERE id=$1`,
-        [existing.rows[0].id, valorFinal, !!pago, snapshot, dataVenc]
+        `UPDATE erp_receipts
+            SET valor=$2, pago=$3, snapshot=$4, data_vencimento=$5,
+                periodo_inicio = COALESCE($6, periodo_inicio),
+                periodo_fim    = COALESCE($7, periodo_fim),
+                pdf_gerado_em=NOW()
+          WHERE id=$1`,
+        [existing.rows[0].id, valorFinal, !!pago, snapshot, dataVenc,
+         periodoInicio || null, periodoFim || null]
       );
       await client.query('COMMIT');
       return res.json({ ok: true, id: existing.rows[0].id, numero: existing.rows[0].numero, regerado: true });
@@ -197,10 +227,12 @@ router.post('/generate', async (req, res) => {
 
     const ins = await client.query(
       `INSERT INTO erp_receipts
-         (numero, contract_id, competencia, data_emissao, data_vencimento, valor, pago, snapshot, pdf_gerado_em)
-       VALUES ($1,$2,$3,CURRENT_DATE,$4,$5,$6,$7,NOW())
+         (numero, contract_id, competencia, data_emissao, data_vencimento,
+          valor, pago, snapshot, pdf_gerado_em, periodo_inicio, periodo_fim)
+       VALUES ($1,$2,$3,CURRENT_DATE,$4,$5,$6,$7,NOW(),$8,$9)
        RETURNING id, numero`,
-      [numero, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot]
+      [numero, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
+       periodoInicio || null, periodoFim || null]
     );
 
     await client.query('COMMIT');

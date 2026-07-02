@@ -9,7 +9,7 @@ import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { loadPdfImage, fitContain } from '@/utils/pdfImage';
 import { erpService } from '@/services/erp';
 import type { Receipt } from '@/services/contracts';
-import { formatDateBR } from '@/utils/dateFormat';
+import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const D   = (s?: string) => s ? formatDateBR(s) : '—';
@@ -219,10 +219,15 @@ export async function generateReceiptPdf(rec: Receipt) {
   });
   let afterY = (doc as any).lastAutoTable.finalY + 4;
 
+  // Competência: quando o recibo tem período exato, exibimos "DD/MM/YYYY - DD/MM/YYYY".
+  const competenciaLabel = (rec.periodoInicio || rec.periodoFim)
+    ? formatPeriodo(rec.periodoInicio, rec.periodoFim, formatComp(rec.competencia))
+    : formatComp(rec.competencia);
+
   autoTable(doc, {
     startY: afterY,
     head: [['Competência', 'Vencimento', 'Total da Cobrança']],
-    body: [[formatComp(rec.competencia), D(rec.dataVencimento), BRL(valor)]],
+    body: [[competenciaLabel, D(rec.dataVencimento), BRL(valor)]],
     styles: { fontSize: 9.5, cellPadding: 3 },
     headStyles: { fillColor: [240, 242, 247], textColor: PRIMARY, fontStyle: 'bold' },
     columnStyles: { 2: { halign: 'right', fontStyle: 'bold', textColor: PRIMARY } },
@@ -247,7 +252,7 @@ export async function generateReceiptPdf(rec: Receipt) {
   doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
   const txt =
     `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(valor)} ` +
-    `referente à locação mensal de bens móveis na competência ${formatComp(rec.competencia)}, ` +
+    `referente à locação de bens móveis referente ao período ${competenciaLabel}, ` +
     `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
   const wrap = doc.splitTextToSize(txt, W - 2 * M);
   doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;

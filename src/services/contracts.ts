@@ -87,7 +87,9 @@ export interface Receipt {
   id: string;
   numero: string;
   contractId: string;
-  competencia: string; // YYYY-MM
+  competencia: string; // YYYY-MM (derivada do mês do periodoInicio quando houver)
+  periodoInicio?: string | null; // YYYY-MM-DD — data inicial exata do período
+  periodoFim?: string | null;    // YYYY-MM-DD — data final exata do período
   dataEmissao: string;
   dataVencimento?: string;
   valor: number;
@@ -144,7 +146,15 @@ export const receiptsService = {
   pending: (competencia?: string) =>
     req<{ competencia: string; pendentes: PendingReceipt[] }>(
       'GET', `/erp/receipts/pending${competencia ? '?competencia=' + competencia : ''}`),
-  generate: (body: { contractId: string; competencia?: string; valor?: number; pago?: boolean; regerar?: boolean }) =>
+  generate: (body: {
+    contractId: string;
+    competencia?: string;
+    periodoInicio?: string; // YYYY-MM-DD
+    periodoFim?: string;    // YYYY-MM-DD
+    valor?: number;
+    pago?: boolean;
+    regerar?: boolean;
+  }) =>
     req<{ ok: true; id: string; numero: string; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
   remove: (id: string, force = false) =>
     req<{ ok: true }>('DELETE', `/erp/receipts/${id}${force ? '?force=1' : ''}`),
