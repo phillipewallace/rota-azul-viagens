@@ -294,41 +294,44 @@ const ErpFinanceiro: React.FC = () => {
     finally { setWorking(null); }
   };
 
-  // Gera recibos para um intervalo de competências (inclusive). Se from == to, gera 1.
-  const gerarIntervalo = async (
-    p: PendingReceipt, from: string, to: string, opts?: { marcarPago?: boolean; baixarPdf?: boolean }
+  // Gera UM recibo com período exato (2 datas). A "competência" do recibo
+  // passa a ser exibida como "DD/MM/YYYY - DD/MM/YYYY".
+  const gerarPeriodo = async (
+    p: PendingReceipt, periodoInicio: string, periodoFim: string,
+    opts?: { marcarPago?: boolean; baixarPdf?: boolean }
   ) => {
-    const meses = enumerateComps(from, to);
-    if (meses.length === 0) { toast.error('Intervalo inválido'); return; }
-    setWorking(p.contractId);
-    let ok = 0, fail = 0, dup = 0;
-    const unico = meses.length === 1;
-    for (const comp of meses) {
-      try {
-        const out = await receiptsService.generate({
-          contractId: p.contractId,
-          competencia: comp,
-          valor: Number(p.valorMensal),
-          pago: opts?.marcarPago ?? true,
-        });
-        if (unico && opts?.baixarPdf !== false) {
-          try {
-            const list = await receiptsService.list({ competencia: comp, contractId: p.contractId });
-            const r = list.find(x => x.id === out.id);
-            if (r) await generateReceiptPdf(r);
-          } catch { /* PDF best-effort */ }
-        }
-        ok++;
-      } catch (e: any) {
-        if (String(e.message || '').toLowerCase().includes('já existe')) dup++;
-        else fail++;
-      }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
+      toast.error('Datas inválidas'); return;
     }
-    setWorking(null);
-    await load();
-    if (fail === 0 && dup === 0) toast.success(unico ? 'Recibo gerado' : `${ok} recibo(s) gerados`);
-    else if (fail === 0) toast.warning(`${ok} gerado(s), ${dup} já existiam`);
-    else toast.warning(`${ok} ok · ${dup} duplicado(s) · ${fail} erro(s)`);
+    if (periodoFim < periodoInicio) {
+      toast.error('A data final deve ser igual ou posterior à inicial'); return;
+    }
+    setWorking(p.contractId);
+    try {
+      const out = await receiptsService.generate({
+        contractId: p.contractId,
+        periodoInicio,
+        periodoFim,
+        valor: Number(p.valorMensal),
+        pago: opts?.marcarPago ?? true,
+      });
+      if (opts?.baixarPdf !== false) {
+        try {
+          const list = await receiptsService.list({
+            competencia: periodoInicio.slice(0, 7),
+            contractId: p.contractId,
+          });
+          const r = list.find(x => x.id === out.id);
+          if (r) await generateReceiptPdf(r);
+        } catch { /* PDF best-effort */ }
+      }
+      await load();
+      toast.success(`Recibo gerado · ${formatPeriodo(periodoInicio, periodoFim)}`);
+    } catch (e: any) {
+      const msg = String(e.message || '');
+      if (msg.toLowerCase().includes('já existe')) toast.warning('Já existe um recibo para o mês desse período.');
+      else toast.error(msg || 'Falha ao gerar recibo');
+    } finally { setWorking(null); }
   };
 
   const gerarLote = async () => {
