@@ -183,7 +183,7 @@ const PontoFechamento: React.FC = () => {
           <div className="flex items-center justify-between gap-3 pt-2">
             <div className="text-xs text-muted-foreground max-w-md">
               {isClosed ? (
-                <>Fechada em <strong>{new Date(closed[month].fechadoEm).toLocaleString('pt-BR')}</strong> por <strong>{closed[month].fechadoPor}</strong>.</>
+                <>Fechada em <strong>{new Date(closedMap[month].fechadoEm).toLocaleString('pt-BR')}</strong> por <strong>{closedMap[month].fechadoPor}</strong>.</>
               ) : (
                 <>O fechamento gera assinatura digital SHA-256 e trava todas as batidas, justificativas e ajustes do período.</>
               )}
