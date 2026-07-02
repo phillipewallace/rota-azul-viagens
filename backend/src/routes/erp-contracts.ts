@@ -145,6 +145,8 @@ router.put('/:id', async (req, res) => {
          observacoes = $19,
          motivo_encerramento = $20,
          frete = COALESCE($21, frete),
+         endereco_obra = $22,
+         cno = $23,
          -- [#7 alto] encerrado_em só muda quando $17 vem definido; null deixa intacto.
          encerrado_em = CASE
            WHEN $17::boolean IS NULL THEN encerrado_em
@@ -162,7 +164,8 @@ router.put('/:id', async (req, res) => {
        c.diaVencimento ?? null, c.valorMensal ?? null,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null,
        c.observacoes ?? null, c.motivoEncerramento ?? null,
-       c.frete != null ? Number(c.frete) : null]
+       c.frete != null ? Number(c.frete) : null,
+       c.enderecoObra ?? null, c.cno ?? null]
     );
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
