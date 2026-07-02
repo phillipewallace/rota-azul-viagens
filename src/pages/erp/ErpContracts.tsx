@@ -289,10 +289,15 @@ const ErpContracts: React.FC = () => {
   return (
     <TooltipProvider delayDuration={200}>
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
+      <header className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-primary/10 via-[hsl(var(--success-soft))]/50 to-[hsl(var(--warning-soft))]/40 p-5 md:p-6 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-10 h-52 w-52 rounded-full bg-[hsl(var(--success))]/10 blur-3xl" />
+        <div className="relative">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-primary font-semibold mb-1">
-            <FileSignature className="h-3.5 w-3.5" /> Contratos
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
+              <FileSignature className="h-3 w-3" />
+            </span>
+            Contratos
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Contratos</h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -301,11 +306,12 @@ const ErpContracts: React.FC = () => {
         </div>
         <Button
           onClick={() => { setEditing(null); setOpenForm(true); }}
-          className="transition-all duration-200 shadow-sm hover:shadow-md"
+          className="relative transition-all duration-200 shadow-sm hover:shadow-md bg-gradient-to-r from-primary to-primary/85 hover:brightness-110"
         >
           <Plus className="h-4 w-4 mr-1.5" /> Novo contrato
         </Button>
       </header>
+
 
       {/* ------- KPIs ------- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -449,17 +455,26 @@ const ErpContracts: React.FC = () => {
                     <TableRow
                       key={c.id}
                       className={cn(
-                        'transition-colors',
+                        'transition-colors hover:bg-primary/[0.03]',
                         !c.ativo && 'opacity-60 hover:opacity-100'
                       )}
                     >
-                      <TableCell className="font-mono text-xs text-muted-foreground">{c.numero}</TableCell>
+                      <TableCell className="font-mono text-xs relative">
+                        <span
+                          className={cn(
+                            'absolute left-0 top-2 bottom-2 w-[3px] rounded-r',
+                            c.ativo ? 'bg-[hsl(var(--success))]' : 'bg-muted-foreground/40'
+                          )}
+                        />
+                        <span className="pl-2 text-muted-foreground">{c.numero}</span>
+                      </TableCell>
                       <TableCell className="max-w-[200px]">
                         <div className="font-medium text-foreground truncate">{c.customerName || '—'}</div>
                         {c.descricao && (
                           <div className="text-[11px] text-muted-foreground truncate">{c.descricao}</div>
                         )}
                       </TableCell>
+
                       <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[160px] truncate">
                         {c.companyRazaoSocial || '—'}
                       </TableCell>
@@ -603,17 +618,29 @@ function KpiCard({
   icon: React.ReactNode; label: string; value: string; tone: KpiTone;
   active?: boolean; onClick?: () => void; hint?: string;
 }) {
-  const toneRing: Record<KpiTone, string> = {
+  const toneFg: Record<KpiTone, string> = {
     brand:   'text-primary',
     success: 'text-[hsl(var(--success))]',
     warning: 'text-[hsl(var(--warning))]',
     muted:   'text-muted-foreground',
   };
-  const toneBg: Record<KpiTone, string> = {
-    brand:   'bg-primary/10',
-    success: 'bg-[hsl(var(--success-soft))]',
-    warning: 'bg-[hsl(var(--warning-soft))]',
-    muted:   'bg-muted',
+  const toneIconBg: Record<KpiTone, string> = {
+    brand:   'bg-primary text-primary-foreground',
+    success: 'bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))]',
+    warning: 'bg-[hsl(var(--warning))] text-[hsl(var(--warning-foreground))]',
+    muted:   'bg-muted-foreground/80 text-background',
+  };
+  const toneAccent: Record<KpiTone, string> = {
+    brand:   'from-primary/12 via-primary/5 to-transparent',
+    success: 'from-[hsl(var(--success-soft))] via-[hsl(var(--success-soft))]/40 to-transparent',
+    warning: 'from-[hsl(var(--warning-soft))] via-[hsl(var(--warning-soft))]/40 to-transparent',
+    muted:   'from-muted via-muted/40 to-transparent',
+  };
+  const toneBar: Record<KpiTone, string> = {
+    brand:   'bg-primary',
+    success: 'bg-[hsl(var(--success))]',
+    warning: 'bg-[hsl(var(--warning))]',
+    muted:   'bg-muted-foreground/40',
   };
   const Wrapper: any = onClick ? 'button' : 'div';
   return (
@@ -622,24 +649,30 @@ function KpiCard({
       onClick={onClick}
       title={hint}
       className={cn(
-        'group text-left rounded-xl border bg-card p-4 shadow-sm',
+        'group relative overflow-hidden text-left rounded-xl border border-border/70 bg-card p-4 shadow-sm',
         'transition-all duration-200',
         onClick && 'hover:shadow-md hover:-translate-y-0.5 hover:border-primary/40',
         onClick && 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         active && 'border-primary/60 ring-2 ring-primary/20',
       )}
     >
-      <div className="flex items-center justify-between">
-        <div className={cn('h-8 w-8 rounded-lg grid place-items-center', toneBg[tone], toneRing[tone])}>
-          {icon}
+      <div className={cn('absolute inset-x-0 top-0 h-1', toneBar[tone])} />
+      <div className={cn('absolute inset-0 -z-0 bg-gradient-to-br opacity-70', toneAccent[tone])} />
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <div className={cn('h-9 w-9 rounded-lg grid place-items-center shadow-sm', toneIconBg[tone])}>
+            {icon}
+          </div>
+          {active && <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Filtrado</span>}
         </div>
-        {active && <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">Filtrado</span>}
+        <div className={cn('mt-3 text-2xl font-bold tabular-nums leading-tight', toneFg[tone])}>{value}</div>
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
+        {hint && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{hint}</div>}
       </div>
-      <div className="mt-3 text-2xl font-bold text-foreground tabular-nums leading-tight">{value}</div>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-1">{label}</div>
     </Wrapper>
   );
 }
+
 
 // =====================
 // Icon action button (row actions)
