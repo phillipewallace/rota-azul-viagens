@@ -1,5 +1,5 @@
 /**
- * Registros — tabela completa de batidas com filtros, origem, NSR e geo.
+ * Registros — tabela completa de batidas com filtros, origem, NSR, geo e foto facial.
  */
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,8 +10,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Search, Download, MapPin, Smartphone, Monitor, Hand, Filter, ShieldCheck } from 'lucide-react';
-import { EMPLOYEES, PUNCHES, PunchType, PunchOrigin } from './pontoMock';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Clock, Search, Download, MapPin, Smartphone, Monitor, Hand, Filter, ShieldCheck, Camera, ImageOff } from 'lucide-react';
+import { EMPLOYEES, PUNCHES, PunchType, PunchOrigin, Punch } from './pontoMock';
 
 const tipoLabel: Record<PunchType, string> = {
   'entrada': 'Entrada',
