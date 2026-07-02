@@ -20,6 +20,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 
+// YYYY-MM-DD em fuso local (evita retroceder um dia à noite por causa de UTC).
+const todayLocalYmd = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const statusColor: Record<JustificationStatus, string> = {
   pendente: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
   aprovada: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
