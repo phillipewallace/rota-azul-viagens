@@ -120,9 +120,24 @@ const PontoEspelho: React.FC = () => {
           <p className="text-sm text-muted-foreground mt-1">Modelo conforme Portaria MTP 671/2021 — art. 84.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2"><Printer className="h-4 w-4" /> Imprimir</Button>
-          <Button size="sm" className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0">
-            <Download className="h-4 w-4" /> PDF Oficial
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={exporting !== null || loadingPunches}
+            onClick={() => handleExport('print')}
+          >
+            {exporting === 'print' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+            Imprimir
+          </Button>
+          <Button
+            size="sm"
+            className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0"
+            disabled={exporting !== null || loadingPunches}
+            onClick={() => handleExport('pdf')}
+          >
+            {exporting === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            PDF Oficial
           </Button>
         </div>
       </header>
