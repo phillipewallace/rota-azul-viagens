@@ -48,7 +48,7 @@ import { erpService, type ErpCompany } from '@/services/erp';
 import { uploadSignedPdf } from '@/services/erp';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateReceiptPdf } from '@/utils/receiptPdf';
-import { formatDateBR } from '@/utils/dateFormat';
+import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
