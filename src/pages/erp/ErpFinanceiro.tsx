@@ -1297,17 +1297,30 @@ const GerarReciboPopover: React.FC<{
             }
           >
             {valido ? (
-              <>
-                Competência:{' '}
-                <span className="font-semibold text-foreground tabular-nums">
-                  {formatPeriodo(inicio, fim)}
-                </span>
-                <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
-              </>
+              <div className="space-y-1">
+                <div>
+                  Competência:{' '}
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {formatPeriodo(inicio, fim)}
+                  </span>
+                  <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
+                </div>
+                {vencimento && (
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
+                    <CalendarDays className="h-3 w-3 text-primary/70" />
+                    <span>Vencimento:</span>
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {formatDateBR(vencimento)}
+                    </span>
+                    <span className="text-muted-foreground">· 28 dias após a entrega</span>
+                  </div>
+                )}
+              </div>
             ) : (
               'Preencha as duas datas (fim ≥ início).'
             )}
           </div>
+
 
           <div className="flex items-center justify-end gap-2 pt-0.5">
             <Button
