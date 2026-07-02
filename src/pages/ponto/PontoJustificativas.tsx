@@ -132,7 +132,7 @@ const PontoJustificativas: React.FC = () => {
           <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight mt-1">Justificativas & Abonos</h1>
           <p className="text-sm text-muted-foreground mt-1">Ajustes conforme CLT art. 473 (ausências legais) e política interna.</p>
         </div>
-        <Button size="sm" className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0">
+        <Button size="sm" onClick={() => setNewOpen(true)} className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-0">
           <Plus className="h-4 w-4" /> Nova justificativa
         </Button>
       </header>
