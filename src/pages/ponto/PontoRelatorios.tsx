@@ -61,7 +61,13 @@ const PontoRelatorios: React.FC = () => {
       switch (id) {
         case 'afd': {
           if (PUNCHES.length === 0) throw new Error('Sem batidas no período — AFD vazio não pode ser gerado.');
-          const txt = generateAFD({ empresa: settings || {}, punches: PUNCHES, employees: EMPLOYEES });
+          const empresa = {
+            razao_social: settings?.empresa_razao_social ?? settings?.razao_social ?? '',
+            cnpj: settings?.empresa_cnpj ?? settings?.cnpj ?? '',
+            cei: settings?.cei ?? '',
+          };
+          if (!empresa.cnpj) throw new Error('Selecione uma empresa emissora em Configurações antes de gerar o AFD.');
+          const txt = generateAFD({ empresa, punches: PUNCHES, employees: EMPLOYEES });
           download(`AFD_${suffix}.txt`, txt);
           break;
         }
