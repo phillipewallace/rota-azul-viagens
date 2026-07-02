@@ -47,6 +47,7 @@ export interface Punch {
   endereco?: string;
   nsr: number; // Número Sequencial de Registro (Portaria 671)
   hash: string; // assinatura simulada
+  fotoUrl?: string; // captura facial no momento da batida (LGPD: consentimento obrigatório)
   ajustado?: boolean;
   motivoAjuste?: string;
 }
@@ -263,6 +264,7 @@ const buildPunchesForEmployee = (emp: Employee, days: number, startNsr: number):
         endereco: 'Alameda Santos, 1000 — São Paulo/SP',
         nsr: nsr++,
         hash: Math.random().toString(36).slice(2, 10).toUpperCase(),
+        fotoUrl: `https://i.pravatar.cc/240?u=${emp.id}`,
       });
     });
   }

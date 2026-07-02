@@ -1,5 +1,5 @@
 /**
- * Registros — tabela completa de batidas com filtros, origem, NSR e geo.
+ * Registros — tabela completa de batidas com filtros, origem, NSR, geo e foto facial.
  */
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,8 +10,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Search, Download, MapPin, Smartphone, Monitor, Hand, Filter, ShieldCheck } from 'lucide-react';
-import { EMPLOYEES, PUNCHES, PunchType, PunchOrigin } from './pontoMock';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Clock, Search, Download, MapPin, Smartphone, Monitor, Hand, Filter, ShieldCheck, Camera, ImageOff } from 'lucide-react';
+import { EMPLOYEES, PUNCHES, PunchType, PunchOrigin, Punch } from './pontoMock';
 
 const tipoLabel: Record<PunchType, string> = {
   'entrada': 'Entrada',
@@ -35,6 +36,7 @@ const PontoRegistros: React.FC = () => {
   const [tipo, setTipo] = useState<string>('all');
   const [origem, setOrigem] = useState<string>('all');
   const [date, setDate] = useState<string>('');
+  const [preview, setPreview] = useState<Punch | null>(null);
 
   const rows = useMemo(() => {
     return [...PUNCHES]
@@ -119,6 +121,7 @@ const PontoRegistros: React.FC = () => {
               <TableHeader>
                 <TableRow className="bg-muted/40">
                   <TableHead className="w-24">NSR</TableHead>
+                  <TableHead className="w-16">Foto</TableHead>
                   <TableHead>Funcionário</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Data / Hora</TableHead>
@@ -135,6 +138,30 @@ const PontoRegistros: React.FC = () => {
                     <TableRow key={p.id} className="hover:bg-muted/40">
                       <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
                         #{String(p.nsr).padStart(6, '0')}
+                      </TableCell>
+                      <TableCell>
+                        {p.fotoUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreview(p)}
+                            className="group relative h-10 w-10 rounded-full overflow-hidden ring-1 ring-border hover:ring-2 hover:ring-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all duration-200"
+                            aria-label={`Ver foto da batida ${p.nsr}`}
+                          >
+                            <img
+                              src={p.fotoUrl}
+                              alt={`Foto de ${e.nome} no momento da batida`}
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                            />
+                            <span className="absolute inset-0 flex items-center justify-center bg-background/70 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <Camera className="h-3.5 w-3.5 text-emerald-600" />
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground/60" title="Sem foto (batida manual)">
+                            <ImageOff className="h-4 w-4" />
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
@@ -190,6 +217,54 @@ const PontoRegistros: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Camera className="h-4 w-4 text-emerald-600" />
+              Captura facial da batida
+            </DialogTitle>
+          </DialogHeader>
+          {preview && (() => {
+            const emp = EMPLOYEES.find((x) => x.id === preview.employeeId)!;
+            return (
+              <div className="space-y-4">
+                <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-muted ring-1 ring-border">
+                  <img
+                    src={preview.fotoUrl}
+                    alt={`Foto de ${emp.nome} — NSR ${preview.nsr}`}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute bottom-2 left-2 rounded-md bg-background/85 backdrop-blur px-2 py-1 font-mono text-[10px] tabular-nums text-foreground/80 ring-1 ring-border">
+                    NSR #{String(preview.nsr).padStart(6, '0')}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Funcionário</p>
+                    <p className="font-medium text-sm mt-0.5">{emp.nome}</p>
+                    <p className="text-muted-foreground">Mat. {emp.matricula}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Registrada em</p>
+                    <p className="font-medium text-sm mt-0.5 tabular-nums">
+                      {new Date(preview.timestamp).toLocaleString('pt-BR')}
+                    </p>
+                    <p className="text-muted-foreground capitalize">via {preview.origem}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-600" />
+                  <span>
+                    Imagem armazenada de forma criptografada · LGPD art. 11 · retida pelo período legal de 5 anos.
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
