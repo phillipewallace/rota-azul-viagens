@@ -721,6 +721,8 @@ function ContractFormDialog({
         localEvento: editing.localEvento || '',
         horaEntrega: editing.horaEntrega || '',
         valorTotalEvento: Number(editing.valorTotalEvento || 0),
+        enderecoObra: (editing as any).enderecoObra || '',
+        cno: (editing as any).cno || '',
       });
 
     } else setForm(empty);
