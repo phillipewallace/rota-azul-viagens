@@ -57,6 +57,30 @@ const PontoJustificativas: React.FC = () => {
     recusadas: JUSTIFICATIONS.filter((j) => j.status === 'recusada').length,
   }), []);
 
+  const pendentesVisiveis = rows.filter((j) => j.status === 'pendente');
+  const allChecked = pendentesVisiveis.length > 0 && pendentesVisiveis.every((j) => selected.has(j.id));
+  const toggleAll = () => {
+    const next = new Set(selected);
+    if (allChecked) pendentesVisiveis.forEach((j) => next.delete(j.id));
+    else pendentesVisiveis.forEach((j) => next.add(j.id));
+    setSelected(next);
+  };
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelected(next);
+  };
+  const batchApprove = () => {
+    toast.success(`${selected.size} justificativa${selected.size > 1 ? 's' : ''} aprovada${selected.size > 1 ? 's' : ''}`, {
+      description: 'Registros atualizados no log de auditoria.',
+    });
+    setSelected(new Set());
+  };
+  const batchReject = () => {
+    toast.info(`${selected.size} justificativa${selected.size > 1 ? 's' : ''} recusada${selected.size > 1 ? 's' : ''}`);
+    setSelected(new Set());
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto">
       <header className="flex flex-wrap items-end justify-between gap-4">
