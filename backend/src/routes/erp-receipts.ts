@@ -157,13 +157,22 @@ router.post('/generate', async (req, res) => {
     const baseValor = Number(valor ?? ct.valor_mensal ?? 0);
     const valorFinal = baseValor + freteAplicado;
 
-    // [#21 médio] Vencimento — mantém a regra do contrato (dia_vencimento no mês
-    // da competência). O período exato informado é apenas exibido no recibo e
-    // NÃO altera o vencimento.
-    const [ano, mes] = competencia.split('-').map(Number);
-    const ultimoDia = new Date(ano, mes, 0).getDate();
-    const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
-    const dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    // Vencimento = 28 dias após a entrega (periodoInicio informado) ou, na
+    // ausência, após a data de início do contrato. Cálculo em UTC para evitar
+    // off-by-one em GMT-3.
+    const baseVencStr: string = (periodoInicio || ct.data_inicio || '').toString().slice(0, 10);
+    let dataVenc: string;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(baseVencStr)) {
+      const [by, bm, bd] = baseVencStr.split('-').map(Number);
+      const base = new Date(Date.UTC(by, bm - 1, bd));
+      const venc = new Date(base.getTime() + 28 * 24 * 60 * 60 * 1000);
+      dataVenc = venc.toISOString().slice(0, 10);
+    } else {
+      const [ano, mes] = competencia.split('-').map(Number);
+      const ultimoDia = new Date(ano, mes, 0).getDate();
+      const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
+      dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
 
 
     const snapshot = {
