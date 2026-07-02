@@ -138,7 +138,7 @@ const PontoRelatorios: React.FC = () => {
         </div>
         <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight mt-1">Relatórios & Exportações</h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-          Arquivos oficiais para fiscalização, folha de pagamento e gestão. AFD em .txt (layout oficial); demais em .csv (UTF-8, abre no Excel).
+          Arquivos oficiais para fiscalização, folha de pagamento e gestão. AFD em .txt (layout oficial); Espelho de Ponto em PDF; demais em CSV (UTF-8, abre no Excel).
         </p>
       </header>
 
