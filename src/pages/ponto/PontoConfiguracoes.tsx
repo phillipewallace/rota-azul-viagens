@@ -1,6 +1,6 @@
 /**
  * Configurações do módulo Ponto — jornadas, políticas, integração REP-P.
- * Persistência real via API (settings + jornadas).
+ * Persistência real via API (settings + jornadas CRUD).
  */
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +13,8 @@ import { Separator } from '@/components/ui/separator';
 import { Settings2, Clock, ShieldCheck, Bell, MapPin, KeyRound, Plus, Loader2 } from 'lucide-react';
 import { useJornadas, useSettings, useUpdateSettings } from '@/hooks/usePontoData';
 import { toast } from 'sonner';
+import { JornadaDialog } from './JornadaDialog';
+import type { Jornada } from './pontoUtils';
 
 const Section: React.FC<{ icon: React.ElementType; title: string; desc: string; children: React.ReactNode }> = ({ icon: Icon, title, desc, children }) => (
   <Card className="border-border/60">
@@ -46,6 +48,8 @@ const PontoConfiguracoes: React.FC = () => {
   const { data: JORNADAS = [] } = useJornadas();
   const { data: settings } = useSettings();
   const updateMut = useUpdateSettings();
+  const [jornadaOpen, setJornadaOpen] = useState(false);
+  const [jornadaEdit, setJornadaEdit] = useState<Jornada | null>(null);
 
   const [form, setForm] = useState({
     razao_social: '', cnpj: '', cei: '', endereco: '', fuso_horario: 'America/Sao_Paulo',
@@ -104,10 +108,10 @@ const PontoConfiguracoes: React.FC = () => {
                   {j.entrada} → {j.saidaAlmoco} · {j.voltaAlmoco} → {j.saida} · tolerância {j.tolerancia}min
                 </p>
               </div>
-              <Button variant="outline" size="sm">Editar</Button>
+              <Button variant="outline" size="sm" onClick={() => { setJornadaEdit(j); setJornadaOpen(true); }}>Editar</Button>
             </div>
           ))}
-          <Button variant="outline" size="sm" className="w-full gap-2 border-dashed">
+          <Button variant="outline" size="sm" className="w-full gap-2 border-dashed" onClick={() => { setJornadaEdit(null); setJornadaOpen(true); }}>
             <Plus className="h-4 w-4" /> Nova jornada
           </Button>
         </div>
@@ -152,6 +156,8 @@ const PontoConfiguracoes: React.FC = () => {
           Salvar alterações
         </Button>
       </div>
+
+      <JornadaDialog open={jornadaOpen} onClose={() => setJornadaOpen(false)} jornada={jornadaEdit} />
     </div>
   );
 };
