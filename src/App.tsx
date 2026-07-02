@@ -113,6 +113,17 @@ function App() {
                 <Route path="empresas" element={<ErpCompanies />} />
               </Route>
 
+              <Route path="/ponto" element={<Protected><PontoLayout /></Protected>}>
+                <Route index element={<PontoDashboard />} />
+                <Route path="registros" element={<PontoRegistros />} />
+                <Route path="espelho" element={<PontoEspelho />} />
+                <Route path="justificativas" element={<PontoJustificativas />} />
+                <Route path="banco-horas" element={<PontoBancoHoras />} />
+                <Route path="funcionarios" element={<PontoFuncionarios />} />
+                <Route path="relatorios" element={<PontoRelatorios />} />
+                <Route path="configuracoes" element={<PontoConfiguracoes />} />
+              </Route>
+
               <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />
 
               {/* 404 Route */}
