@@ -338,7 +338,9 @@ export interface UnifiedReceiptItem {
 }
 export interface UnifiedReceiptInput {
   numero: string;
-  competencia: string;         // YYYY-MM
+  competencia: string;         // YYYY-MM (fallback do rótulo)
+  periodoInicio?: string | null; // YYYY-MM-DD — período exato
+  periodoFim?: string | null;    // YYYY-MM-DD
   dataEmissao: string;         // YYYY-MM-DD
   dataVencimento?: string | null;
   company: any;
