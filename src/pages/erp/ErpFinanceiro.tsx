@@ -669,7 +669,7 @@ const ErpFinanceiro: React.FC = () => {
 
       <ChartCard series={summary} />
 
-      <Tabs defaultValue="pendentes" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <TabsList>
           <TabsTrigger value="pendentes">
             Pendentes <Badge variant="outline" className="ml-2">{pendentes.length}</Badge>
