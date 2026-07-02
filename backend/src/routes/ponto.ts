@@ -248,6 +248,89 @@ async function reviewMany(ids: string[], status: 'aprovada' | 'recusada', review
   return r.rows;
 }
 
+/**
+ * Ao aprovar uma justificativa com horário específico, materializa a batida
+ * ausente no dia e reatribui os tipos ({entrada, saida-almoco, volta-almoco, saida})
+ * em ordem cronológica — o ponto mais cedo vira `entrada`, o mais tarde vira `saida`,
+ * e os do meio preenchem intervalo. Isso libera o usuário de escolher qual campo era.
+ */
+async function reallocateDayTipos(funcionarioId: string, data: string, horario: string, reviewer?: string) {
+  // horario: 'HH:mm' ou 'HH:mm:ss' → constrói timestamp local (assume TZ do servidor)
+  const [hh, mm] = horario.split(':').map(Number);
+  const ts = new Date(`${data}T00:00:00`);
+  ts.setHours(hh || 0, mm || 0, 0, 0);
+  const tsIso = ts.toISOString();
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Evita duplicar se já existe uma batida no mesmo horário do dia
+    const dup = await client.query(
+      `SELECT id FROM ponto_punches
+        WHERE funcionario_id = $1 AND timestamp::date = $2::date
+          AND ABS(EXTRACT(EPOCH FROM (timestamp - $3::timestamptz))) < 60`,
+      [funcionarioId, data, tsIso]
+    );
+
+    if (!dup.rows.length) {
+      const nsrRow = await client.query("SELECT nextval('ponto_nsr_seq') AS nsr");
+      const nsr = Number(nsrRow.rows[0].nsr);
+      // tipo provisório — será reatribuído logo abaixo
+      const hash = signPunch(funcionarioId, tsIso, 'entrada', nsr);
+      await client.query(
+        `INSERT INTO ponto_punches
+          (funcionario_id, timestamp, tipo, origem, nsr, hash,
+           ajustado, motivo_ajuste, ajustado_por, ajustado_em)
+         VALUES ($1,$2,'entrada','manual',$3,$4,TRUE,$5,$6,NOW())`,
+        [funcionarioId, tsIso, nsr, hash, 'Justificativa aprovada', reviewer || null]
+      );
+    }
+
+    // Busca todas as batidas do dia em ordem cronológica e reatribui os tipos
+    const dayPunches = await client.query(
+      `SELECT id FROM ponto_punches
+        WHERE funcionario_id = $1 AND timestamp::date = $2::date
+        ORDER BY timestamp ASC`,
+      [funcionarioId, data]
+    );
+
+    const sequences: Record<number, string[]> = {
+      1: ['entrada'],
+      2: ['entrada', 'saida'],
+      3: ['entrada', 'saida-almoco', 'saida'],
+      4: ['entrada', 'saida-almoco', 'volta-almoco', 'saida'],
+    };
+    const n = dayPunches.rows.length;
+    const order = sequences[n] || sequences[4];
+
+    for (let i = 0; i < Math.min(n, order.length); i++) {
+      await client.query(
+        `UPDATE ponto_punches SET tipo = $1 WHERE id = $2`,
+        [order[i], dayPunches.rows[i].id]
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function applyApprovedJustifications(rows: any[], reviewer?: string) {
+  for (const j of rows) {
+    if (j.status !== 'aprovada' || !j.horario || !j.data) continue;
+    try {
+      await reallocateDayTipos(j.funcionario_id, j.data, j.horario, reviewer);
+    } catch (e) {
+      console.error('[JUSTIFICATION APPLY]', j.id, e);
+    }
+  }
+}
+
 router.put('/justifications/:id/review', async (req: AuthedRequest, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Acesso negado' });
   try {
@@ -255,6 +338,7 @@ router.put('/justifications/:id/review', async (req: AuthedRequest, res) => {
     if (!['aprovada','recusada'].includes(status)) return res.status(400).json({ error: 'status inválido' });
     const rows = await reviewMany([req.params.id], status, req.user?.username || 'sistema', observacao);
     if (!rows.length) return res.status(404).json({ error: 'Não encontrada' });
+    if (status === 'aprovada') await applyApprovedJustifications(rows, req.user?.username);
     res.json(rows[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -266,6 +350,7 @@ router.post('/justifications/batch-review', async (req: AuthedRequest, res) => {
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids obrigatórios' });
     if (!['aprovada','recusada'].includes(status)) return res.status(400).json({ error: 'status inválido' });
     const rows = await reviewMany(ids, status, req.user?.username || 'sistema', observacao);
+    if (status === 'aprovada') await applyApprovedJustifications(rows, req.user?.username);
     res.json({ updated: rows.length, rows });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
