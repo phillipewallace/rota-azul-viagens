@@ -696,18 +696,119 @@ const ErpFinanceiro: React.FC = () => {
                   <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar</Button>
                 )}
                 {unifiedGroup && (
-                  <Button
-                    size="sm"
-                    disabled={working === '__unified__'}
-                    onClick={gerarUnificado}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
-                    title="Gera um único PDF somando todos os contratos selecionados"
+                  <Popover
+                    open={unifOpen}
+                    onOpenChange={(o) => {
+                      if (working === '__unified__') return;
+                      setUnifOpen(o);
+                      if (o) {
+                        const t = todayISO();
+                        setUnifIni(t);
+                        setUnifFim(addDaysISO(t, 30));
+                      }
+                    }}
                   >
-                    {working === '__unified__'
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                      : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                    Gerar recibo unificado
-                  </Button>
+                    <PopoverTrigger asChild>
+                      <Button
+                        size="sm"
+                        disabled={working === '__unified__'}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
+                        title="Gera um único PDF somando todos os contratos selecionados"
+                      >
+                        {working === '__unified__'
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                          : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                        Gerar recibo unificado
+                        <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px] bg-primary-foreground/15 text-primary-foreground border-0">
+                          {unifiedGroup.arr.length}
+                        </Badge>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-[340px] p-0 overflow-hidden border-border/60 shadow-lg">
+                      <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
+                        <p className="text-sm font-semibold leading-tight tracking-tight">Recibo unificado</p>
+                        <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                          {unifiedGroup.arr.length} contratos ·{' '}
+                          <span className="font-medium text-foreground">
+                            {BRL(unifiedGroup.arr.reduce((s, p) => s + Number(p.valorMensal || 0), 0))}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="unif-ini" className="text-[11px] text-muted-foreground">Início</Label>
+                            <Input
+                              id="unif-ini"
+                              type="date"
+                              value={unifIni}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setUnifIni(v);
+                                if (unifFim && v && unifFim < v) setUnifFim(v);
+                              }}
+                              className="h-9 text-sm tabular-nums transition-colors duration-200"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="unif-fim" className="text-[11px] text-muted-foreground">Fim</Label>
+                            <Input
+                              id="unif-fim"
+                              type="date"
+                              value={unifFim}
+                              min={unifIni || undefined}
+                              onChange={(e) => setUnifFim(e.target.value)}
+                              className="h-9 text-sm tabular-nums transition-colors duration-200"
+                            />
+                          </div>
+                        </div>
+                        {(() => {
+                          const ok = /^\d{4}-\d{2}-\d{2}$/.test(unifIni)
+                                  && /^\d{4}-\d{2}-\d{2}$/.test(unifFim)
+                                  && unifFim >= unifIni;
+                          const dias = ok ? diffDays(unifFim, unifIni) + 1 : 0;
+                          return (
+                            <>
+                              <div className={
+                                'rounded-md px-3 py-2 text-[11px] leading-snug border transition-colors duration-200 ' +
+                                (ok
+                                  ? 'bg-muted/40 border-border/60 text-muted-foreground'
+                                  : 'bg-destructive/5 border-destructive/30 text-destructive')
+                              }>
+                                {ok ? (
+                                  <>
+                                    Competência:{' '}
+                                    <span className="font-semibold text-foreground tabular-nums">
+                                      {formatPeriodo(unifIni, unifFim)}
+                                    </span>
+                                    <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
+                                  </>
+                                ) : (
+                                  'Preencha as duas datas (fim ≥ início).'
+                                )}
+                              </div>
+                              <div className="flex items-center justify-end gap-2 pt-0.5">
+                                <Button size="sm" variant="ghost" onClick={() => setUnifOpen(false)} disabled={working === '__unified__'} className="h-8 transition-colors duration-200">
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => gerarUnificado(unifIni, unifFim)}
+                                  disabled={working === '__unified__' || !ok}
+                                  className="h-8 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
+                                >
+                                  {working === '__unified__'
+                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                                    : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                                  Gerar
+                                </Button>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 )}
                 <Button size="sm" disabled={selected.size === 0 || working === '__batch__'} onClick={gerarLote}
                   className="bg-emerald-600 hover:bg-emerald-700">
