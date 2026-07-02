@@ -1178,96 +1178,148 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
 };
 
 // ========================= GerarReciboPopover =========================
-// Cardzinho compacto: pede o intervalo (De/Até em competências YYYY-MM) e mostra
-// a data de início do contrato como referência. Ao confirmar, gera os recibos.
+// Cardzinho compacto: pede as 2 datas exatas (Início / Fim) que passarão a
+// aparecer na competência do recibo no formato "DD/MM/YYYY - DD/MM/YYYY".
+// Mostra a data de início do contrato como referência (clique preenche o "Início").
 const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
-  onConfirm: (from: string, to: string) => void;
+  onConfirm: (periodoInicio: string, periodoFim: string) => void;
   children: React.ReactNode;
 }> = ({ pending, working, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
-  const [from, setFrom] = useState(compAtual());
-  const [to, setTo]     = useState(compAtual());
+  const [inicio, setInicio] = useState('');
+  const [fim, setFim]       = useState('');
+
+  const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
   useEffect(() => {
     if (!open) return;
-    const start = pending.dataInicio ? (pending.dataInicio as string).slice(0, 7) : compAtual();
-    setFrom(start);
-    setTo(compAtual() < start ? start : compAtual());
+    // Sugestão: início = hoje, fim = +30 dias.
+    const t = todayISO();
+    setInicio(t);
+    setFim(addDaysISO(t, 30));
   }, [open, pending.contractId]); // eslint-disable-line
 
-  const meses = useMemo(() => enumerateComps(from, to), [from, to]);
-  const invalido = meses.length === 0;
-  const dataInicio = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
+  const valido = /^\d{4}-\d{2}-\d{2}$/.test(inicio)
+              && /^\d{4}-\d{2}-\d{2}$/.test(fim)
+              && fim >= inicio;
+  const dias = valido ? diffDays(fim, inicio) + 1 : 0;
 
   return (
     <Popover open={open} onOpenChange={(o) => !working && setOpen(o)}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent align="end" className="w-[300px] p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b bg-muted/30">
-          <p className="text-sm font-semibold leading-tight">Gerar recibo</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Início do contrato:{' '}
-            <span className="font-medium text-foreground tabular-nums">
-              {dataInicio ? formatDateBR(dataInicio) : '—'}
-            </span>
+      <PopoverContent
+        align="end"
+        className="w-[320px] p-0 overflow-hidden border-border/60 shadow-lg"
+      >
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
+          <p className="text-sm font-semibold leading-tight tracking-tight">Gerar recibo</p>
+          <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+            Informe o período exato — aparecerá no recibo como{' '}
+            <span className="font-medium text-foreground">competência</span>.
           </p>
         </div>
 
+        {/* Colinha: início do contrato (clicável) */}
+        {dataInicioContrato && (
+          <button
+            type="button"
+            onClick={() => {
+              setInicio(dataInicioContrato);
+              if (fim && fim < dataInicioContrato) setFim(addDaysISO(dataInicioContrato, 30));
+            }}
+            className="w-full flex items-center justify-between gap-2 px-4 py-2 text-[11px]
+                       bg-primary/[0.04] hover:bg-primary/10 border-b border-border/60
+                       text-muted-foreground hover:text-foreground
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+                       transition-colors duration-200"
+            title="Usar como data de início"
+          >
+            <span className="flex items-center gap-1.5">
+              <CalendarDays className="h-3 w-3" />
+              Início do contrato
+            </span>
+            <span className="font-medium text-foreground tabular-nums">
+              {formatDateBR(dataInicioContrato)}
+            </span>
+          </button>
+        )}
+
+        {/* Form */}
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor={`gr-from-${pending.contractId}`} className="text-[11px] text-muted-foreground">De</Label>
+              <Label htmlFor={`gr-ini-${pending.contractId}`} className="text-[11px] text-muted-foreground">
+                Início
+              </Label>
               <Input
-                id={`gr-from-${pending.contractId}`}
-                type="month"
-                value={from}
+                id={`gr-ini-${pending.contractId}`}
+                type="date"
+                value={inicio}
                 onChange={(e) => {
-                  setFrom(e.target.value);
-                  if (to && e.target.value && to < e.target.value) setTo(e.target.value);
+                  const v = e.target.value;
+                  setInicio(v);
+                  if (fim && v && fim < v) setFim(v);
                 }}
-                className="h-9 text-sm"
+                className="h-9 text-sm tabular-nums transition-colors duration-200"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`gr-to-${pending.contractId}`} className="text-[11px] text-muted-foreground">Até</Label>
+              <Label htmlFor={`gr-fim-${pending.contractId}`} className="text-[11px] text-muted-foreground">
+                Fim
+              </Label>
               <Input
-                id={`gr-to-${pending.contractId}`}
-                type="month"
-                value={to}
-                min={from}
-                onChange={(e) => setTo(e.target.value)}
-                className="h-9 text-sm"
+                id={`gr-fim-${pending.contractId}`}
+                type="date"
+                value={fim}
+                min={inicio || undefined}
+                onChange={(e) => setFim(e.target.value)}
+                className="h-9 text-sm tabular-nums transition-colors duration-200"
               />
             </div>
           </div>
 
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            {invalido
-              ? <span className="text-destructive">Intervalo inválido.</span>
-              : meses.length === 1
-                ? <>1 recibo · <strong className="text-foreground">{formatComp(meses[0])}</strong></>
-                : <><strong className="text-foreground">{meses.length}</strong> recibos · {formatComp(meses[0])} → {formatComp(meses[meses.length - 1])}</>}
-          </p>
+          {/* Preview / validação */}
+          <div
+            className={
+              'rounded-md px-3 py-2 text-[11px] leading-snug border transition-colors duration-200 ' +
+              (valido
+                ? 'bg-muted/40 border-border/60 text-muted-foreground'
+                : 'bg-destructive/5 border-destructive/30 text-destructive')
+            }
+          >
+            {valido ? (
+              <>
+                Competência:{' '}
+                <span className="font-semibold text-foreground tabular-nums">
+                  {formatPeriodo(inicio, fim)}
+                </span>
+                <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
+              </>
+            ) : (
+              'Preencha as duas datas (fim ≥ início).'
+            )}
+          </div>
 
-          <div className="flex items-center justify-end gap-2 pt-1">
+          <div className="flex items-center justify-end gap-2 pt-0.5">
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setOpen(false)}
               disabled={working}
-              className="h-8"
+              className="h-8 transition-colors duration-200"
             >
               Cancelar
             </Button>
             <Button
               size="sm"
-              onClick={() => { onConfirm(from, to); setOpen(false); }}
-              disabled={working || invalido}
+              onClick={() => { onConfirm(inicio, fim); setOpen(false); }}
+              disabled={working || !valido}
               className="h-8 bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
             >
-              {working ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+              {working ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
               Gerar
             </Button>
           </div>
@@ -1276,6 +1328,7 @@ const GerarReciboPopover: React.FC<{
     </Popover>
   );
 };
+
 
 
 
