@@ -1,8 +1,7 @@
 import { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Bell, Home, Route as RouteIcon, Truck, Briefcase, Menu as MenuIcon } from 'lucide-react';
+import { ChevronLeft, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import MobileBottomNav from './MobileBottomNav';
 import MobileBottomNav from './MobileBottomNav';
 
 /**
@@ -13,13 +12,7 @@ import MobileBottomNav from './MobileBottomNav';
  * mobile-nativas (Home, Menu). Páginas existentes usam MobileWrap.
  */
 
-const NAV_ITEMS = [
-  { to: '/', label: 'Início', icon: Home, match: (p: string) => p === '/' },
-  { to: '/routes', label: 'Rotas', icon: RouteIcon, match: (p: string) => p.startsWith('/routes') || p.startsWith('/rotas') },
-  { to: '/trucks', label: 'Frota', icon: Truck, match: (p: string) => p.startsWith('/trucks') || p.startsWith('/drivers') || p.startsWith('/carretinhas') },
-  { to: '/erp', label: 'ERP', icon: Briefcase, match: (p: string) => p.startsWith('/erp') },
-  { to: '/menu', label: 'Menu', icon: MenuIcon, match: (p: string) => p.startsWith('/menu') || p.startsWith('/settings') },
-];
+const ROOT_PATHS = new Set(['/', '/routes', '/trucks', '/erp', '/menu']);
 
 const TITLES: Record<string, string> = {
   '/': 'Início',
@@ -47,11 +40,8 @@ const TITLES: Record<string, string> = {
 
 interface MobileFrameProps {
   children: ReactNode;
-  /** Título opcional para sobrescrever o inferido pela rota. */
   title?: string;
-  /** Mostra botão voltar em vez do título grande. Útil em telas de detalhe. */
   showBack?: boolean;
-  /** Ação opcional no canto direito do header. */
   headerAction?: ReactNode;
 }
 
@@ -60,12 +50,10 @@ const MobileFrame = ({ children, title, showBack, headerAction }: MobileFramePro
   const navigate = useNavigate();
   const inferredTitle = TITLES[location.pathname] ?? 'AlchemyRotas';
   const currentTitle = title ?? inferredTitle;
-
-  const isRoot = NAV_ITEMS.some((i) => i.to === location.pathname);
+  const isRoot = ROOT_PATHS.has(location.pathname);
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
-      {/* Header */}
       <header
         className={cn(
           'sticky top-0 z-40 bg-background/80 backdrop-blur-xl',
@@ -82,7 +70,7 @@ const MobileFrame = ({ children, title, showBack, headerAction }: MobileFramePro
                   'h-10 w-10 -ml-2 grid place-items-center rounded-full',
                   'text-foreground/80 hover:text-foreground hover:bg-muted',
                   'active:scale-95 transition-all duration-200',
-                  'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 )}
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -116,62 +104,9 @@ const MobileFrame = ({ children, title, showBack, headerAction }: MobileFramePro
         </div>
       </header>
 
-      {/* Conteúdo */}
       <main className="flex-1 min-h-0 pb-24">{children}</main>
 
-      {/* Bottom nav */}
-      <nav
-        aria-label="Navegação principal"
-        className={cn(
-          'fixed bottom-0 left-0 right-0 z-40',
-          'bg-background/85 backdrop-blur-xl',
-          'border-t border-border/60 safe-area-bottom',
-        )}
-      >
-        <ul className="grid grid-cols-5 h-16">
-          {NAV_ITEMS.map((item) => {
-            const active = item.match(location.pathname);
-            const Icon = item.icon;
-            return (
-              <li key={item.to} className="flex">
-                <Link
-                  to={item.to}
-                  aria-current={active ? 'page' : undefined}
-                  aria-label={item.label}
-                  className={cn(
-                    'flex-1 flex flex-col items-center justify-center gap-0.5 relative',
-                    'transition-colors duration-200 active:scale-95',
-                    active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-                  )}
-                >
-                  {active && (
-                    <span
-                      aria-hidden
-                      className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-full bg-primary"
-                    />
-                  )}
-                  <Icon
-                    className={cn(
-                      'h-[22px] w-[22px] transition-transform duration-200',
-                      active && 'scale-110',
-                    )}
-                    strokeWidth={active ? 2.4 : 2}
-                  />
-                  <span
-                    className={cn(
-                      'text-[10.5px] leading-none tracking-tight',
-                      active ? 'font-semibold' : 'font-medium',
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <MobileBottomNav />
     </div>
   );
 };
