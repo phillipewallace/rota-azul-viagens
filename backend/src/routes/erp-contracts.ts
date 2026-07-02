@@ -12,6 +12,7 @@ const SELECT = `
   c.data_inicio AS "dataInicio", c.data_fim AS "dataFim",
   c.data_evento AS "dataEvento", c.data_recolhimento AS "dataRecolhimento",
   c.local_evento AS "localEvento", c.hora_entrega AS "horaEntrega",
+  c.endereco_obra AS "enderecoObra", c.cno AS "cno",
   c.valor_total_evento AS "valorTotalEvento",
   c.dia_vencimento AS "diaVencimento",
   c.valor_mensal AS "valorMensal",
