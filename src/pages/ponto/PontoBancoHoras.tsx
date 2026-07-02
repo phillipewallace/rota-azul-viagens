@@ -130,7 +130,19 @@ const PontoBancoHoras: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((e) => {
+              {isLoading && (
+                <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground"><Loader2 className="inline h-4 w-4 mr-2 animate-spin" />Carregando funcionários…</TableCell></TableRow>
+              )}
+              {!isLoading && isError && (
+                <TableRow><TableCell colSpan={5} className="text-center py-10">
+                  <p className="text-sm text-rose-600 mb-2">Falha ao carregar funcionários.</p>
+                  <Button size="sm" variant="outline" onClick={() => refetch()}>Tentar novamente</Button>
+                </TableCell></TableRow>
+              )}
+              {!isLoading && !isError && rows.length === 0 && (
+                <TableRow><TableCell colSpan={5} className="text-center py-10 text-sm text-muted-foreground">Nenhum funcionário encontrado com esse filtro.</TableCell></TableRow>
+              )}
+              {!isLoading && !isError && rows.map((e) => {
                 const pct = Math.round((Math.abs(e.bancoHoras) / maxAbs) * 100);
                 const positive = e.bancoHoras >= 0;
                 return (
@@ -157,7 +169,7 @@ const PontoBancoHoras: React.FC = () => {
                       <Progress value={pct} className={`h-2 ${positive ? '[&>*]:bg-emerald-500' : '[&>*]:bg-rose-500'}`} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="ghost">Extrato</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setAdjustEmp(e)}>Ajustar / Extrato</Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -166,8 +178,11 @@ const PontoBancoHoras: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <BancoHorasAdjustDialog open={!!adjustEmp} employee={adjustEmp} onClose={() => setAdjustEmp(null)} />
     </div>
   );
 };
+
 
 export default PontoBancoHoras;
