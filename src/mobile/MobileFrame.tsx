@@ -10,14 +10,14 @@ import {
   Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import MobileBottomNav from './MobileBottomNav';
 
 /**
  * MobileFrame
  * ------------------------------------------------------------------
- * Casca mobile-first do app: header sticky compacto + bottom nav com
- * 5 destinos principais + área de conteúdo com respiro para safe-area.
- * Reutiliza os tokens semânticos do design system (Navy Trust) — nada
- * de cor chumbada. Transições 200ms em interações-chave.
+ * Casca mobile-first "cheia": header sticky compacto + bottom nav +
+ * área de conteúdo com respiro para safe-area. Usada nas telas
+ * mobile-nativas (Home, Menu). Páginas existentes usam MobileWrap.
  */
 
 const NAV_ITEMS = [
