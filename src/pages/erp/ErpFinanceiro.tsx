@@ -453,8 +453,49 @@ const ErpFinanceiro: React.FC = () => {
   };
 
   const baixar = async (r: Receipt) => {
-    try { await generateReceiptPdf(r); }
-    catch (e: any) { toast.error(e.message); }
+    try {
+      // Se este recibo faz parte de um grupo unificado (mesmo cliente + empresa
+      // + período exato), reconstruímos o MESMO PDF unificado a partir dos
+      // snapshots — assim qualquer recibo do grupo baixa o documento completo.
+      const group = (r.periodoInicio && r.periodoFim)
+        ? recibos.filter(x =>
+            x.periodoInicio === r.periodoInicio &&
+            x.periodoFim === r.periodoFim &&
+            (x.customerName || '') === (r.customerName || '') &&
+            (x.companyRazaoSocial || '') === (r.companyRazaoSocial || '') &&
+            x.status !== 'cancelado',
+          )
+        : [];
+      if (group.length > 1) {
+        const first = group[0].snapshot || {};
+        const items = group.map(g => {
+          const snap = g.snapshot || {};
+          const ct = snap.contract || {};
+          return {
+            contractNumero: g.contractNumero || ct.numero || '',
+            descricao: ct.descricao || `Locação — Contrato ${g.contractNumero || ''}`,
+            enderecoObra: ct.enderecoObra || ct.localEvento || '',
+            cno: ct.cno || '',
+            valor: Number(g.valor) || 0,
+          };
+        });
+        const total = items.reduce((s, it) => s + it.valor, 0);
+        await generateUnifiedReceiptPdf({
+          numero: r.numero,
+          competencia: r.competencia,
+          periodoInicio: r.periodoInicio,
+          periodoFim: r.periodoFim,
+          dataEmissao: r.dataEmissao,
+          dataVencimento: r.dataVencimento || null,
+          company: first.company || {},
+          customer: first.customer || { name: r.customerName },
+          items,
+          total,
+        });
+        return;
+      }
+      await generateReceiptPdf(r);
+    } catch (e: any) { toast.error(e.message); }
   };
 
   const handleReabrir = async () => {
