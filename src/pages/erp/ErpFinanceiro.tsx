@@ -831,6 +831,15 @@ const ErpFinanceiro: React.FC = () => {
                                       Cancelar recibo
                                     </DropdownMenuItem>
                                   )}
+                                  {r.status === 'cancelado' && (
+                                    <DropdownMenuItem
+                                      onClick={() => voltarParaPendentes(r)}
+                                      className="text-primary focus:text-primary"
+                                    >
+                                      <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                      Voltar para pendentes
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
