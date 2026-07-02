@@ -859,17 +859,20 @@ function ContractFormDialog({
                   type="number" min={1} max={28} value={form.diaVencimento}
                   onChange={(e) => {
                     const v = e.target.value;
-                    if (v === '') {
-                      // Limpou → volta ao auto-preenchimento a partir da data de início.
+                    // Qualquer digitação manual (inclusive apagar) desliga o auto.
+                    setDiaVencTouched(true);
+                    setForm({ ...form, diaVencimento: v });
+                  }}
+                  onBlur={(e) => {
+                    // Se sair vazio, reativa o auto e sugere a partir da data de início.
+                    if (e.target.value === '') {
                       setDiaVencTouched(false);
                       const sug = suggestDiaVenc(form.dataInicio);
-                      setForm({ ...form, diaVencimento: sug === '' ? '' : sug });
-                    } else {
-                      setDiaVencTouched(true);
-                      setForm({ ...form, diaVencimento: v });
+                      if (sug !== '') setForm({ ...form, diaVencimento: sug });
                     }
                   }}
                 />
+
               </div>
               <div>
                 <Label className="text-xs">Valor mensal (R$)</Label>
