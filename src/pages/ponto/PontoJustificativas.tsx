@@ -37,6 +37,7 @@ const PontoJustificativas: React.FC = () => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [tipo, setTipo] = useState<string>('all');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const rows = useMemo(() => {
     return JUSTIFICATIONS.filter((j) => {
