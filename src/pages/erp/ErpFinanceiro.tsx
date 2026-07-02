@@ -1176,7 +1176,217 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
   );
 };
 
-// ========================= PayDialog =========================
+// ========================= GerarReciboDialog =========================
+// Diálogo para confirmar a emissão de recibo(s) a partir de um contrato pendente.
+// Permite escolher UMA competência ou um INTERVALO (De — Até) para gerar em lote,
+// exibindo a data de início do contrato como "colinha" para consulta rápida.
+const GerarReciboDialog: React.FC<{
+  pending: PendingReceipt | null;
+  working: boolean;
+  onClose: () => void;
+  onConfirm: (from: string, to: string, opts: { marcarPago: boolean; baixarPdf: boolean }) => void;
+}> = ({ pending, working, onClose, onConfirm }) => {
+  const [mode, setMode] = useState<'single' | 'range'>('single');
+  const [from, setFrom] = useState(compAtual());
+  const [to, setTo]     = useState(compAtual());
+  const [marcarPago, setMarcarPago] = useState(true);
+  const [baixarPdf, setBaixarPdf]   = useState(true);
+
+  // Reset ao abrir para um novo contrato
+  useEffect(() => {
+    if (!pending) return;
+    setMode('single');
+    setFrom(compAtual());
+    setTo(compAtual());
+    setMarcarPago(true);
+    setBaixarPdf(true);
+  }, [pending?.contractId]); // eslint-disable-line
+
+  const dataInicio = pending?.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
+  const compInicio = dataInicio ? dataInicio.slice(0, 7) : '';
+
+  const effectiveFrom = mode === 'single' ? from : from;
+  const effectiveTo   = mode === 'single' ? from : to;
+  const meses = useMemo(
+    () => enumerateComps(effectiveFrom, effectiveTo),
+    [effectiveFrom, effectiveTo]
+  );
+  const invalido = meses.length === 0;
+  const totalEstimado = pending ? meses.length * Number(pending.valorMensal || 0) : 0;
+  const anteriorInicio = compInicio && effectiveFrom && effectiveFrom < compInicio;
+
+  const usarDataInicio = () => {
+    if (!compInicio) return;
+    setFrom(compInicio);
+    if (mode === 'single' || to < compInicio) setTo(compInicio);
+  };
+
+  const submit = () => {
+    if (invalido || !pending) return;
+    onConfirm(effectiveFrom, effectiveTo, { marcarPago, baixarPdf });
+  };
+
+  return (
+    <Dialog open={!!pending} onOpenChange={(o) => !o && !working && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ReceiptIcon className="h-4 w-4 text-primary" />
+            Gerar recibo
+          </DialogTitle>
+          <DialogDescription>
+            {pending ? (
+              <>Contrato <strong className="font-mono">{pending.contractNumero}</strong>
+                {pending.customerName ? <> · {pending.customerName}</> : null}
+              </>
+            ) : null}
+          </DialogDescription>
+        </DialogHeader>
+
+        {pending && (
+          <div className="space-y-5">
+            {/* Colinha: dados-chave do contrato */}
+            <div className="rounded-lg border bg-muted/40 p-3 text-xs grid grid-cols-2 gap-y-2 gap-x-4">
+              <div className="flex flex-col">
+                <span className="text-muted-foreground uppercase tracking-wide text-[10px]">Início do contrato</span>
+                <span className="font-medium tabular-nums">{dataInicio ? formatDateBR(dataInicio) : '—'}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground uppercase tracking-wide text-[10px]">Valor mensal</span>
+                <span className="font-medium tabular-nums">{BRL(Number(pending.valorMensal || 0))}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground uppercase tracking-wide text-[10px]">Dia de vencimento</span>
+                <span className="font-medium tabular-nums">dia {pending.diaVencimento}</span>
+              </div>
+              {compInicio && (
+                <div className="flex flex-col">
+                  <span className="text-muted-foreground uppercase tracking-wide text-[10px]">1ª competência</span>
+                  <button
+                    type="button"
+                    onClick={usarDataInicio}
+                    className="text-left font-medium text-primary hover:underline underline-offset-2 transition-colors duration-150 w-fit"
+                    title="Usar como competência inicial"
+                  >
+                    {formatComp(compInicio)}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Modo */}
+            <Tabs value={mode} onValueChange={(v) => setMode(v as any)} className="w-full">
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="single">Competência única</TabsTrigger>
+                <TabsTrigger value="range">Intervalo (2 datas)</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="single" className="pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="comp-single" className="text-xs">Competência</Label>
+                  <Input
+                    id="comp-single"
+                    type="month"
+                    value={from}
+                    onChange={(e) => setFrom(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="range" className="pt-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="comp-from" className="text-xs">De</Label>
+                    <Input
+                      id="comp-from"
+                      type="month"
+                      value={from}
+                      onChange={(e) => {
+                        setFrom(e.target.value);
+                        if (to < e.target.value) setTo(e.target.value);
+                      }}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="comp-to" className="text-xs">Até</Label>
+                    <Input
+                      id="comp-to"
+                      type="month"
+                      value={to}
+                      min={from}
+                      onChange={(e) => setTo(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* Opções */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={marcarPago} onCheckedChange={(v) => setMarcarPago(!!v)} />
+                <span>Marcar como pago já na emissão</span>
+              </label>
+              {mode === 'single' && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={baixarPdf} onCheckedChange={(v) => setBaixarPdf(!!v)} />
+                  <span>Baixar PDF em seguida</span>
+                </label>
+              )}
+            </div>
+
+            {/* Resumo / avisos */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs space-y-1">
+              {invalido ? (
+                <p className="text-destructive font-medium flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Intervalo inválido — a competência final deve ser maior ou igual à inicial (limite 60 meses).
+                </p>
+              ) : (
+                <>
+                  <p>
+                    <span className="text-muted-foreground">Serão emitidos </span>
+                    <strong className="tabular-nums">{meses.length}</strong>
+                    <span className="text-muted-foreground"> recibo(s) — </span>
+                    <strong>{formatComp(meses[0])}</strong>
+                    {meses.length > 1 && <> até <strong>{formatComp(meses[meses.length - 1])}</strong></>}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Total estimado: </span>
+                    <strong className="tabular-nums">{BRL(totalEstimado)}</strong>
+                  </p>
+                </>
+              )}
+              {anteriorInicio && !invalido && (
+                <p className="text-amber-700 dark:text-amber-500 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Competência inicial é anterior ao início do contrato ({formatComp(compInicio)}).
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={working}>Cancelar</Button>
+          <Button
+            onClick={submit}
+            disabled={working || invalido}
+            className="bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
+          >
+            {working ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ReceiptIcon className="h-4 w-4 mr-1.5" />}
+            {meses.length > 1 ? `Gerar ${meses.length} recibos` : 'Gerar recibo'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
 const PayDialog: React.FC<{
   receipt: Receipt | null; onClose: () => void; onSaved: () => void;
 }> = ({ receipt, onClose, onSaved }) => {
