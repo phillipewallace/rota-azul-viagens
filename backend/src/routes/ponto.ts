@@ -254,9 +254,42 @@ async function reviewMany(ids: string[], status: 'aprovada' | 'recusada', review
  * em ordem cronológica — o ponto mais cedo vira `entrada`, o mais tarde vira `saida`,
  * e os do meio preenchem intervalo. Isso libera o usuário de escolher qual campo era.
  */
-async function reallocateDayTipos(funcionarioId: string, data: string, horario: string, reviewer?: string) {
-  // horario: 'HH:mm' ou 'HH:mm:ss' → constrói timestamp local (assume TZ do servidor)
+/** Normaliza `data` (Date ou string) para 'YYYY-MM-DD' evitando shift de TZ. */
+function toYmd(data: any): string {
+  if (!data) return '';
+  if (data instanceof Date) {
+    const y = data.getUTCFullYear();
+    const m = String(data.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(data.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(data).slice(0, 10);
+}
+
+async function reallocateDayTipos(
+  funcionarioId: string,
+  dataRaw: any,
+  horarioRaw: string | null | undefined,
+  reviewer?: string,
+) {
+  const data = toYmd(dataRaw);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) throw new Error('Data inválida');
+
+  // Se não veio horário, tenta usar a entrada da jornada do funcionário.
+  let horario = (horarioRaw || '').slice(0, 5);
+  if (!horario) {
+    const jr = await pool.query(
+      `SELECT j.entrada FROM funcionarios f
+         LEFT JOIN ponto_jornadas j ON j.id = f.jornada_id
+        WHERE f.id = $1`,
+      [funcionarioId],
+    );
+    horario = (jr.rows[0]?.entrada || '08:00').slice(0, 5);
+  }
+  if (!/^\d{2}:\d{2}$/.test(horario)) horario = '08:00';
+
   const [hh, mm] = horario.split(':').map(Number);
+  // Timestamp no horário local do servidor (o mesmo usado nas batidas normais).
   const ts = new Date(`${data}T00:00:00`);
   ts.setHours(hh || 0, mm || 0, 0, 0);
   const tsIso = ts.toISOString();
@@ -265,34 +298,33 @@ async function reallocateDayTipos(funcionarioId: string, data: string, horario: 
   try {
     await client.query('BEGIN');
 
-    // Evita duplicar se já existe uma batida no mesmo horário do dia
+    // Evita duplicar se já existe uma batida no mesmo horário (± 60s) do dia
     const dup = await client.query(
       `SELECT id FROM ponto_punches
         WHERE funcionario_id = $1 AND timestamp::date = $2::date
           AND ABS(EXTRACT(EPOCH FROM (timestamp - $3::timestamptz))) < 60`,
-      [funcionarioId, data, tsIso]
+      [funcionarioId, data, tsIso],
     );
 
     if (!dup.rows.length) {
       const nsrRow = await client.query("SELECT nextval('ponto_nsr_seq') AS nsr");
       const nsr = Number(nsrRow.rows[0].nsr);
-      // tipo provisório — será reatribuído logo abaixo
       const hash = signPunch(funcionarioId, tsIso, 'entrada', nsr);
       await client.query(
         `INSERT INTO ponto_punches
           (funcionario_id, timestamp, tipo, origem, nsr, hash,
            ajustado, motivo_ajuste, ajustado_por, ajustado_em)
          VALUES ($1,$2,'entrada','manual',$3,$4,TRUE,$5,$6,NOW())`,
-        [funcionarioId, tsIso, nsr, hash, 'Justificativa aprovada', reviewer || null]
+        [funcionarioId, tsIso, nsr, hash, 'Justificativa aprovada', reviewer || null],
       );
     }
 
-    // Busca todas as batidas do dia em ordem cronológica e reatribui os tipos
+    // Reatribui os tipos em ordem cronológica (hierarquia entrada → saída).
     const dayPunches = await client.query(
       `SELECT id FROM ponto_punches
         WHERE funcionario_id = $1 AND timestamp::date = $2::date
         ORDER BY timestamp ASC`,
-      [funcionarioId, data]
+      [funcionarioId, data],
     );
 
     const sequences: Record<number, string[]> = {
@@ -307,7 +339,7 @@ async function reallocateDayTipos(funcionarioId: string, data: string, horario: 
     for (let i = 0; i < Math.min(n, order.length); i++) {
       await client.query(
         `UPDATE ponto_punches SET tipo = $1 WHERE id = $2`,
-        [order[i], dayPunches.rows[i].id]
+        [order[i], dayPunches.rows[i].id],
       );
     }
 
@@ -322,7 +354,8 @@ async function reallocateDayTipos(funcionarioId: string, data: string, horario: 
 
 async function applyApprovedJustifications(rows: any[], reviewer?: string) {
   for (const j of rows) {
-    if (j.status !== 'aprovada' || !j.horario || !j.data) continue;
+    if (j.status !== 'aprovada' || !j.data) continue;
+    // Sem horário? Ainda materializa — usa jornada do funcionário como fallback.
     try {
       await reallocateDayTipos(j.funcionario_id, j.data, j.horario, reviewer);
     } catch (e) {
