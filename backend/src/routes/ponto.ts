@@ -366,9 +366,9 @@ async function reallocateDayTipos(
     // Reatribui os tipos em ordem cronológica (hierarquia entrada → saída).
     const dayPunches = await client.query(
       `SELECT id FROM ponto_punches
-        WHERE funcionario_id = $1 AND timestamp::date = $2::date
+        WHERE funcionario_id = $1 AND (timestamp AT TIME ZONE $3)::date = $2::date
         ORDER BY timestamp ASC`,
-      [funcionarioId, data],
+      [funcionarioId, data, tz],
     );
 
     const sequences: Record<number, string[]> = {
