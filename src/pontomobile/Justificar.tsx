@@ -150,7 +150,7 @@ function StatusIcon({ status }: { status: Justification['status'] }) {
   const { Icon, bg, color } = map[status];
   return (
     <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${color}`} style={{ background: bg }}>
-      <Icon className="h-4.5 w-4.5" />
+      <Icon className="h-[18px] w-[18px]" />
     </div>
   );
 }
