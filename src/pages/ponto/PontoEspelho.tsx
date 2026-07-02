@@ -91,6 +91,34 @@ const PontoEspelho: React.FC = () => {
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
+  const handleExport = async (mode: 'print' | 'pdf') => {
+    if (!emp) { toast.error('Selecione um funcionário.'); return; }
+    if (loadingPunches) { toast.info('Aguarde o carregamento das batidas.'); return; }
+    setExporting(mode);
+    try {
+      const empresa = {
+        razao_social: (settings as any)?.empresa_razao_social ?? (settings as any)?.razao_social ?? '',
+        cnpj: (settings as any)?.empresa_cnpj ?? (settings as any)?.cnpj ?? '',
+        endereco: (settings as any)?.empresa_endereco ?? '',
+        cei: (settings as any)?.cei ?? '',
+      };
+      const empPunches = PUNCHES.filter((p) => p.employeeId === emp.id);
+      generateEspelhoIndividualPdf({
+        empresa,
+        employee: emp,
+        jornada,
+        punches: empPunches,
+        month,
+        filename: `Espelho_${emp.matricula || emp.nome.replace(/\s+/g, '_')}_${month}.pdf`,
+      });
+      toast.success(mode === 'print' ? 'PDF gerado — abra e use Imprimir do visualizador.' : 'PDF oficial gerado.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Falha ao gerar PDF.');
+    } finally {
+      setExporting(null);
+    }
+  };
+
   if (loadingEmps || loadingJorn) {
     return <div className="p-8 text-sm text-muted-foreground">Carregando espelho…</div>;
   }
