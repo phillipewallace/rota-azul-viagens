@@ -63,6 +63,23 @@ const formatComp = (c: string) => {
   const meses = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   return m ? `${meses[Number(m)]}/${a}` : c;
 };
+// Enumera competências YYYY-MM entre `from` e `to` inclusive. Retorna [] se inválido.
+const enumerateComps = (from: string, to: string): string[] => {
+  if (!/^\d{4}-\d{2}$/.test(from) || !/^\d{4}-\d{2}$/.test(to)) return [];
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  const start = fy * 12 + (fm - 1);
+  const end = ty * 12 + (tm - 1);
+  if (end < start) return [];
+  if (end - start > 60) return []; // guarda: no máx 5 anos
+  const out: string[] = [];
+  for (let i = start; i <= end; i++) {
+    const y = Math.floor(i / 12);
+    const m = (i % 12) + 1;
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+  }
+  return out;
+};
 const todayISO = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
