@@ -42,6 +42,16 @@ const PontoJustificativas: React.FC = () => {
   const [status, setStatus] = useState<string>('all');
   const [tipo, setTipo] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [newOpen, setNewOpen] = useState(false);
+  const [newForm, setNewForm] = useState<{ funcionario_id: string; data: string; tipo: JustificationType; motivo: string }>(
+    { funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '' },
+  );
+
+  const { data: EMPLOYEES = [] } = useEmployees();
+  const { data: JUSTIFICATIONS = [] } = useJustifications();
+  const reviewOne = useReviewJustification();
+  const batchReviewM = useBatchReviewJustifications();
+  const createJust = useCreateJustification();
 
   const rows = useMemo(() => {
     return JUSTIFICATIONS.filter((j) => {
@@ -53,13 +63,13 @@ const PontoJustificativas: React.FC = () => {
       }
       return true;
     }).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
-  }, [q, status, tipo]);
+  }, [JUSTIFICATIONS, EMPLOYEES, q, status, tipo]);
 
   const counts = useMemo(() => ({
     pendentes: JUSTIFICATIONS.filter((j) => j.status === 'pendente').length,
     aprovadas: JUSTIFICATIONS.filter((j) => j.status === 'aprovada').length,
     recusadas: JUSTIFICATIONS.filter((j) => j.status === 'recusada').length,
-  }), []);
+  }), [JUSTIFICATIONS]);
 
   const pendentesVisiveis = rows.filter((j) => j.status === 'pendente');
   const allChecked = pendentesVisiveis.length > 0 && pendentesVisiveis.every((j) => selected.has(j.id));
@@ -74,15 +84,42 @@ const PontoJustificativas: React.FC = () => {
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
   };
-  const batchApprove = () => {
-    toast.success(`${selected.size} justificativa${selected.size > 1 ? 's' : ''} aprovada${selected.size > 1 ? 's' : ''}`, {
-      description: 'Registros atualizados no log de auditoria.',
-    });
-    setSelected(new Set());
+  const runBatch = (statusVal: 'aprovada' | 'recusada') => {
+    const ids = Array.from(selected);
+    batchReviewM.mutate(
+      { ids, status: statusVal },
+      {
+        onSuccess: (r) => {
+          toast.success(`${r.updated} justificativa${r.updated > 1 ? 's' : ''} ${statusVal}${statusVal === 'aprovada' ? '' : ''}`);
+          setSelected(new Set());
+        },
+        onError: (e: any) => toast.error(e.message || 'Falha ao atualizar em lote'),
+      },
+    );
   };
-  const batchReject = () => {
-    toast.info(`${selected.size} justificativa${selected.size > 1 ? 's' : ''} recusada${selected.size > 1 ? 's' : ''}`);
-    setSelected(new Set());
+  const batchApprove = () => runBatch('aprovada');
+  const batchReject = () => runBatch('recusada');
+
+  const reviewSingle = (id: string, statusVal: 'aprovada' | 'recusada') => {
+    reviewOne.mutate({ id, status: statusVal }, {
+      onSuccess: () => toast.success(`Justificativa ${statusVal}`),
+      onError: (e: any) => toast.error(e.message || 'Falha'),
+    });
+  };
+
+  const submitNew = () => {
+    if (!newForm.funcionario_id || !newForm.motivo.trim()) {
+      toast.error('Selecione funcionário e informe o motivo');
+      return;
+    }
+    createJust.mutate(newForm, {
+      onSuccess: () => {
+        toast.success('Justificativa criada');
+        setNewOpen(false);
+        setNewForm({ funcionario_id: '', data: new Date().toISOString().slice(0, 10), tipo: 'atraso', motivo: '' });
+      },
+      onError: (e: any) => toast.error(e.message || 'Falha ao criar'),
+    });
   };
 
   return (
