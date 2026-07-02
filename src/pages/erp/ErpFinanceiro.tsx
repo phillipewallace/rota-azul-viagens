@@ -1206,10 +1206,7 @@ const GerarReciboPopover: React.FC<{
               && fim >= inicio;
   const dias = valido ? diffDays(fim, inicio) + 1 : 0;
 
-  // Vencimento = 28 dias após a entrega (início do período) ou, na falta,
-  // após o início do contrato. Atualiza em tempo real conforme as datas mudam.
-  const baseVenc = /^\d{4}-\d{2}-\d{2}$/.test(inicio) ? inicio : dataInicioContrato;
-  const vencimento = baseVenc ? addDaysISO(baseVenc, 28) : '';
+
 
 
   return (
@@ -1297,25 +1294,13 @@ const GerarReciboPopover: React.FC<{
             }
           >
             {valido ? (
-              <div className="space-y-1">
-                <div>
-                  Competência:{' '}
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {formatPeriodo(inicio, fim)}
-                  </span>
-                  <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
-                </div>
-                {vencimento && (
-                  <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
-                    <CalendarDays className="h-3 w-3 text-primary/70" />
-                    <span>Vencimento:</span>
-                    <span className="font-semibold text-foreground tabular-nums">
-                      {formatDateBR(vencimento)}
-                    </span>
-                    <span className="text-muted-foreground">· 28 dias após a entrega</span>
-                  </div>
-                )}
-              </div>
+              <>
+                Competência:{' '}
+                <span className="font-semibold text-foreground tabular-nums">
+                  {formatPeriodo(inicio, fim)}
+                </span>
+                <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
+              </>
             ) : (
               'Preencha as duas datas (fim ≥ início).'
             )}
