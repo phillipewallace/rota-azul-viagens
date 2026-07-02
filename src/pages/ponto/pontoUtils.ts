@@ -125,6 +125,7 @@ export const toJustification = (j: ApiJustification): Justification => ({
   tipo: j.tipo,
   status: j.status,
   motivo: j.motivo,
+  horario: j.horario ? j.horario.slice(0, 5) : undefined,
   anexoUrl: j.anexo_url ?? undefined,
   criadoEm: j.criado_em,
   revisadoPor: j.revisado_por ?? undefined,
