@@ -5,12 +5,26 @@
  * Regras:
  *  - GET requer apenas autenticação (qualquer usuário logado pode listar).
  *  - POST/PUT/DELETE exige role admin/manager.
+ *  - `password_hash` NUNCA é retornado nas respostas.
  */
 import express from 'express';
+import bcrypt from 'bcrypt';
 import { pool } from '../config/database';
 import { requireAuth, AuthedRequest } from '../middleware/requireAuth';
 
 const router = express.Router();
+const BCRYPT_ROUNDS = 10;
+
+// Cargos aceitos — espelha src/lib/cargos.ts
+const CARGOS_ALLOWED = new Set([
+  'Motorista','Ajudante','Operacional','Manutenção',
+  'Administrativo','Financeiro','Vendedor','Gerente','Outro',
+]);
+
+function stripSecret<T extends Record<string, any>>(row: T): Omit<T, 'password_hash'> {
+  const { password_hash, ...rest } = row as any;
+  return rest;
+}
 
 function canWrite(req: AuthedRequest) {
   const role = (req.user?.role || '').toLowerCase();
@@ -38,7 +52,7 @@ router.get('/', async (req, res) => {
       ORDER BY f.nome ASC
     `;
     const r = await pool.query(sql, values);
-    res.json(r.rows);
+    res.json(r.rows.map(stripSecret));
   } catch (e: any) {
     console.error('[FUNC LIST]', e);
     res.status(500).json({ error: e.message });
@@ -55,7 +69,7 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Não encontrado' });
-    res.json(r.rows[0]);
+    res.json(stripSecret(r.rows[0]));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -68,21 +82,30 @@ router.post('/', async (req: AuthedRequest, res) => {
     const {
       nome, matricula, cpf, pis, rg, email, telefone, cargo, departamento,
       admissao, status = 'ativo', jornada_id, salario_base, observacoes, user_id,
+      password,
     } = req.body || {};
 
     if (!nome || !matricula) return res.status(400).json({ error: 'nome e matricula são obrigatórios' });
+    if (cargo && !CARGOS_ALLOWED.has(cargo)) return res.status(400).json({ error: 'Cargo inválido' });
+
+    let password_hash: string | null = null;
+    if (password) {
+      if (String(password).length < 4) return res.status(400).json({ error: 'Senha deve ter ao menos 4 caracteres' });
+      if (!cpf) return res.status(400).json({ error: 'CPF é obrigatório quando há senha (usado como login)' });
+      password_hash = await bcrypt.hash(String(password), BCRYPT_ROUNDS);
+    }
 
     const r = await pool.query(
       `INSERT INTO funcionarios
        (nome, matricula, cpf, pis, rg, email, telefone, cargo, departamento,
-        admissao, status, jornada_id, salario_base, observacoes, user_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        admissao, status, jornada_id, salario_base, observacoes, user_id, password_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        RETURNING *`,
       [nome, matricula, cpf || null, pis || null, rg || null, email || null, telefone || null,
        cargo || null, departamento || null, admissao || null, status,
-       jornada_id || null, salario_base ?? null, observacoes || null, user_id || null]
+       jornada_id || null, salario_base ?? null, observacoes || null, user_id || null, password_hash]
     );
-    res.status(201).json(r.rows[0]);
+    res.status(201).json(stripSecret(r.rows[0]));
   } catch (e: any) {
     if (String(e.message).includes('duplicate')) return res.status(409).json({ error: 'Matrícula já existe' });
     console.error('[FUNC CREATE]', e);
@@ -99,18 +122,34 @@ router.put('/:id', async (req: AuthedRequest, res) => {
     const fields: string[] = [];
     const values: any[] = [];
     let i = 1;
+
+    if (req.body.cargo !== undefined && req.body.cargo && !CARGOS_ALLOWED.has(req.body.cargo)) {
+      return res.status(400).json({ error: 'Cargo inválido' });
+    }
+
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
         fields.push(`${key} = $${i++}`);
         values.push(req.body[key] === '' ? null : req.body[key]);
       }
     }
+
+    // Senha opcional — só atualiza se vier preenchida
+    if (req.body.password !== undefined && req.body.password !== '' && req.body.password !== null) {
+      if (String(req.body.password).length < 4) {
+        return res.status(400).json({ error: 'Senha deve ter ao menos 4 caracteres' });
+      }
+      const hashed = await bcrypt.hash(String(req.body.password), BCRYPT_ROUNDS);
+      fields.push(`password_hash = $${i++}`);
+      values.push(hashed);
+    }
+
     if (!fields.length) return res.status(400).json({ error: 'Nada para atualizar' });
     values.push(req.params.id);
     const sql = `UPDATE funcionarios SET ${fields.join(', ')} WHERE id = $${i} RETURNING *`;
     const r = await pool.query(sql, values);
     if (!r.rows.length) return res.status(404).json({ error: 'Não encontrado' });
-    res.json(r.rows[0]);
+    res.json(stripSecret(r.rows[0]));
   } catch (e: any) {
     console.error('[FUNC UPDATE]', e);
     res.status(500).json({ error: e.message });
