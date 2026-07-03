@@ -509,50 +509,87 @@ const ErpDashboard: React.FC = () => {
                 }
               />
               {upcoming.length > 0 ? (
-                <div className="overflow-hidden rounded-lg border border-border/60">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/40 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-                      <tr>
-                        <th className="text-left px-3 py-2.5 font-semibold">OS</th>
-                        <th className="text-left px-3 py-2.5 font-semibold">Cliente</th>
-                        <th className="text-left px-3 py-2.5 font-semibold hidden md:table-cell">Endereço</th>
-                        <th className="text-right px-3 py-2.5 font-semibold">Quando</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60">
-                      {upcoming.slice(0, 6).map((u) => (
-                        <tr key={u.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-3 py-2.5">
-                            <Link to="/erp/ordens-servico" className="font-mono text-xs font-semibold text-primary hover:underline">
-                              #{u.numero}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-2.5 text-foreground truncate max-w-[200px]">{u.customerName || '—'}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground truncate max-w-[240px] hidden md:table-cell">
-                            {u.enderecoEntrega || '—'}
-                          </td>
-                          <td className="px-3 py-2.5 text-right">
-                            {u.hoje ? (
-                              <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/15 border-transparent">Hoje</Badge>
-                            ) : u.amanha ? (
-                              <Badge className="bg-warning/15 text-warning hover:bg-warning/20 border-transparent">Amanhã</Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                              </span>
-                            )}
-                          </td>
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-hidden rounded-lg border border-border/60">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                        <tr>
+                          <th className="text-left px-3 py-2.5 font-semibold">OS</th>
+                          <th className="text-left px-3 py-2.5 font-semibold">Cliente</th>
+                          <th className="text-left px-3 py-2.5 font-semibold hidden md:table-cell">Endereço</th>
+                          <th className="text-right px-3 py-2.5 font-semibold">Quando</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {upcoming.slice(0, 6).map((u) => (
+                          <tr key={u.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="px-3 py-2.5">
+                              <Link to="/erp/ordens-servico" className="font-mono text-xs font-semibold text-primary hover:underline">
+                                #{u.numero}
+                              </Link>
+                            </td>
+                            <td className="px-3 py-2.5 text-foreground truncate max-w-[200px]">{u.customerName || '—'}</td>
+                            <td className="px-3 py-2.5 text-muted-foreground truncate max-w-[240px] hidden md:table-cell">
+                              {u.enderecoEntrega || '—'}
+                            </td>
+                            <td className="px-3 py-2.5 text-right">
+                              {u.hoje ? (
+                                <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/15 border-transparent">Hoje</Badge>
+                              ) : u.amanha ? (
+                                <Badge className="bg-warning/15 text-warning hover:bg-warning/20 border-transparent">Amanhã</Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <ul className="md:hidden divide-y divide-border/60 rounded-lg border border-border/60 overflow-hidden">
+                    {upcoming.slice(0, 6).map((u) => (
+                      <li key={u.id}>
+                        <Link
+                          to="/erp/ordens-servico"
+                          className="flex items-center gap-3 px-3 py-3 active:bg-muted/40 transition-colors"
+                        >
+                          <span className="inline-flex flex-col items-center justify-center h-11 w-11 shrink-0 rounded-lg bg-info/10 text-info">
+                            <span className="text-[9px] font-semibold uppercase tracking-wider leading-none">
+                              {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
+                            </span>
+                            <span className="font-display text-sm font-bold leading-none mt-0.5 tabular-nums">
+                              {new Date(u.dataEntrega).getDate()}
+                            </span>
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-foreground truncate">{u.customerName || '—'}</p>
+                              <span className="font-mono text-[10.5px] text-muted-foreground">#{u.numero}</span>
+                            </div>
+                            <p className="text-[11.5px] text-muted-foreground truncate mt-0.5">{u.enderecoEntrega || 'Sem endereço'}</p>
+                          </div>
+                          {u.hoje ? (
+                            <Badge className="bg-destructive/10 text-destructive border-transparent text-[10.5px] shrink-0">Hoje</Badge>
+                          ) : u.amanha ? (
+                            <Badge className="bg-warning/15 text-warning border-transparent text-[10.5px] shrink-0">Amanhã</Badge>
+                          ) : null}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               ) : (
                 <div className="h-40 flex flex-col items-center justify-center text-center text-sm text-muted-foreground gap-2">
                   <CalendarClock className="h-8 w-8 text-muted-foreground/40" />
                   Nenhuma entrega agendada.
                 </div>
               )}
+
             </CardContent>
           </Card>
 
