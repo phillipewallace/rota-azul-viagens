@@ -61,29 +61,42 @@ const MobileBottomNav = () => {
                 aria-current={active ? 'page' : undefined}
                 aria-label={item.label}
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center gap-0.5 relative',
-                  'transition-colors duration-200 active:scale-95',
+                  'group flex-1 flex flex-col items-center justify-center gap-0.5 relative',
+                  'transition-colors duration-200 ease-out',
                   active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
                 )}
               >
-                {active && (
-                  <span
-                    aria-hidden
-                    className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-full bg-primary"
-                  />
-                )}
+                <span
+                  aria-hidden
+                  className={cn(
+                    'absolute top-1.5 h-9 w-14 rounded-full',
+                    'bg-primary/10',
+                    'transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                    active ? 'opacity-100 scale-100' : 'opacity-0 scale-90',
+                  )}
+                />
+                <span
+                  aria-hidden
+                  className={cn(
+                    'absolute top-0 left-1/2 -translate-x-1/2 h-[3px] rounded-full bg-primary',
+                    'transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                    active ? 'w-8 opacity-100' : 'w-0 opacity-0',
+                  )}
+                />
                 <Icon
                   className={cn(
-                    'h-[22px] w-[22px] transition-transform duration-200',
-                    active && 'scale-110',
+                    'relative h-[22px] w-[22px]',
+                    'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                    active ? 'scale-110 -translate-y-0.5' : 'scale-100 group-active:scale-95',
                   )}
                   strokeWidth={active ? 2.4 : 2}
                 />
                 <span
                   className={cn(
-                    'text-[10.5px] leading-none tracking-tight',
-                    active ? 'font-semibold' : 'font-medium',
+                    'relative text-[10.5px] leading-none tracking-tight',
+                    'transition-all duration-200',
+                    active ? 'font-semibold opacity-100' : 'font-medium opacity-80',
                   )}
                 >
                   {item.label}
