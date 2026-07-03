@@ -87,9 +87,10 @@ function AppShell() {
   const section = '/' + (location.pathname.split('/')[1] || '');
   return (
     <div className={isMobile ? 'pb-16' : undefined}>
+      <TopProgressBar />
       <div
-        key={isMobile ? section : undefined}
-        className={isMobile ? 'animate-fade-in [animation-duration:220ms] motion-reduce:animate-none' : undefined}
+        key={location.pathname}
+        className="animate-page-in motion-reduce:animate-none"
       >
         <Suspense fallback={<RouteFallback />}>
         <Routes location={location}>
@@ -132,6 +133,36 @@ function AppShell() {
         </Suspense>
       </div>
       {isMobile && <MobileBottomNav />}
+    </div>
+  );
+}
+
+/**
+ * Barra de progresso fina no topo — aparece durante navegações que
+ * disparam Suspense (chunk lazy carregando). Mantém o app "vivo"
+ * enquanto a próxima página resolve, em vez de um flash de spinner.
+ */
+function TopProgressBar() {
+  const location = useLocation();
+  const [visible, setVisible] = React.useState(false);
+  React.useEffect(() => {
+    setVisible(true);
+    const t = setTimeout(() => setVisible(false), 420);
+    return () => clearTimeout(t);
+  }, [location.pathname]);
+  return (
+    <div
+      aria-hidden
+      className="fixed top-0 left-0 right-0 z-[60] h-[2px] pointer-events-none overflow-hidden"
+    >
+      <div
+        className={
+          'h-full bg-gradient-to-r from-primary/0 via-primary to-primary/0 ' +
+          'transition-transform duration-[420ms] ease-out ' +
+          (visible ? 'translate-x-0' : '-translate-x-full')
+        }
+        style={{ transformOrigin: 'left' }}
+      />
     </div>
   );
 }
