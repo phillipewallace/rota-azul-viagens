@@ -268,57 +268,59 @@ const ErpDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-      <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8">
+      <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-4 sm:space-y-6 md:space-y-8">
+
 
         {/* ========= HERO ========= */}
         <section
-          className="relative overflow-hidden rounded-2xl border border-border/50 p-6 md:p-8 text-brand-foreground"
+          className="relative overflow-hidden rounded-2xl border border-border/50 p-5 sm:p-6 md:p-8 text-brand-foreground"
           style={{ background: 'var(--gradient-brand)' }}
         >
           {/* orbes decorativos */}
           <div className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-white/5 blur-3xl" />
 
-          <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] backdrop-blur-sm">
-                <Activity className="h-3.5 w-3.5" /> Command Center
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] backdrop-blur-sm">
+                <Activity className="h-3 w-3" /> Command Center
               </div>
-              <h1 className="mt-3 font-display text-3xl md:text-[2.5rem] font-semibold tracking-tight">
+              <h1 className="mt-3 font-display text-[22px] leading-[1.15] sm:text-3xl md:text-[2.5rem] font-semibold tracking-tight">
                 Bom dia. Aqui está o seu ERP.
               </h1>
-              <p className="mt-2 text-sm md:text-base opacity-80 capitalize">{today}</p>
+              <p className="mt-1.5 text-[12px] sm:text-sm md:text-base opacity-80 capitalize">{today}</p>
             </div>
 
             {/* stats inline hero */}
-            <div className="grid grid-cols-3 gap-3 md:gap-4 min-w-0 md:min-w-[420px]">
-              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-3 py-3 md:px-4 md:py-4 border border-white/10">
-                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">Recebido/mês</p>
-                <p className="mt-1 font-display text-xl md:text-2xl font-semibold tabular-nums">{BRLc(series[series.length - 1]?.recebido || 0)}</p>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 min-w-0 md:min-w-[420px]">
+              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-2.5 py-2.5 sm:px-3 sm:py-3 md:px-4 md:py-4 border border-white/10">
+                <p className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-wider opacity-70 truncate">Recebido</p>
+                <p className="mt-1 font-display text-base sm:text-xl md:text-2xl font-semibold tabular-nums leading-none">{BRLc(series[series.length - 1]?.recebido || 0)}</p>
               </div>
-              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-3 py-3 md:px-4 md:py-4 border border-white/10">
-                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">OS ativas</p>
-                <p className="mt-1 font-display text-xl md:text-2xl font-semibold tabular-nums">{NUM(osAbertas)}</p>
+              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-2.5 py-2.5 sm:px-3 sm:py-3 md:px-4 md:py-4 border border-white/10">
+                <p className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-wider opacity-70">OS ativas</p>
+                <p className="mt-1 font-display text-base sm:text-xl md:text-2xl font-semibold tabular-nums leading-none">{NUM(osAbertas)}</p>
               </div>
-              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-3 py-3 md:px-4 md:py-4 border border-white/10">
-                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">Clientes</p>
-                <p className="mt-1 font-display text-xl md:text-2xl font-semibold tabular-nums">{NUM(customers.length)}</p>
+              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-2.5 py-2.5 sm:px-3 sm:py-3 md:px-4 md:py-4 border border-white/10">
+                <p className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-wider opacity-70">Clientes</p>
+                <p className="mt-1 font-display text-base sm:text-xl md:text-2xl font-semibold tabular-nums leading-none">{NUM(customers.length)}</p>
               </div>
             </div>
           </div>
 
           {overdue > 0 && (
-            <div className="relative mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-white/20 bg-destructive/20 backdrop-blur-sm px-4 py-3">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Atenção: <strong>{overdue} OS em atraso</strong> exigem ação imediata.
+            <div className="relative mt-5 flex flex-wrap items-center gap-2.5 rounded-xl border border-white/20 bg-destructive/25 backdrop-blur-sm px-3.5 py-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="text-[13px] sm:text-sm font-medium">
+                <strong>{overdue} OS em atraso</strong> — ação imediata.
               </span>
               <Button asChild size="sm" variant="secondary" className="ml-auto h-8 bg-white text-destructive hover:bg-white/90">
-                <Link to="/erp/ordens-servico">Ver agora <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
+                <Link to="/erp/ordens-servico">Ver <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
               </Button>
             </div>
           )}
         </section>
+
 
         {/* ========= KPIs ========= */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
