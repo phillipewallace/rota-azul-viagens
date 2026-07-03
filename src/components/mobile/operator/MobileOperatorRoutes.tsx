@@ -8,6 +8,7 @@ import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import { toast } from 'sonner';
 import MobileOperatorHeader from './MobileOperatorHeader';
+import MobileFrame from '@/mobile/MobileFrame';
 import MobileOperatorNav from './MobileOperatorNav';
 import RouteMapPreview from '@/components/RouteMapPreview';
 import { cn } from '@/lib/utils';
@@ -103,23 +104,20 @@ const MobileOperatorRoutes = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <MobileOperatorHeader title="Rotas" showBack />
-        <main className="flex-1 pt-14 pb-20 flex items-center justify-center">
+      <MobileFrame title="Rotas">
+        <div className="flex-1 flex items-center justify-center py-24">
           <div className="text-center">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-gray-600">Carregando...</p>
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground text-sm">Carregando…</p>
           </div>
-        </main>
-      </div>
+        </div>
+      </MobileFrame>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <MobileOperatorHeader title="Rotas" showBack />
-
-      <main className="flex-1 pt-14 pb-20 overflow-auto">
+    <MobileFrame title="Rotas">
+      <div className="overflow-auto">
         <div className="p-4 space-y-3">
           {routes.length === 0 ? (
             <div className="text-center py-12">
@@ -185,7 +183,7 @@ const MobileOperatorRoutes = () => {
             ))
           )}
         </div>
-      </main>
+      </div>
 
       {/* FAB */}
       <Button
@@ -306,7 +304,7 @@ const MobileOperatorRoutes = () => {
           )}
         </SheetContent>
       </Sheet>
-    </div>
+    </MobileFrame>
   );
 };
 
