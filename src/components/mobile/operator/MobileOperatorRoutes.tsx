@@ -182,7 +182,7 @@ const MobileOperatorRoutes = () => {
             ))
           )}
         </div>
-      </main>
+      </div>
 
       {/* FAB */}
       <Button
