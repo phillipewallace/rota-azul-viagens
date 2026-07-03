@@ -323,7 +323,8 @@ const ErpDashboard: React.FC = () => {
 
 
         {/* ========= KPIs ========= */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+
           <KpiCard
             label="Receita fechada"
             value={BRLc(receitaFechada)}
@@ -355,8 +356,9 @@ const ErpDashboard: React.FC = () => {
           />
         </section>
 
-        {/* ========= CHART FINANCEIRO + PIE ESTOQUE ========= */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* ========= CHART FINANCEIRO + PIE ESTOQUE (desktop only) ========= */}
+        <section className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+
           {/* Composed chart */}
           <Card className="lg:col-span-2 border-border/60 overflow-hidden">
             <CardContent className="p-5 md:p-6">
