@@ -91,6 +91,7 @@ function AppShell() {
         key={isMobile ? section : undefined}
         className={isMobile ? 'animate-fade-in [animation-duration:220ms] motion-reduce:animate-none' : undefined}
       >
+        <Suspense fallback={<RouteFallback />}>
         <Routes location={location}>
           <Route path="/login" element={<Login />} />
           <Route path="/mobile" element={<MobileDriver />} />
