@@ -64,7 +64,7 @@ const MobileOperatorMenuPage = () => {
         </div>
       </main>
 
-      <MobileOperatorNav />
+      
     </div>
   );
 };

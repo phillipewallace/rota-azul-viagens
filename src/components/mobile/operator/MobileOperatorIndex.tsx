@@ -34,7 +34,7 @@ const MobileOperatorIndex = () => {
       <MobileTrackingDrawer />
 
       {/* Bottom Navigation */}
-      <MobileOperatorNav />
+      
 
       {/* Modals */}
       <LinkRouteModal open={isLinkRouteOpen} onOpenChange={setIsLinkRouteOpen} />

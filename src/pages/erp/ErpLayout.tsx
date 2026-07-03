@@ -92,17 +92,22 @@ const ErpLayout: React.FC = () => {
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 text-white border-b border-slate-800">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="h-8 w-8 rounded-md bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-            <Sparkles className="h-4 w-4" />
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border/60 safe-area-top">
+        <div className="flex items-center gap-3 px-4 h-14">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-brand-3 grid place-items-center shadow-sm">
+            <Sparkles className="h-[18px] w-[18px] text-primary-foreground" />
           </div>
-          <div className="flex-1">
-            <h1 className="text-sm font-bold leading-none">ERP Suite</h1>
-            <p className="text-[10px] text-indigo-300/80">Locação & Gestão</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display text-[15px] font-semibold leading-none tracking-tight text-foreground">ERP Suite</h1>
+            <p className="text-[10.5px] mt-1 leading-none uppercase tracking-[0.14em] text-muted-foreground">Locação &amp; Gestão</p>
           </div>
+          {overdue > 0 && (
+            <Badge className="bg-destructive/10 text-destructive border-destructive/20 border h-6 px-2 gap-1 text-[10.5px] font-semibold">
+              <AlertTriangle className="h-3 w-3" />{overdue}
+            </Badge>
+          )}
         </div>
-        <nav className="flex overflow-x-auto px-2 pb-2 gap-1 no-scrollbar">
+        <nav className="flex overflow-x-auto no-scrollbar px-3 pb-2.5 gap-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -111,14 +116,17 @@ const ErpLayout: React.FC = () => {
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) =>
-                  `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs whitespace-nowrap ${
-                    isActive ? 'bg-indigo-600 text-white' : 'bg-slate-800/60 text-slate-300'
+                  `inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-[12px] font-medium whitespace-nowrap border transition-all duration-200 active:scale-[0.97] ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                      : 'bg-muted/60 text-muted-foreground border-transparent hover:text-foreground hover:bg-muted'
                   }`
                 }
               >
-                <Icon className="h-3.5 w-3.5" /> {item.label}
+                <Icon className="h-3.5 w-3.5" />
+                <span>{item.label}</span>
                 {item.badge === 'overdue' && overdue > 0 && (
-                  <span className="ml-1 bg-red-500 text-white text-[10px] rounded px-1">{overdue}</span>
+                  <span className="ml-0.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold">{overdue}</span>
                 )}
               </NavLink>
             );
@@ -127,9 +135,10 @@ const ErpLayout: React.FC = () => {
       </div>
 
       {/* Content */}
-      <main key={location.pathname} className="flex-1 min-w-0 pt-[88px] md:pt-0">
+      <main key={location.pathname} className="flex-1 min-w-0 pt-[92px] md:pt-0 pb-20 md:pb-0">
         <Outlet />
       </main>
+
     </div>
   );
 };
