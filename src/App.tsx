@@ -83,45 +83,54 @@ function App() {
 
 function AppShell() {
   const isMobile = useIsMobile();
+  const location = useLocation();
+  // Chave de transição por "seção" — trocas dentro da mesma seção (ex.: /erp -> /erp/financeiro)
+  // não reanimam, só trocas entre abas raiz (Início, Rotas, Frota, ERP, Menu).
+  const section = '/' + (location.pathname.split('/')[1] || '');
   return (
     <div className={isMobile ? 'pb-16' : undefined}>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/mobile" element={<MobileDriver />} />
-        <Route path="/checklist" element={<PublicChecklist />} />
+      <div
+        key={isMobile ? section : undefined}
+        className={isMobile ? 'animate-fade-in [animation-duration:220ms] motion-reduce:animate-none' : undefined}
+      >
+        <Routes location={location}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/mobile" element={<MobileDriver />} />
+          <Route path="/checklist" element={<PublicChecklist />} />
 
-        <Route path="/" element={<Protected><Index /></Protected>} />
-        <Route path="/trucks" element={<Protected><Trucks /></Protected>} />
-        <Route path="/drivers" element={<Protected><Drivers /></Protected>} />
-        <Route path="/routes" element={<Protected><RoutesPage /></Protected>} />
-        <Route path="/routes/create" element={<Protected><CreateRoute /></Protected>} />
-        <Route path="/routes/edit" element={<Protected><CreateRoute /></Protected>} />
-        <Route path="/management" element={<Protected><Maintenance /></Protected>} />
-        <Route path="/maintenance" element={<Protected><Maintenance /></Protected>} />
-        <Route path="/settings" element={<Protected><Settings /></Protected>} />
-        <Route path="/customers" element={<Protected><Customers /></Protected>} />
-        <Route path="/rotas-concluidas" element={<Protected><CompletedRoutes /></Protected>} />
-        <Route path="/sanitarios" element={<Protected><Sanitarios /></Protected>} />
-        <Route path="/gestao-interna" element={<Protected><InternalManagement /></Protected>} />
-        <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
-        <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
-        <Route path="/menu" element={<Protected><MobileMenu /></Protected>} />
+          <Route path="/" element={<Protected><Index /></Protected>} />
+          <Route path="/trucks" element={<Protected><Trucks /></Protected>} />
+          <Route path="/drivers" element={<Protected><Drivers /></Protected>} />
+          <Route path="/routes" element={<Protected><RoutesPage /></Protected>} />
+          <Route path="/routes/create" element={<Protected><CreateRoute /></Protected>} />
+          <Route path="/routes/edit" element={<Protected><CreateRoute /></Protected>} />
+          <Route path="/management" element={<Protected><Maintenance /></Protected>} />
+          <Route path="/maintenance" element={<Protected><Maintenance /></Protected>} />
+          <Route path="/settings" element={<Protected><Settings /></Protected>} />
+          <Route path="/customers" element={<Protected><Customers /></Protected>} />
+          <Route path="/rotas-concluidas" element={<Protected><CompletedRoutes /></Protected>} />
+          <Route path="/sanitarios" element={<Protected><Sanitarios /></Protected>} />
+          <Route path="/gestao-interna" element={<Protected><InternalManagement /></Protected>} />
+          <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
+          <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
+          <Route path="/menu" element={<Protected><MobileMenu /></Protected>} />
 
-        <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
-          <Route index element={<ErpDashboard />} />
-          <Route path="orcamentos" element={<ErpQuotes />} />
-          <Route path="ordens-servico" element={<ServiceOrders />} />
-          <Route path="financeiro" element={<ErpFinanceiro />} />
-          <Route path="contratos" element={<ErpContracts />} />
-          <Route path="clientes" element={<Customers />} />
-          <Route path="estoque" element={<InternalManagement />} />
-          <Route path="empresas" element={<ErpCompanies />} />
-        </Route>
+          <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
+            <Route index element={<ErpDashboard />} />
+            <Route path="orcamentos" element={<ErpQuotes />} />
+            <Route path="ordens-servico" element={<ServiceOrders />} />
+            <Route path="financeiro" element={<ErpFinanceiro />} />
+            <Route path="contratos" element={<ErpContracts />} />
+            <Route path="clientes" element={<Customers />} />
+            <Route path="estoque" element={<InternalManagement />} />
+            <Route path="empresas" element={<ErpCompanies />} />
+          </Route>
 
-        <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />
+          <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </div>
       {isMobile && <MobileBottomNav />}
     </div>
   );
