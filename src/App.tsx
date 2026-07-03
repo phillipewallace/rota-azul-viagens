@@ -129,6 +129,7 @@ function AppShell() {
 
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </div>
       {isMobile && <MobileBottomNav />}
     </div>
