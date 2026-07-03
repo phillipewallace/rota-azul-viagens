@@ -6,6 +6,11 @@
 .safe-area-top    { padding-top: env(safe-area-inset-top); }
 .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
+/* Hide scrollbar utility */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+
 /* ============================================================================
    AlchemyRotas — Design System "Navy Trust"
    ----------------------------------------------------------------------------
