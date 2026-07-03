@@ -71,9 +71,7 @@ function App() {
         <ConfirmHost />
         <BrowserRouter>
           <RouteErrorBoundary>
-            <Suspense fallback={<RouteFallback />}>
             <AppShell />
-            </Suspense>
           </RouteErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
