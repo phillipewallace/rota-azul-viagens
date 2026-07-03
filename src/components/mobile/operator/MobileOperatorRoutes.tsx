@@ -111,7 +111,6 @@ const MobileOperatorRoutes = () => {
             <p className="text-gray-600">Carregando...</p>
           </div>
         </main>
-        <MobileOperatorNav />
       </div>
     );
   }
@@ -196,7 +195,7 @@ const MobileOperatorRoutes = () => {
         <Plus className="h-6 w-6" />
       </Button>
 
-      <MobileOperatorNav />
+      
 
       {/* Route Detail Sheet */}
       <Sheet open={!!viewingRoute} onOpenChange={(open) => !open && setViewingRoute(null)}>

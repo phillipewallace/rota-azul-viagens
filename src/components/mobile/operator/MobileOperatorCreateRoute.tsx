@@ -546,7 +546,7 @@ const MobileOperatorCreateRoute = () => {
         </Button>
       </div>
 
-      <MobileOperatorNav />
+      
 
       {/* Point Edit Sheet */}
       <Sheet open={!!editingPoint} onOpenChange={(open) => !open && setEditingPoint(null)}>
