@@ -104,7 +104,7 @@ const MobileFrame = ({ children, title, showBack, headerAction }: MobileFramePro
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 pb-24">{children}</main>
+      <main key={location.pathname} className="flex-1 min-h-0 pb-24 animate-fade-in"><div className="motion-reduce:animate-none">{children}</div></main>
 
       <MobileBottomNav />
     </div>
