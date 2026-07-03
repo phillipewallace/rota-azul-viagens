@@ -76,24 +76,24 @@ const KpiCard: React.FC<{
   return (
     <Card className="group relative overflow-hidden border-border/60 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
       <div className={cn('absolute inset-x-0 top-0 h-[3px]', t.bar)} />
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-wider', t.chip)}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', t.dot)} />
-            {label}
+      <CardContent className="p-3.5 sm:p-5">
+        <div className="flex items-start justify-between gap-2">
+          <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] sm:text-[10.5px] font-semibold uppercase tracking-wider truncate max-w-[70%]', t.chip)}>
+            <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', t.dot)} />
+            <span className="truncate">{label}</span>
           </span>
-          <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-xl transition-transform group-hover:scale-105', t.icon)}>
-            <Icon className="h-5 w-5" />
+          <span className={cn('inline-flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg sm:rounded-xl transition-transform group-hover:scale-105 shrink-0', t.icon)}>
+            <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
           </span>
         </div>
-        <p className="mt-4 font-display text-[2rem] leading-none font-semibold tabular-nums tracking-tight text-foreground">
+        <p className="mt-3 sm:mt-4 font-display text-[22px] sm:text-[2rem] leading-none font-semibold tabular-nums tracking-tight text-foreground truncate">
           {value}
         </p>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
+        <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-2">
+          <p className="text-[10.5px] sm:text-xs text-muted-foreground leading-tight sm:leading-relaxed line-clamp-2">{hint}</p>
           {delta && (
             <span className={cn(
-              'inline-flex items-center gap-0.5 text-[11px] font-semibold',
+              'inline-flex items-center gap-0.5 text-[10.5px] sm:text-[11px] font-semibold shrink-0',
               delta.positive ? 'text-success' : 'text-destructive',
             )}>
               {delta.positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -105,6 +105,7 @@ const KpiCard: React.FC<{
     </Card>
   );
 };
+
 
 // ---------- Section header ----------
 const SectionHeader: React.FC<{
