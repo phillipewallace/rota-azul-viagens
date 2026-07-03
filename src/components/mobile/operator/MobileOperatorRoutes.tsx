@@ -303,7 +303,7 @@ const MobileOperatorRoutes = () => {
           )}
         </SheetContent>
       </Sheet>
-    </div>
+    </MobileFrame>
   );
 };
 
