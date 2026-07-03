@@ -1,8 +1,8 @@
-import { Loader2 } from "lucide-react";
-
 /**
- * Fallback exibido durante o carregamento lazy de rotas.
- * Visual minimalista, tokens semânticos (funciona em dark mode automaticamente).
+ * Fallback minimalista para lazy-load de rotas.
+ * Em vez de um spinner que ocupa a tela inteira (parece que o app
+ * saiu do ar), renderizamos um esqueleto discreto que insinua o
+ * conteúdo. A TopProgressBar (App.tsx) cuida do feedback de carga.
  */
 export default function RouteFallback() {
   return (
@@ -10,15 +10,14 @@ export default function RouteFallback() {
       role="status"
       aria-live="polite"
       aria-busy="true"
-      className="min-h-[60vh] w-full flex flex-col items-center justify-center gap-4 px-6 animate-in fade-in duration-200"
+      className="w-full px-4 py-6 space-y-4 animate-in fade-in duration-200"
     >
-      <div className="relative">
-        <div className="absolute inset-0 rounded-full bg-primary/10 blur-xl" aria-hidden />
-        <Loader2 className="relative h-8 w-8 text-primary animate-spin" strokeWidth={2.25} />
+      <div className="h-6 w-40 rounded-md skeleton-shimmer" />
+      <div className="grid gap-3">
+        <div className="h-24 rounded-xl skeleton-shimmer" />
+        <div className="h-24 rounded-xl skeleton-shimmer" />
+        <div className="h-24 rounded-xl skeleton-shimmer opacity-70" />
       </div>
-      <p className="text-sm font-medium text-muted-foreground tracking-tight">
-        Carregando…
-      </p>
       <span className="sr-only">Carregando conteúdo da página</span>
     </div>
   );
