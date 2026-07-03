@@ -135,6 +135,28 @@ chown -R root:root "${UPLOADS_DIR}"
 chmod -R 755 "${UPLOADS_DIR}"
 ok "Uploads OK em ${UPLOADS_DIR}"
 
+# ─── 5.2) Importação one-shot dos ERPs legados (DSR + MIC BAN) ──────────────
+# Só roda 1x. Depois de importar, cria o marker e nunca mais executa.
+# Para forçar reimportação (raro), delete .imported-legacy-erp e rode de novo.
+IMPORT_MARKER="${PROJECT_DIR}/backend/scripts/.imported-legacy-erp"
+IMPORT_SCRIPT="${PROJECT_DIR}/backend/scripts/import-legacy-erp.js"
+if [[ -f "$IMPORT_SCRIPT" && ! -f "$IMPORT_MARKER" ]]; then
+  log "Importando contratos legados (DSR + MIC BAN)…"
+  log "  → Dry-run primeiro (nada é gravado):"
+  (cd "${PROJECT_DIR}/backend" && node scripts/import-legacy-erp.js) || warn "Dry-run falhou"
+  log "  → Aplicando de verdade:"
+  if (cd "${PROJECT_DIR}/backend" && node scripts/import-legacy-erp.js --apply); then
+    date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_MARKER"
+    ok "Importação concluída (marker: $IMPORT_MARKER)"
+  else
+    warn "Importação falhou — sem marker, tentará novamente no próximo deploy"
+  fi
+elif [[ -f "$IMPORT_MARKER" ]]; then
+  ok "Importação legada já executada em $(cat "$IMPORT_MARKER") — pulando"
+fi
+
+
+
 # ─── 6) Frontend: build + publicar ──────────────────────────────────────────
 log "Frontend: instalando deps + buildando (Vite)…"
 cd "${PROJECT_DIR}"
