@@ -51,6 +51,8 @@ const MobileFrame = ({ children, title, showBack, headerAction }: MobileFramePro
   const inferredTitle = TITLES[location.pathname] ?? 'AlchemyRotas';
   const currentTitle = title ?? inferredTitle;
   const isRoot = ROOT_PATHS.has(location.pathname);
+  // Auto: rotas-raiz nunca mostram back; sub-rotas mostram por padrão.
+  const backVisible = (showBack ?? !isRoot) && !isRoot;
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col">
@@ -62,7 +64,7 @@ const MobileFrame = ({ children, title, showBack, headerAction }: MobileFramePro
       >
         <div className="h-14 px-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            {showBack && !isRoot ? (
+            {backVisible ? (
               <button
                 onClick={() => navigate(-1)}
                 aria-label="Voltar"
