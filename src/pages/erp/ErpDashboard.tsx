@@ -76,24 +76,24 @@ const KpiCard: React.FC<{
   return (
     <Card className="group relative overflow-hidden border-border/60 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
       <div className={cn('absolute inset-x-0 top-0 h-[3px]', t.bar)} />
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-wider', t.chip)}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', t.dot)} />
-            {label}
+      <CardContent className="p-3.5 sm:p-5">
+        <div className="flex items-start justify-between gap-2">
+          <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] sm:text-[10.5px] font-semibold uppercase tracking-wider truncate max-w-[70%]', t.chip)}>
+            <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', t.dot)} />
+            <span className="truncate">{label}</span>
           </span>
-          <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-xl transition-transform group-hover:scale-105', t.icon)}>
-            <Icon className="h-5 w-5" />
+          <span className={cn('inline-flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg sm:rounded-xl transition-transform group-hover:scale-105 shrink-0', t.icon)}>
+            <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
           </span>
         </div>
-        <p className="mt-4 font-display text-[2rem] leading-none font-semibold tabular-nums tracking-tight text-foreground">
+        <p className="mt-3 sm:mt-4 font-display text-[22px] sm:text-[2rem] leading-none font-semibold tabular-nums tracking-tight text-foreground truncate">
           {value}
         </p>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
+        <div className="mt-1.5 sm:mt-2 flex items-center justify-between gap-2">
+          <p className="text-[10.5px] sm:text-xs text-muted-foreground leading-tight sm:leading-relaxed line-clamp-2">{hint}</p>
           {delta && (
             <span className={cn(
-              'inline-flex items-center gap-0.5 text-[11px] font-semibold',
+              'inline-flex items-center gap-0.5 text-[10.5px] sm:text-[11px] font-semibold shrink-0',
               delta.positive ? 'text-success' : 'text-destructive',
             )}>
               {delta.positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -105,6 +105,7 @@ const KpiCard: React.FC<{
     </Card>
   );
 };
+
 
 // ---------- Section header ----------
 const SectionHeader: React.FC<{
@@ -268,60 +269,63 @@ const ErpDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-      <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8">
+      <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-4 sm:space-y-6 md:space-y-8">
+
 
         {/* ========= HERO ========= */}
         <section
-          className="relative overflow-hidden rounded-2xl border border-border/50 p-6 md:p-8 text-brand-foreground"
+          className="relative overflow-hidden rounded-2xl border border-border/50 p-5 sm:p-6 md:p-8 text-brand-foreground"
           style={{ background: 'var(--gradient-brand)' }}
         >
           {/* orbes decorativos */}
           <div className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-white/5 blur-3xl" />
 
-          <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] backdrop-blur-sm">
-                <Activity className="h-3.5 w-3.5" /> Command Center
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] backdrop-blur-sm">
+                <Activity className="h-3 w-3" /> Command Center
               </div>
-              <h1 className="mt-3 font-display text-3xl md:text-[2.5rem] font-semibold tracking-tight">
+              <h1 className="mt-3 font-display text-[22px] leading-[1.15] sm:text-3xl md:text-[2.5rem] font-semibold tracking-tight">
                 Bom dia. Aqui está o seu ERP.
               </h1>
-              <p className="mt-2 text-sm md:text-base opacity-80 capitalize">{today}</p>
+              <p className="mt-1.5 text-[12px] sm:text-sm md:text-base opacity-80 capitalize">{today}</p>
             </div>
 
             {/* stats inline hero */}
-            <div className="grid grid-cols-3 gap-3 md:gap-4 min-w-0 md:min-w-[420px]">
-              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-3 py-3 md:px-4 md:py-4 border border-white/10">
-                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">Recebido/mês</p>
-                <p className="mt-1 font-display text-xl md:text-2xl font-semibold tabular-nums">{BRLc(series[series.length - 1]?.recebido || 0)}</p>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 min-w-0 md:min-w-[420px]">
+              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-2.5 py-2.5 sm:px-3 sm:py-3 md:px-4 md:py-4 border border-white/10">
+                <p className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-wider opacity-70 truncate">Recebido</p>
+                <p className="mt-1 font-display text-base sm:text-xl md:text-2xl font-semibold tabular-nums leading-none">{BRLc(series[series.length - 1]?.recebido || 0)}</p>
               </div>
-              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-3 py-3 md:px-4 md:py-4 border border-white/10">
-                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">OS ativas</p>
-                <p className="mt-1 font-display text-xl md:text-2xl font-semibold tabular-nums">{NUM(osAbertas)}</p>
+              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-2.5 py-2.5 sm:px-3 sm:py-3 md:px-4 md:py-4 border border-white/10">
+                <p className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-wider opacity-70">OS ativas</p>
+                <p className="mt-1 font-display text-base sm:text-xl md:text-2xl font-semibold tabular-nums leading-none">{NUM(osAbertas)}</p>
               </div>
-              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-3 py-3 md:px-4 md:py-4 border border-white/10">
-                <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">Clientes</p>
-                <p className="mt-1 font-display text-xl md:text-2xl font-semibold tabular-nums">{NUM(customers.length)}</p>
+              <div className="rounded-xl bg-white/10 backdrop-blur-sm px-2.5 py-2.5 sm:px-3 sm:py-3 md:px-4 md:py-4 border border-white/10">
+                <p className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-wider opacity-70">Clientes</p>
+                <p className="mt-1 font-display text-base sm:text-xl md:text-2xl font-semibold tabular-nums leading-none">{NUM(customers.length)}</p>
               </div>
             </div>
           </div>
 
           {overdue > 0 && (
-            <div className="relative mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-white/20 bg-destructive/20 backdrop-blur-sm px-4 py-3">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Atenção: <strong>{overdue} OS em atraso</strong> exigem ação imediata.
+            <div className="relative mt-5 flex flex-wrap items-center gap-2.5 rounded-xl border border-white/20 bg-destructive/25 backdrop-blur-sm px-3.5 py-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="text-[13px] sm:text-sm font-medium">
+                <strong>{overdue} OS em atraso</strong> — ação imediata.
               </span>
               <Button asChild size="sm" variant="secondary" className="ml-auto h-8 bg-white text-destructive hover:bg-white/90">
-                <Link to="/erp/ordens-servico">Ver agora <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
+                <Link to="/erp/ordens-servico">Ver <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
               </Button>
             </div>
           )}
         </section>
 
+
         {/* ========= KPIs ========= */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+
           <KpiCard
             label="Receita fechada"
             value={BRLc(receitaFechada)}
@@ -353,8 +357,9 @@ const ErpDashboard: React.FC = () => {
           />
         </section>
 
-        {/* ========= CHART FINANCEIRO + PIE ESTOQUE ========= */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* ========= CHART FINANCEIRO + PIE ESTOQUE (desktop only) ========= */}
+        <section className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+
           {/* Composed chart */}
           <Card className="lg:col-span-2 border-border/60 overflow-hidden">
             <CardContent className="p-5 md:p-6">
@@ -505,50 +510,87 @@ const ErpDashboard: React.FC = () => {
                 }
               />
               {upcoming.length > 0 ? (
-                <div className="overflow-hidden rounded-lg border border-border/60">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/40 text-[10.5px] uppercase tracking-wider text-muted-foreground">
-                      <tr>
-                        <th className="text-left px-3 py-2.5 font-semibold">OS</th>
-                        <th className="text-left px-3 py-2.5 font-semibold">Cliente</th>
-                        <th className="text-left px-3 py-2.5 font-semibold hidden md:table-cell">Endereço</th>
-                        <th className="text-right px-3 py-2.5 font-semibold">Quando</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60">
-                      {upcoming.slice(0, 6).map((u) => (
-                        <tr key={u.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-3 py-2.5">
-                            <Link to="/erp/ordens-servico" className="font-mono text-xs font-semibold text-primary hover:underline">
-                              #{u.numero}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-2.5 text-foreground truncate max-w-[200px]">{u.customerName || '—'}</td>
-                          <td className="px-3 py-2.5 text-muted-foreground truncate max-w-[240px] hidden md:table-cell">
-                            {u.enderecoEntrega || '—'}
-                          </td>
-                          <td className="px-3 py-2.5 text-right">
-                            {u.hoje ? (
-                              <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/15 border-transparent">Hoje</Badge>
-                            ) : u.amanha ? (
-                              <Badge className="bg-warning/15 text-warning hover:bg-warning/20 border-transparent">Amanhã</Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                              </span>
-                            )}
-                          </td>
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-hidden rounded-lg border border-border/60">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                        <tr>
+                          <th className="text-left px-3 py-2.5 font-semibold">OS</th>
+                          <th className="text-left px-3 py-2.5 font-semibold">Cliente</th>
+                          <th className="text-left px-3 py-2.5 font-semibold hidden md:table-cell">Endereço</th>
+                          <th className="text-right px-3 py-2.5 font-semibold">Quando</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {upcoming.slice(0, 6).map((u) => (
+                          <tr key={u.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="px-3 py-2.5">
+                              <Link to="/erp/ordens-servico" className="font-mono text-xs font-semibold text-primary hover:underline">
+                                #{u.numero}
+                              </Link>
+                            </td>
+                            <td className="px-3 py-2.5 text-foreground truncate max-w-[200px]">{u.customerName || '—'}</td>
+                            <td className="px-3 py-2.5 text-muted-foreground truncate max-w-[240px] hidden md:table-cell">
+                              {u.enderecoEntrega || '—'}
+                            </td>
+                            <td className="px-3 py-2.5 text-right">
+                              {u.hoje ? (
+                                <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/15 border-transparent">Hoje</Badge>
+                              ) : u.amanha ? (
+                                <Badge className="bg-warning/15 text-warning hover:bg-warning/20 border-transparent">Amanhã</Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <ul className="md:hidden divide-y divide-border/60 rounded-lg border border-border/60 overflow-hidden">
+                    {upcoming.slice(0, 6).map((u) => (
+                      <li key={u.id}>
+                        <Link
+                          to="/erp/ordens-servico"
+                          className="flex items-center gap-3 px-3 py-3 active:bg-muted/40 transition-colors"
+                        >
+                          <span className="inline-flex flex-col items-center justify-center h-11 w-11 shrink-0 rounded-lg bg-info/10 text-info">
+                            <span className="text-[9px] font-semibold uppercase tracking-wider leading-none">
+                              {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
+                            </span>
+                            <span className="font-display text-sm font-bold leading-none mt-0.5 tabular-nums">
+                              {new Date(u.dataEntrega).getDate()}
+                            </span>
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-foreground truncate">{u.customerName || '—'}</p>
+                              <span className="font-mono text-[10.5px] text-muted-foreground">#{u.numero}</span>
+                            </div>
+                            <p className="text-[11.5px] text-muted-foreground truncate mt-0.5">{u.enderecoEntrega || 'Sem endereço'}</p>
+                          </div>
+                          {u.hoje ? (
+                            <Badge className="bg-destructive/10 text-destructive border-transparent text-[10.5px] shrink-0">Hoje</Badge>
+                          ) : u.amanha ? (
+                            <Badge className="bg-warning/15 text-warning border-transparent text-[10.5px] shrink-0">Amanhã</Badge>
+                          ) : null}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               ) : (
                 <div className="h-40 flex flex-col items-center justify-center text-center text-sm text-muted-foreground gap-2">
                   <CalendarClock className="h-8 w-8 text-muted-foreground/40" />
                   Nenhuma entrega agendada.
                 </div>
               )}
+
             </CardContent>
           </Card>
 
