@@ -8,6 +8,7 @@ import { useRoutes } from '@/hooks/useRoutes';
 import { useRoutesCRUD } from '@/hooks/useRoutesCRUD';
 import { toast } from 'sonner';
 import MobileOperatorHeader from './MobileOperatorHeader';
+import MobileFrame from '@/mobile/MobileFrame';
 import MobileOperatorNav from './MobileOperatorNav';
 import RouteMapPreview from '@/components/RouteMapPreview';
 import { cn } from '@/lib/utils';
