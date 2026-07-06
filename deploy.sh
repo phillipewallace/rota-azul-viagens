@@ -155,6 +155,16 @@ elif [[ -f "$IMPORT_MARKER" ]]; then
   ok "Importação legada já executada em $(cat "$IMPORT_MARKER") — pulando"
 fi
 
+# ─── 5.3) Usuário de demonstração (idempotente) ─────────────────────────────
+DEMO_SCRIPT="${PROJECT_DIR}/backend/scripts/ensure-demo-user.js"
+if [[ -f "$DEMO_SCRIPT" ]]; then
+  log "Garantindo usuário demo (demo / demo1234)…"
+  (cd "${PROJECT_DIR}/backend" && node scripts/ensure-demo-user.js) || warn "Falha ao garantir usuário demo"
+fi
+
+
+
+
 
 
 # ─── 6) Frontend: build + publicar ──────────────────────────────────────────
