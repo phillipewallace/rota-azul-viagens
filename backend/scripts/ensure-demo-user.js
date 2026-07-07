@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Cria/atualiza o usuário `demo` (senha `demo1234`) — role 'user'.
+ * Cria/atualiza o usuário `demo` (senha `demo1234`) — role 'demo'.
  * Idempotente: se já existir, apenas garante ativo=true e senha atualizada.
  *
  * Uso: node backend/scripts/ensure-demo-user.js
  *
- * IMPORTANTE: este é um login de demonstração. Recomenda-se revisar/limitar
- * o que a role 'user' enxerga antes de divulgar as credenciais publicamente.
+ * IMPORTANTE: este é um login de demonstração. A role 'demo' é sempre
+ * isolada em sandbox e não pode consultar/gravar dados reais.
  */
 require('dotenv').config();
 const { Pool } = require('pg');

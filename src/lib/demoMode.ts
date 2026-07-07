@@ -35,7 +35,7 @@ export function isDemoUser(): boolean {
     const raw = localStorage.getItem('user_data');
     if (!raw) return false;
     const u = JSON.parse(raw);
-    return u?.role === 'demo';
+    return u?.role === 'demo' || u?.username === 'demo';
   } catch {
     return false;
   }
