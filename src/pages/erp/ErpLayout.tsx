@@ -7,10 +7,13 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, ClipboardList, Users, Boxes, Building2,
-  ExternalLink, AlertTriangle, ArrowLeft, Sparkles, DollarSign, FileSignature,
+  ExternalLink, AlertTriangle, ArrowLeft, Sparkles, DollarSign, FileSignature, LogOut,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { serviceOrdersService } from '@/services/quotes';
+import { useAuth } from '@/hooks/useAuth';
+import { confirmDialog } from '@/lib/confirm';
 
 const navItems = [
   { to: '/erp', label: 'Painel', icon: LayoutDashboard, end: true },
