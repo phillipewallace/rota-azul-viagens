@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
+import { installDemoFetch, uninstallDemoFetch } from '@/lib/demoMode';
 
 interface User {
   id: string;
@@ -95,7 +96,10 @@ export const useAuth = () => {
       
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('user_data', JSON.stringify(data.user));
-      
+
+      if (data.user?.role === 'demo') installDemoFetch();
+      else uninstallDemoFetch();
+
       setUser(data.user);
       toast.success('Login realizado com sucesso!');
       
@@ -110,6 +114,7 @@ export const useAuth = () => {
   const logout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
+    uninstallDemoFetch();
     setUser(null);
     navigate('/login');
     toast.success('Logout realizado com sucesso');
