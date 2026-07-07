@@ -101,7 +101,23 @@ const ErpLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="p-3 border-t border-slate-800/80">
+        <div className="p-3 border-t border-slate-800/80 space-y-3">
+          {user && (
+            <div className="px-2">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Conectado como</p>
+              <p className="text-xs font-medium text-slate-100 truncate">{user.name || user.username}</p>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="w-full justify-start gap-2 text-destructive hover:bg-destructive/15 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40 transition-colors duration-200 active:scale-[0.98] disabled:opacity-50"
+          >
+            <LogOut className="h-4 w-4" />
+            {loggingOut ? 'Saindo…' : 'Sair da conta'}
+          </Button>
           <p className="text-[10px] text-slate-500 px-2 leading-snug">
             ERP conectado em tempo real ao AlchemyRotas — clientes, sanitários e frota são compartilhados.
           </p>
