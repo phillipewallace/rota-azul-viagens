@@ -15,7 +15,7 @@ const bcrypt = require('bcrypt');
 const USERNAME = 'demo';
 const PASSWORD = 'demo1234';
 const NAME = 'Usuário Demo';
-const ROLE = 'user';
+const ROLE = 'demo';
 
 (async () => {
   const pool = new Pool({
