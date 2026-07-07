@@ -19,6 +19,20 @@ const Index = () => {
   const isMobile = useIsMobile();
   const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
   const [overdueCount, setOverdueCount] = useState(0);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    const ok = await confirmDialog({
+      title: 'Sair da conta?',
+      description: 'Você precisará entrar novamente para acessar o sistema.',
+      confirmLabel: 'Sair',
+      destructive: true,
+    });
+    if (!ok) return;
+    setLoggingOut(true);
+    try { await Promise.resolve(logout()); } finally { setLoggingOut(false); }
+  };
 
   useEffect(() => {
     if (isMobile) return;
