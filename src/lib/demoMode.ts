@@ -1,0 +1,310 @@
+/**
+ * Modo Demonstração
+ * ─────────────────
+ * Quando o usuário logado tem role === 'demo', instalamos um interceptor
+ * global de `window.fetch` que responde a todas as chamadas /api/* com
+ * dados fictícios, sem tocar no backend real.
+ *
+ * Isso permite que a pessoa explore todas as telas do sistema sem que
+ * nenhuma informação real vaze.
+ *
+ * Endpoints de autenticação (/api/auth/*) continuam passando batido
+ * para o backend — o login/verify precisa ser real.
+ */
+
+type JsonBody = Record<string, any> | any[] | null;
+
+const API_HOSTS = ['alchemyrotas.com'];
+
+function isApiRequest(url: string): { isApi: boolean; path: string } {
+  try {
+    // Aceita path relativo ou absoluto
+    const u = url.startsWith('http')
+      ? new URL(url)
+      : new URL(url, window.location.origin);
+    const isLocalApi = u.pathname.startsWith('/api/');
+    const isRemoteApi = API_HOSTS.includes(u.hostname) && u.pathname.startsWith('/api/');
+    return { isApi: isLocalApi || isRemoteApi, path: u.pathname + u.search };
+  } catch {
+    return { isApi: false, path: url };
+  }
+}
+
+export function isDemoUser(): boolean {
+  try {
+    const raw = localStorage.getItem('user_data');
+    if (!raw) return false;
+    const u = JSON.parse(raw);
+    return u?.role === 'demo';
+  } catch {
+    return false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Dataset fictício
+// ─────────────────────────────────────────────────────────────
+const today = new Date();
+const iso = (d: Date) => d.toISOString();
+const daysAgo = (n: number) => {
+  const d = new Date(today);
+  d.setDate(d.getDate() - n);
+  return iso(d);
+};
+
+const DEMO_TRUCKS = [
+  {
+    id: 'demo-truck-1', name: 'Águia 01', plate: 'ABC-1D23', model: 'Mercedes Atego 1719',
+    year: 2022, status: 'in-route', currentRoute: 'demo-route-1', currentRouteName: 'Circuito Zona Sul',
+    driver: 'demo-driver-1', driverName: 'Carlos Andrade',
+    lastMaintenance: daysAgo(18), mileage: 84210,
+    location: { lat: -23.5629, lng: -46.6544 },
+  },
+  {
+    id: 'demo-truck-2', name: 'Falcão 02', plate: 'DEF-4G56', model: 'Volkswagen Delivery 11.180',
+    year: 2021, status: 'available', driverName: 'Marcos Vieira',
+    lastMaintenance: daysAgo(42), mileage: 112430,
+    location: { lat: -23.5489, lng: -46.6388 },
+  },
+  {
+    id: 'demo-truck-3', name: 'Tucano 03', plate: 'GHI-7J89', model: 'Ford Cargo 816',
+    year: 2020, status: 'maintenance', driverName: '—',
+    lastMaintenance: daysAgo(3), mileage: 156780,
+  },
+  {
+    id: 'demo-truck-4', name: 'Andorinha 04', plate: 'JKL-0M12', model: 'Iveco Daily 70C17',
+    year: 2023, status: 'available', driverName: 'Rafael Souto',
+    lastMaintenance: daysAgo(9), mileage: 27890,
+    location: { lat: -23.5710, lng: -46.6489 },
+  },
+];
+
+const DEMO_DRIVERS = [
+  { id: 'demo-driver-1', name: 'Carlos Andrade', license: '01234567890', licenseCategory: 'E',
+    phone: '(11) 98765-4321', email: 'carlos@demo.app', status: 'active',
+    hireDate: daysAgo(720), currentRoute: 'Circuito Zona Sul', totalTrips: 184, truckCount: 1 },
+  { id: 'demo-driver-2', name: 'Marcos Vieira', license: '09876543210', licenseCategory: 'D',
+    phone: '(11) 91234-5678', email: 'marcos@demo.app', status: 'active',
+    hireDate: daysAgo(1100), totalTrips: 312, truckCount: 1 },
+  { id: 'demo-driver-3', name: 'Rafael Souto', license: '05678901234', licenseCategory: 'E',
+    phone: '(11) 99988-7766', email: 'rafael@demo.app', status: 'active',
+    hireDate: daysAgo(210), totalTrips: 42, truckCount: 1 },
+  { id: 'demo-driver-4', name: 'Beatriz Nunes', license: '04321098765', licenseCategory: 'D',
+    phone: '(11) 97744-1122', email: 'beatriz@demo.app', status: 'inactive',
+    hireDate: daysAgo(1500), totalTrips: 501 },
+];
+
+const DEMO_CUSTOMERS = [
+  { id: 'demo-cust-1', customerName: 'Construtora Alvorada Ltda', address: 'Av. Paulista, 1000',
+    cep: '01310-100', numero: '1000', bairro: 'Bela Vista', cidade: 'São Paulo', estado: 'SP',
+    personType: 'PJ', document: '12.345.678/0001-90', email: 'contato@alvorada.demo',
+    contactName: 'Fernanda Lima', contactPhone: '(11) 3210-4455',
+    restroomsQty: 8, cleaningsQty: 2, tipoCliente: 'obra',
+    createdAt: daysAgo(120) },
+  { id: 'demo-cust-2', customerName: 'Eventos Prisma', address: 'Rua Augusta, 2450',
+    cep: '01412-100', numero: '2450', bairro: 'Consolação', cidade: 'São Paulo', estado: 'SP',
+    personType: 'PJ', document: '98.765.432/0001-10', email: 'ola@prisma.demo',
+    contactName: 'Diego Ramos', contactPhone: '(11) 4002-8922',
+    restroomsQty: 15, cleaningsQty: 3, tipoCliente: 'eventos',
+    createdAt: daysAgo(64) },
+  { id: 'demo-cust-3', customerName: 'Indústria Meridiano S.A.', address: 'Rod. Anhanguera, km 32',
+    cep: '07750-000', bairro: 'Distrito Industrial', cidade: 'Cajamar', estado: 'SP',
+    personType: 'PJ', document: '55.444.333/0001-22', email: 'compras@meridiano.demo',
+    contactName: 'Helena Prado', contactPhone: '(11) 2255-9090',
+    restroomsQty: 6, cleaningsQty: 4, tipoCliente: 'industria',
+    createdAt: daysAgo(30) },
+  { id: 'demo-cust-4', customerName: 'João Batista de Souza', address: 'Rua das Acácias, 128',
+    cep: '04532-001', numero: '128', bairro: 'Itaim Bibi', cidade: 'São Paulo', estado: 'SP',
+    personType: 'PF', document: '123.456.789-00', email: 'joao@demo.app',
+    contactPhone: '(11) 99911-2233', restroomsQty: 1, tipoCliente: 'outro',
+    createdAt: daysAgo(8) },
+];
+
+const DEMO_ROUTES = [
+  {
+    id: 'demo-route-1', name: 'Circuito Zona Sul', description: 'Coleta e troca — bairros Vila Mariana/Moema',
+    points: [
+      { id: 'p1', address: 'Av. Ibirapuera, 3000 - São Paulo/SP', lat: -23.6119, lng: -46.6640, order: 1, customerName: 'Construtora Alvorada Ltda' },
+      { id: 'p2', address: 'Rua Vergueiro, 1000 - São Paulo/SP', lat: -23.5721, lng: -46.6416, order: 2, customerName: 'Eventos Prisma' },
+      { id: 'p3', address: 'Av. Rebouças, 3970 - São Paulo/SP', lat: -23.5680, lng: -46.6928, order: 3, customerName: 'João Batista de Souza' },
+    ],
+    totalDistance: 42.8, estimatedTime: '2h 15min', optimizedOrder: ['p1','p2','p3'],
+    optimizationMode: 'optimized', status: 'active', createdAt: daysAgo(2),
+  },
+  {
+    id: 'demo-route-2', name: 'Rota Industrial Cajamar', description: 'Manutenção semanal — polo industrial',
+    points: [
+      { id: 'p4', address: 'Rod. Anhanguera, km 32 - Cajamar/SP', lat: -23.3559, lng: -46.8778, order: 1, customerName: 'Indústria Meridiano S.A.' },
+      { id: 'p5', address: 'Estr. dos Romeiros, 8000 - Cajamar/SP', lat: -23.3411, lng: -46.8952, order: 2, customerName: 'Indústria Meridiano S.A.' },
+    ],
+    totalDistance: 88.4, estimatedTime: '3h 40min', optimizedOrder: ['p4','p5'],
+    optimizationMode: 'fixed', status: 'active', createdAt: daysAgo(5),
+  },
+  {
+    id: 'demo-route-3', name: 'Eventos Fim de Semana', description: 'Instalação para eventos corporativos',
+    points: [
+      { id: 'p6', address: 'Rua Augusta, 2450 - São Paulo/SP', lat: -23.5556, lng: -46.6612, order: 1, customerName: 'Eventos Prisma' },
+    ],
+    totalDistance: 12.1, estimatedTime: '45min', optimizedOrder: ['p6'],
+    optimizationMode: 'optimized', status: 'completed', createdAt: daysAgo(7),
+  },
+];
+
+const DEMO_COMPLETED = DEMO_ROUTES.filter(r => r.status === 'completed').map(r => ({
+  id: `cr-${r.id}`, route_id: r.id, route_name: r.name,
+  truck_id: 'demo-truck-1', truck_name: 'Águia 01', driver_name: 'Carlos Andrade',
+  started_at: daysAgo(7), finished_at: daysAgo(7), total_distance: r.totalDistance,
+  duration_minutes: 178, status: 'completed',
+}));
+
+const DEMO_MANAGEMENT_STATS = {
+  trucks: { total: 4, available: 2, in_route: 1, maintenance: 1 },
+  drivers: { total: 4, active: 3 },
+  routes: { total: 3, active: 2 },
+  trips: { total_trips: 128, total_distance: 4820, avg_duration: 132 },
+};
+
+const DEMO_PERFORMANCE = Array.from({ length: 14 }, (_, i) => ({
+  date: daysAgo(13 - i).slice(0, 10),
+  trips: 6 + Math.round(Math.sin(i / 2) * 3 + 3),
+  total_distance: 180 + Math.round(Math.cos(i / 3) * 60 + 60),
+  avg_duration: 110 + Math.round(Math.sin(i) * 20 + 20),
+}));
+
+const DEMO_ROUTE_USAGE = DEMO_ROUTES.map((r, i) => ({
+  name: r.name, id: r.id,
+  usage_count: 40 - i * 8, total_distance: r.totalDistance * (10 - i * 2),
+  avg_duration: 120 + i * 25,
+}));
+
+const DEMO_TRUCK_PERF = DEMO_TRUCKS.slice(0, 3).map((t, i) => ({
+  name: t.name, id: t.id, plate: t.plate,
+  trips_count: 60 - i * 12, total_distance: 4200 - i * 900,
+  avg_duration: 130 + i * 15, status: t.status,
+}));
+
+// ─────────────────────────────────────────────────────────────
+// Roteador de mocks
+// ─────────────────────────────────────────────────────────────
+function matchMock(method: string, path: string): JsonBody | undefined {
+  // Remove querystring pra casar padrão
+  const pathname = path.split('?')[0];
+
+  // Rotas
+  if (pathname === '/api/routes') return DEMO_ROUTES;
+  if (/^\/api\/routes\/[^/]+$/.test(pathname)) {
+    const id = pathname.split('/').pop()!;
+    return DEMO_ROUTES.find(r => r.id === id) || DEMO_ROUTES[0];
+  }
+
+  // Caminhões
+  if (pathname === '/api/trucks') return DEMO_TRUCKS;
+  if (/^\/api\/trucks\/[^/]+$/.test(pathname)) {
+    const id = pathname.split('/').pop()!;
+    return DEMO_TRUCKS.find(t => t.id === id) || DEMO_TRUCKS[0];
+  }
+
+  // Motoristas
+  if (pathname === '/api/drivers') return DEMO_DRIVERS;
+
+  // Clientes
+  if (pathname === '/api/customers') return DEMO_CUSTOMERS;
+  if (/^\/api\/customers\/[^/]+$/.test(pathname)) {
+    const id = pathname.split('/').pop()!;
+    return DEMO_CUSTOMERS.find(c => c.id === id) || DEMO_CUSTOMERS[0];
+  }
+
+  // Gestão / Analytics
+  if (pathname === '/api/management/stats') return DEMO_MANAGEMENT_STATS;
+  if (pathname === '/api/management/performance') return DEMO_PERFORMANCE;
+  if (pathname === '/api/management/route-usage') return DEMO_ROUTE_USAGE;
+  if (pathname === '/api/management/truck-performance') return DEMO_TRUCK_PERF;
+  if (pathname.startsWith('/api/analytics')) return [];
+
+  // Rotas concluídas
+  if (pathname === '/api/completed-routes') return DEMO_COMPLETED;
+
+  // Rastreio
+  if (pathname.startsWith('/api/tracking/route/')) return [];
+  if (pathname.startsWith('/api/tracking/truck/')) {
+    return { lat: -23.5629, lng: -46.6544, recorded_at: iso(new Date()) };
+  }
+
+  // Manutenção
+  if (pathname === '/api/maintenance') return [];
+  if (pathname.startsWith('/api/maintenance/')) return { items: [], stats: {} };
+
+  // Schedules
+  if (pathname === '/api/schedules') return [];
+
+  // Sanitários / carretinhas / checklists / fotos
+  if (pathname === '/api/sanitarios') return [];
+  if (pathname === '/api/carretinhas') return [];
+  if (pathname === '/api/checklists') return [];
+  if (pathname.startsWith('/api/photos')) return [];
+
+  // ERP — retorna arrays vazios; o usuário pode navegar as telas
+  if (pathname.startsWith('/api/erp/')) return [];
+  if (pathname === '/api/settings') return {};
+
+  // Geocoding — placeholder neutro
+  if (pathname.startsWith('/api/geocoding/cep/')) {
+    return { logradouro: 'Rua Exemplo', bairro: 'Centro', localidade: 'São Paulo', uf: 'SP' };
+  }
+  if (pathname.startsWith('/api/geocoding')) return { lat: -23.5505, lng: -46.6333 };
+
+  // Fallback genérico — nunca deixa a UI quebrar
+  if (method === 'GET') return [];
+  return { ok: true, demo: true };
+}
+
+function jsonResponse(body: JsonBody, status = 200): Response {
+  return new Response(JSON.stringify(body ?? {}), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Instalação do interceptor
+// ─────────────────────────────────────────────────────────────
+const ORIGINAL_FETCH_KEY = '__demoOriginalFetch__' as const;
+
+export function installDemoFetch() {
+  if ((window as any)[ORIGINAL_FETCH_KEY]) return; // já instalado
+  const original = window.fetch.bind(window);
+  (window as any)[ORIGINAL_FETCH_KEY] = original;
+
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string'
+      ? input
+      : input instanceof URL ? input.toString() : (input as Request).url;
+    const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+
+    const { isApi, path } = isApiRequest(url);
+
+    // Deixa passar: não-API, auth (login/verify/logout) e uploads de mídia
+    if (!isApi || path.startsWith('/api/auth')) {
+      return original(input as any, init);
+    }
+
+    // Simula pequena latência pra sensação natural
+    await new Promise(r => setTimeout(r, 120));
+
+    const body = matchMock(method, path);
+    return jsonResponse(body);
+  }) as typeof window.fetch;
+}
+
+export function uninstallDemoFetch() {
+  const original = (window as any)[ORIGINAL_FETCH_KEY];
+  if (original) {
+    window.fetch = original;
+    delete (window as any)[ORIGINAL_FETCH_KEY];
+  }
+}
+
+/** Chama no bootstrap: se o usuário já é demo, ativa mocks. */
+export function bootstrapDemoMode() {
+  if (isDemoUser()) installDemoFetch();
+}
