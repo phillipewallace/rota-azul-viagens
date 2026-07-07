@@ -141,18 +141,22 @@ export function restrictDemo(
   // Decodifica token de forma "soft" — se não houver, deixa passar
   // (os próprios controllers exigem requireAuth quando precisam).
   let role: string | undefined;
+  let username: string | undefined;
   try {
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (token) {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       role = decoded?.role;
+      username = decoded?.username;
     }
   } catch {
     return next(); // token inválido → deixa requireAuth tratar
   }
 
-  if (role !== 'demo') return next();
+  // Segurança extra: tokens antigos do usuário demo podem ainda carregar role antiga.
+  // Username `demo` é sempre sandbox, independentemente do role assinado no JWT.
+  if (role !== 'demo' && username !== 'demo') return next();
 
   // Auth endpoints sempre liberados (login/verify/logout)
   if (req.path.startsWith('/api/auth')) return next();

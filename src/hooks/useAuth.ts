@@ -45,16 +45,22 @@ export const useAuth = () => {
           if (response.ok) {
             const data = await response.json();
             console.log('✅ [AUTH] Token válido, dados do usuário:', data.user);
+            localStorage.setItem('user_data', JSON.stringify(data.user));
+            if (data.user?.role === 'demo' || data.user?.username === 'demo') installDemoFetch();
+            else uninstallDemoFetch();
             setUser(data.user);
           } else {
             console.log('❌ [AUTH] Token inválido, limpando dados');
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
+            uninstallDemoFetch();
             setUser(null);
           }
         } catch (error) {
           console.warn('⚠️ [AUTH] Erro ao verificar token, usando dados locais:', error);
           const parsedUser = JSON.parse(userData);
+          if (parsedUser?.role === 'demo' || parsedUser?.username === 'demo') installDemoFetch();
+          else uninstallDemoFetch();
           setUser(parsedUser);
         }
       }
