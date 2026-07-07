@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Menu, MapPin, Route, Truck, Settings, Users, ClipboardCheck, Container, FileText, AlertTriangle, Clock } from 'lucide-react';
+import { Menu, MapPin, Route, Truck, Settings, Users, ClipboardCheck, Container, FileText, AlertTriangle, Clock, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import MobileHome from '@/mobile/MobileHome';
 import { serviceOrdersService } from '@/services/quotes';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { confirmDialog } from '@/lib/confirm';
 
 const Index = () => {
   const isMobile = useIsMobile();
