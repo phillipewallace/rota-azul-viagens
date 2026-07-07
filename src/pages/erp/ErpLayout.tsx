@@ -139,6 +139,16 @@ const ErpLayout: React.FC = () => {
               <AlertTriangle className="h-3 w-3" />{overdue}
             </Badge>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            aria-label="Sair da conta"
+            className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40 transition-colors duration-200 active:scale-[0.95] disabled:opacity-50"
+          >
+            <LogOut className="h-[18px] w-[18px]" />
+          </Button>
         </div>
         <nav className="flex overflow-x-auto no-scrollbar px-3 pb-2.5 gap-1.5">
           {navItems.map((item) => {
