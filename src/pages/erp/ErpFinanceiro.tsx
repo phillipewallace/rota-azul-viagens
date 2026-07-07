@@ -98,6 +98,17 @@ const diffDays = (a: string, b: string) => {
   return Math.round((Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86400000);
 };
 
+// Próximo vencimento: dia X do MÊS SEGUINTE à competência (clamp para o último dia do mês).
+const nextDueDate = (competencia: string, diaVencimento: number): string => {
+  const [y, m] = (competencia || '').split('-').map(Number);
+  if (!y || !m) return '';
+  const nextY = m === 12 ? y + 1 : y;
+  const nextM = m === 12 ? 1 : m + 1;
+  const ult = new Date(nextY, nextM, 0).getDate();
+  const dia = Math.min(Math.max(1, Number(diaVencimento || 10)), ult);
+  return `${nextY}-${String(nextM).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+};
+
 const FORMA_LABEL: Record<FormaPagamento, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro', boleto: 'Boleto',
   cartao: 'Cartão', transferencia: 'Transferência', outro: 'Outro',
