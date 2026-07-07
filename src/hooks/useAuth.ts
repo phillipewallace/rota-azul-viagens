@@ -103,7 +103,7 @@ export const useAuth = () => {
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('user_data', JSON.stringify(data.user));
 
-      if (data.user?.role === 'demo') installDemoFetch();
+      if (data.user?.role === 'demo' || data.user?.username === 'demo') installDemoFetch();
       else uninstallDemoFetch();
 
       setUser(data.user);
