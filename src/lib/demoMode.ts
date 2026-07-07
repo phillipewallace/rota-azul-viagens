@@ -242,7 +242,38 @@ function matchMock(method: string, path: string): JsonBody | undefined {
   if (pathname === '/api/checklists') return [];
   if (pathname.startsWith('/api/photos')) return [];
 
-  // ERP — retorna arrays vazios; o usuário pode navegar as telas
+  // Sanitários — dashboard do ERP consome resumo
+  if (pathname === '/api/sanitarios/stock-summary') {
+    return {
+      disponivel: 24, em_cliente: 12, manutencao: 3, inativo: 1,
+      em_os: 6, reservadosEmOs: 6, atrasados: 0, total: 40, totalFisico: 40,
+      porCategoria: {},
+    };
+  }
+
+  // ERP — shapes específicos usados pelo Dashboard/telas
+  if (pathname === '/api/erp/service-orders/overdue/count') return { overdue: 0 };
+  if (pathname === '/api/erp/service-orders/notifications/upcoming') return [];
+  if (pathname.startsWith('/api/erp/receipts/summary')) return { series: [] };
+  if (pathname.startsWith('/api/erp/receipts/pending')) return { competencia: '', pendentes: [] };
+  if (pathname === '/api/erp/items') return [];
+  if (pathname === '/api/erp/quotes' || pathname.startsWith('/api/erp/quotes?')) return [];
+  if (pathname === '/api/erp/service-orders' || pathname.startsWith('/api/erp/service-orders?')) return [];
+  if (pathname === '/api/erp/contracts' || pathname.startsWith('/api/erp/contracts?')) return [];
+  if (pathname === '/api/erp/expenses' || pathname.startsWith('/api/erp/expenses?')) return [];
+  if (pathname === '/api/erp/expense-categories') return [];
+  if (pathname === '/api/erp/recurring-expenses') return [];
+  if (pathname === '/api/erp/doc-settings') return [];
+  if (pathname === '/api/erp/contract-templates') return [];
+  if (pathname === '/api/erp/categories') return [];
+  if (pathname === '/api/erp/employees') return [];
+  if (pathname === '/api/erp/vehicles') return [];
+  if (pathname === '/api/erp/movements' || pathname.startsWith('/api/erp/movements?')) return [];
+  if (pathname === '/api/erp/companies') return [];
+  if (pathname === '/api/erp/dashboard') {
+    return { lowStock: [], expiring: [], totals: { totalItems: 0, totalCategories: 0, totalEmployees: 0 }, alertCount: 0 };
+  }
+  // Fallback ERP — arrays vazios
   if (pathname.startsWith('/api/erp/')) return [];
   if (pathname === '/api/settings') return {};
 
