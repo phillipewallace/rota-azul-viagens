@@ -129,7 +129,7 @@ const ErpFinanceiro: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
   const [batchWorking, setBatchWorking] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pendentes' | 'emitidos' | 'clientes' | 'gastos'>('pendentes');
+  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'clientes' | 'gastos'>('pendentes');
   // popover do recibo unificado
   const [unifOpen, setUnifOpen] = useState(false);
   const [unifIni, setUnifIni] = useState('');
