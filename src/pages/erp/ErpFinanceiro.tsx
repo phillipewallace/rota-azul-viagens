@@ -288,6 +288,41 @@ const ErpFinanceiro: React.FC = () => {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [recibosFiltrados, today]);
 
+  // Pagos do mês: apenas competência atual selecionada, status pago/parcial.
+  // Dedup por contrato mantendo o mais recente (por dataPagamento/emissao).
+  const pagosDoMes = useMemo(() => {
+    const dentro = recibos.filter(r =>
+      r.competencia === competencia &&
+      (r.status === 'pago' || r.status === 'parcial'),
+    );
+    const byContract = new Map<string, Receipt>();
+    for (const r of dentro) {
+      const cur = byContract.get(r.contractId);
+      const rk = r.dataPagamento || r.dataEmissao || '';
+      const ck = cur ? (cur.dataPagamento || cur.dataEmissao || '') : '';
+      if (!cur || rk > ck) byContract.set(r.contractId, r);
+    }
+    return Array.from(byContract.values()).sort((a, b) => {
+      const av = nextDueDate(competencia, Number(a.diaVencimento || 10));
+      const bv = nextDueDate(competencia, Number(b.diaVencimento || 10));
+      return av.localeCompare(bv);
+    });
+  }, [recibos, competencia]);
+
+  const pagosKpis = useMemo(() => {
+    const totalRecebido = pagosDoMes.reduce(
+      (s, r) => s + Number(r.valorPago ?? (r.status === 'pago' ? r.valor : 0) ?? 0), 0);
+    const ticket = pagosDoMes.length ? totalRecebido / pagosDoMes.length : 0;
+    const em7 = pagosDoMes.filter(r => {
+      const nd = nextDueDate(competencia, Number(r.diaVencimento || 10));
+      if (!nd) return false;
+      const d = diffDays(nd, today);
+      return d >= 0 && d <= 7;
+    }).length;
+    return { totalRecebido, ticket, em7, count: pagosDoMes.length };
+  }, [pagosDoMes, competencia, today]);
+
+
   // ===== ações =====
   const generateOne = async (
     contractId: string, valor: number, opts?: { semPdf?: boolean; silent?: boolean }
