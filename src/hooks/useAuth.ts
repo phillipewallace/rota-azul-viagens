@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
+import { installDemoFetch, uninstallDemoFetch } from '@/lib/demoMode';
 
 interface User {
   id: string;
