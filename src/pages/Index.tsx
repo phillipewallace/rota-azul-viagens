@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Menu, MapPin, Route, Truck, Settings, Users, ClipboardCheck, Container, FileText, AlertTriangle, Clock } from 'lucide-react';
+import { Menu, MapPin, Route, Truck, Settings, Users, ClipboardCheck, Container, FileText, AlertTriangle, Clock, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +12,27 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import MobileHome from '@/mobile/MobileHome';
 import { serviceOrdersService } from '@/services/quotes';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { confirmDialog } from '@/lib/confirm';
 
 const Index = () => {
   const isMobile = useIsMobile();
   const [isLinkRouteOpen, setIsLinkRouteOpen] = useState(false);
   const [overdueCount, setOverdueCount] = useState(0);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    const ok = await confirmDialog({
+      title: 'Sair da conta?',
+      description: 'Você precisará entrar novamente para acessar o sistema.',
+      confirmLabel: 'Sair',
+      destructive: true,
+    });
+    if (!ok) return;
+    setLoggingOut(true);
+    try { await Promise.resolve(logout()); } finally { setLoggingOut(false); }
+  };
 
   useEffect(() => {
     if (isMobile) return;
@@ -153,6 +169,27 @@ const Index = () => {
 
               </div>
 
+            </div>
+
+            {/* Rodapé — usuário logado + logout */}
+            <div className="border-t border-white/10 p-3 sm:p-4 space-y-2">
+              {user && (
+                <div className="px-1 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wider text-gray-400">Conectado como</p>
+                    <p className="text-sm font-medium text-white truncate">{user.name || user.username}</p>
+                  </div>
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="w-full justify-start gap-3 text-destructive hover:bg-destructive/15 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40 transition-colors duration-200 active:scale-[0.98] disabled:opacity-50"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>{loggingOut ? 'Saindo…' : 'Sair da conta'}</span>
+              </Button>
             </div>
           </div>
         </SheetContent>

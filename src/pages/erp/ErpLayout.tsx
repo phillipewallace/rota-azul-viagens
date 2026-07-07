@@ -7,10 +7,13 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, ClipboardList, Users, Boxes, Building2,
-  ExternalLink, AlertTriangle, ArrowLeft, Sparkles, DollarSign, FileSignature,
+  ExternalLink, AlertTriangle, ArrowLeft, Sparkles, DollarSign, FileSignature, LogOut,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { serviceOrdersService } from '@/services/quotes';
+import { useAuth } from '@/hooks/useAuth';
+import { confirmDialog } from '@/lib/confirm';
 
 const navItems = [
   { to: '/erp', label: 'Painel', icon: LayoutDashboard, end: true },
@@ -25,7 +28,21 @@ const navItems = [
 
 const ErpLayout: React.FC = () => {
   const [overdue, setOverdue] = useState(0);
+  const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    const ok = await confirmDialog({
+      title: 'Sair da conta?',
+      description: 'Você precisará entrar novamente para acessar o sistema.',
+      confirmLabel: 'Sair',
+      destructive: true,
+    });
+    if (!ok) return;
+    setLoggingOut(true);
+    try { await Promise.resolve(logout()); } finally { setLoggingOut(false); }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -84,7 +101,23 @@ const ErpLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="p-3 border-t border-slate-800/80">
+        <div className="p-3 border-t border-slate-800/80 space-y-3">
+          {user && (
+            <div className="px-2">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Conectado como</p>
+              <p className="text-xs font-medium text-slate-100 truncate">{user.name || user.username}</p>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="w-full justify-start gap-2 text-destructive hover:bg-destructive/15 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40 transition-colors duration-200 active:scale-[0.98] disabled:opacity-50"
+          >
+            <LogOut className="h-4 w-4" />
+            {loggingOut ? 'Saindo…' : 'Sair da conta'}
+          </Button>
           <p className="text-[10px] text-slate-500 px-2 leading-snug">
             ERP conectado em tempo real ao AlchemyRotas — clientes, sanitários e frota são compartilhados.
           </p>
@@ -106,6 +139,16 @@ const ErpLayout: React.FC = () => {
               <AlertTriangle className="h-3 w-3" />{overdue}
             </Badge>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            aria-label="Sair da conta"
+            className="h-11 w-11 text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40 transition-colors duration-200 active:scale-[0.95] disabled:opacity-50"
+          >
+            <LogOut className="h-[18px] w-[18px]" />
+          </Button>
         </div>
         <nav className="flex overflow-x-auto no-scrollbar px-3 pb-2.5 gap-1.5">
           {navItems.map((item) => {
