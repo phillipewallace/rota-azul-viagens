@@ -170,6 +170,27 @@ const Index = () => {
               </div>
 
             </div>
+
+            {/* Rodapé — usuário logado + logout */}
+            <div className="border-t border-white/10 p-3 sm:p-4 space-y-2">
+              {user && (
+                <div className="px-1 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wider text-gray-400">Conectado como</p>
+                    <p className="text-sm font-medium text-white truncate">{user.name || user.username}</p>
+                  </div>
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="w-full justify-start gap-3 text-destructive hover:bg-destructive/15 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40 transition-colors duration-200 active:scale-[0.98] disabled:opacity-50"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>{loggingOut ? 'Saindo…' : 'Sair da conta'}</span>
+              </Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
