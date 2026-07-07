@@ -28,7 +28,21 @@ const navItems = [
 
 const ErpLayout: React.FC = () => {
   const [overdue, setOverdue] = useState(0);
+  const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    const ok = await confirmDialog({
+      title: 'Sair da conta?',
+      description: 'Você precisará entrar novamente para acessar o sistema.',
+      confirmLabel: 'Sair',
+      destructive: true,
+    });
+    if (!ok) return;
+    setLoggingOut(true);
+    try { await Promise.resolve(logout()); } finally { setLoggingOut(false); }
+  };
 
   useEffect(() => {
     let mounted = true;
