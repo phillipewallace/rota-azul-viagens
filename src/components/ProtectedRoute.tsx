@@ -41,6 +41,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/ponto" replace />;
   }
 
+  // Conta demonstrativa: confinada ao módulo ERP.
+  if (user?.role === 'demo' && !location.pathname.startsWith('/erp')) {
+    return <Navigate to="/erp" replace />;
+  }
+
   return <>{children}</>;
 };
 

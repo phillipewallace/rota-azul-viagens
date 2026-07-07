@@ -108,6 +108,10 @@ app.get('/api/test-db', async (req, res) => {
 // API Routes
 console.log('🚀 [SERVER] Registrando rotas da API...');
 
+// Guarda global para a role `demo` — restringe ao módulo ERP + read-only.
+import { restrictDemo } from './middleware/restrictDemo';
+app.use(restrictDemo);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/routes', routesRoutes);
