@@ -988,6 +988,226 @@ const ErpFinanceiro: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="pagos">
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              {/* KPIs */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { label: 'Contratos pagos', value: String(pagosKpis.count), icon: CheckCircle2 },
+                  { label: 'Total recebido', value: BRL(pagosKpis.totalRecebido), icon: DollarSign },
+                  { label: 'Ticket médio', value: BRL(pagosKpis.ticket), icon: ReceiptIcon },
+                  { label: 'Vencem em 7 dias', value: String(pagosKpis.em7), icon: CalendarDays },
+                ].map((k) => {
+                  const Icon = k.icon;
+                  return (
+                    <div
+                      key={k.label}
+                      className="rounded-lg border border-border bg-card p-3 transition-colors duration-200 hover:bg-muted/40"
+                    >
+                      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                        <Icon className="h-3.5 w-3.5" aria-hidden />
+                        {k.label}
+                      </div>
+                      <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                        {k.value}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Empty state */}
+              {pagosDoMes.length === 0 && !loading && (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
+                  <CheckCircle2 className="h-8 w-8 text-muted-foreground" aria-hidden />
+                  <div className="text-sm text-muted-foreground">
+                    Nenhum contrato quitado em <span className="font-medium text-foreground">{formatComp(competencia)}</span> ainda.
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab('pendentes')}
+                    className="transition-colors duration-200"
+                  >
+                    Ir para Pendentes
+                  </Button>
+                </div>
+              )}
+
+              {/* Desktop table */}
+              {pagosDoMes.length > 0 && (
+                <div className="hidden md:block rounded-lg border border-border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead>Contrato</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                        <TableHead>Forma</TableHead>
+                        <TableHead>Pago em</TableHead>
+                        <TableHead>Próximo vencimento</TableHead>
+                        <TableHead className="w-[140px] text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagosDoMes.map((r) => {
+                        const parcial = r.status === 'parcial';
+                        const pago = Number(r.valorPago ?? (r.status === 'pago' ? r.valor : 0) ?? 0);
+                        const nd = nextDueDate(competencia, Number(r.diaVencimento || 10));
+                        const dd = nd ? diffDays(nd, today) : null;
+                        const dueTone =
+                          dd == null ? 'bg-muted text-muted-foreground'
+                          : dd < 0 ? 'bg-destructive/10 text-destructive'
+                          : dd <= 7 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+                        return (
+                          <TableRow
+                            key={r.id}
+                            className="transition-colors duration-150 hover:bg-muted/40"
+                          >
+                            <TableCell className="font-medium">
+                              <div className="text-foreground">{r.contractNumero || '—'}</div>
+                              <div className="text-xs text-muted-foreground">Recibo {r.numero}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-foreground">{r.customerName || '—'}</div>
+                              {r.customerDocument && (
+                                <div className="text-xs text-muted-foreground">{r.customerDocument}</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="font-medium text-foreground">{BRL(pago)}</div>
+                              {parcial && (
+                                <div className="text-xs text-muted-foreground">de {BRL(Number(r.valor || 0))}</div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {r.formaPagamento ? (
+                                <Badge variant="secondary" className="font-normal">
+                                  {FORMA_LABEL[r.formaPagamento]}
+                                </Badge>
+                              ) : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {D(r.dataPagamento || r.dataEmissao)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-sm text-foreground">{D(nd)}</span>
+                                {dd != null && (
+                                  <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${dueTone}`}>
+                                    {dd < 0 ? `vencido há ${Math.abs(dd)}d` : dd === 0 ? 'hoje' : `em ${dd}d`}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  size="sm" variant="ghost"
+                                  className="h-8 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50"
+                                  onClick={() => generateReceiptPdf(r)}
+                                  aria-label="Baixar PDF do recibo"
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm" variant="ghost"
+                                  className="h-8 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50"
+                                  onClick={() => setCancelDialog(r)}
+                                  aria-label="Cancelar recibo"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Mobile cards */}
+              {pagosDoMes.length > 0 && (
+                <div className="md:hidden space-y-2">
+                  {pagosDoMes.map((r) => {
+                    const parcial = r.status === 'parcial';
+                    const pago = Number(r.valorPago ?? (r.status === 'pago' ? r.valor : 0) ?? 0);
+                    const nd = nextDueDate(competencia, Number(r.diaVencimento || 10));
+                    const dd = nd ? diffDays(nd, today) : null;
+                    const dueTone =
+                      dd == null ? 'bg-muted text-muted-foreground'
+                      : dd < 0 ? 'bg-destructive/10 text-destructive'
+                      : dd <= 7 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+                    return (
+                      <div
+                        key={r.id}
+                        className="rounded-lg border border-border bg-card p-3 transition-colors duration-200 hover:bg-muted/40"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-foreground truncate">
+                              {r.contractNumero || '—'}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {r.customerName || '—'}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-foreground">{BRL(pago)}</div>
+                            {parcial && (
+                              <div className="text-[11px] text-muted-foreground">parcial</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            Próx.: <span className="text-foreground">{D(nd)}</span>
+                          </span>
+                          {dd != null && (
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${dueTone}`}>
+                              {dd < 0 ? `vencido há ${Math.abs(dd)}d` : dd === 0 ? 'hoje' : `em ${dd}d`}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          {r.formaPagamento ? (
+                            <Badge variant="secondary" className="font-normal">
+                              {FORMA_LABEL[r.formaPagamento]}
+                            </Badge>
+                          ) : <span className="text-xs text-muted-foreground">sem forma</span>}
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-8 transition-colors duration-200"
+                              onClick={() => generateReceiptPdf(r)}
+                              aria-label="Baixar PDF do recibo"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-8 transition-colors duration-200"
+                              onClick={() => setCancelDialog(r)}
+                              aria-label="Cancelar recibo"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="emitidos">
           <Card>
             <CardContent className="p-4 space-y-3 border-b">
