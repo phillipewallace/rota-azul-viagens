@@ -114,6 +114,7 @@ export const useAuth = () => {
   const logout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
+    uninstallDemoFetch();
     setUser(null);
     navigate('/login');
     toast.success('Logout realizado com sucesso');
