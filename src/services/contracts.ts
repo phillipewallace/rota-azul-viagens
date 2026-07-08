@@ -86,6 +86,8 @@ export type FormaPagamento = 'pix' | 'dinheiro' | 'boleto' | 'cartao' | 'transfe
 export interface Receipt {
   id: string;
   numero: string;
+  numeroDisplay?: string | null; // quando presente, prevalece na exibição/PDF
+  semValidade?: boolean;         // recibo sem validade jurídica (controle interno)
   contractId: string;
   competencia: string; // YYYY-MM (derivada do mês do periodoInicio quando houver)
   periodoInicio?: string | null; // YYYY-MM-DD — data inicial exata do período
