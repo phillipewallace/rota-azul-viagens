@@ -305,7 +305,7 @@ export async function generateReceiptPdf(rec: Receipt) {
     W / 2, H - 6, { align: 'center' }
   );
 
-  doc.save(`Recibo-${rec.numero}.pdf`);
+  doc.save(`Recibo-${numeroImpresso}.pdf`);
 }
 
 function formatComp(c: string) {
