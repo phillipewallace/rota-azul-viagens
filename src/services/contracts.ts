@@ -156,8 +156,9 @@ export const receiptsService = {
     valor?: number;
     pago?: boolean;
     regerar?: boolean;
+    semValidade?: boolean;  // se true, usa contador REC_SV (0001) e não aparece na aba Recibos
   }) =>
-    req<{ ok: true; id: string; numero: string; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
+    req<{ ok: true; id: string; numero: string; numeroDisplay?: string | null; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
   remove: (id: string, force = false) =>
     req<{ ok: true }>('DELETE', `/erp/receipts/${id}${force ? '?force=1' : ''}`),
   cancel: (id: string, motivo: string) =>
