@@ -788,6 +788,9 @@ const ErpFinanceiro: React.FC = () => {
           <TabsTrigger value="emitidos">
             Recibos <Badge variant="outline" className="ml-2">{recibosFiltrados.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="sem-validade">
+            Sem validade <Badge variant="outline" className="ml-2">{recibosSemValidade.length}</Badge>
+          </TabsTrigger>
           <TabsTrigger value="clientes">
             Por cliente <Badge variant="outline" className="ml-2">{perCustomer.length}</Badge>
           </TabsTrigger>
