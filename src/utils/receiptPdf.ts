@@ -108,7 +108,7 @@ export async function generateReceiptPdf(rec: Receipt) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
   doc.text('RECIBO Nº', boxX + 3, boxY + 6);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-  doc.text(rec.numero, boxX + boxW - 3, boxY + 14, { align: 'right' });
+  doc.text(numeroImpresso, boxX + boxW - 3, boxY + 14, { align: 'right' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
   doc.text('Emissão', boxX + 3, boxY + 20);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
