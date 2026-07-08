@@ -1467,6 +1467,114 @@ const ErpFinanceiro: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="sem-validade">
+          <Card>
+            <CardContent className="p-4 border-b">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold tracking-tight flex items-center gap-2">
+                    <ReceiptIcon className="h-4 w-4 text-amber-600" />
+                    Recibos sem validade jurídica
+                  </div>
+                  <div className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+                    Controle interno com numeração própria (0001…). O PDF impresso não indica nada sobre isso.
+                    Contratos recorrentes voltam automaticamente para <span className="font-medium text-foreground">Pendentes</span> no próximo mês.
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="h-8 pl-8 w-[200px] text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nº</TableHead>
+                      <TableHead>Contrato</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Emissão</TableHead>
+                      <TableHead>Período</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recibosSemValidade.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-10 text-muted-foreground text-sm">
+                          Nenhum recibo sem validade jurídica ainda.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {recibosSemValidade.map((r) => (
+                      <TableRow key={r.id} className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
+                        <TableCell className="font-mono text-xs font-bold tabular-nums">
+                          {r.numeroDisplay || r.numero}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{r.contractNumero}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{r.customerName || '—'}</TableCell>
+                        <TableCell className="text-xs">{D(r.dataEmissao)}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {r.periodoInicio && r.periodoFim
+                            ? formatPeriodo(r.periodoInicio, r.periodoFim)
+                            : formatComp(r.competencia)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">{BRL(Number(r.valor))}</TableCell>
+                        <TableCell><StatusBadge r={r} /></TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
+                            <Download className="h-3.5 w-3.5 mr-1" /> PDF
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost" aria-label="Mais ações" disabled={working === r.id}>
+                                {working === r.id
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <MoreVertical className="h-3.5 w-3.5" />}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52">
+                              {r.status !== 'cancelado' && (
+                                <DropdownMenuItem
+                                  onClick={() => setCancelDialog(r)}
+                                  className="text-rose-600 focus:text-rose-700"
+                                >
+                                  <XCircle className="h-3.5 w-3.5 mr-2" />
+                                  Cancelar recibo
+                                </DropdownMenuItem>
+                              )}
+                              {r.status === 'cancelado' && (
+                                <DropdownMenuItem
+                                  onClick={() => voltarParaPendentes(r)}
+                                  className="text-primary focus:text-primary"
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                  Voltar para pendentes
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="clientes">
           <Card>
             <CardContent className="p-4 border-b flex items-center justify-between gap-3">
