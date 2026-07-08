@@ -140,7 +140,7 @@ const ErpFinanceiro: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
   const [batchWorking, setBatchWorking] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'clientes' | 'gastos'>('pendentes');
+  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'clientes' | 'gastos'>('pendentes');
   // popover do recibo unificado
   const [unifOpen, setUnifOpen] = useState(false);
   const [unifIni, setUnifIni] = useState('');
@@ -214,6 +214,7 @@ const ErpFinanceiro: React.FC = () => {
     const term = search.trim().toLowerCase();
     const venceAte = quick === 'em7' ? addDaysISO(today, 7) : null;
     return recibos.filter(r => {
+      if (r.semValidade) return false; // aba própria "Sem validade"
       if (filterStatus !== 'all' && r.status !== filterStatus) return false;
       if (filterCompanyId !== 'all') {
         const target = companies.find(c => c.id === filterCompanyId)?.razaoSocial?.toLowerCase() || '';
@@ -292,6 +293,7 @@ const ErpFinanceiro: React.FC = () => {
   // Dedup por contrato mantendo o mais recente (por dataPagamento/emissao).
   const pagosDoMes = useMemo(() => {
     const dentro = recibos.filter(r =>
+      !r.semValidade &&
       r.competencia === competencia &&
       (r.status === 'pago' || r.status === 'parcial'),
     );
@@ -322,6 +324,23 @@ const ErpFinanceiro: React.FC = () => {
     return { totalRecebido, ticket, em7, count: pagosDoMes.length };
   }, [pagosDoMes, competencia, today]);
 
+  // Recibos "sem validade jurídica" — controle interno, numeração própria (0001…).
+  // Segue o fluxo normal (removem contrato de Pendentes; retornam no próximo mês).
+  const recibosSemValidade = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return recibos
+      .filter(r => r.semValidade)
+      .filter(r => {
+        if (filterStatus !== 'all' && r.status !== filterStatus) return false;
+        if (!term) return true;
+        const hay = `${r.numeroDisplay || r.numero} ${r.contractNumero || ''} ${r.customerName || ''} ${r.companyRazaoSocial || ''}`.toLowerCase();
+        return hay.includes(term);
+      })
+      .sort((a, b) => (b.dataEmissao || '').localeCompare(a.dataEmissao || ''));
+  }, [recibos, filterStatus, search]);
+
+
+
 
   // ===== ações =====
   const generateOne = async (
@@ -350,7 +369,7 @@ const ErpFinanceiro: React.FC = () => {
   // passa a ser exibida como "DD/MM/YYYY - DD/MM/YYYY".
   const gerarPeriodo = async (
     p: PendingReceipt, periodoInicio: string, periodoFim: string,
-    opts?: { marcarPago?: boolean; baixarPdf?: boolean }
+    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean }
   ) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
       toast.error('Datas inválidas'); return;
@@ -366,6 +385,7 @@ const ErpFinanceiro: React.FC = () => {
         periodoFim,
         valor: Number(p.valorMensal),
         pago: opts?.marcarPago ?? true,
+        semValidade: !!opts?.semValidade,
       });
       if (opts?.baixarPdf !== false) {
         try {
@@ -378,7 +398,12 @@ const ErpFinanceiro: React.FC = () => {
         } catch { /* PDF best-effort */ }
       }
       await load();
-      toast.success(`Recibo gerado · ${formatPeriodo(periodoInicio, periodoFim)}`);
+      if (opts?.semValidade) {
+        toast.success(`Recibo sem validade gerado · ${formatPeriodo(periodoInicio, periodoFim)}`);
+        setActiveTab('sem-validade');
+      } else {
+        toast.success(`Recibo gerado · ${formatPeriodo(periodoInicio, periodoFim)}`);
+      }
     } catch (e: any) {
       const msg = String(e.message || '');
       if (msg.toLowerCase().includes('já existe')) toast.warning('Já existe um recibo para o mês desse período.');
@@ -769,6 +794,9 @@ const ErpFinanceiro: React.FC = () => {
           <TabsTrigger value="emitidos">
             Recibos <Badge variant="outline" className="ml-2">{recibosFiltrados.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="sem-validade">
+            Sem validade <Badge variant="outline" className="ml-2">{recibosSemValidade.length}</Badge>
+          </TabsTrigger>
           <TabsTrigger value="clientes">
             Por cliente <Badge variant="outline" className="ml-2">{perCustomer.length}</Badge>
           </TabsTrigger>
@@ -964,7 +992,7 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                              onConfirm={(inicio, fim) => gerarPeriodo(p, inicio, fim)}
+                              onConfirm={(inicio, fim, semValidade) => { void gerarPeriodo(p, inicio, fim, { semValidade }); }}
                             >
                               <Button
                                 size="sm"
@@ -1439,6 +1467,114 @@ const ErpFinanceiro: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="sem-validade">
+          <Card>
+            <CardContent className="p-4 border-b">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold tracking-tight flex items-center gap-2">
+                    <ReceiptIcon className="h-4 w-4 text-amber-600" />
+                    Recibos sem validade jurídica
+                  </div>
+                  <div className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+                    Controle interno com numeração própria (0001…). O PDF impresso não indica nada sobre isso.
+                    Contratos recorrentes voltam automaticamente para <span className="font-medium text-foreground">Pendentes</span> no próximo mês.
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="h-8 pl-8 w-[200px] text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nº</TableHead>
+                      <TableHead>Contrato</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Emissão</TableHead>
+                      <TableHead>Período</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recibosSemValidade.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-10 text-muted-foreground text-sm">
+                          Nenhum recibo sem validade jurídica ainda.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {recibosSemValidade.map((r) => (
+                      <TableRow key={r.id} className={r.status === 'cancelado' ? 'opacity-60' : undefined}>
+                        <TableCell className="font-mono text-xs font-bold tabular-nums">
+                          {r.numeroDisplay || r.numero}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{r.contractNumero}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{r.customerName || '—'}</TableCell>
+                        <TableCell className="text-xs">{D(r.dataEmissao)}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {r.periodoInicio && r.periodoFim
+                            ? formatPeriodo(r.periodoInicio, r.periodoFim)
+                            : formatComp(r.competencia)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">{BRL(Number(r.valor))}</TableCell>
+                        <TableCell><StatusBadge r={r} /></TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
+                            <Download className="h-3.5 w-3.5 mr-1" /> PDF
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost" aria-label="Mais ações" disabled={working === r.id}>
+                                {working === r.id
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <MoreVertical className="h-3.5 w-3.5" />}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52">
+                              {r.status !== 'cancelado' && (
+                                <DropdownMenuItem
+                                  onClick={() => setCancelDialog(r)}
+                                  className="text-rose-600 focus:text-rose-700"
+                                >
+                                  <XCircle className="h-3.5 w-3.5 mr-2" />
+                                  Cancelar recibo
+                                </DropdownMenuItem>
+                              )}
+                              {r.status === 'cancelado' && (
+                                <DropdownMenuItem
+                                  onClick={() => voltarParaPendentes(r)}
+                                  className="text-primary focus:text-primary"
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                                  Voltar para pendentes
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="clientes">
           <Card>
             <CardContent className="p-4 border-b flex items-center justify-between gap-3">
@@ -1701,12 +1837,13 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
 const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
-  onConfirm: (periodoInicio: string, periodoFim: string) => void;
+  onConfirm: (periodoInicio: string, periodoFim: string, semValidade: boolean) => void;
   children: React.ReactNode;
 }> = ({ pending, working, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
   const [inicio, setInicio] = useState('');
   const [fim, setFim]       = useState('');
+  const [semValidade, setSemValidade] = useState(false);
 
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
@@ -1716,6 +1853,7 @@ const GerarReciboPopover: React.FC<{
     const t = todayISO();
     setInicio(t);
     setFim(addDaysISO(t, 30));
+    setSemValidade(false);
   }, [open, pending.contractId]); // eslint-disable-line
 
   const valido = /^\d{4}-\d{2}-\d{2}$/.test(inicio)
@@ -1824,6 +1962,30 @@ const GerarReciboPopover: React.FC<{
           </div>
 
 
+          {/* Toggle: sem validade jurídica (controle interno) */}
+          <label
+            htmlFor={`gr-sv-${pending.contractId}`}
+            className={
+              'flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors duration-200 ' +
+              (semValidade
+                ? 'border-amber-300 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30'
+                : 'border-border/60 bg-muted/30 hover:bg-muted/50')
+            }
+          >
+            <Checkbox
+              id={`gr-sv-${pending.contractId}`}
+              checked={semValidade}
+              onCheckedChange={(v) => setSemValidade(!!v)}
+              className="mt-0.5"
+            />
+            <div className="text-[11px] leading-snug">
+              <div className="font-medium text-foreground">Recibo sem validade jurídica</div>
+              <div className="text-muted-foreground">
+                Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. O PDF não indica nada sobre isso.
+              </div>
+            </div>
+          </label>
+
           <div className="flex items-center justify-end gap-2 pt-0.5">
             <Button
               size="sm"
@@ -1836,12 +1998,17 @@ const GerarReciboPopover: React.FC<{
             </Button>
             <Button
               size="sm"
-              onClick={() => { onConfirm(inicio, fim); setOpen(false); }}
+              onClick={() => { onConfirm(inicio, fim, semValidade); setOpen(false); }}
               disabled={working || !valido}
-              className="h-8 bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
+              className={
+                'h-8 transition-colors duration-200 ' +
+                (semValidade
+                  ? 'bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500'
+                  : 'bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500')
+              }
             >
               {working ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-              Gerar
+              {semValidade ? 'Gerar (sem validade)' : 'Gerar'}
             </Button>
           </div>
         </div>

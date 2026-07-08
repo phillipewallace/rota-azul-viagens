@@ -33,6 +33,11 @@ export async function generateReceiptPdf(rec: Receipt) {
   const co = snap.company || {};
   const cu = snap.customer || {};
   const ct = snap.contract || {};
+  // Número exibido: quando o recibo é "sem validade jurídica" o backend
+  // grava um número interno (SV-0001) para unicidade, mas mostramos apenas o
+  // display (0001) — o PDF nunca revela essa distinção.
+  const numeroImpresso = (rec.numeroDisplay && String(rec.numeroDisplay)) || rec.numero;
+
 
   // ---------- Cabeçalho com faixa azul + acento dourado ----------
   const HEADER_H = 42;
@@ -103,7 +108,7 @@ export async function generateReceiptPdf(rec: Receipt) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
   doc.text('RECIBO Nº', boxX + 3, boxY + 6);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-  doc.text(rec.numero, boxX + boxW - 3, boxY + 14, { align: 'right' });
+  doc.text(numeroImpresso, boxX + boxW - 3, boxY + 14, { align: 'right' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
   doc.text('Emissão', boxX + 3, boxY + 20);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
@@ -300,7 +305,7 @@ export async function generateReceiptPdf(rec: Receipt) {
     W / 2, H - 6, { align: 'center' }
   );
 
-  doc.save(`Recibo-${rec.numero}.pdf`);
+  doc.save(`Recibo-${numeroImpresso}.pdf`);
 }
 
 function formatComp(c: string) {

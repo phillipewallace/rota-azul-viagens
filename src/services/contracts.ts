@@ -86,6 +86,8 @@ export type FormaPagamento = 'pix' | 'dinheiro' | 'boleto' | 'cartao' | 'transfe
 export interface Receipt {
   id: string;
   numero: string;
+  numeroDisplay?: string | null; // quando presente, prevalece na exibição/PDF
+  semValidade?: boolean;         // recibo sem validade jurídica (controle interno)
   contractId: string;
   competencia: string; // YYYY-MM (derivada do mês do periodoInicio quando houver)
   periodoInicio?: string | null; // YYYY-MM-DD — data inicial exata do período
@@ -154,8 +156,9 @@ export const receiptsService = {
     valor?: number;
     pago?: boolean;
     regerar?: boolean;
+    semValidade?: boolean;  // se true, usa contador REC_SV (0001) e não aparece na aba Recibos
   }) =>
-    req<{ ok: true; id: string; numero: string; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
+    req<{ ok: true; id: string; numero: string; numeroDisplay?: string | null; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
   remove: (id: string, force = false) =>
     req<{ ok: true }>('DELETE', `/erp/receipts/${id}${force ? '?force=1' : ''}`),
   cancel: (id: string, motivo: string) =>
