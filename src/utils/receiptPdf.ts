@@ -33,6 +33,11 @@ export async function generateReceiptPdf(rec: Receipt) {
   const co = snap.company || {};
   const cu = snap.customer || {};
   const ct = snap.contract || {};
+  // Número exibido: quando o recibo é "sem validade jurídica" o backend
+  // grava um número interno (SV-0001) para unicidade, mas mostramos apenas o
+  // display (0001) — o PDF nunca revela essa distinção.
+  const numeroImpresso = (rec.numeroDisplay && String(rec.numeroDisplay)) || rec.numero;
+
 
   // ---------- Cabeçalho com faixa azul + acento dourado ----------
   const HEADER_H = 42;
