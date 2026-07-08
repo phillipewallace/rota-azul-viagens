@@ -293,6 +293,7 @@ const ErpFinanceiro: React.FC = () => {
   // Dedup por contrato mantendo o mais recente (por dataPagamento/emissao).
   const pagosDoMes = useMemo(() => {
     const dentro = recibos.filter(r =>
+      !r.semValidade &&
       r.competencia === competencia &&
       (r.status === 'pago' || r.status === 'parcial'),
     );
