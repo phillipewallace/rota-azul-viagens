@@ -369,7 +369,7 @@ const ErpFinanceiro: React.FC = () => {
   // passa a ser exibida como "DD/MM/YYYY - DD/MM/YYYY".
   const gerarPeriodo = async (
     p: PendingReceipt, periodoInicio: string, periodoFim: string,
-    opts?: { marcarPago?: boolean; baixarPdf?: boolean }
+    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean }
   ) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
       toast.error('Datas inválidas'); return;
@@ -385,6 +385,7 @@ const ErpFinanceiro: React.FC = () => {
         periodoFim,
         valor: Number(p.valorMensal),
         pago: opts?.marcarPago ?? true,
+        semValidade: !!opts?.semValidade,
       });
       if (opts?.baixarPdf !== false) {
         try {
@@ -397,7 +398,12 @@ const ErpFinanceiro: React.FC = () => {
         } catch { /* PDF best-effort */ }
       }
       await load();
-      toast.success(`Recibo gerado · ${formatPeriodo(periodoInicio, periodoFim)}`);
+      if (opts?.semValidade) {
+        toast.success(`Recibo sem validade gerado · ${formatPeriodo(periodoInicio, periodoFim)}`);
+        setActiveTab('sem-validade');
+      } else {
+        toast.success(`Recibo gerado · ${formatPeriodo(periodoInicio, periodoFim)}`);
+      }
     } catch (e: any) {
       const msg = String(e.message || '');
       if (msg.toLowerCase().includes('já existe')) toast.warning('Já existe um recibo para o mês desse período.');
