@@ -218,17 +218,24 @@ router.post('/generate', async (req, res) => {
       return res.json({ ok: true, id: existing.rows[0].id, numero: existing.rows[0].numero, regerado: true });
     }
 
-    const numRes = await client.query(`SELECT erp_next_doc_number('REC') AS num`);
-    const numero = numRes.rows[0].num;
+    // Numeração: recibos "sem validade jurídica" têm contador próprio (REC_SV)
+    // e são exibidos como "0001". Prefixamos internamente com "SV-" apenas
+    // para preservar a UNIQUE(numero) sem contaminar o PDF/UI.
+    const docKey = semValidade ? 'REC_SV' : 'REC';
+    const numRes = await client.query(`SELECT erp_next_doc_number($1) AS num`, [docKey]);
+    const rawNum = numRes.rows[0].num as string;
+    const numeroDisplay = semValidade ? rawNum : null;
+    const numero = semValidade ? `SV-${rawNum}` : rawNum;
 
     const ins = await client.query(
       `INSERT INTO erp_receipts
          (numero, contract_id, competencia, data_emissao, data_vencimento,
-          valor, pago, snapshot, pdf_gerado_em, periodo_inicio, periodo_fim)
-       VALUES ($1,$2,$3,CURRENT_DATE,$4,$5,$6,$7,NOW(),$8,$9)
-       RETURNING id, numero`,
+          valor, pago, snapshot, pdf_gerado_em, periodo_inicio, periodo_fim,
+          sem_validade, numero_display)
+       VALUES ($1,$2,$3,CURRENT_DATE,$4,$5,$6,$7,NOW(),$8,$9,$10,$11)
+       RETURNING id, numero, numero_display AS "numeroDisplay"`,
       [numero, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
-       periodoInicio || null, periodoFim || null]
+       periodoInicio || null, periodoFim || null, !!semValidade, numeroDisplay]
     );
 
     await client.query('COMMIT');
