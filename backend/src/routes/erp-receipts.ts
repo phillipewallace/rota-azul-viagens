@@ -89,7 +89,7 @@ router.get('/pending', async (req, res) => {
 router.post('/generate', async (req, res) => {
   const {
     contractId, competencia: comp, valor, pago = true, regerar = false,
-    periodoInicio, periodoFim,
+    periodoInicio, periodoFim, semValidade = false,
   } = req.body || {};
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
 
