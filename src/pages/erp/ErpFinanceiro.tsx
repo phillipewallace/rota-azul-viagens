@@ -1729,12 +1729,13 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
 const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
-  onConfirm: (periodoInicio: string, periodoFim: string) => void;
+  onConfirm: (periodoInicio: string, periodoFim: string, semValidade: boolean) => void;
   children: React.ReactNode;
 }> = ({ pending, working, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
   const [inicio, setInicio] = useState('');
   const [fim, setFim]       = useState('');
+  const [semValidade, setSemValidade] = useState(false);
 
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
