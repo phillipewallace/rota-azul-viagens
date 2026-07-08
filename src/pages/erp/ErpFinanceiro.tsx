@@ -214,6 +214,7 @@ const ErpFinanceiro: React.FC = () => {
     const term = search.trim().toLowerCase();
     const venceAte = quick === 'em7' ? addDaysISO(today, 7) : null;
     return recibos.filter(r => {
+      if (r.semValidade) return false; // aba própria "Sem validade"
       if (filterStatus !== 'all' && r.status !== filterStatus) return false;
       if (filterCompanyId !== 'all') {
         const target = companies.find(c => c.id === filterCompanyId)?.razaoSocial?.toLowerCase() || '';
