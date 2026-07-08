@@ -324,6 +324,23 @@ const ErpFinanceiro: React.FC = () => {
     return { totalRecebido, ticket, em7, count: pagosDoMes.length };
   }, [pagosDoMes, competencia, today]);
 
+  // Recibos "sem validade jurídica" — controle interno, numeração própria (0001…).
+  // Segue o fluxo normal (removem contrato de Pendentes; retornam no próximo mês).
+  const recibosSemValidade = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return recibos
+      .filter(r => r.semValidade)
+      .filter(r => {
+        if (filterStatus !== 'all' && r.status !== filterStatus) return false;
+        if (!term) return true;
+        const hay = `${r.numeroDisplay || r.numero} ${r.contractNumero || ''} ${r.customerName || ''} ${r.companyRazaoSocial || ''}`.toLowerCase();
+        return hay.includes(term);
+      })
+      .sort((a, b) => (b.dataEmissao || '').localeCompare(a.dataEmissao || ''));
+  }, [recibos, filterStatus, search]);
+
+
+
 
   // ===== ações =====
   const generateOne = async (
