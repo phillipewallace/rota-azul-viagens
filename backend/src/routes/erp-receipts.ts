@@ -13,6 +13,8 @@ const SELECT = `
   r.forma_pagamento AS "formaPagamento", r.data_pagamento AS "dataPagamento",
   r.valor_pago AS "valorPago", r.status,
   r.cancelado_em AS "canceladoEm", r.motivo_cancelamento AS "motivoCancelamento",
+  COALESCE(r.sem_validade, FALSE) AS "semValidade",
+  r.numero_display AS "numeroDisplay",
   c.numero AS "contractNumero",
   c.dia_vencimento AS "diaVencimento",
   c.valor_mensal AS "valorMensal",
