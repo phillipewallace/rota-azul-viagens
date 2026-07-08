@@ -1745,6 +1745,7 @@ const GerarReciboPopover: React.FC<{
     const t = todayISO();
     setInicio(t);
     setFim(addDaysISO(t, 30));
+    setSemValidade(false);
   }, [open, pending.contractId]); // eslint-disable-line
 
   const valido = /^\d{4}-\d{2}-\d{2}$/.test(inicio)
