@@ -1854,6 +1854,30 @@ const GerarReciboPopover: React.FC<{
           </div>
 
 
+          {/* Toggle: sem validade jurídica (controle interno) */}
+          <label
+            htmlFor={`gr-sv-${pending.contractId}`}
+            className={
+              'flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors duration-200 ' +
+              (semValidade
+                ? 'border-amber-300 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30'
+                : 'border-border/60 bg-muted/30 hover:bg-muted/50')
+            }
+          >
+            <Checkbox
+              id={`gr-sv-${pending.contractId}`}
+              checked={semValidade}
+              onCheckedChange={(v) => setSemValidade(!!v)}
+              className="mt-0.5"
+            />
+            <div className="text-[11px] leading-snug">
+              <div className="font-medium text-foreground">Recibo sem validade jurídica</div>
+              <div className="text-muted-foreground">
+                Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. O PDF não indica nada sobre isso.
+              </div>
+            </div>
+          </label>
+
           <div className="flex items-center justify-end gap-2 pt-0.5">
             <Button
               size="sm"
@@ -1866,12 +1890,17 @@ const GerarReciboPopover: React.FC<{
             </Button>
             <Button
               size="sm"
-              onClick={() => { onConfirm(inicio, fim); setOpen(false); }}
+              onClick={() => { onConfirm(inicio, fim, semValidade); setOpen(false); }}
               disabled={working || !valido}
-              className="h-8 bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500 transition-colors duration-200"
+              className={
+                'h-8 transition-colors duration-200 ' +
+                (semValidade
+                  ? 'bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500'
+                  : 'bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500')
+              }
             >
               {working ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-              Gerar
+              {semValidade ? 'Gerar (sem validade)' : 'Gerar'}
             </Button>
           </div>
         </div>
