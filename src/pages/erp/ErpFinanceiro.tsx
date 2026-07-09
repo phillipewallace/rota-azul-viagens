@@ -1366,6 +1366,25 @@ const ErpFinanceiro: React.FC = () => {
                 >
                   <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Exportar CSV
                 </Button>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => {
+                    // pré-preenche com o mês corrente da competência selecionada
+                    if (!zipFrom && !zipTo && /^\d{4}-\d{2}$/.test(competencia)) {
+                      const [y, m] = competencia.split('-').map(Number);
+                      const first = `${competencia}-01`;
+                      const lastDay = new Date(y, m, 0).getDate();
+                      const last = `${competencia}-${String(lastDay).padStart(2, '0')}`;
+                      setZipFrom(first);
+                      setZipTo(last);
+                    }
+                    setZipOpen(true);
+                  }}
+                  className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/40 transition-colors duration-200"
+                  title="Baixar todos os recibos de um período em um arquivo ZIP"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" /> Exportar ZIP
+
               </div>
               <div className="flex flex-wrap gap-2">
                 <QuickChip active={quick === 'none'} onClick={() => setQuick('none')}>Todos</QuickChip>
