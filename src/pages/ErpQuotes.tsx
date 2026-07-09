@@ -65,6 +65,9 @@ interface EditorState {
   condicoesPagamento: string;
   formaPagamento?: FormaPagamento;
   status: Quote['status'];
+  responsavelNome?: string;
+  responsavelTelefone?: string;
+  responsavelEmail?: string;
   items: QuoteItem[];
 }
 
