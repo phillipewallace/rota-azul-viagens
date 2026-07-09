@@ -131,7 +131,7 @@ const ErpAssinatura: React.FC = () => {
         if (!cancelled) setRendering(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; renderTask?.cancel?.(); };
   }, [pdfDoc, pageIndex]);
 
   const onFile = async (file: File) => {
