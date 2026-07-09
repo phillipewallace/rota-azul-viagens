@@ -178,21 +178,37 @@ const ErpFinanceiro: React.FC = () => {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // Loads separados: pendentes NÃO dependem dos filtros da aba Recibos.
+  // Isso evita que mexer em filtro de Recibos re-baixe (e às vezes zere) a lista
+  // de Pendentes ao voltar para essa sub-aba.
+  const loadPendentes = useCallback(async () => {
     try {
-      const [p, r] = await Promise.all([
-        receiptsService.pending(competencia),
-        receiptsService.list(filterFrom || filterTo || quick !== 'none' ? {} : { competencia }),
-      ]);
+      const p = await receiptsService.pending(competencia);
       if (!mountedRef.current) return;
       setPendentes(p.pendentes);
+    } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
+  }, [competencia]);
+
+  const loadRecibos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await receiptsService.list(
+        filterFrom || filterTo || quick !== 'none' ? {} : { competencia }
+      );
+      if (!mountedRef.current) return;
       setRecibos(r);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setLoading(false); }
   }, [competencia, filterFrom, filterTo, quick]);
 
-  useEffect(() => { load(); }, [load]);
+  // Conveniência: recarrega tudo (usada pelo botão Atualizar e após ações).
+  const load = useCallback(async () => {
+    await Promise.all([loadPendentes(), loadRecibos()]);
+  }, [loadPendentes, loadRecibos]);
+
+  useEffect(() => { loadPendentes(); }, [loadPendentes]);
+  useEffect(() => { loadRecibos(); }, [loadRecibos]);
+
 
   useEffect(() => {
     let cancelled = false;
