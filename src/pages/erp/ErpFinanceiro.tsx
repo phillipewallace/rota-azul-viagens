@@ -962,6 +962,54 @@ const ErpFinanceiro: React.FC = () => {
 
         <TabsContent value="pendentes">
           <Card>
+            <CardContent className="p-4 space-y-3 border-b">
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <Label className="text-xs">Buscar</Label>
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Input
+                      value={pendSearch}
+                      onChange={e => setPendSearch(e.target.value)}
+                      className="h-9 pl-7"
+                      placeholder="nº contrato, cliente, empresa, CNPJ/CPF…"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Empresa</Label>
+                  <Select value={pendCompanyId} onValueChange={setPendCompanyId}>
+                    <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Vencimento de</Label>
+                  <Input type="date" value={pendVencFrom} onChange={e => setPendVencFrom(e.target.value)} className="h-9 w-[150px]" />
+                </div>
+                <div>
+                  <Label className="text-xs">Vencimento até</Label>
+                  <Input type="date" value={pendVencTo} onChange={e => setPendVencTo(e.target.value)} className="h-9 w-[150px]" />
+                </div>
+                {pendFiltroAtivo && (
+                  <Button variant="ghost" size="sm" onClick={clearPendFilters}>Limpar</Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <QuickChip active={pendQuick === 'none'} onClick={() => setPendQuick('none')}>Todos</QuickChip>
+                <QuickChip active={pendQuick === 'vencidos'} onClick={() => setPendQuick('vencidos')} tone="rose">Vencidos</QuickChip>
+                <QuickChip active={pendQuick === 'em7'} onClick={() => setPendQuick('em7')} tone="amber">Vence em 7 dias</QuickChip>
+                {pendFiltroAtivo && (
+                  <span className="ml-auto text-xs text-muted-foreground self-center">
+                    Exibindo {pendentesFiltrados.length} de {pendentes.length}
+                  </span>
+                )}
+              </div>
+            </CardContent>
+
             <CardContent className="p-3 flex flex-wrap items-center justify-between gap-2 border-b">
               <div className="text-xs text-slate-500">
                 {selected.size > 0
