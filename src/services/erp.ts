@@ -114,7 +114,48 @@ export const erpService = {
   createCompany: (data: Partial<ErpCompany>) => req<ErpCompany>('POST', '/companies', data),
   updateCompany: (id: string, data: Partial<ErpCompany>) => req<ErpCompany>('PUT', `/companies/${id}`, data),
   deleteCompany: (id: string) => req<{ ok: true }>('DELETE', `/companies/${id}`),
+  // signed PDFs (histórico da aba Assinatura)
+  listSignedPdfs: (companyId?: string) =>
+    req<SignedPdf[]>('GET', `/signed-pdfs${companyId ? `?companyId=${companyId}` : ''}`),
+  deleteSignedPdf: (id: string) => req<{ ok: true }>('DELETE', `/signed-pdfs/${id}`),
 };
+
+export interface SignedPdf {
+  id: string;
+  companyId?: string;
+  companyName?: string;
+  originalFilename: string;
+  storedFilename: string;
+  fileUrl: string;
+  pages?: number;
+  placementsCount?: number;
+  sizeBytes?: number;
+  createdBy?: string;
+  createdAt: string;
+}
+
+export async function uploadSignedPdfBlob(
+  blob: Blob,
+  meta: { companyId?: string; originalFilename: string; pages?: number; placementsCount?: number },
+): Promise<SignedPdf> {
+  const fd = new FormData();
+  fd.append('file', blob, meta.originalFilename);
+  if (meta.companyId) fd.append('companyId', meta.companyId);
+  fd.append('originalFilename', meta.originalFilename);
+  if (meta.pages != null) fd.append('pages', String(meta.pages));
+  if (meta.placementsCount != null) fd.append('placementsCount', String(meta.placementsCount));
+  const token = localStorage.getItem('auth_token');
+  const res = await fetch(`${API_BASE_URL}/erp/signed-pdfs`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: fd,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Falha ao salvar PDF assinado');
+  }
+  return res.json();
+}
 
 export interface ErpCompany {
   id: string;
