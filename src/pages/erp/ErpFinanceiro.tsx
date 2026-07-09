@@ -176,6 +176,14 @@ const ErpFinanceiro: React.FC = () => {
   const [zipBusy, setZipBusy] = useState(false);
   const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
 
+  // filtros da aba Pendentes (client-side, 100% local)
+  const [pendSearch, setPendSearch] = useState('');
+  const [pendCompanyId, setPendCompanyId] = useState<string>('all');
+  const [pendVencFrom, setPendVencFrom] = useState('');
+  const [pendVencTo, setPendVencTo] = useState('');
+  const [pendQuick, setPendQuick] = useState<'none' | 'vencidos' | 'em7'>('none');
+
+
 
   
 
