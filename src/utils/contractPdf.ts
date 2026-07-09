@@ -274,6 +274,18 @@ export async function buildContractDocument(src: ContractSource): Promise<{
   if (freteNum > 0 && !/\{\{\s*contrato\.frete\s*\}\}/.test(rawBody)) {
     rawBody += `<p><strong>Frete:</strong> O valor referente ao frete de entrega e recolhimento dos equipamentos será cobrado <strong>uma única vez</strong>, no importe de <strong>{{contrato.frete}} ({{contrato.frete_extenso}})</strong>, lançado integralmente na primeira nota fiscal/recibo emitido.</p>`;
   }
+  // Bloco do responsável específico do contrato — só aparece se preenchido e
+  // se o template ainda não referenciar as variáveis manualmente.
+  const hasResp = !!(src.responsavelNome || src.responsavelTelefone || src.responsavelEmail);
+  const tplHasResp = /\{\{\s*contrato\.responsavel_/.test(rawBody);
+  if (hasResp && !tplHasResp) {
+    const partes = [
+      src.responsavelNome ? `<strong>${src.responsavelNome}</strong>` : null,
+      src.responsavelTelefone ? `telefone ${src.responsavelTelefone}` : null,
+      src.responsavelEmail ? `e-mail ${src.responsavelEmail}` : null,
+    ].filter(Boolean).join(' — ');
+    rawBody += `<p><strong>Responsável pelo contrato:</strong> ${partes}.</p>`;
+  }
   return {
     tipoTpl,
     titulo: applyTemplate(template.titulo, ctx),
