@@ -18,6 +18,9 @@ const QUOTE_SELECT = `
   q.desconto_pct AS "descontoPct", q.frete, q.subtotal, q.total,
   q.status, q.pdf_gerado_em AS "pdfGeradoEm",
   q.created_at AS "createdAt", q.updated_at AS "updatedAt",
+  q.responsavel_nome     AS "responsavelNome",
+  q.responsavel_telefone AS "responsavelTelefone",
+  q.responsavel_email    AS "responsavelEmail",
   c.razao_social AS "companyRazaoSocial", c.cnpj AS "companyCnpj",
   cu.customer_name AS "customerName", cu.document AS "customerDocument"
 `;
