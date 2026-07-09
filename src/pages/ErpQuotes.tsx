@@ -305,6 +305,9 @@ const ErpQuotes: React.FC = () => {
         companyRazaoSocial: q.companyRazaoSocial,
         companyCnpj: q.companyCnpj,
         customerName: q.customerName,
+        responsavelNome: (q as any).responsavelNome || null,
+        responsavelTelefone: (q as any).responsavelTelefone || null,
+        responsavelEmail: (q as any).responsavelEmail || null,
         items: q.items,
       });
 
