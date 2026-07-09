@@ -156,6 +156,16 @@ const ErpFinanceiro: React.FC = () => {
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Receipt | null>(null);
   const [reabrirDialog, setReabrirDialog] = useState<Receipt | null>(null);
+
+  // exportação em ZIP por período
+  const [zipOpen, setZipOpen] = useState(false);
+  const [zipFrom, setZipFrom] = useState('');
+  const [zipTo, setZipTo] = useState('');
+  const [zipIncludeSV, setZipIncludeSV] = useState(true);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
+
+
   
 
   // gastos do mês para resultado
