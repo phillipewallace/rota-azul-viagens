@@ -35,6 +35,7 @@ const ErpDashboard = lazy(() => import("./pages/erp/ErpDashboard"));
 const ErpCompanies = lazy(() => import("./pages/erp/ErpCompanies"));
 const ErpFinanceiro = lazy(() => import("./pages/erp/ErpFinanceiro"));
 const ErpContracts = lazy(() => import("./pages/erp/ErpContracts"));
+const ErpAssinatura = lazy(() => import("./pages/erp/ErpAssinatura"));
 const MobileMenu = lazy(() => import("./mobile/MobileMenu"));
 
 // Mobile Operator (lazy também — só pesa quando acessado)
