@@ -769,6 +769,9 @@ function ContractFormDialog({
         valorTotalEvento: Number(editing.valorTotalEvento || 0),
         enderecoObra: (editing as any).enderecoObra || '',
         cno: (editing as any).cno || '',
+        responsavelNome: editing.responsavelNome || '',
+        responsavelTelefone: editing.responsavelTelefone || '',
+        responsavelEmail: editing.responsavelEmail || '',
       });
 
       // Editando um contrato existente: o dia já foi decidido, não sobrescreve.
