@@ -109,6 +109,17 @@ const nextDueDate = (competencia: string, diaVencimento: number): string => {
   return `${nextY}-${String(nextM).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 };
 
+// Vencimento efetivo DENTRO da própria competência (dia X do mês da comp,
+// clamp para o último dia do mês). Usado pelos filtros da aba Pendentes.
+const dueDateInComp = (competencia: string, diaVencimento: number): string => {
+  const [y, m] = (competencia || '').split('-').map(Number);
+  if (!y || !m) return '';
+  const ult = new Date(y, m, 0).getDate();
+  const dia = Math.min(Math.max(1, Number(diaVencimento || 10)), ult);
+  return `${y}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+};
+
+
 const FORMA_LABEL: Record<FormaPagamento, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro', boleto: 'Boleto',
   cartao: 'Cartão', transferencia: 'Transferência', outro: 'Outro',
