@@ -1,78 +1,44 @@
-# Plano: campo "Responsável pelo documento" em Contrato e Orçamento
+# Aba "Assinatura" — carimbar assinatura da empresa em qualquer PDF
 
-## Objetivo
-Permitir informar, por documento (contrato e orçamento), o **nome, telefone e e-mail da pessoa responsável** — separado dos dados cadastrais do cliente/empresa. Assim, quando a mesma empresa fizer múltiplas locações com contatos diferentes, cada documento guarda o solicitante real.
+Fluxo: usuário abre a aba, escolhe a empresa (que já tem `assinatura_url` cadastrada), faz upload de um PDF, visualiza páginas, clica/arrasta o retângulo onde a assinatura deve ficar (com página selecionada), e o sistema gera um novo PDF com a imagem da assinatura carimbada exatamente naquele ponto. Tudo client-side, sem alterações de backend nem de banco.
 
-## Escopo
-- Contratos (`erp_contracts`) — página `ErpContracts.tsx`.
-- Orçamentos (`erp_quotes`) — página `ErpQuotes.tsx`.
-- PDFs de contrato e orçamento (exibir o responsável quando preenchido).
-- **Fora do escopo:** Ordens de Serviço, Recibos, Recorrentes, Financeiro. Cliente permanece intocado (sem alteração no cadastro de clientes).
+## Passos
 
-## Passo a passo
+### 1. Dependências
+- Adicionar `pdf-lib` (edição do PDF final) e `pdfjs-dist` (renderização das páginas para pré-visualização). Nenhuma outra lib.
 
-### 1) Banco de dados (migração nova)
-Arquivo: `database/migration-erp-responsavel-documento.sql`
-```sql
-ALTER TABLE erp_contracts
-  ADD COLUMN IF NOT EXISTS responsavel_nome     VARCHAR(160),
-  ADD COLUMN IF NOT EXISTS responsavel_telefone VARCHAR(32),
-  ADD COLUMN IF NOT EXISTS responsavel_email    VARCHAR(160);
+### 2. Nova página / rota
+- Criar `src/pages/erp/ErpAssinatura.tsx`.
+- Registrar rota em `src/App.tsx` sob o layout ERP (ex.: `/erp/assinatura`).
+- Adicionar item de menu "Assinatura" no `ErpLayout.tsx` (mesmo padrão dos outros itens).
 
-ALTER TABLE erp_quotes
-  ADD COLUMN IF NOT EXISTS responsavel_nome     VARCHAR(160),
-  ADD COLUMN IF NOT EXISTS responsavel_telefone VARCHAR(32),
-  ADD COLUMN IF NOT EXISTS responsavel_email    VARCHAR(160);
-```
-Rodar em produção junto do próximo deploy (padrão do projeto).
+### 3. Componente da página — 3 blocos
+1. **Seletor de empresa**: dropdown com `erpService.listCompanies()`. Se a empresa não tiver `assinaturaUrl`, mostra aviso e link para Configurações → Empresas.
+2. **Upload + preview**:
+   - Input de arquivo `.pdf` (drag&drop opcional).
+   - Renderiza cada página via `pdfjs-dist` num `<canvas>` (uma por vez, com navegação Página anterior/próxima).
+   - Overlay clicável: usuário clica na posição desejada; aparece um retângulo arrastável/redimensionável simples mostrando a prévia da assinatura (usa a imagem da `assinaturaUrl`).
+   - Guarda por página: `{ page, xPct, yPct, wPct, hPct }` em pontos percentuais relativos ao tamanho da página (independente de zoom).
+   - Botão "Aplicar em todas as páginas" (opcional, checkbox).
+3. **Ações**: "Gerar PDF assinado" (baixa `assinado-<nome>.pdf`) e "Limpar".
 
-### 2) Backend
-- `backend/src/routes/erp-contracts.ts`
-  - `SELECT`: adicionar `c.responsavel_nome AS "responsavelNome"`, `c.responsavel_telefone AS "responsavelTelefone"`, `c.responsavel_email AS "responsavelEmail"`.
-  - `POST`: incluir as três colunas no `INSERT` (aceitando `null`).
-  - `PUT`: incluir as três colunas no `UPDATE` (permitindo limpar com `null`, usando o padrão `$n ?? null` já usado em campos livres como `descricao`).
-- `backend/src/routes/erp-quotes.ts` — mesmas alterações (SELECT/POST/PUT).
+### 4. Geração do PDF assinado (`src/utils/pdfSignatureStamp.ts`)
+- Carrega o PDF original com `PDFDocument.load`.
+- Baixa a imagem da assinatura (`assinaturaUrl`) e faz `embedPng`/`embedJpg` conforme o mime.
+- Para cada marcação: converte percentuais para coordenadas em pontos PDF (lembrando que o eixo Y do pdf-lib é bottom-up) e faz `page.drawImage(sig, { x, y, width, height })`.
+- Retorna `Uint8Array` que a página salva via `Blob` + `saveAs`.
 
-### 3) Tipos do frontend
-- `src/services/contracts.ts` (ou onde o tipo `Contract` estiver): adicionar `responsavelNome?`, `responsavelTelefone?`, `responsavelEmail?`.
-- `src/services/quotes.ts` interface `Quote`: mesmos três campos opcionais.
+### 5. Detalhes de UX
+- Zoom fixo (largura ~800px) para simplicidade; navegação por miniaturas opcional em versão futura.
+- Retângulo padrão ~180×60 px de canvas, redimensionável nos cantos.
+- Delete da marca com tecla Delete ou botão "Remover".
+- Toast de sucesso ao gerar.
 
-### 4) UI — Contrato (`src/pages/erp/ErpContracts.tsx`)
-No formulário de criar/editar contrato, adicionar uma seção **"Responsável pelo contrato"** (após dados do cliente, antes de datas), com 3 inputs:
-- Nome do responsável (texto, até 160)
-- Telefone (aplicar máscara já usada no projeto, se houver)
-- E-mail (input `type="email"`)
-Todos opcionais. Enviar no payload do `create` e `update`.
+### 6. Fora do escopo (deixado claro no plano)
+- Sem validade jurídica formal (ICP-Brasil), sem trilha de auditoria, sem envio por link — é apenas carimbo visual da assinatura já cadastrada da empresa no PDF que o usuário enviar. Para assinatura eletrônica com validade, seguir caminho separado (opções A/B da conversa anterior).
 
-### 5) UI — Orçamento (`src/pages/ErpQuotes.tsx`)
-Mesma seção **"Responsável pelo orçamento"** no form de criar/editar orçamento, com os 3 campos, opcionais.
+## Arquivos
+- **Novos**: `src/pages/erp/ErpAssinatura.tsx`, `src/utils/pdfSignatureStamp.ts`, componente interno `SignaturePlacer` (dentro da própria página ou `src/components/erp/SignaturePlacer.tsx`).
+- **Editados**: `src/App.tsx` (rota), `src/pages/erp/ErpLayout.tsx` (menu), `package.json` (deps).
 
-### 6) PDFs
-- `src/utils/contractPdf.ts` (e `contractDoc.ts` se aplicável): quando `responsavelNome` estiver preenchido, renderizar bloco "Responsável: {nome} — {telefone} — {email}" abaixo dos dados do cliente.
-- `src/utils/quotePdf.ts`: mesmo bloco no cabeçalho do orçamento.
-Campos vazios são omitidos silenciosamente.
-
-### 7) Validação
-- Validação leve no client: e-mail com regex simples (só valida se preenchido), telefone livre (não obriga formato). Sem bloquear submit por serem opcionais.
-- Sem validação server-side extra além do tamanho da coluna.
-
-### 8) Verificação
-- `tsgo --noEmit` após edições.
-- Teste manual: criar contrato com responsável → editar → limpar → gerar PDF; idem para orçamento.
-- Contratos/orçamentos antigos continuam funcionando (campos ficam `null`).
-
-## Arquivos que serão tocados
-- `database/migration-erp-responsavel-documento.sql` (novo)
-- `backend/src/routes/erp-contracts.ts`
-- `backend/src/routes/erp-quotes.ts`
-- `src/services/contracts.ts`
-- `src/services/quotes.ts`
-- `src/pages/erp/ErpContracts.tsx`
-- `src/pages/ErpQuotes.tsx`
-- `src/utils/contractPdf.ts` (e `contractDoc.ts` se necessário)
-- `src/utils/quotePdf.ts`
-
-## Pontos de decisão (me confirma antes de implementar)
-1. **Nome dos campos ok?** "Responsável pelo contrato" / "Responsável pelo orçamento" — ou prefere "Solicitante"/"Contato do pedido"?
-2. **Exibir no PDF?** Confirmo que deve aparecer no PDF de ambos, correto?
-3. **Herdar do último documento?** Quando criar um novo contrato/orçamento para um cliente que já teve outro, quer pré-preencher com o último responsável usado (com opção de editar), ou sempre em branco?
+Aprovando, eu implemento na sequência.
