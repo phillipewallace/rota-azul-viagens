@@ -227,6 +227,9 @@ function buildContext(src: ContractSource): Record<string, string> {
     })(),
     'contrato.limpezas_semanais': String(limp || 1),
     'contrato.observacoes': src.observacoes || '',
+    'contrato.responsavel_nome': src.responsavelNome || '',
+    'contrato.responsavel_telefone': src.responsavelTelefone || '',
+    'contrato.responsavel_email': src.responsavelEmail || '',
   };
 }
 
