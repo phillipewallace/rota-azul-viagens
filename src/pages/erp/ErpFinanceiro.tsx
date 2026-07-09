@@ -1844,6 +1844,51 @@ const ErpFinanceiro: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Exportar recibos por período em ZIP */}
+      <Dialog open={zipOpen} onOpenChange={(o) => { if (!zipBusy) setZipOpen(o); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Exportar recibos por período</DialogTitle>
+            <DialogDescription>
+              Baixe todos os recibos emitidos em um intervalo de datas em um único arquivo ZIP.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Data inicial</Label>
+                <Input type="date" value={zipFrom} onChange={(e) => setZipFrom(e.target.value)} disabled={zipBusy} />
+              </div>
+              <div>
+                <Label className="text-xs">Data final</Label>
+                <Input type="date" value={zipTo} onChange={(e) => setZipTo(e.target.value)} disabled={zipBusy} />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-foreground select-none">
+              <Checkbox
+                checked={zipIncludeSV}
+                onCheckedChange={(v) => setZipIncludeSV(Boolean(v))}
+                disabled={zipBusy}
+              />
+              Incluir recibos sem validade jurídica
+            </label>
+            {zipProgress && (
+              <div className="text-xs text-muted-foreground">
+                Gerando {zipProgress.done} de {zipProgress.total} recibo(s)…
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setZipOpen(false)} disabled={zipBusy}>Cancelar</Button>
+            <Button onClick={exportRecibosZip} disabled={zipBusy || !zipFrom || !zipTo}>
+              {zipBusy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
+              Gerar ZIP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };
