@@ -254,7 +254,11 @@ const ErpQuotes: React.FC = () => {
         descontoPct: Number(full.descontoPct), frete: Number(full.frete),
         observacoes: full.observacoes || '', condicoesPagamento: full.condicoesPagamento || '',
         formaPagamento: (full.formaPagamento as FormaPagamento) || 'boleto',
-        status: full.status, items: full.items || [],
+        status: full.status,
+        responsavelNome: (full as any).responsavelNome || '',
+        responsavelTelefone: (full as any).responsavelTelefone || '',
+        responsavelEmail: (full as any).responsavelEmail || '',
+        items: full.items || [],
       });
       return full;
     } catch (e: any) { toast.error(e.message); return null; }
