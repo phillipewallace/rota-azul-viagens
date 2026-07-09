@@ -20,6 +20,7 @@ const navItems = [
   { to: '/erp/orcamentos', label: 'Orçamentos', icon: FileText },
   { to: '/erp/ordens-servico', label: 'Ordens de Serviço', icon: ClipboardList, badge: 'overdue' as const },
   { to: '/erp/contratos', label: 'Contratos', icon: FileSignature },
+  { to: '/erp/assinatura', label: 'Assinatura', icon: FileSignature },
   { to: '/erp/financeiro', label: 'Financeiro', icon: DollarSign },
   { to: '/erp/clientes', label: 'Clientes', icon: Users },
   { to: '/erp/estoque', label: 'Estoque & Insumos', icon: Boxes },
