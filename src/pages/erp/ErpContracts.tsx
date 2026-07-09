@@ -727,6 +727,7 @@ function ContractFormDialog({
     dataEvento: '', dataRecolhimento: '', localEvento: '', horaEntrega: '',
     valorTotalEvento: 0,
     enderecoObra: '', cno: '',
+    responsavelNome: '', responsavelTelefone: '', responsavelEmail: '',
   };
 
   const [form, setForm] = useState<any>(empty);
