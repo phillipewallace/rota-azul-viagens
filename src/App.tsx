@@ -122,6 +122,7 @@ function AppShell() {
             <Route path="ordens-servico" element={<ServiceOrders />} />
             <Route path="financeiro" element={<ErpFinanceiro />} />
             <Route path="contratos" element={<ErpContracts />} />
+            <Route path="assinatura" element={<ErpAssinatura />} />
             <Route path="clientes" element={<Customers />} />
             <Route path="estoque" element={<InternalManagement />} />
             <Route path="empresas" element={<ErpCompanies />} />
