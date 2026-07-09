@@ -1384,6 +1384,8 @@ const ErpFinanceiro: React.FC = () => {
                   title="Baixar todos os recibos de um período em um arquivo ZIP"
                 >
                   <Download className="h-3.5 w-3.5 mr-1" /> Exportar ZIP
+                </Button>
+
 
               </div>
               <div className="flex flex-wrap gap-2">
