@@ -70,26 +70,43 @@ const ErpAssinatura: React.FC = () => {
   useEffect(() => {
     if (!pdfBytes) return;
     let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) {
+        console.error('[Assinatura] pdfjs.getDocument não respondeu em 15s (worker provavelmente não carregou).');
+        toast({
+          title: 'Falha ao ler o PDF',
+          description: 'O leitor de PDF não respondeu. Recarregue a página e tente novamente.',
+          variant: 'destructive',
+        });
+      }
+    }, 15000);
     (async () => {
       try {
-        const clone = pdfBytes.slice(0); // pdfjs pode consumir o buffer
-        const doc = await pdfjsLib.getDocument({ data: clone }).promise;
+        // pdfjs consome o buffer; passar uma cópia como Uint8Array garante compatibilidade.
+        const data = new Uint8Array(pdfBytes.slice(0));
+        const doc = await pdfjsLib.getDocument({ data }).promise;
         if (cancelled) return;
         setPdfDoc(doc);
         setNumPages(doc.numPages);
         setPageIndex(0);
         setPlacements([]);
       } catch (e: any) {
-        toast({ title: 'PDF inválido', description: e?.message || 'Não foi possível abrir o arquivo.', variant: 'destructive' });
+        console.error('[Assinatura] Erro ao abrir PDF:', e);
+        if (!cancelled) {
+          toast({ title: 'PDF inválido', description: e?.message || 'Não foi possível abrir o arquivo.', variant: 'destructive' });
+        }
+      } finally {
+        window.clearTimeout(timeoutId);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; window.clearTimeout(timeoutId); };
   }, [pdfBytes, toast]);
 
   // Renderiza a página atual no canvas
   useEffect(() => {
     if (!pdfDoc) return;
     let cancelled = false;
+    let renderTask: { cancel: () => void } | null = null;
     (async () => {
       setRendering(true);
       try {
@@ -103,9 +120,13 @@ const ErpAssinatura: React.FC = () => {
         canvas.width = scaled.width;
         canvas.height = scaled.height;
         const ctx = canvas.getContext('2d')!;
-        await page.render({ canvasContext: ctx, viewport: scaled, canvas }).promise;
-      } catch (e) {
+        renderTask = page.render({ canvasContext: ctx, viewport: scaled });
+        await renderTask!.promise;
+      } catch (e: any) {
         // pdfjs joga exceção quando cancela; ignoramos silenciosamente
+        if (e?.name !== 'RenderingCancelledException') {
+          console.error('[Assinatura] Erro ao renderizar página:', e);
+        }
       } finally {
         if (!cancelled) setRendering(false);
       }
