@@ -112,6 +112,9 @@ export interface ContractSource {
   formaPagamento?: 'cartao' | 'pix' | 'boleto' | string | null;
   dataVencimento?: string | null;
   frete?: number | null;
+  responsavelNome?: string | null;
+  responsavelTelefone?: string | null;
+  responsavelEmail?: string | null;
 
   total: number;
   companySnapshot?: any;
