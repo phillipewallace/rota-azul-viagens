@@ -185,6 +185,9 @@ router.put('/:id', async (req, res) => {
          endereco_entrega = COALESCE($17, endereco_entrega),
          data_recolhimento = COALESCE($18, data_recolhimento),
          forma_pagamento = COALESCE($19, forma_pagamento),
+         responsavel_nome     = $20,
+         responsavel_telefone = $21,
+         responsavel_email    = $22,
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
@@ -197,7 +200,8 @@ router.put('/:id', async (req, res) => {
        c.limpezasSemanais !== undefined ? c.limpezasSemanais : null,
        c.enderecoEntrega !== undefined ? c.enderecoEntrega : null,
        emptyToNull(c.dataRecolhimento),
-       c.formaPagamento || null]
+       c.formaPagamento || null,
+       c.responsavelNome ?? null, c.responsavelTelefone ?? null, c.responsavelEmail ?? null]
     );
 
 
