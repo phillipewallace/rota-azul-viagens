@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "copy:pdf-worker": "node scripts/copy-pdf-worker.mjs",
+    "predev": "npm run copy:pdf-worker",
+    "prebuild": "npm run copy:pdf-worker",
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
