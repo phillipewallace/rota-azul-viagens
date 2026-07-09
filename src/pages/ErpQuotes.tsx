@@ -208,6 +208,9 @@ const ErpQuotes: React.FC = () => {
         observacoes: q.observacoes || '', condicoesPagamento: q.condicoesPagamento || '',
         formaPagamento: (q.formaPagamento as FormaPagamento) || 'boleto',
         status: q.status,
+        responsavelNome: (q as any).responsavelNome || '',
+        responsavelTelefone: (q as any).responsavelTelefone || '',
+        responsavelEmail: (q as any).responsavelEmail || '',
         items: (q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }]).map(withUid),
       });
     } catch (e: any) { toast.error(e.message); }
