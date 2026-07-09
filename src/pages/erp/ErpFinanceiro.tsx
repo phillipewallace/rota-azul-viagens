@@ -734,6 +734,64 @@ const ErpFinanceiro: React.FC = () => {
     toast.success(`${lista.length} recibo(s) exportados`);
   };
 
+  // ===== Exportação em ZIP (recibos por período) =====
+  const exportRecibosZip = async () => {
+    if (!zipFrom || !zipTo) { toast.error('Informe as datas inicial e final.'); return; }
+    if (zipFrom > zipTo)   { toast.error('Data inicial deve ser anterior à final.'); return; }
+    setZipBusy(true);
+    setZipProgress(null);
+    try {
+      const lista = await receiptsService.list({ from: zipFrom, to: zipTo });
+      // Aplica filtros locais: ignora cancelados e (opcionalmente) sem validade jurídica.
+      const filtrados = lista.filter(r =>
+        r.status !== 'cancelado' &&
+        (zipIncludeSV || !r.semValidade)
+      );
+      if (filtrados.length === 0) {
+        toast.info('Nenhum recibo encontrado nesse período.');
+        setZipBusy(false);
+        return;
+      }
+      // Import dinâmico (não bloqueia bundle inicial)
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      const comValidade = zip.folder('com-validade');
+      const semValidade = zip.folder('sem-validade');
+      setZipProgress({ done: 0, total: filtrados.length });
+      for (let i = 0; i < filtrados.length; i++) {
+        const r = filtrados[i];
+        try {
+          const res = await generateReceiptPdf(r, { returnBlob: true });
+          if (res && 'blob' in res) {
+            const folder = r.semValidade ? semValidade : comValidade;
+            (folder || zip).file(res.filename, res.blob);
+          }
+        } catch (err) {
+          console.error('Falha ao gerar PDF do recibo', r.numero, err);
+        }
+        setZipProgress({ done: i + 1, total: filtrados.length });
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recibos_${zipFrom}_a_${zipTo}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`${filtrados.length} recibo(s) exportados em ZIP`);
+      setZipOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Falha ao gerar ZIP');
+    } finally {
+      setZipBusy(false);
+      setZipProgress(null);
+    }
+  };
+
+
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
