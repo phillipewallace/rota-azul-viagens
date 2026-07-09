@@ -55,6 +55,9 @@ export interface Contract {
   motivoEncerramento?: string | null;
   pdfUrl?: string | null;
   observacoes?: string | null;
+  responsavelNome?: string | null;
+  responsavelTelefone?: string | null;
+  responsavelEmail?: string | null;
   companySnapshot?: any;
   customerSnapshot?: any;
   createdAt: string;
