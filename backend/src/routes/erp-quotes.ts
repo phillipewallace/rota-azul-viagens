@@ -315,15 +315,17 @@ router.post('/:id/duplicate', async (req, res) => {
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
           modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
           desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais,
-          endereco_entrega, data_recolhimento, forma_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,$8,$9,$10,$11,$12,$13,$14,'rascunho',$15,$16,$17,$18,$19)
+          endereco_entrega, data_recolhimento, forma_pagamento,
+          responsavel_nome, responsavel_telefone, responsavel_email)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,$8,$9,$10,$11,$12,$13,$14,'rascunho',$15,$16,$17,$18,$19,$20,$21,$22)
        RETURNING id`,
       [numero, src.company_id, src.customer_id, src.company_snapshot, src.customer_snapshot,
        src.modalidade, src.tipo_locacao, src.validade_dias,
        src.observacoes, src.condicoes_pagamento,
        src.desconto_pct, src.frete, src.subtotal, src.total,
        src.data_entrega, src.limpezas_semanais,
-       src.endereco_entrega, src.data_recolhimento, src.forma_pagamento]
+       src.endereco_entrega, src.data_recolhimento, src.forma_pagamento,
+       src.responsavel_nome, src.responsavel_telefone, src.responsavel_email]
     );
     const newId = ins.rows[0].id;
 
