@@ -109,6 +109,17 @@ const nextDueDate = (competencia: string, diaVencimento: number): string => {
   return `${nextY}-${String(nextM).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 };
 
+// Vencimento efetivo DENTRO da própria competência (dia X do mês da comp,
+// clamp para o último dia do mês). Usado pelos filtros da aba Pendentes.
+const dueDateInComp = (competencia: string, diaVencimento: number): string => {
+  const [y, m] = (competencia || '').split('-').map(Number);
+  if (!y || !m) return '';
+  const ult = new Date(y, m, 0).getDate();
+  const dia = Math.min(Math.max(1, Number(diaVencimento || 10)), ult);
+  return `${y}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+};
+
+
 const FORMA_LABEL: Record<FormaPagamento, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro', boleto: 'Boleto',
   cartao: 'Cartão', transferencia: 'Transferência', outro: 'Outro',
@@ -164,6 +175,14 @@ const ErpFinanceiro: React.FC = () => {
   const [zipIncludeSV, setZipIncludeSV] = useState(true);
   const [zipBusy, setZipBusy] = useState(false);
   const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
+
+  // filtros da aba Pendentes (client-side, 100% local)
+  const [pendSearch, setPendSearch] = useState('');
+  const [pendCompanyId, setPendCompanyId] = useState<string>('all');
+  const [pendVencFrom, setPendVencFrom] = useState('');
+  const [pendVencTo, setPendVencTo] = useState('');
+  const [pendQuick, setPendQuick] = useState<'none' | 'vencidos' | 'em7'>('none');
+
 
 
   
@@ -453,8 +472,45 @@ const ErpFinanceiro: React.FC = () => {
     else toast.warning(`${ok} ok, ${fail} falharam`);
   };
 
+  // Lista de pendentes após aplicar os filtros da própria aba.
+  const pendentesFiltrados = useMemo(() => {
+    const q = pendSearch.trim().toLowerCase();
+    const t = todayISO();
+    return pendentes.filter((p) => {
+      if (pendCompanyId !== 'all' && String(p.companyId || '') !== pendCompanyId) return false;
+      if (q) {
+        const hay = [
+          p.contractNumero, p.customerName, p.customerDocument,
+          p.companyRazaoSocial, p.companyCnpj,
+        ].map(v => String(v || '').toLowerCase()).join(' | ');
+        if (!hay.includes(q)) return false;
+      }
+      if (pendVencFrom || pendVencTo || pendQuick !== 'none') {
+        const venc = dueDateInComp(competencia, Number(p.diaVencimento || 10));
+        if (!venc) return true;
+        if (pendVencFrom && venc < pendVencFrom) return false;
+        if (pendVencTo && venc > pendVencTo) return false;
+        if (pendQuick === 'vencidos' && !(venc < t)) return false;
+        if (pendQuick === 'em7') {
+          const d = diffDays(venc, t);
+          if (!(d >= 0 && d <= 7)) return false;
+        }
+      }
+      return true;
+    });
+  }, [pendentes, pendSearch, pendCompanyId, pendVencFrom, pendVencTo, pendQuick, competencia]);
+
+  const pendFiltroAtivo =
+    !!pendSearch || pendCompanyId !== 'all' || !!pendVencFrom || !!pendVencTo || pendQuick !== 'none';
+
+  const clearPendFilters = () => {
+    setPendSearch(''); setPendCompanyId('all');
+    setPendVencFrom(''); setPendVencTo(''); setPendQuick('none');
+  };
+
   // Habilita "recibo unificado" quando 2+ pendentes selecionados são
   // da MESMA empresa emissora E do MESMO cliente.
+
   const unifiedGroup = useMemo(() => {
     if (selected.size < 2) return null;
     const arr = pendentes.filter(p => selected.has(p.contractId));
@@ -632,9 +688,23 @@ const ErpFinanceiro: React.FC = () => {
     });
   };
   const toggleSelAll = () => {
-    if (selected.size === pendentes.length) setSelected(new Set());
-    else setSelected(new Set(pendentes.map(p => p.contractId)));
+    const ids = pendentesFiltrados.map(p => p.contractId);
+    const allSelected = ids.length > 0 && ids.every(id => selected.has(id));
+    if (allSelected) {
+      setSelected(prev => {
+        const n = new Set(prev);
+        ids.forEach(id => n.delete(id));
+        return n;
+      });
+    } else {
+      setSelected(prev => {
+        const n = new Set(prev);
+        ids.forEach(id => n.add(id));
+        return n;
+      });
+    }
   };
+
 
   const clearFilters = () => {
     setFilterStatus('all'); setFilterCompanyId('all'); setSearch('');
@@ -870,7 +940,10 @@ const ErpFinanceiro: React.FC = () => {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <TabsList>
           <TabsTrigger value="pendentes">
-            Pendentes <Badge variant="outline" className="ml-2">{pendentes.length}</Badge>
+            Pendentes <Badge variant="outline" className="ml-2">
+              {pendFiltroAtivo ? `${pendentesFiltrados.length}/${pendentes.length}` : pendentes.length}
+            </Badge>
+
           </TabsTrigger>
           <TabsTrigger value="pagos">
             Pagos do mês <Badge variant="outline" className="ml-2">{pagosDoMes.length}</Badge>
@@ -889,6 +962,54 @@ const ErpFinanceiro: React.FC = () => {
 
         <TabsContent value="pendentes">
           <Card>
+            <CardContent className="p-4 space-y-3 border-b">
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <Label className="text-xs">Buscar</Label>
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Input
+                      value={pendSearch}
+                      onChange={e => setPendSearch(e.target.value)}
+                      className="h-9 pl-7"
+                      placeholder="nº contrato, cliente, empresa, CNPJ/CPF…"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Empresa</Label>
+                  <Select value={pendCompanyId} onValueChange={setPendCompanyId}>
+                    <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Vencimento de</Label>
+                  <Input type="date" value={pendVencFrom} onChange={e => setPendVencFrom(e.target.value)} className="h-9 w-[150px]" />
+                </div>
+                <div>
+                  <Label className="text-xs">Vencimento até</Label>
+                  <Input type="date" value={pendVencTo} onChange={e => setPendVencTo(e.target.value)} className="h-9 w-[150px]" />
+                </div>
+                {pendFiltroAtivo && (
+                  <Button variant="ghost" size="sm" onClick={clearPendFilters}>Limpar</Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <QuickChip active={pendQuick === 'none'} onClick={() => setPendQuick('none')}>Todos</QuickChip>
+                <QuickChip active={pendQuick === 'vencidos'} onClick={() => setPendQuick('vencidos')} tone="rose">Vencidos</QuickChip>
+                <QuickChip active={pendQuick === 'em7'} onClick={() => setPendQuick('em7')} tone="amber">Vence em 7 dias</QuickChip>
+                {pendFiltroAtivo && (
+                  <span className="ml-auto text-xs text-muted-foreground self-center">
+                    Exibindo {pendentesFiltrados.length} de {pendentes.length}
+                  </span>
+                )}
+              </div>
+            </CardContent>
+
             <CardContent className="p-3 flex flex-wrap items-center justify-between gap-2 border-b">
               <div className="text-xs text-slate-500">
                 {selected.size > 0
@@ -1026,14 +1147,17 @@ const ErpFinanceiro: React.FC = () => {
             <CardContent className="p-0">
               <div
                 ref={pendentesScrollRef}
-                className={`overflow-auto ${pendentes.length > 50 ? 'max-h-[70vh]' : ''}`}
+                className={`overflow-auto ${pendentesFiltrados.length > 50 ? 'max-h-[70vh]' : ''}`}
               >
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
                       <TableHead className="w-10">
                         <Checkbox aria-label="Selecionar todos"
-                          checked={pendentes.length > 0 && selected.size === pendentes.length}
+                          checked={
+                            pendentesFiltrados.length > 0 &&
+                            pendentesFiltrados.every(p => selected.has(p.contractId))
+                          }
                           onCheckedChange={toggleSelAll} />
                       </TableHead>
                       <TableHead>Contrato</TableHead>
@@ -1045,14 +1169,16 @@ const ErpFinanceiro: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pendentes.length === 0 && (
+                    {pendentesFiltrados.length === 0 && (
                       <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        Nenhuma cobrança pendente para {formatComp(competencia)}.
+                        {pendFiltroAtivo
+                          ? 'Nenhum pendente para os filtros selecionados.'
+                          : `Nenhuma cobrança pendente para ${formatComp(competencia)}.`}
                       </TableCell></TableRow>
                     )}
                     <VirtualRows
                       scrollRef={pendentesScrollRef}
-                      items={pendentes}
+                      items={pendentesFiltrados}
                       colSpan={7}
                       estimateSize={56}
                       getKey={(p) => p.contractId}
@@ -1066,7 +1192,13 @@ const ErpFinanceiro: React.FC = () => {
                           <TableCell className="font-mono text-xs">{p.contractNumero}</TableCell>
                           <TableCell className="max-w-[200px] truncate">{p.customerName || '—'}</TableCell>
                           <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{p.companyRazaoSocial || '—'}</TableCell>
-                          <TableCell className="text-xs">dia {p.diaVencimento}</TableCell>
+                          <TableCell className="text-xs">
+                            <div className="flex flex-col leading-tight">
+                              <span className="tabular-nums">{D(dueDateInComp(competencia, Number(p.diaVencimento || 10)))}</span>
+                              <span className="text-[10px] text-muted-foreground">dia {p.diaVencimento}</span>
+                            </div>
+                          </TableCell>
+
                           <TableCell className="text-right font-semibold">{BRL(Number(p.valorMensal))}</TableCell>
                           <TableCell className="text-right whitespace-nowrap space-x-1">
                             <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
