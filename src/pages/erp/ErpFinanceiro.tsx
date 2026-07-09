@@ -1147,14 +1147,17 @@ const ErpFinanceiro: React.FC = () => {
             <CardContent className="p-0">
               <div
                 ref={pendentesScrollRef}
-                className={`overflow-auto ${pendentes.length > 50 ? 'max-h-[70vh]' : ''}`}
+                className={`overflow-auto ${pendentesFiltrados.length > 50 ? 'max-h-[70vh]' : ''}`}
               >
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
                       <TableHead className="w-10">
                         <Checkbox aria-label="Selecionar todos"
-                          checked={pendentes.length > 0 && selected.size === pendentes.length}
+                          checked={
+                            pendentesFiltrados.length > 0 &&
+                            pendentesFiltrados.every(p => selected.has(p.contractId))
+                          }
                           onCheckedChange={toggleSelAll} />
                       </TableHead>
                       <TableHead>Contrato</TableHead>
@@ -1166,14 +1169,16 @@ const ErpFinanceiro: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pendentes.length === 0 && (
+                    {pendentesFiltrados.length === 0 && (
                       <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        Nenhuma cobrança pendente para {formatComp(competencia)}.
+                        {pendFiltroAtivo
+                          ? 'Nenhum pendente para os filtros selecionados.'
+                          : `Nenhuma cobrança pendente para ${formatComp(competencia)}.`}
                       </TableCell></TableRow>
                     )}
                     <VirtualRows
                       scrollRef={pendentesScrollRef}
-                      items={pendentes}
+                      items={pendentesFiltrados}
                       colSpan={7}
                       estimateSize={56}
                       getKey={(p) => p.contractId}
@@ -1187,7 +1192,13 @@ const ErpFinanceiro: React.FC = () => {
                           <TableCell className="font-mono text-xs">{p.contractNumero}</TableCell>
                           <TableCell className="max-w-[200px] truncate">{p.customerName || '—'}</TableCell>
                           <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{p.companyRazaoSocial || '—'}</TableCell>
-                          <TableCell className="text-xs">dia {p.diaVencimento}</TableCell>
+                          <TableCell className="text-xs">
+                            <div className="flex flex-col leading-tight">
+                              <span className="tabular-nums">{D(dueDateInComp(competencia, Number(p.diaVencimento || 10)))}</span>
+                              <span className="text-[10px] text-muted-foreground">dia {p.diaVencimento}</span>
+                            </div>
+                          </TableCell>
+
                           <TableCell className="text-right font-semibold">{BRL(Number(p.valorMensal))}</TableCell>
                           <TableCell className="text-right whitespace-nowrap space-x-1">
                             <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
