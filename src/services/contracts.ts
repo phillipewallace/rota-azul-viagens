@@ -137,14 +137,17 @@ export interface ReceiptsSummaryPoint {
   resultado: number;
 }
 export const receiptsService = {
-  list: (params?: { contractId?: string; competencia?: string; pago?: boolean }) => {
+  list: (params?: { contractId?: string; competencia?: string; pago?: boolean; from?: string; to?: string }) => {
     const q = new URLSearchParams();
     if (params?.contractId) q.set('contractId', params.contractId);
     if (params?.competencia) q.set('competencia', params.competencia);
     if (params?.pago !== undefined) q.set('pago', String(params.pago));
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
     const s = q.toString();
     return req<Receipt[]>('GET', `/erp/receipts${s ? '?' + s : ''}`);
   },
+
   pending: (competencia?: string) =>
     req<{ competencia: string; pendentes: PendingReceipt[] }>(
       'GET', `/erp/receipts/pending${competencia ? '?competencia=' + competencia : ''}`),
