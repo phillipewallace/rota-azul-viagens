@@ -235,6 +235,9 @@ const ErpContracts: React.FC = () => {
       companyRazaoSocial: full.companyRazaoSocial,
       companyCnpj: full.companyCnpj,
       customerName: full.customerName,
+      responsavelNome: full.responsavelNome || null,
+      responsavelTelefone: full.responsavelTelefone || null,
+      responsavelEmail: full.responsavelEmail || null,
       items: itemsFromOs,
     };
   };
