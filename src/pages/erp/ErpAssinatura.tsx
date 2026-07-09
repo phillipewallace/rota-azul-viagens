@@ -19,10 +19,7 @@ import { erpService, type ErpCompany } from '@/services/erp';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { stampSignatureOnPdf, type SignaturePlacement } from '@/utils/pdfSignatureStamp';
 import { FileSignature, Upload, ChevronLeft, ChevronRight, Trash2, Download, AlertTriangle, Copy } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+import { pdfjsLib } from '@/utils/pdfjsWorker';
 
 interface Placement extends SignaturePlacement {}
 
@@ -73,26 +70,43 @@ const ErpAssinatura: React.FC = () => {
   useEffect(() => {
     if (!pdfBytes) return;
     let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) {
+        console.error('[Assinatura] pdfjs.getDocument não respondeu em 15s (worker provavelmente não carregou).');
+        toast({
+          title: 'Falha ao ler o PDF',
+          description: 'O leitor de PDF não respondeu. Recarregue a página e tente novamente.',
+          variant: 'destructive',
+        });
+      }
+    }, 15000);
     (async () => {
       try {
-        const clone = pdfBytes.slice(0); // pdfjs pode consumir o buffer
-        const doc = await pdfjsLib.getDocument({ data: clone }).promise;
+        // pdfjs consome o buffer; passar uma cópia como Uint8Array garante compatibilidade.
+        const data = new Uint8Array(pdfBytes.slice(0));
+        const doc = await pdfjsLib.getDocument({ data }).promise;
         if (cancelled) return;
         setPdfDoc(doc);
         setNumPages(doc.numPages);
         setPageIndex(0);
         setPlacements([]);
       } catch (e: any) {
-        toast({ title: 'PDF inválido', description: e?.message || 'Não foi possível abrir o arquivo.', variant: 'destructive' });
+        console.error('[Assinatura] Erro ao abrir PDF:', e);
+        if (!cancelled) {
+          toast({ title: 'PDF inválido', description: e?.message || 'Não foi possível abrir o arquivo.', variant: 'destructive' });
+        }
+      } finally {
+        window.clearTimeout(timeoutId);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; window.clearTimeout(timeoutId); };
   }, [pdfBytes, toast]);
 
   // Renderiza a página atual no canvas
   useEffect(() => {
     if (!pdfDoc) return;
     let cancelled = false;
+    let renderTask: any = null;
     (async () => {
       setRendering(true);
       try {
@@ -106,14 +120,18 @@ const ErpAssinatura: React.FC = () => {
         canvas.width = scaled.width;
         canvas.height = scaled.height;
         const ctx = canvas.getContext('2d')!;
-        await page.render({ canvasContext: ctx, viewport: scaled, canvas }).promise;
-      } catch (e) {
+        renderTask = page.render({ canvasContext: ctx, viewport: scaled });
+        await renderTask!.promise;
+      } catch (e: any) {
         // pdfjs joga exceção quando cancela; ignoramos silenciosamente
+        if (e?.name !== 'RenderingCancelledException') {
+          console.error('[Assinatura] Erro ao renderizar página:', e);
+        }
       } finally {
         if (!cancelled) setRendering(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; renderTask?.cancel?.(); };
   }, [pdfDoc, pageIndex]);
 
   const onFile = async (file: File) => {
@@ -308,7 +326,10 @@ const ErpAssinatura: React.FC = () => {
                 onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
               />
             </label>
-            {pdfFile && (
+            {pdfFile && !pdfDoc && (
+              <p className="text-xs text-muted-foreground">Carregando PDF…</p>
+            )}
+            {pdfFile && pdfDoc && (
               <p className="text-xs text-muted-foreground">
                 {numPages} página{numPages !== 1 ? 's' : ''} · Clique na pré-visualização para posicionar a assinatura.
               </p>
