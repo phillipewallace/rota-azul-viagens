@@ -106,7 +106,7 @@ const ErpAssinatura: React.FC = () => {
   useEffect(() => {
     if (!pdfDoc) return;
     let cancelled = false;
-    let renderTask: { cancel: () => void } | null = null;
+    let renderTask: any = null;
     (async () => {
       setRendering(true);
       try {
