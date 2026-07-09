@@ -37,6 +37,7 @@ import erpReceiptsRoutes from './routes/erp-receipts';
 import erpExpensesRoutes from './routes/erp-expenses';
 import erpExpenseCategoriesRoutes from './routes/erp-expense-categories';
 import erpRecurringExpensesRoutes from './routes/erp-recurring-expenses';
+import erpSignedPdfsRoutes from './routes/erp-signed-pdfs';
 import checklistsRoutes from './routes/checklists';
 import carretinhasRoutes from './routes/carretinhas';
 import path from 'path';
@@ -143,6 +144,7 @@ app.use('/api/erp/receipts', erpReceiptsRoutes);
 app.use('/api/erp/expenses', erpExpensesRoutes);
 app.use('/api/erp/expense-categories', erpExpenseCategoriesRoutes);
 app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
+app.use('/api/erp/signed-pdfs', erpSignedPdfsRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
 

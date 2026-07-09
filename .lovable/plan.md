@@ -1,66 +1,96 @@
-# Plano — Corrigir pré-visualização do PDF na aba Assinatura
+# Plano — Corrigir "Gerar PDF assinado" + nova aba "Assinados"
 
-## Diagnóstico
+## Diagnóstico do bug atual
+No `handleGenerate` de `ErpAssinatura.tsx` fazemos:
 
-A aba mostra "0 páginas · Clique na pré-visualização..." e nenhum canvas é desenhado. Isso significa que o `pdfjs.getDocument(...).promise` **falha ou nunca resolve** — por isso `numPages` fica em 0 e o `useEffect` de renderização não dispara.
+```
+const blob = new Blob([out as BlobPart], { type: 'application/pdf' });
+```
 
-Causas prováveis, em ordem:
+`pdf-lib.save()` retorna um `Uint8Array`. Em builds recentes do TS/Vite, esse `Uint8Array` (que é `ArrayBufferView`) é aceito em `BlobPart`, MAS quando o backing buffer é um `SharedArrayBuffer` ou quando ocorre transferência, o Blob resulta em 0 bytes silenciosamente — nada é baixado e nenhum erro é lançado. É exatamente o sintoma relatado ("não dá nada, não salva, não baixa"). O caminho robusto é passar o `.buffer` fatiado (`out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength)`).
 
-1. **`pdfjs-dist` v6 (instalada: `^6.1.200`) é incompatível com o padrão de uso atual.**
-   - A v6 é ESM-only, exige APIs muito recentes e mudou a assinatura de `page.render()` (o parâmetro `canvasContext` foi removido/alterado — hoje espera `{ canvas, viewport }`).
-   - Nosso código passa `{ canvasContext, viewport, canvas }`, o que pode disparar throw dentro da Promise de render.
-   - O worker importado via `pdfjs-dist/build/pdf.worker.min.mjs?url` precisa **casar exatamente** a versão do `pdf.mjs`. Em v6 há relatos de o worker não subir corretamente quando o Vite pré-bundleia o `pdfjs-dist` (o main roda como ESM, o worker como classic script, mismatch de versão → `getDocument` fica pendurado sem rejeitar).
+Além disso, o `<a>.click()` programático em alguns navegadores exige que o elemento esteja no DOM antes do click e que o `href` seja revogado só depois — nosso código já faz, mas vamos garantir. Vou também envolver tudo em try/catch com log para nunca falhar em silêncio.
 
-2. **Falta de log/feedback do erro.** O `try/catch` em volta do `getDocument` só chama `toast`. Se a Promise fica pendurada (não rejeita), nem o toast aparece — é exatamente o sintoma "nada acontece".
+## Etapa 1 — Consertar o download
+1. Em `src/pages/erp/ErpAssinatura.tsx`, dentro de `handleGenerate`:
+   - Construir o Blob a partir de um `ArrayBuffer` limpo: `new Blob([out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength)], { type: 'application/pdf' })`.
+   - Adicionar `console.log` do tamanho (`out.byteLength`) para diagnóstico rápido no console.
+   - Se `out.byteLength === 0`, lançar erro visível via toast.
+   - Manter o fluxo existente de `URL.createObjectURL` + `<a download>`.
 
-3. **`pre-bundle` do Vite.** O `pdfjs-dist` costuma quebrar quando o Vite tenta otimizá-lo; a solução padrão é excluí-lo do `optimizeDeps` ou usar o build `legacy`.
+## Etapa 2 — Persistir os PDFs assinados no backend
+Para que a aba "Assinados" liste histórico entre sessões e usuários, precisamos salvar o arquivo no servidor.
 
-## Passos da correção
+### 2.1 Migration SQL
+Novo arquivo `database/migration-erp-signed-pdfs.sql`:
+```sql
+CREATE TABLE IF NOT EXISTS erp_signed_pdfs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES erp_companies(id) ON DELETE SET NULL,
+  original_filename TEXT NOT NULL,
+  stored_filename TEXT NOT NULL,          -- nome no disco (uuid.pdf)
+  file_url TEXT NOT NULL,                 -- /uploads/signed/<uuid>.pdf
+  pages INTEGER,
+  placements_count INTEGER,
+  size_bytes BIGINT,
+  created_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, DELETE ON erp_signed_pdfs TO lipe;
+```
+(sem RLS — segue o padrão do restante do ERP no projeto.)
 
-### 1. Fixar versão estável do `pdfjs-dist`
-- Downgrade para `pdfjs-dist@4.8.69` (última linha estável amplamente usada no ecossistema React/Vite, mesma major do worker exportado como `.mjs`, API `page.render({ canvasContext, viewport })` funcionando).
-- Manter `pdf-lib` como está (não tem relação com o bug).
+### 2.2 Backend — nova rota `backend/src/routes/erp-signed-pdfs.ts`
+Endpoints:
+- `POST /api/erp/signed-pdfs` — multipart com campo `file` (o PDF assinado) + `companyId`, `originalFilename`, `pages`, `placementsCount`. Salva em `backend/uploads/signed/<uuid>.pdf`, insere row, devolve JSON com `id`, `fileUrl`, etc.
+- `GET /api/erp/signed-pdfs` — lista ordenada por `created_at DESC` (opcional `?companyId=`).
+- `DELETE /api/erp/signed-pdfs/:id` — remove row + arquivo do disco.
 
-### 2. Ajustar o carregamento do worker
-- Trocar a importação para o build **legacy** (mais tolerante em navegadores/Vite):
-  - `import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'` → manter, mas usar a mesma major da lib para garantir versão idêntica.
-- Configurar `GlobalWorkerOptions.workerSrc` **uma única vez** em módulo separado (`src/utils/pdfjsWorker.ts`) importado no topo da página, evitando duplicidade caso outras telas usem pdfjs no futuro.
+Registrar em `backend/src/index.ts` como `app.use('/api/erp/signed-pdfs', signedPdfsRoutes)`.
 
-### 3. Ajustar `vite.config.ts`
-- Adicionar `optimizeDeps.exclude: ['pdfjs-dist']` para o Vite não pré-bundleá-lo (evita mismatch de versão main × worker).
-- Adicionar `worker: { format: 'es' }` se necessário.
+Reaproveitar padrão do `upload.ts` (multer diskStorage), garantindo criação do diretório `uploads/signed/`.
 
-### 4. Corrigir `page.render(...)` em `ErpAssinatura.tsx`
-- Passar apenas `{ canvasContext: ctx, viewport: scaled }` (retirar `canvas`, que é ignorado/errado dependendo da versão).
-- Guardar a `RenderTask` retornada e chamar `.cancel()` no cleanup do `useEffect` (evita race entre render de páginas ao navegar rápido).
+### 2.3 Service no frontend
+Adicionar em `src/services/erp.ts` (ou novo `src/services/signedPdfs.ts`):
+- `listSignedPdfs(companyId?)`
+- `uploadSignedPdf(file, meta)`
+- `deleteSignedPdf(id)`
 
-### 5. Melhorar feedback de erro
-- Envolver `getDocument(...).promise` num `try/catch` que também loga `console.error` com o erro real.
-- Adicionar timeout de 10s: se não resolver, mostrar toast "Falha ao ler o PDF (worker não carregou)".
-- Mostrar no card, quando `pdfFile` está setado mas `pdfDoc` ainda não, a mensagem "Carregando PDF…" em vez do estado atual (que engana o usuário mostrando "0 páginas").
+Modelo TypeScript `SignedPdf { id, companyId, originalFilename, fileUrl, pages, placementsCount, sizeBytes, createdAt }`.
 
-### 6. Sanidade dos bytes
-- Passar `new Uint8Array(pdfBytes.slice(0))` para `getDocument({ data })` — algumas versões do pdfjs não aceitam `ArrayBuffer` puro e ficam em Promise pendente.
+### 2.4 Integração no `ErpAssinatura`
+Após gerar o blob com sucesso (Etapa 1), antes de disparar o download:
+- Fazer upload para `POST /api/erp/signed-pdfs` (silencioso — se falhar, apenas toast informativo, mas o download local continua funcionando).
+- Toast final: "PDF assinado gerado e salvo no histórico."
 
-### 7. Verificação
-- Rodar typecheck.
-- Testar no navegador com um PDF simples: confirmar que:
-  - o número de páginas aparece,
-  - o canvas é desenhado,
-  - navegação entre páginas funciona,
-  - clique posiciona a assinatura,
-  - "Gerar PDF assinado" baixa o arquivo com o carimbo correto.
+## Etapa 3 — Nova aba "Assinados"
+1. Novo componente `src/pages/erp/ErpAssinados.tsx`:
+   - Header igual ao das outras páginas ERP.
+   - Filtro por empresa (Select) + busca por nome do arquivo.
+   - Tabela/lista com: data, empresa, nome original, páginas, tamanho, ações [Baixar, Abrir, Excluir com confirm].
+   - Estado vazio: "Nenhum PDF assinado ainda. Vá para a aba Assinatura para começar."
+2. Roteamento em `src/App.tsx`: adicionar `/erp/assinados` apontando para o novo componente.
+3. Menu lateral do ERP (`src/pages/erp/ErpLayout.tsx`): adicionar item "Assinados" logo abaixo de "Assinatura", com ícone `Files` (lucide).
 
-## Arquivos a alterar
+## Etapa 4 — Verificação
+- `npm run build` e checar erros.
+- Playwright headless: abrir `/erp/assinatura`, subir um PDF de teste, clicar em posicionar assinatura, gerar, verificar:
+  - download disparou (evento `download`),
+  - request `POST /api/erp/signed-pdfs` retornou 200,
+  - `/erp/assinados` lista o item recém-criado.
+- Inspecionar arquivo baixado: `pdfinfo` para confirmar páginas > 0.
 
-- **`package.json`** — downgrade `pdfjs-dist` para `^4.8.69`.
-- **`vite.config.ts`** — `optimizeDeps.exclude` do `pdfjs-dist`.
-- **`src/utils/pdfjsWorker.ts`** *(novo)* — configuração única do `workerSrc`.
-- **`src/pages/erp/ErpAssinatura.tsx`** — usar o módulo do worker, ajustar `page.render`, cancelar `RenderTask`, melhorar feedback de erro/carregamento, converter bytes para `Uint8Array`.
+## Arquivos previstos
+- **Editar:** `src/pages/erp/ErpAssinatura.tsx`, `src/App.tsx`, `src/pages/erp/ErpLayout.tsx`, `src/services/erp.ts`, `backend/src/index.ts`.
+- **Criar:** `src/pages/erp/ErpAssinados.tsx`, `database/migration-erp-signed-pdfs.sql`, `backend/src/routes/erp-signed-pdfs.ts` (+ possivelmente `src/services/signedPdfs.ts`).
 
 ## Fora do escopo
+- Assinatura digital com validade jurídica (ICP-Brasil) — segue sendo carimbo visual.
+- Compartilhamento por link público / autenticação por token nos PDFs assinados.
+- Edição pós-assinatura.
 
-- Sem mudanças em backend, banco, ou na lógica de `pdfSignatureStamp.ts` (a geração final via `pdf-lib` não é afetada).
-- Sem mexer em outras telas ERP.
+## Observações de deploy
+- Rodar a migration em produção antes do deploy do backend.
+- Criar (ou permitir criação automática) do diretório `backend/uploads/signed/` no servidor.
 
-Aprovando, eu aplico exatamente esses passos.
+Aprovando, começo pela Etapa 1 (que já resolve o problema imediato do download) e sigo para 2–3.

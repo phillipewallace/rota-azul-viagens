@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { erpService, type ErpCompany } from '@/services/erp';
+import { erpService, uploadSignedPdfBlob, type ErpCompany } from '@/services/erp';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { stampSignatureOnPdf, type SignaturePlacement } from '@/utils/pdfSignatureStamp';
 import { FileSignature, Upload, ChevronLeft, ChevronRight, Trash2, Download, AlertTriangle, Copy } from 'lucide-react';
@@ -251,18 +251,51 @@ const ErpAssinatura: React.FC = () => {
     setGenerating(true);
     try {
       const out = await stampSignatureOnPdf(pdfBytes, signatureUrl, placements);
-      const blob = new Blob([out as BlobPart], { type: 'application/pdf' });
+      const bytes = out instanceof Uint8Array ? out : new Uint8Array(out as any);
+      console.log('[Assinatura] PDF gerado, bytes =', bytes.byteLength);
+      if (!bytes.byteLength) throw new Error('PDF gerado vazio (0 bytes).');
+      // Copia para um ArrayBuffer limpo — evita corner cases em que o backing
+      // buffer do Uint8Array não é aceito pelo construtor Blob e resulta em 0 bytes.
+      const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      const blob = new Blob([ab], { type: 'application/pdf' });
+      console.log('[Assinatura] Blob size =', blob.size);
+
+      const base = pdfFile?.name?.replace(/\.pdf$/i, '') || 'documento';
+      const filename = `${base}-assinado.pdf`;
+
+      // Download local
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      const base = pdfFile?.name?.replace(/\.pdf$/i, '') || 'documento';
       a.href = url;
-      a.download = `${base}-assinado.pdf`;
+      a.download = filename;
+      a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      toast({ title: 'PDF assinado gerado', description: 'O download foi iniciado.' });
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+      // Salva histórico no backend (silencioso — não bloqueia o download)
+      let saved = false;
+      try {
+        await uploadSignedPdfBlob(blob, {
+          companyId: companyId || undefined,
+          originalFilename: filename,
+          pages: numPages,
+          placementsCount: placements.length,
+        });
+        saved = true;
+      } catch (err: any) {
+        console.warn('[Assinatura] Falha ao salvar no histórico:', err);
+      }
+
+      toast({
+        title: 'PDF assinado gerado',
+        description: saved
+          ? 'Download iniciado e arquivo salvo em Assinados.'
+          : 'Download iniciado. Não foi possível salvar no histórico.',
+      });
     } catch (e: any) {
+      console.error('[Assinatura] Erro:', e);
       toast({ title: 'Falha ao gerar', description: e?.message || 'Erro desconhecido.', variant: 'destructive' });
     } finally {
       setGenerating(false);
