@@ -940,7 +940,10 @@ const ErpFinanceiro: React.FC = () => {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <TabsList>
           <TabsTrigger value="pendentes">
-            Pendentes <Badge variant="outline" className="ml-2">{pendentes.length}</Badge>
+            Pendentes <Badge variant="outline" className="ml-2">
+              {pendFiltroAtivo ? `${pendentesFiltrados.length}/${pendentes.length}` : pendentes.length}
+            </Badge>
+
           </TabsTrigger>
           <TabsTrigger value="pagos">
             Pagos do mês <Badge variant="outline" className="ml-2">{pagosDoMes.length}</Badge>
