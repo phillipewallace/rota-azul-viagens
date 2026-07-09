@@ -326,7 +326,10 @@ const ErpAssinatura: React.FC = () => {
                 onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
               />
             </label>
-            {pdfFile && (
+            {pdfFile && !pdfDoc && (
+              <p className="text-xs text-muted-foreground">Carregando PDF…</p>
+            )}
+            {pdfFile && pdfDoc && (
               <p className="text-xs text-muted-foreground">
                 {numPages} página{numPages !== 1 ? 's' : ''} · Clique na pré-visualização para posicionar a assinatura.
               </p>
