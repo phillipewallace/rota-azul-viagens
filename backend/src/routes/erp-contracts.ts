@@ -95,12 +95,14 @@ router.post('/', async (req, res) => {
          data_evento, data_recolhimento, local_evento, hora_entrega, valor_total_evento,
          dia_vencimento, valor_mensal,
          renovacao_automatica, ativo, pdf_url, observacoes,
-         company_snapshot, customer_snapshot, frete, endereco_obra, cno)
+         company_snapshot, customer_snapshot, frete, endereco_obra, cno,
+         responsavel_nome, responsavel_telefone, responsavel_email)
        VALUES ($1,$2,$3,$4,COALESCE($5,'manual'),$6,
                COALESCE($7,'locacao'),$8,$9,
                $10,$11,$12,$13,$14,
                COALESCE($15,10),COALESCE($16,0),
-               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25)
+               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25,
+               $26,$27,$28)
        RETURNING id, numero`,
       [numero, c.companyId || null, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
@@ -111,7 +113,8 @@ router.post('/', async (req, res) => {
        c.diaVencimento ?? 10, c.valorMensal ?? 0,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null, c.observacoes || null,
        companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0,
-       c.enderecoObra || null, c.cno || null]
+       c.enderecoObra || null, c.cno || null,
+       c.responsavelNome || null, c.responsavelTelefone || null, c.responsavelEmail || null]
     );
 
     await client.query('COMMIT');
