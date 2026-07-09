@@ -768,7 +768,36 @@ const ErpQuotes: React.FC = () => {
                 )}
               </div>
 
+              {/* Responsável pelo orçamento (contato do pedido) */}
+              <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
+                <div className="text-sm font-semibold">Responsável pelo orçamento</div>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Contato específico deste orçamento (quem solicitou). Não altera o cadastro do cliente.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Nome</label>
+                    <Input value={editing.responsavelNome || ''} maxLength={160}
+                           placeholder="Ex.: Maria Souza"
+                           onChange={e => setEditing({ ...editing, responsavelNome: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Telefone</label>
+                    <Input value={editing.responsavelTelefone || ''} maxLength={32}
+                           placeholder="(11) 91234-5678"
+                           onChange={e => setEditing({ ...editing, responsavelTelefone: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">E-mail</label>
+                    <Input type="email" value={editing.responsavelEmail || ''} maxLength={160}
+                           placeholder="responsavel@empresa.com"
+                           onChange={e => setEditing({ ...editing, responsavelEmail: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
               {/* Tabela de itens */}
+
               <div className="border rounded-lg overflow-hidden">
                 <div className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 bg-gray-100 text-xs font-semibold">
                   <div>Produto</div>
