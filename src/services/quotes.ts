@@ -40,6 +40,9 @@ export interface Quote {
   customerName?: string;
   customerDocument?: string;
   customerSnapshot?: any;
+  responsavelNome?: string | null;
+  responsavelTelefone?: string | null;
+  responsavelEmail?: string | null;
   companySnapshot?: any;
   modalidade: Modalidade;
   tipoLocacao?: TipoLocacao;

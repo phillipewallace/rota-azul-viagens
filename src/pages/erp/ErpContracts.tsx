@@ -235,6 +235,9 @@ const ErpContracts: React.FC = () => {
       companyRazaoSocial: full.companyRazaoSocial,
       companyCnpj: full.companyCnpj,
       customerName: full.customerName,
+      responsavelNome: full.responsavelNome || null,
+      responsavelTelefone: full.responsavelTelefone || null,
+      responsavelEmail: full.responsavelEmail || null,
       items: itemsFromOs,
     };
   };
@@ -727,6 +730,7 @@ function ContractFormDialog({
     dataEvento: '', dataRecolhimento: '', localEvento: '', horaEntrega: '',
     valorTotalEvento: 0,
     enderecoObra: '', cno: '',
+    responsavelNome: '', responsavelTelefone: '', responsavelEmail: '',
   };
 
   const [form, setForm] = useState<any>(empty);
@@ -768,6 +772,9 @@ function ContractFormDialog({
         valorTotalEvento: Number(editing.valorTotalEvento || 0),
         enderecoObra: (editing as any).enderecoObra || '',
         cno: (editing as any).cno || '',
+        responsavelNome: editing.responsavelNome || '',
+        responsavelTelefone: editing.responsavelTelefone || '',
+        responsavelEmail: editing.responsavelEmail || '',
       });
 
       // Editando um contrato existente: o dia já foi decidido, não sobrescreve.
@@ -979,6 +986,35 @@ function ContractFormDialog({
               onChange={(e) => setForm({ ...form, cno: e.target.value })}
               placeholder="Ex.: CNO 12.345.67890/12 ou OC nº 4500123456" />
           </div>
+
+          <div className="md:col-span-2 border rounded-lg p-3 space-y-2 bg-muted/30">
+            <div className="text-sm font-semibold">Responsável pelo contrato</div>
+            <p className="text-[11px] text-muted-foreground -mt-1">
+              Contato específico deste contrato (quem solicitou a locação). Não altera o cadastro do cliente.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs">Nome</Label>
+                <Input value={form.responsavelNome} maxLength={160}
+                  onChange={(e) => setForm({ ...form, responsavelNome: e.target.value })}
+                  placeholder="Ex.: João Silva" />
+              </div>
+              <div>
+                <Label className="text-xs">Telefone</Label>
+                <Input value={form.responsavelTelefone} maxLength={32}
+                  onChange={(e) => setForm({ ...form, responsavelTelefone: e.target.value })}
+                  placeholder="(11) 91234-5678" />
+              </div>
+              <div>
+                <Label className="text-xs">E-mail</Label>
+                <Input type="email" value={form.responsavelEmail} maxLength={160}
+                  onChange={(e) => setForm({ ...form, responsavelEmail: e.target.value })}
+                  placeholder="responsavel@empresa.com" />
+              </div>
+            </div>
+          </div>
+
+
 
 
           <div className="flex items-center justify-between border rounded-lg p-3 md:col-span-2">

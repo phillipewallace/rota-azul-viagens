@@ -106,6 +106,19 @@ export async function generateQuotePdf(quote: Quote) {
   ].filter(Boolean).join('  |  ');
   if (cCont) { doc.text(cCont, M, y); y += 5; }
 
+  // Responsável específico deste orçamento (contato do pedido).
+  const respLine = [
+    (quote as any).responsavelNome ? `Responsável: ${(quote as any).responsavelNome}` : null,
+    (quote as any).responsavelTelefone ? `Tel.: ${(quote as any).responsavelTelefone}` : null,
+    (quote as any).responsavelEmail ? `E-mail: ${(quote as any).responsavelEmail}` : null,
+  ].filter(Boolean).join('  |  ');
+  if (respLine) {
+    doc.setFont('helvetica', 'bold'); doc.text('Contato deste orçamento:', M, y); y += 4.5;
+    doc.setFont('helvetica', 'normal');
+    const wrapped = doc.splitTextToSize(respLine, W - 2 * M);
+    doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 1;
+  }
+
   // Dados da locação / entrega
   y += 4;
   doc.setFillColor(243, 244, 246);

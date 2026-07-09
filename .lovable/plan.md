@@ -1,50 +1,78 @@
-# Filtros na aba Pendentes
+# Plano: campo "Responsável pelo documento" em Contrato e Orçamento
 
-## Campos disponíveis em cada `PendingReceipt`
+## Objetivo
+Permitir informar, por documento (contrato e orçamento), o **nome, telefone e e-mail da pessoa responsável** — separado dos dados cadastrais do cliente/empresa. Assim, quando a mesma empresa fizer múltiplas locações com contatos diferentes, cada documento guarda o solicitante real.
 
-Já vêm do backend `/erp/receipts/pending`, nenhuma mudança de API necessária:
-`contractNumero`, `customerName`, `customerDocument`, `companyRazaoSocial`, `companyCnpj`, `diaVencimento` (número, 1-31), `dataInicio`, `valorMensal`.
+## Escopo
+- Contratos (`erp_contracts`) — página `ErpContracts.tsx`.
+- Orçamentos (`erp_quotes`) — página `ErpQuotes.tsx`.
+- PDFs de contrato e orçamento (exibir o responsável quando preenchido).
+- **Fora do escopo:** Ordens de Serviço, Recibos, Recorrentes, Financeiro. Cliente permanece intocado (sem alteração no cadastro de clientes).
 
-## Nova barra de filtros
+## Passo a passo
 
-Adicionar um bloco `<CardContent>` acima da tabela (mesmo padrão visual da barra da aba "Recibos" para manter consistência), dentro de `<TabsContent value="pendentes">`:
+### 1) Banco de dados (migração nova)
+Arquivo: `database/migration-erp-responsavel-documento.sql`
+```sql
+ALTER TABLE erp_contracts
+  ADD COLUMN IF NOT EXISTS responsavel_nome     VARCHAR(160),
+  ADD COLUMN IF NOT EXISTS responsavel_telefone VARCHAR(32),
+  ADD COLUMN IF NOT EXISTS responsavel_email    VARCHAR(160);
 
-- **Buscar** — `Input` com ícone `Search`. Casa (case-insensitive, `includes`) contra:
-  - `contractNumero`, `customerName`, `customerDocument`, `companyRazaoSocial`, `companyCnpj`.
-- **Empresa** — `Select` alimentado pelo `companies` já carregado. Filtra por `companyRazaoSocial` (ou por `companyId` se disponível). Valor `all` = todas.
-- **Vencimento — De / Até** — dois `Input type="date"`. Calcula a data de vencimento efetiva de cada pendente na competência selecionada (`competencia` + `diaVencimento`, ajustando para o último dia do mês quando `diaVencimento` for maior que o mês) e mantém apenas os que caem no intervalo (`>= from` e `<= to`, cada bound opcional).
-- **Chips rápidos** (mesmo `QuickChip` já usado em Recibos):
-  - "Todos" (default)
-  - "Vencidos" (venc < hoje)
-  - "Vence em 7 dias" (0 ≤ dias até venc ≤ 7)
-- **Botão "Limpar"** — só aparece quando há qualquer filtro ativo.
+ALTER TABLE erp_quotes
+  ADD COLUMN IF NOT EXISTS responsavel_nome     VARCHAR(160),
+  ADD COLUMN IF NOT EXISTS responsavel_telefone VARCHAR(32),
+  ADD COLUMN IF NOT EXISTS responsavel_email    VARCHAR(160);
+```
+Rodar em produção junto do próximo deploy (padrão do projeto).
 
-## Lógica
+### 2) Backend
+- `backend/src/routes/erp-contracts.ts`
+  - `SELECT`: adicionar `c.responsavel_nome AS "responsavelNome"`, `c.responsavel_telefone AS "responsavelTelefone"`, `c.responsavel_email AS "responsavelEmail"`.
+  - `POST`: incluir as três colunas no `INSERT` (aceitando `null`).
+  - `PUT`: incluir as três colunas no `UPDATE` (permitindo limpar com `null`, usando o padrão `$n ?? null` já usado em campos livres como `descricao`).
+- `backend/src/routes/erp-quotes.ts` — mesmas alterações (SELECT/POST/PUT).
 
-- Filtragem 100% client-side via `useMemo pendentesFiltrados` sobre o array `pendentes`. Zero requests novos, resposta instantânea.
-- Estado local novo: `pendSearch`, `pendCompany` (id ou razão social), `pendVencFrom`, `pendVencTo`, `pendQuick`.
-- Helper `vencDate(competencia, diaVencimento)` reaproveitando o `nextDueDate` já existente no arquivo (ou variante que trava o vencimento na própria competência mesmo se já tiver passado).
+### 3) Tipos do frontend
+- `src/services/contracts.ts` (ou onde o tipo `Contract` estiver): adicionar `responsavelNome?`, `responsavelTelefone?`, `responsavelEmail?`.
+- `src/services/quotes.ts` interface `Quote`: mesmos três campos opcionais.
 
-## Ajustes acessórios
+### 4) UI — Contrato (`src/pages/erp/ErpContracts.tsx`)
+No formulário de criar/editar contrato, adicionar uma seção **"Responsável pelo contrato"** (após dados do cliente, antes de datas), com 3 inputs:
+- Nome do responsável (texto, até 160)
+- Telefone (aplicar máscara já usada no projeto, se houver)
+- E-mail (input `type="email"`)
+Todos opcionais. Enviar no payload do `create` e `update`.
 
-- **Contador do badge da aba** muda para `{filtrados}/{total}` quando houver filtro ativo, para o usuário não achar que os pendentes sumiram.
-- **Checkbox "Selecionar todos"** passa a operar sobre `pendentesFiltrados` (marca/desmarca só os visíveis). O `<VirtualRows items={...}>` recebe a lista filtrada.
-- **Mensagem de vazio** vira contextual: "Nenhum pendente para os filtros selecionados" quando filtros ativos; texto original ("Nenhuma cobrança pendente para {mês}") quando sem filtros.
-- **KPI "Pendente do mês"** continua somando o total (não filtrado) — filtro é só de visualização, não deve distorcer o gerencial. Se houver filtro ativo, mostra sublabel "(exibindo X de Y)".
-- **Coluna Vencimento** passa a mostrar `DD/MM/AAAA` (mais útil pra bater com o filtro) além do "dia N".
+### 5) UI — Orçamento (`src/pages/ErpQuotes.tsx`)
+Mesma seção **"Responsável pelo orçamento"** no form de criar/editar orçamento, com os 3 campos, opcionais.
 
-## Arquivos afetados
+### 6) PDFs
+- `src/utils/contractPdf.ts` (e `contractDoc.ts` se aplicável): quando `responsavelNome` estiver preenchido, renderizar bloco "Responsável: {nome} — {telefone} — {email}" abaixo dos dados do cliente.
+- `src/utils/quotePdf.ts`: mesmo bloco no cabeçalho do orçamento.
+Campos vazios são omitidos silenciosamente.
 
-- `src/pages/erp/ErpFinanceiro.tsx` — apenas este arquivo. Sem backend, sem novos componentes, sem migrações.
+### 7) Validação
+- Validação leve no client: e-mail com regex simples (só valida se preenchido), telefone livre (não obriga formato). Sem bloquear submit por serem opcionais.
+- Sem validação server-side extra além do tamanho da coluna.
 
-## Fora do escopo
+### 8) Verificação
+- `tsgo --noEmit` após edições.
+- Teste manual: criar contrato com responsável → editar → limpar → gerar PDF; idem para orçamento.
+- Contratos/orçamentos antigos continuam funcionando (campos ficam `null`).
 
-- Nenhuma alteração em Recibos / Pagos / Sem validade / Gastos.
-- Sem persistência dos filtros (resetam ao sair da página) — se quiser lembrar por sessão, faço num próximo passo.
+## Arquivos que serão tocados
+- `database/migration-erp-responsavel-documento.sql` (novo)
+- `backend/src/routes/erp-contracts.ts`
+- `backend/src/routes/erp-quotes.ts`
+- `src/services/contracts.ts`
+- `src/services/quotes.ts`
+- `src/pages/erp/ErpContracts.tsx`
+- `src/pages/ErpQuotes.tsx`
+- `src/utils/contractPdf.ts` (e `contractDoc.ts` se necessário)
+- `src/utils/quotePdf.ts`
 
-## Validação
-
-- `tsgo --noEmit`.
-- Manual: digitar em cada filtro, verificar que a lista, o badge, o "selecionar todos" e o botão "Gerar selecionados" reagem em tempo real.
-
-Aprovando, implemento.
+## Pontos de decisão (me confirma antes de implementar)
+1. **Nome dos campos ok?** "Responsável pelo contrato" / "Responsável pelo orçamento" — ou prefere "Solicitante"/"Contato do pedido"?
+2. **Exibir no PDF?** Confirmo que deve aparecer no PDF de ambos, correto?
+3. **Herdar do último documento?** Quando criar um novo contrato/orçamento para um cliente que já teve outro, quer pré-preencher com o último responsável usado (com opção de editar), ou sempre em branco?

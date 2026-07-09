@@ -18,6 +18,9 @@ const QUOTE_SELECT = `
   q.desconto_pct AS "descontoPct", q.frete, q.subtotal, q.total,
   q.status, q.pdf_gerado_em AS "pdfGeradoEm",
   q.created_at AS "createdAt", q.updated_at AS "updatedAt",
+  q.responsavel_nome     AS "responsavelNome",
+  q.responsavel_telefone AS "responsavelTelefone",
+  q.responsavel_email    AS "responsavelEmail",
   c.razao_social AS "companyRazaoSocial", c.cnpj AS "companyCnpj",
   cu.customer_name AS "customerName", cu.document AS "customerDocument"
 `;
@@ -113,8 +116,9 @@ router.post('/', async (req, res) => {
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
           modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
           desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais,
-          endereco_entrega, data_recolhimento, forma_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20,$21)
+          endereco_entrega, data_recolhimento, forma_pagamento,
+          responsavel_nome, responsavel_telefone, responsavel_email)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20,$21,$22,$23,$24)
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, emptyToNull(c.dataEmissao), c.validadeDias || 15,
@@ -122,7 +126,8 @@ router.post('/', async (req, res) => {
        c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
        emptyToNull(c.dataEntrega), c.limpezasSemanais ?? null,
        c.enderecoEntrega || null, emptyToNull(c.dataRecolhimento),
-       c.formaPagamento || null]
+       c.formaPagamento || null,
+       c.responsavelNome || null, c.responsavelTelefone || null, c.responsavelEmail || null]
     );
     const quoteId = ins.rows[0].id;
 
@@ -180,6 +185,9 @@ router.put('/:id', async (req, res) => {
          endereco_entrega = COALESCE($17, endereco_entrega),
          data_recolhimento = COALESCE($18, data_recolhimento),
          forma_pagamento = COALESCE($19, forma_pagamento),
+         responsavel_nome     = $20,
+         responsavel_telefone = $21,
+         responsavel_email    = $22,
          updated_at = NOW()
        WHERE id = $1`,
       [req.params.id, c.companyId || null, c.customerId || null,
@@ -192,7 +200,8 @@ router.put('/:id', async (req, res) => {
        c.limpezasSemanais !== undefined ? c.limpezasSemanais : null,
        c.enderecoEntrega !== undefined ? c.enderecoEntrega : null,
        emptyToNull(c.dataRecolhimento),
-       c.formaPagamento || null]
+       c.formaPagamento || null,
+       c.responsavelNome ?? null, c.responsavelTelefone ?? null, c.responsavelEmail ?? null]
     );
 
 
@@ -306,15 +315,17 @@ router.post('/:id/duplicate', async (req, res) => {
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
           modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
           desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais,
-          endereco_entrega, data_recolhimento, forma_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,$8,$9,$10,$11,$12,$13,$14,'rascunho',$15,$16,$17,$18,$19)
+          endereco_entrega, data_recolhimento, forma_pagamento,
+          responsavel_nome, responsavel_telefone, responsavel_email)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,$8,$9,$10,$11,$12,$13,$14,'rascunho',$15,$16,$17,$18,$19,$20,$21,$22)
        RETURNING id`,
       [numero, src.company_id, src.customer_id, src.company_snapshot, src.customer_snapshot,
        src.modalidade, src.tipo_locacao, src.validade_dias,
        src.observacoes, src.condicoes_pagamento,
        src.desconto_pct, src.frete, src.subtotal, src.total,
        src.data_entrega, src.limpezas_semanais,
-       src.endereco_entrega, src.data_recolhimento, src.forma_pagamento]
+       src.endereco_entrega, src.data_recolhimento, src.forma_pagamento,
+       src.responsavel_nome, src.responsavel_telefone, src.responsavel_email]
     );
     const newId = ins.rows[0].id;
 

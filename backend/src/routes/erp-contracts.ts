@@ -21,6 +21,9 @@ const SELECT = `
   c.renovacao_automatica AS "renovacaoAutomatica",
   c.ativo, c.encerrado_em AS "encerradoEm", c.motivo_encerramento AS "motivoEncerramento",
   c.pdf_url AS "pdfUrl", c.observacoes,
+  c.responsavel_nome     AS "responsavelNome",
+  c.responsavel_telefone AS "responsavelTelefone",
+  c.responsavel_email    AS "responsavelEmail",
   c.company_snapshot AS "companySnapshot", c.customer_snapshot AS "customerSnapshot",
   c.created_at AS "createdAt",
   emp.razao_social AS "companyRazaoSocial", emp.cnpj AS "companyCnpj",
@@ -92,12 +95,14 @@ router.post('/', async (req, res) => {
          data_evento, data_recolhimento, local_evento, hora_entrega, valor_total_evento,
          dia_vencimento, valor_mensal,
          renovacao_automatica, ativo, pdf_url, observacoes,
-         company_snapshot, customer_snapshot, frete, endereco_obra, cno)
+         company_snapshot, customer_snapshot, frete, endereco_obra, cno,
+         responsavel_nome, responsavel_telefone, responsavel_email)
        VALUES ($1,$2,$3,$4,COALESCE($5,'manual'),$6,
                COALESCE($7,'locacao'),$8,$9,
                $10,$11,$12,$13,$14,
                COALESCE($15,10),COALESCE($16,0),
-               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25)
+               COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25,
+               $26,$27,$28)
        RETURNING id, numero`,
       [numero, c.companyId || null, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
@@ -108,7 +113,8 @@ router.post('/', async (req, res) => {
        c.diaVencimento ?? 10, c.valorMensal ?? 0,
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null, c.observacoes || null,
        companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0,
-       c.enderecoObra || null, c.cno || null]
+       c.enderecoObra || null, c.cno || null,
+       c.responsavelNome || null, c.responsavelTelefone || null, c.responsavelEmail || null]
     );
 
     await client.query('COMMIT');
@@ -147,6 +153,9 @@ router.put('/:id', async (req, res) => {
          frete = COALESCE($21, frete),
          endereco_obra = $22,
          cno = $23,
+         responsavel_nome     = $24,
+         responsavel_telefone = $25,
+         responsavel_email    = $26,
          -- [#7 alto] encerrado_em só muda quando $17 vem definido; null deixa intacto.
          encerrado_em = CASE
            WHEN $17::boolean IS NULL THEN encerrado_em
@@ -165,7 +174,8 @@ router.put('/:id', async (req, res) => {
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null,
        c.observacoes ?? null, c.motivoEncerramento ?? null,
        c.frete != null ? Number(c.frete) : null,
-       c.enderecoObra ?? null, c.cno ?? null]
+       c.enderecoObra ?? null, c.cno ?? null,
+       c.responsavelNome ?? null, c.responsavelTelefone ?? null, c.responsavelEmail ?? null]
     );
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
