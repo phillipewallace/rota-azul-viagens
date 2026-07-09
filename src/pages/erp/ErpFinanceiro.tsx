@@ -472,8 +472,45 @@ const ErpFinanceiro: React.FC = () => {
     else toast.warning(`${ok} ok, ${fail} falharam`);
   };
 
+  // Lista de pendentes após aplicar os filtros da própria aba.
+  const pendentesFiltrados = useMemo(() => {
+    const q = pendSearch.trim().toLowerCase();
+    const t = todayISO();
+    return pendentes.filter((p) => {
+      if (pendCompanyId !== 'all' && String(p.companyId || '') !== pendCompanyId) return false;
+      if (q) {
+        const hay = [
+          p.contractNumero, p.customerName, p.customerDocument,
+          p.companyRazaoSocial, p.companyCnpj,
+        ].map(v => String(v || '').toLowerCase()).join(' | ');
+        if (!hay.includes(q)) return false;
+      }
+      if (pendVencFrom || pendVencTo || pendQuick !== 'none') {
+        const venc = dueDateInComp(competencia, Number(p.diaVencimento || 10));
+        if (!venc) return true;
+        if (pendVencFrom && venc < pendVencFrom) return false;
+        if (pendVencTo && venc > pendVencTo) return false;
+        if (pendQuick === 'vencidos' && !(venc < t)) return false;
+        if (pendQuick === 'em7') {
+          const d = diffDays(venc, t);
+          if (!(d >= 0 && d <= 7)) return false;
+        }
+      }
+      return true;
+    });
+  }, [pendentes, pendSearch, pendCompanyId, pendVencFrom, pendVencTo, pendQuick, competencia]);
+
+  const pendFiltroAtivo =
+    !!pendSearch || pendCompanyId !== 'all' || !!pendVencFrom || !!pendVencTo || pendQuick !== 'none';
+
+  const clearPendFilters = () => {
+    setPendSearch(''); setPendCompanyId('all');
+    setPendVencFrom(''); setPendVencTo(''); setPendQuick('none');
+  };
+
   // Habilita "recibo unificado" quando 2+ pendentes selecionados são
   // da MESMA empresa emissora E do MESMO cliente.
+
   const unifiedGroup = useMemo(() => {
     if (selected.size < 2) return null;
     const arr = pendentes.filter(p => selected.has(p.contractId));
