@@ -19,10 +19,7 @@ import { erpService, type ErpCompany } from '@/services/erp';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { stampSignatureOnPdf, type SignaturePlacement } from '@/utils/pdfSignatureStamp';
 import { FileSignature, Upload, ChevronLeft, ChevronRight, Trash2, Download, AlertTriangle, Copy } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+import { pdfjsLib } from '@/utils/pdfjsWorker';
 
 interface Placement extends SignaturePlacement {}
 
