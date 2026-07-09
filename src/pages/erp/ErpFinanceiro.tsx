@@ -688,9 +688,23 @@ const ErpFinanceiro: React.FC = () => {
     });
   };
   const toggleSelAll = () => {
-    if (selected.size === pendentes.length) setSelected(new Set());
-    else setSelected(new Set(pendentes.map(p => p.contractId)));
+    const ids = pendentesFiltrados.map(p => p.contractId);
+    const allSelected = ids.length > 0 && ids.every(id => selected.has(id));
+    if (allSelected) {
+      setSelected(prev => {
+        const n = new Set(prev);
+        ids.forEach(id => n.delete(id));
+        return n;
+      });
+    } else {
+      setSelected(prev => {
+        const n = new Set(prev);
+        ids.forEach(id => n.add(id));
+        return n;
+      });
+    }
   };
+
 
   const clearFilters = () => {
     setFilterStatus('all'); setFilterCompanyId('all'); setSearch('');
