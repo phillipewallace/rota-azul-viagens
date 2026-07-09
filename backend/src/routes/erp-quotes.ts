@@ -116,8 +116,9 @@ router.post('/', async (req, res) => {
          (numero, company_id, customer_id, company_snapshot, customer_snapshot,
           modalidade, tipo_locacao, data_emissao, validade_dias, observacoes, condicoes_pagamento,
           desconto_pct, frete, subtotal, total, status, data_entrega, limpezas_semanais,
-          endereco_entrega, data_recolhimento, forma_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20,$21)
+          endereco_entrega, data_recolhimento, forma_pagamento,
+          responsavel_nome, responsavel_telefone, responsavel_email)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20,$21,$22,$23,$24)
        RETURNING id`,
       [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, emptyToNull(c.dataEmissao), c.validadeDias || 15,
@@ -125,7 +126,8 @@ router.post('/', async (req, res) => {
        c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
        emptyToNull(c.dataEntrega), c.limpezasSemanais ?? null,
        c.enderecoEntrega || null, emptyToNull(c.dataRecolhimento),
-       c.formaPagamento || null]
+       c.formaPagamento || null,
+       c.responsavelNome || null, c.responsavelTelefone || null, c.responsavelEmail || null]
     );
     const quoteId = ins.rows[0].id;
 
