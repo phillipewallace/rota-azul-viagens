@@ -31,13 +31,15 @@ const competenciaAtual = () => {
 
 router.get('/', async (req, res) => {
   try {
-    const { contractId, competencia, pago } = req.query as any;
+    const { contractId, competencia, pago, from, to } = req.query as any;
     const conds: string[] = [];
     const params: any[] = [];
     if (contractId) { params.push(contractId); conds.push(`r.contract_id = $${params.length}`); }
     if (competencia) { params.push(competencia); conds.push(`r.competencia = $${params.length}`); }
     if (pago === 'true')  conds.push(`r.pago = TRUE`);
     if (pago === 'false') conds.push(`r.pago = FALSE`);
+    if (from) { params.push(from); conds.push(`r.data_emissao >= $${params.length}`); }
+    if (to)   { params.push(to);   conds.push(`r.data_emissao <= $${params.length}`); }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const r = await pool.query(
       `SELECT ${SELECT}
@@ -46,12 +48,13 @@ router.get('/', async (req, res) => {
          LEFT JOIN erp_companies emp ON emp.id = c.company_id
          LEFT JOIN customers cu ON cu.id = c.customer_id
          ${where}
-         ORDER BY r.data_emissao DESC, r.created_at DESC LIMIT 1000`,
+         ORDER BY r.data_emissao DESC, r.created_at DESC LIMIT 5000`,
       params
     );
     res.json(r.rows);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
+
 
 // Pendentes: contratos ativos que ainda não têm recibo na competência informada (default = mês atual)
 router.get('/pending', async (req, res) => {

@@ -156,6 +156,16 @@ const ErpFinanceiro: React.FC = () => {
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Receipt | null>(null);
   const [reabrirDialog, setReabrirDialog] = useState<Receipt | null>(null);
+
+  // exportação em ZIP por período
+  const [zipOpen, setZipOpen] = useState(false);
+  const [zipFrom, setZipFrom] = useState('');
+  const [zipTo, setZipTo] = useState('');
+  const [zipIncludeSV, setZipIncludeSV] = useState(true);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
+
+
   
 
   // gastos do mês para resultado
@@ -723,6 +733,64 @@ const ErpFinanceiro: React.FC = () => {
     URL.revokeObjectURL(url);
     toast.success(`${lista.length} recibo(s) exportados`);
   };
+
+  // ===== Exportação em ZIP (recibos por período) =====
+  const exportRecibosZip = async () => {
+    if (!zipFrom || !zipTo) { toast.error('Informe as datas inicial e final.'); return; }
+    if (zipFrom > zipTo)   { toast.error('Data inicial deve ser anterior à final.'); return; }
+    setZipBusy(true);
+    setZipProgress(null);
+    try {
+      const lista = await receiptsService.list({ from: zipFrom, to: zipTo });
+      // Aplica filtros locais: ignora cancelados e (opcionalmente) sem validade jurídica.
+      const filtrados = lista.filter(r =>
+        r.status !== 'cancelado' &&
+        (zipIncludeSV || !r.semValidade)
+      );
+      if (filtrados.length === 0) {
+        toast.info('Nenhum recibo encontrado nesse período.');
+        setZipBusy(false);
+        return;
+      }
+      // Import dinâmico (não bloqueia bundle inicial)
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      const comValidade = zip.folder('com-validade');
+      const semValidade = zip.folder('sem-validade');
+      setZipProgress({ done: 0, total: filtrados.length });
+      for (let i = 0; i < filtrados.length; i++) {
+        const r = filtrados[i];
+        try {
+          const res = await generateReceiptPdf(r, { returnBlob: true });
+          if (res && 'blob' in res) {
+            const folder = r.semValidade ? semValidade : comValidade;
+            (folder || zip).file(res.filename, res.blob);
+          }
+        } catch (err) {
+          console.error('Falha ao gerar PDF do recibo', r.numero, err);
+        }
+        setZipProgress({ done: i + 1, total: filtrados.length });
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recibos_${zipFrom}_a_${zipTo}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`${filtrados.length} recibo(s) exportados em ZIP`);
+      setZipOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Falha ao gerar ZIP');
+    } finally {
+      setZipBusy(false);
+      setZipProgress(null);
+    }
+  };
+
 
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
@@ -1298,6 +1366,27 @@ const ErpFinanceiro: React.FC = () => {
                 >
                   <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Exportar CSV
                 </Button>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => {
+                    // pré-preenche com o mês corrente da competência selecionada
+                    if (!zipFrom && !zipTo && /^\d{4}-\d{2}$/.test(competencia)) {
+                      const [y, m] = competencia.split('-').map(Number);
+                      const first = `${competencia}-01`;
+                      const lastDay = new Date(y, m, 0).getDate();
+                      const last = `${competencia}-${String(lastDay).padStart(2, '0')}`;
+                      setZipFrom(first);
+                      setZipTo(last);
+                    }
+                    setZipOpen(true);
+                  }}
+                  className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/40 transition-colors duration-200"
+                  title="Baixar todos os recibos de um período em um arquivo ZIP"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" /> Exportar ZIP
+                </Button>
+
+
               </div>
               <div className="flex flex-wrap gap-2">
                 <QuickChip active={quick === 'none'} onClick={() => setQuick('none')}>Todos</QuickChip>
@@ -1755,6 +1844,51 @@ const ErpFinanceiro: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Exportar recibos por período em ZIP */}
+      <Dialog open={zipOpen} onOpenChange={(o) => { if (!zipBusy) setZipOpen(o); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Exportar recibos por período</DialogTitle>
+            <DialogDescription>
+              Baixe todos os recibos emitidos em um intervalo de datas em um único arquivo ZIP.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Data inicial</Label>
+                <Input type="date" value={zipFrom} onChange={(e) => setZipFrom(e.target.value)} disabled={zipBusy} />
+              </div>
+              <div>
+                <Label className="text-xs">Data final</Label>
+                <Input type="date" value={zipTo} onChange={(e) => setZipTo(e.target.value)} disabled={zipBusy} />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-foreground select-none">
+              <Checkbox
+                checked={zipIncludeSV}
+                onCheckedChange={(v) => setZipIncludeSV(Boolean(v))}
+                disabled={zipBusy}
+              />
+              Incluir recibos sem validade jurídica
+            </label>
+            {zipProgress && (
+              <div className="text-xs text-muted-foreground">
+                Gerando {zipProgress.done} de {zipProgress.total} recibo(s)…
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setZipOpen(false)} disabled={zipBusy}>Cancelar</Button>
+            <Button onClick={exportRecibosZip} disabled={zipBusy || !zipFrom || !zipTo}>
+              {zipBusy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
+              Gerar ZIP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };

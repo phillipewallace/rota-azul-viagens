@@ -24,7 +24,11 @@ const maskDoc = (d?: string) => {
 const PRIMARY: [number, number, number] = [16, 42, 96];     // azul corporativo
 const ACCENT:  [number, number, number] = [212, 175, 55];   // dourado
 
-export async function generateReceiptPdf(rec: Receipt) {
+export async function generateReceiptPdf(
+  rec: Receipt,
+  opts?: { returnBlob?: boolean }
+): Promise<{ blob: Blob; filename: string } | void> {
+
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -305,8 +309,13 @@ export async function generateReceiptPdf(rec: Receipt) {
     W / 2, H - 6, { align: 'center' }
   );
 
-  doc.save(`Recibo-${numeroImpresso}.pdf`);
+  const filename = `Recibo-${numeroImpresso}.pdf`;
+  if (opts?.returnBlob) {
+    return { blob: doc.output('blob'), filename };
+  }
+  doc.save(filename);
 }
+
 
 function formatComp(c: string) {
   const [a, m] = (c || '').split('-');
