@@ -80,6 +80,7 @@ const emptyEditor = (): EditorState => ({
   observacoes: '', condicoesPagamento: '',
   formaPagamento: 'boleto',
   status: 'rascunho',
+  responsavelNome: '', responsavelTelefone: '', responsavelEmail: '',
   items: [withUid({ produto: 'Sanitário Químico Standard', descricao: '', quantidade: 1, valorUnitario: 0 })],
 });
 
