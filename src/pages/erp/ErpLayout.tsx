@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, ClipboardList, Users, Boxes, Building2,
-  ExternalLink, AlertTriangle, ArrowLeft, Sparkles, DollarSign, FileSignature, LogOut,
+  ExternalLink, AlertTriangle, ArrowLeft, Sparkles, DollarSign, FileSignature, LogOut, Files,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ const navItems = [
   { to: '/erp/ordens-servico', label: 'Ordens de Serviço', icon: ClipboardList, badge: 'overdue' as const },
   { to: '/erp/contratos', label: 'Contratos', icon: FileSignature },
   { to: '/erp/assinatura', label: 'Assinatura', icon: FileSignature },
+  { to: '/erp/assinados', label: 'Assinados', icon: Files },
   { to: '/erp/financeiro', label: 'Financeiro', icon: DollarSign },
   { to: '/erp/clientes', label: 'Clientes', icon: Users },
   { to: '/erp/estoque', label: 'Estoque & Insumos', icon: Boxes },
