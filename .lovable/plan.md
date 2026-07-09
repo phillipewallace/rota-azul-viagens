@@ -1,65 +1,59 @@
-# Exportar recibos por período (ZIP)
+# Bug: Pendentes somem ao voltar de outra sub-aba
 
-Sim, é totalmente possível. Os recibos já ficam armazenados permanentemente na tabela `erp_receipts` (as abas "Pendentes" e "Pagos do mês" são só *views* filtradas — nada é apagado). A aba "Recibos" continua sendo o histórico completo, e vamos adicionar ali um botão para baixar em lote por intervalo de datas.
+## Diagnóstico
 
-## 1. UI — aba "Recibos"
+Em `src/pages/erp/ErpFinanceiro.tsx` (linhas ~181-195), o carregamento de dados é feito por um único `load` acoplado aos filtros da aba **Recibos**:
 
-- Novo botão **"Exportar período"** (ícone `Download`) no header da aba, ao lado dos filtros existentes.
-- Ao clicar, abre um **modal** (`Dialog` shadcn) com:
-  - Campo **Data inicial** (date picker shadcn, `pointer-events-auto`).
-  - Campo **Data final** (date picker shadcn).
-  - Filtro opcional (checkbox): **"Incluir recibos sem validade jurídica"** — default ligado, respeitando a separação de abas.
-  - Botão **Cancelar** e **Gerar ZIP** (com spinner enquanto processa).
-- Validações no modal:
-  - Ambas as datas obrigatórias.
-  - Data final ≥ data inicial.
-  - Aviso (toast) se o período retornar 0 recibos.
-- Feedback: toast "Gerando X recibos…" → download automático do arquivo → toast de sucesso.
+```ts
+const load = useCallback(async () => {
+  const [p, r] = await Promise.all([
+    receiptsService.pending(competencia),
+    receiptsService.list(filterFrom || filterTo || quick !== 'none' ? {} : { competencia }),
+  ]);
+  setPendentes(p.pendentes);
+  setRecibos(r);
+}, [competencia, filterFrom, filterTo, quick]);
 
-## 2. Geração do ZIP (frontend, sem backend novo)
-
-Para evitar migração/rota nova e manter o PDF idêntico ao que já é emitido individualmente, o ZIP é montado **no navegador**:
-
-- Buscar recibos do período via endpoint já existente `/erp/receipts` (adicionar params `from` / `to` na query se ainda não suportar — filtro simples por `data_emissao`).
-- Para cada recibo retornado, chamar a função `generateReceiptPdf` já usada hoje (mesmo layout, mesmo nome de arquivo, respeitando `numero_display` para recibos sem validade).
-- Empacotar com **JSZip** (lib leve, ~100kb, já compatível com o stack Vite/React) → gera `Blob` → dispara download via `URL.createObjectURL` + `<a download>`.
-- Nome do arquivo: `recibos_YYYY-MM-DD_a_YYYY-MM-DD.zip`.
-- Dentro do zip, subpastas opcionais: `com-validade/` e `sem-validade/` para facilitar organização contábil.
-
-**Por que frontend e não backend:**
-- O PDF é gerado hoje no cliente (`src/utils/receiptPdf.ts`), então mover para backend duplicaria código.
-- Zero mudança de infra, zero migração, deploy imediato.
-- Se o período for muito grande (>200 recibos), mostramos progresso ("Gerando 45/120…") e um aviso sugerindo dividir o período.
-
-## 3. Escopo técnico
-
-**Arquivos afetados:**
-- `src/pages/erp/ErpFinanceiro.tsx` — botão + modal + handler de exportação na aba "Recibos".
-- `src/services/contracts.ts` (ou `erp.ts`) — garantir que `listReceipts` aceite `from` / `to` (se ainda não aceita).
-- `backend/src/routes/erp-receipts.ts` — se necessário, aceitar `?from=&to=` no `GET /` (filtro `WHERE data_emissao BETWEEN`). Sem migração.
-- Nova dependência: `jszip` (via `bun add jszip`).
-
-**Fora do escopo:**
-- Nenhuma alteração em Pendentes, Pagos do mês, Sem validade.
-- Nenhuma migração de banco.
-- Sem envio por e-mail (posso adicionar depois se quiser).
-- Sem `.rar` (formato proprietário, sem lib JS decente) — `.zip` é o padrão universal e abre em qualquer sistema.
-
-## 4. Fluxo final do usuário
-
-```text
-Financeiro → aba Recibos → [Exportar período]
-   ↓
-Modal: 01/01/2026 até 31/01/2026  [Gerar ZIP]
-   ↓
-Toast "Gerando 42 recibos…" (progresso)
-   ↓
-Download: recibos_2026-01-01_a_2026-01-31.zip
-   └── com-validade/
-   │     ├── 0123.pdf
-   │     └── 0124.pdf
-   └── sem-validade/
-         └── 0001.pdf
+useEffect(() => { load() }, [load]);
 ```
 
-Aprovando, implemento nessa ordem.
+Problema em cadeia:
+
+1. O usuário entra em outra sub-aba (ex.: **Recibos**, **Pagos**, **Sem validade**) e mexe em qualquer filtro dessa aba (`filterFrom`, `filterTo`, `quick`, ou chips rápidos).
+2. Como o `load` depende desses filtros, o `useEffect` dispara um **novo request de `/erp/receipts/pending`** — desnecessário para essa aba, e usando a `competencia` como parâmetro.
+3. Se qualquer coisa nesse novo ciclo falhar silenciosamente (rede lenta, erro tratado como toast, request estourando `mountedRef`, ou simplesmente o React reordenar o `Promise.all` com um resultado vazio momentâneo), o `setPendentes(p.pendentes)` acaba sendo chamado com lista vazia — e a UI de Pendentes fica em branco até o próximo `load` (que só acontece com refresh da página, porque nenhum filtro de Pendentes existe hoje para re-disparar).
+4. Além disso, o `setLoading(true)` global re-renderiza a página inteira: se o request de pendentes demora e o usuário volta rápido para a aba, o virtualizador `VirtualRows` remonta com `items=[]` até a resposta chegar.
+
+Também há um efeito colateral do padrão atual: **mexer em filtros da aba Recibos re-baixa pendentes**, o que gasta rede/CPU à toa e é a raiz da instabilidade.
+
+## Correção proposta
+
+**Separar os dois carregamentos**, cada um com sua dependência real:
+
+- `loadPendentes` → depende só de `[competencia]`. Chamado no mount, ao trocar competência e via botão "Atualizar".
+- `loadRecibos` → depende de `[competencia, filterFrom, filterTo, quick]` (filtros da aba Recibos). Chamado no mount, ao trocar competência, e quando esses filtros mudam.
+- Cada função usa seu próprio flag de loading (`loadingPendentes`, `loadingRecibos`) para não piscar a página inteira, e o botão "Atualizar" no header chama os dois em paralelo.
+- Manter o `mountedRef` guard como está para evitar `setState` após unmount.
+
+**Efeito da correção:**
+
+- Mexer em filtros de "Recibos" **não toca mais** em `pendentes` → o bug do sumiço é eliminado na raiz.
+- Menos requisições ao backend.
+- Menor re-render da tela toda.
+
+## Escopo
+
+**Arquivo único afetado:**
+- `src/pages/erp/ErpFinanceiro.tsx` — refatorar o bloco `load` / `useEffect` em duas funções e dois efeitos separados; ajustar o handler do botão "Atualizar" (se existir) para chamar as duas.
+
+**Fora do escopo:**
+- Nenhum novo filtro na aba Pendentes (fica para o próximo pedido).
+- Nenhuma mudança em backend, rotas, migração, ou nas outras abas.
+
+## Validação
+
+- `tsgo --noEmit`.
+- Fluxo manual: abrir Financeiro → alternar entre Pendentes / Recibos / Pagos / Sem validade / Gastos várias vezes, mexer em filtros da aba Recibos, voltar em Pendentes → a lista continua populada sem precisar de refresh.
+- Verificar no console/network que o request `/erp/receipts/pending` só dispara quando muda competência ou clica em "Atualizar".
+
+Aprovando, implemento.
