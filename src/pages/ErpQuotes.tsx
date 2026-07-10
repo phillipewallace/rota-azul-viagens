@@ -916,14 +916,16 @@ const ErpQuotes: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Status</label>
-                    <select className="w-full border rounded-md h-10 px-2 bg-background"
-                            value={editing.status}
-                            onChange={e => setEditing({ ...editing, status: e.target.value as Quote['status'] })}>
-                      <option value="rascunho">Rascunho</option>
-                      <option value="enviado">Enviado</option>
-                      <option value="aprovado">Aprovado</option>
-                      <option value="recusado">Recusado</option>
-                    </select>
+                    <SearchableSelect
+                      value={editing.status}
+                      options={[
+                        { value: 'rascunho', label: 'Rascunho' },
+                        { value: 'enviado', label: 'Enviado' },
+                        { value: 'aprovado', label: 'Aprovado' },
+                        { value: 'recusado', label: 'Recusado' },
+                      ]}
+                      onValueChange={(v) => setEditing({ ...editing, status: v as Quote['status'] })}
+                    />
                   </div>
                 </div>
               </div>
