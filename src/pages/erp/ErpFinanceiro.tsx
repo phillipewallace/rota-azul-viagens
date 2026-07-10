@@ -1187,6 +1187,10 @@ const ErpFinanceiro: React.FC = () => {
 
                           <TableCell className="text-right font-semibold">{BRL(Number(p.valorMensal))}</TableCell>
                           <TableCell className="text-right whitespace-nowrap space-x-1">
+                            <Button size="sm" variant="ghost" onClick={() => setViewContractId(p.contractId)}
+                              title="Ver contrato" aria-label="Ver contrato">
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
                               disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
                               <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
