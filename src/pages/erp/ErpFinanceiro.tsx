@@ -1972,107 +1972,235 @@ const ErpFinanceiro: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="medicoes">
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-sm text-muted-foreground">
-                  {medicoesLoading ? 'Carregando…' : `${medicoes.length} medição(ões) em ${formatComp(competencia)}`}
-                </div>
-                <div className="ml-auto flex gap-2">
-                  <Button variant="outline" size="sm" onClick={loadMedicoes} disabled={medicoesLoading}>
-                    <RefreshCw className={`h-4 w-4 mr-1 ${medicoesLoading ? 'animate-spin' : ''}`} /> Atualizar
-                  </Button>
-                  <Button size="sm" onClick={() => { setMedicaoEditing(null); setMedicaoDialogOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1" /> Nova medição
-                  </Button>
-                </div>
-              </div>
+          {(() => {
+            const totalMes = medicoes.reduce((s, m) => s + Number(m.total || 0), 0);
+            const ticket = medicoes.length ? totalMes / medicoes.length : 0;
+            const clientesDistintos = new Set(medicoes.map(m => m.customerId || m.clienteDocumento || m.id)).size;
+            const delta = medicoesPrevMonthTotal !== null && medicoesPrevMonthTotal > 0
+              ? ((totalMes - medicoesPrevMonthTotal) / medicoesPrevMonthTotal) * 100
+              : null;
+            const clientesOptions = Array.from(new Map(
+              medicoes.map(m => [m.customerId || m.clienteDocumento || m.id, {
+                value: m.customerId || m.clienteDocumento || m.id,
+                label: m.customerName || m.clienteNome || '(sem nome)',
+              }]),
+            ).values()).sort((a, b) => a.label.localeCompare(b.label));
 
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nº</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Empresa</TableHead>
-                      <TableHead>Período</TableHead>
-                      <TableHead className="text-right">Itens</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {medicoes.length === 0 && !medicoesLoading && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
-                          Nenhuma medição em {formatComp(competencia)}. Clique em <b>Nova medição</b> para começar.
-                        </TableCell>
-                      </TableRow>
+            const filtered = medicoes.filter((m) => {
+              if (medicoesClienteFilter && (m.customerId || m.clienteDocumento || m.id) !== medicoesClienteFilter) return false;
+              if (medicoesSearch) {
+                const q = medicoesSearch.toLowerCase();
+                const hay = `${m.numero} ${m.customerName || m.clienteNome || ''} ${m.customerDocument || m.clienteDocumento || ''} ${m.companyRazaoSocial || ''}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+              }
+              return true;
+            });
+            const filteredHasFilter = !!(medicoesSearch || medicoesClienteFilter);
+
+            return (
+              <div className="space-y-4">
+                {/* KPIs */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <Card><CardContent className="p-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <DollarSign className="h-3.5 w-3.5" /> Total do mês
+                    </div>
+                    <div className="text-xl font-bold tabular-nums mt-1">{BRL(totalMes)}</div>
+                    {delta !== null && (
+                      <div className={`text-[11px] mt-0.5 flex items-center gap-1 ${delta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {delta >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                        {Math.abs(delta).toFixed(1)}% vs mês anterior
+                      </div>
                     )}
-                    {medicoes.map((m) => (
-                      <TableRow key={m.id}>
-                        <TableCell className="font-mono text-xs">{m.numero}</TableCell>
-                        <TableCell>
-                          <div className="font-medium">{m.customerName || m.clienteNome || '—'}</div>
-                          <div className="text-xs text-muted-foreground">{m.customerDocument || m.clienteDocumento || ''}</div>
-                        </TableCell>
-                        <TableCell className="text-xs">{m.companyRazaoSocial || '—'}</TableCell>
-                        <TableCell className="text-xs">
-                          {(m.periodoInicio || m.periodoFim) ? formatPeriodo(m.periodoInicio, m.periodoFim) : (m.competencia || '—')}
-                        </TableCell>
-                        <TableCell className="text-right text-xs">{m.itensCount ?? '—'}</TableCell>
-                        <TableCell className="text-right font-medium">{BRL(Number(m.total || 0))}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button size="icon" variant="ghost" title="Visualizar"
+                  </CardContent></Card>
+                  <Card><CardContent className="p-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <FileSpreadsheet className="h-3.5 w-3.5" /> Nº medições
+                    </div>
+                    <div className="text-xl font-bold tabular-nums mt-1">{medicoes.length}</div>
+                  </CardContent></Card>
+                  <Card><CardContent className="p-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <BarChart3 className="h-3.5 w-3.5" /> Ticket médio
+                    </div>
+                    <div className="text-xl font-bold tabular-nums mt-1">{BRL(ticket)}</div>
+                  </CardContent></Card>
+                  <Card><CardContent className="p-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Users2 className="h-3.5 w-3.5" /> Clientes
+                    </div>
+                    <div className="text-xl font-bold tabular-nums mt-1">{clientesDistintos}</div>
+                  </CardContent></Card>
+                </div>
+
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    {/* Filtros */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative">
+                        <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar nº, cliente, empresa…"
+                          className="h-9 pl-7 w-64"
+                          value={medicoesSearch}
+                          onChange={(e) => setMedicoesSearch(e.target.value)}
+                        />
+                      </div>
+                      <SearchableSelect
+                        value={medicoesClienteFilter || '__all__'}
+                        placeholder="Todos os clientes"
+                        searchPlaceholder="Filtrar cliente..."
+                        triggerClassName="h-9 w-56"
+                        options={[
+                          { value: '__all__', label: 'Todos os clientes' },
+                          ...clientesOptions,
+                        ]}
+                        onValueChange={(v) => setMedicoesClienteFilter(v === '__all__' ? '' : v)}
+                      />
+                      {filteredHasFilter && (
+                        <Button size="sm" variant="ghost" onClick={() => { setMedicoesSearch(''); setMedicoesClienteFilter(''); }}>
+                          <X className="h-3.5 w-3.5 mr-1" /> Limpar
+                        </Button>
+                      )}
+                      <div className="text-xs text-muted-foreground ml-1">
+                        {medicoesLoading ? 'Carregando…' : `${filtered.length} de ${medicoes.length} em ${formatComp(competencia)}`}
+                      </div>
+                      <div className="ml-auto flex gap-2">
+                        <Button variant="outline" size="sm" onClick={loadMedicoes} disabled={medicoesLoading}>
+                          <RefreshCw className={`h-4 w-4 mr-1 ${medicoesLoading ? 'animate-spin' : ''}`} /> Atualizar
+                        </Button>
+                        <Button size="sm" onClick={() => { setMedicaoEditing(null); setMedicaoDialogOpen(true); }}>
+                          <Plus className="h-4 w-4 mr-1" /> Nova medição
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nº</TableHead>
+                            <TableHead>Cliente</TableHead>
+                            <TableHead>Empresa</TableHead>
+                            <TableHead>Período</TableHead>
+                            <TableHead className="text-right">Itens</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filtered.length === 0 && !medicoesLoading && (
+                            <TableRow>
+                              <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-10">
+                                <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                                {filteredHasFilter
+                                  ? 'Nenhuma medição encontrada com esses filtros.'
+                                  : <>Nenhuma medição em {formatComp(competencia)}. Clique em <b>Nova medição</b> para começar.</>}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          {filtered.map((m) => (
+                            <TableRow key={m.id} className="cursor-pointer hover:bg-muted/40"
                               onClick={() => { setMedicaoViewId(m.id); setMedicaoViewOpen(true); }}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Baixar PDF"
-                              onClick={async () => {
-                                try {
-                                  const full = await medicoesService.get(m.id);
-                                  await generateMedicaoPdf(full as any);
-                                } catch (e: any) { toast.error(e.message); }
-                              }}>
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Editar"
-                              onClick={async () => {
-                                try {
-                                  const full = await medicoesService.get(m.id);
-                                  setMedicaoEditing(full);
-                                  setMedicaoDialogOpen(true);
-                                } catch (e: any) { toast.error(e.message); }
-                              }}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Excluir"
-                              onClick={async () => {
-                                const ok = await confirmDialog({
-                                  title: `Excluir medição ${m.numero}?`,
-                                  description: 'Esta ação não pode ser desfeita.',
-                                  confirmLabel: 'Excluir', destructive: true,
-                                });
-                                if (!ok) return;
-                                try {
-                                  await medicoesService.remove(m.id);
-                                  toast.success('Medição excluída');
-                                  loadMedicoes();
-                                } catch (e: any) { toast.error(e.message); }
-                              }}>
-                              <Trash2 className="h-4 w-4 text-rose-600" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                              <TableCell className="font-mono text-xs">{m.numero}</TableCell>
+                              <TableCell>
+                                <div className="font-medium">{m.customerName || m.clienteNome || '—'}</div>
+                                <div className="text-xs text-muted-foreground">{m.customerDocument || m.clienteDocumento || ''}</div>
+                              </TableCell>
+                              <TableCell className="text-xs">{m.companyRazaoSocial || '—'}</TableCell>
+                              <TableCell className="text-xs">
+                                {(m.periodoInicio || m.periodoFim) ? formatPeriodo(m.periodoInicio, m.periodoFim) : (m.competencia || '—')}
+                              </TableCell>
+                              <TableCell className="text-right text-xs">{m.itensCount ?? '—'}</TableCell>
+                              <TableCell className="text-right font-medium tabular-nums">{BRL(Number(m.total || 0))}</TableCell>
+                              <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-end gap-1">
+                                  <Button size="icon" variant="ghost" title="Baixar PDF"
+                                    onClick={async () => {
+                                      try {
+                                        const full = await medicoesService.get(m.id);
+                                        await generateMedicaoPdf(full as any);
+                                      } catch (e: any) { toast.error(e.message); }
+                                    }}>
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" title="Duplicar"
+                                    onClick={async () => {
+                                      try {
+                                        const full = await medicoesService.get(m.id);
+                                        const dup: any = {
+                                          ...full,
+                                          id: undefined,
+                                          numero: undefined,
+                                          competencia,
+                                          items: (full.items || []).map(it => ({ ...it, id: undefined })),
+                                        };
+                                        setMedicaoEditing(null);
+                                        setMedicaoDialogOpen(true);
+                                        // preenche via rascunho local para o dialog restaurar
+                                        try {
+                                          localStorage.setItem('medicao:draft:v1', JSON.stringify({
+                                            customerId: full.customerId,
+                                            companyId: full.companyId,
+                                            periodoIni: '', periodoFim: '',
+                                            desconto: Number(full.desconto || 0),
+                                            observacoes: full.observacoes || '',
+                                            rows: (full.items || []).map((it, i) => ({
+                                              key: `dup-${i}`,
+                                              contractId: it.contractId, contractNumero: it.contractNumero,
+                                              descricao: it.descricao, quantidade: it.quantidade,
+                                              unidade: it.unidade || 'UN', valorUnit: it.valorUnit,
+                                              descontoItem: it.descontoItem || 0,
+                                              valorTotal: it.valorTotal || 0,
+                                              periodoInicio: null, periodoFim: null,
+                                            })),
+                                          }));
+                                        } catch {}
+                                        toast(`Duplicando ${full.numero} — restaure o rascunho no dialog`);
+                                      } catch (e: any) { toast.error(e.message); }
+                                    }}>
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" title="Editar"
+                                    onClick={async () => {
+                                      try {
+                                        const full = await medicoesService.get(m.id);
+                                        setMedicaoEditing(full);
+                                        setMedicaoDialogOpen(true);
+                                      } catch (e: any) { toast.error(e.message); }
+                                    }}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" title="Excluir"
+                                    onClick={async () => {
+                                      const ok = await confirmDialog({
+                                        title: `Excluir medição ${m.numero}?`,
+                                        description: 'Esta ação não pode ser desfeita.',
+                                        confirmLabel: 'Excluir', destructive: true,
+                                      });
+                                      if (!ok) return;
+                                      try {
+                                        await medicoesService.remove(m.id);
+                                        toast.success('Medição excluída');
+                                        loadMedicoes();
+                                      } catch (e: any) { toast.error(e.message); }
+                                    }}>
+                                    <Trash2 className="h-4 w-4 text-rose-600" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+            );
+          })()}
         </TabsContent>
+
 
         <TabsContent value="gastos">
           <GastosPanel />
