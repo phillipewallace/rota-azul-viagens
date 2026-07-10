@@ -265,6 +265,17 @@ const ErpFinanceiro: React.FC = () => {
   useEffect(() => { loadPendentes(); }, [loadPendentes]);
   useEffect(() => { loadRecibos(); }, [loadRecibos]);
 
+  // Carga das medições da competência
+  const loadMedicoes = useCallback(async () => {
+    setMedicoesLoading(true);
+    try {
+      const r = await medicoesService.list({ competencia });
+      if (mountedRef.current) setMedicoes(r);
+    } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
+    finally { if (mountedRef.current) setMedicoesLoading(false); }
+  }, [competencia]);
+  useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
+
 
   useEffect(() => {
     let cancelled = false;
