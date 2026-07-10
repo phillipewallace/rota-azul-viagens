@@ -4,13 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus, Trash2 } from 'lucide-react';
 import {
@@ -149,67 +143,33 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2 md:col-span-1">
               <Label>Caminhão *</Label>
-              <Select
+              <SearchableSelect
                 value={formData.truck_id}
-                onValueChange={(v) =>
-                  setFormData((p) => ({ ...p, truck_id: v }))
-                }
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {trucks.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name} — {t.plate}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={(v) => setFormData((p) => ({ ...p, truck_id: v }))}
+                placeholder="Selecione"
+                searchPlaceholder="Buscar caminhão..."
+                options={trucks.map((t) => ({ value: t.id, label: t.name, hint: t.plate }))}
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Tipo *</Label>
-              <Select
+              <SearchableSelect
                 value={formData.maintenance_type}
-                onValueChange={(v) =>
-                  setFormData((p) => ({ ...p, maintenance_type: v }))
-                }
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {maintenanceTypes.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={(v) => setFormData((p) => ({ ...p, maintenance_type: v }))}
+                placeholder="Selecione"
+                options={maintenanceTypes}
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select
+              <SearchableSelect
                 value={formData.status}
-                onValueChange={(v) =>
-                  setFormData((p) => ({ ...p, status: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={(v) => setFormData((p) => ({ ...p, status: v }))}
+                placeholder="Selecione"
+                options={statusOptions}
+              />
             </div>
           </div>
 

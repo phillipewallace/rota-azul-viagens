@@ -12,9 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -179,12 +177,12 @@ const VehicleModal: React.FC<{
           </div>
           <div>
             <Label>Tipo</Label>
-            <Select value={form.vehicleType} onValueChange={v => setForm({ ...form, vehicleType: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {VEHICLE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={form.vehicleType}
+              onValueChange={v => setForm({ ...form, vehicleType: v })}
+              placeholder="Tipo"
+              options={VEHICLE_TYPES}
+            />
           </div>
           <div><Label>Placa</Label>
             <Input value={form.plate || ''} onChange={e => setForm({ ...form, plate: e.target.value.toUpperCase() })} />
@@ -306,15 +304,12 @@ const VehicleCardModal: React.FC<{ vehicle: ErpVehicle; onClose: () => void }> =
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
               <Label className="text-xs">Categoria</Label>
-              <Select value={draft.category || 'observacao'}
-                onValueChange={v => setDraft({ ...draft, category: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {COMMENT_CATEGORIES.map(c =>
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={draft.category || 'observacao'}
+                onValueChange={v => setDraft({ ...draft, category: v })}
+                placeholder="Categoria"
+                options={COMMENT_CATEGORIES.map(c => ({ value: c.value, label: c.label }))}
+              />
             </div>
             <div>
               <Label className="text-xs">Data do evento</Label>

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useDrivers } from '@/hooks/useDrivers';
 import { useRoutes } from '@/hooks/useRoutes';
 import { Truck } from '@/hooks/useTrucks';
@@ -97,51 +97,48 @@ export const TruckForm: React.FC<TruckFormProps> = ({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="status">Status</Label>
-          <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione o status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="available">Disponível</SelectItem>
-              <SelectItem value="in-route">Em Rota</SelectItem>
-              <SelectItem value="maintenance">Manutenção</SelectItem>
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            id="status"
+            value={formData.status}
+            onValueChange={(value) => handleChange('status', value)}
+            placeholder="Selecione o status"
+            options={[
+              { value: 'available', label: 'Disponível' },
+              { value: 'in-route', label: 'Em Rota' },
+              { value: 'maintenance', label: 'Manutenção' },
+            ]}
+          />
         </div>
         <div>
           <Label htmlFor="driver">Motorista</Label>
-          <Select value={formData.driver} onValueChange={(value) => handleChange('driver', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione o motorista" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhum motorista</SelectItem>
-              {drivers?.map((driver) => (
-                <SelectItem key={driver.id} value={driver.name}>
-                  {driver.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            id="driver"
+            value={formData.driver}
+            onValueChange={(value) => handleChange('driver', value)}
+            placeholder="Selecione o motorista"
+            searchPlaceholder="Buscar motorista..."
+            options={[
+              { value: 'none', label: 'Nenhum motorista' },
+              ...(drivers?.map((d) => ({ value: d.name, label: d.name })) || []),
+            ]}
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="currentRoute">Rota Atual</Label>
-          <Select value={formData.currentRoute} onValueChange={(value) => handleChange('currentRoute', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a rota" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhuma rota</SelectItem>
-              {routes?.map((route) => (
-                <SelectItem key={route.id} value={route.name}>
-                  {route.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            id="currentRoute"
+            value={formData.currentRoute}
+            onValueChange={(value) => handleChange('currentRoute', value)}
+            placeholder="Selecione a rota"
+            searchPlaceholder="Buscar rota..."
+            options={[
+              { value: 'none', label: 'Nenhuma rota' },
+              ...(routes?.map((r) => ({ value: r.name, label: r.name })) || []),
+            ]}
+          />
         </div>
         <div>
           <Label htmlFor="mileage">Quilometragem</Label>

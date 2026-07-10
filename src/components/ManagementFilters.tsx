@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { CalendarDays, Filter, RefreshCw } from 'lucide-react';
 
 interface ManagementFiltersProps {
@@ -76,36 +76,30 @@ export const ManagementFilters: React.FC<ManagementFiltersProps> = ({
 
           <div className="space-y-2">
             <Label>Caminhão</Label>
-            <Select value={selectedTruck} onValueChange={onTruckChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os caminhões" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os caminhões</SelectItem>
-                {trucks.map((truck) => (
-                  <SelectItem key={truck.id} value={truck.id}>
-                    {truck.name} - {truck.plate}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedTruck}
+              onValueChange={onTruckChange}
+              placeholder="Todos os caminhões"
+              searchPlaceholder="Buscar caminhão..."
+              options={[
+                { value: 'all', label: 'Todos os caminhões' },
+                ...trucks.map((t) => ({ value: t.id, label: t.name, hint: t.plate })),
+              ]}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Rota</Label>
-            <Select value={selectedRoute} onValueChange={onRouteChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todas as rotas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as rotas</SelectItem>
-                {routes.map((route) => (
-                  <SelectItem key={route.id} value={route.id}>
-                    {route.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedRoute}
+              onValueChange={onRouteChange}
+              placeholder="Todas as rotas"
+              searchPlaceholder="Buscar rota..."
+              options={[
+                { value: 'all', label: 'Todas as rotas' },
+                ...routes.map((r) => ({ value: r.id, label: r.name })),
+              ]}
+            />
           </div>
         </div>
 

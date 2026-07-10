@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { CalendarDays, Filter, RefreshCw, Plus } from 'lucide-react';
 
 interface MaintenanceFiltersProps {
@@ -100,53 +100,42 @@ export const MaintenanceFilters: React.FC<MaintenanceFiltersProps> = ({
 
           <div className="space-y-2">
             <Label>Caminhão</Label>
-            <Select value={selectedTruck} onValueChange={onTruckChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os caminhões" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os caminhões</SelectItem>
-                {trucks.map((truck) => (
-                  <SelectItem key={truck.id} value={truck.id}>
-                    {truck.name} - {truck.plate}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedTruck}
+              onValueChange={onTruckChange}
+              placeholder="Todos os caminhões"
+              searchPlaceholder="Buscar caminhão..."
+              options={[
+                { value: 'all', label: 'Todos os caminhões' },
+                ...trucks.map((t) => ({ value: t.id, label: t.name, hint: t.plate })),
+              ]}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select value={selectedStatus} onValueChange={onStatusChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                {statusOptions.map((status) => (
-                  <SelectItem key={status.value} value={status.value}>
-                    {status.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedStatus}
+              onValueChange={onStatusChange}
+              placeholder="Todos os status"
+              options={[
+                { value: 'all', label: 'Todos os status' },
+                ...statusOptions,
+              ]}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Tipo</Label>
-            <Select value={selectedType} onValueChange={onTypeChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os tipos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                {maintenanceTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedType}
+              onValueChange={onTypeChange}
+              placeholder="Todos os tipos"
+              options={[
+                { value: 'all', label: 'Todos os tipos' },
+                ...maintenanceTypes,
+              ]}
+            />
           </div>
         </div>
 
