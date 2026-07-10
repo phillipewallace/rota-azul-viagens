@@ -2047,6 +2047,11 @@ const ErpFinanceiro: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <ContractViewDialog
+        contractId={viewContractId}
+        onClose={() => setViewContractId(null)}
+      />
+
     </div>
   );
 };
