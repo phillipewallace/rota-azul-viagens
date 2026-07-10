@@ -419,38 +419,63 @@ export const MedicaoDialog: React.FC<Props> = ({
                         <Button variant="ghost" size="sm" type="button" onClick={() => addSuggested(c)} title="Adiciona 1 linha com o valor mensal do contrato">
                           <Plus className="h-3.5 w-3.5 mr-1" /> Sugerir
                         </Button>
-                        <Button variant={expanded ? 'default' : 'outline'} size="sm" type="button" onClick={() => openProductForm(c)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Produto
+                        <Button variant={expanded ? 'default' : 'outline'} size="sm" type="button" onClick={() => openContractItems(c)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Itens do contrato
                         </Button>
                       </div>
                     </div>
-                    {expanded && (
-                      <div className="border-t p-2 grid grid-cols-1 md:grid-cols-[1fr_90px_130px_auto] gap-2 items-end bg-muted/20">
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">Produto</Label>
-                          <SearchableSelect
-                            value={productDraft.produto}
-                            searchPlaceholder="Buscar produto..."
-                            triggerClassName="h-9"
-                            options={PRODUCT_CATALOG}
-                            onValueChange={(v) => setProductDraft(d => ({ ...d, produto: v }))}
-                          />
+                    {expanded && (() => {
+                      const drafts = contractDrafts[c.id] || [];
+                      return (
+                        <div className="border-t bg-muted/20 p-2 space-y-2">
+                          {c.descricao && (
+                            <div className="rounded-sm bg-background/60 border p-2 text-[11px] whitespace-pre-wrap text-muted-foreground max-h-24 overflow-y-auto">
+                              <span className="font-medium text-foreground">Descrição do contrato:</span>{'\n'}
+                              {c.descricao}
+                            </div>
+                          )}
+                          {drafts.length === 0 ? (
+                            <div className="text-xs text-muted-foreground italic px-1">
+                              Nenhum item detectado na descrição do contrato.
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between px-1">
+                              <div className="text-[11px] text-muted-foreground">
+                                {drafts.length} {drafts.length === 1 ? 'item detectado' : 'itens detectados'} — edite e adicione.
+                              </div>
+                              <Button size="sm" type="button" variant="secondary" onClick={() => addAllDrafts(c)}>
+                                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar todos
+                              </Button>
+                            </div>
+                          )}
+                          {drafts.map((d, i) => (
+                            <div key={i} className="grid grid-cols-[70px_1fr_120px_auto] gap-2 items-end">
+                              <div>
+                                <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                                <Input type="number" step="1" min="1" value={d.quantidade}
+                                  onChange={(e) => updateDraft(c.id, i, { quantidade: Number(e.target.value) })} />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-muted-foreground">Descrição</Label>
+                                <Input value={d.descricao}
+                                  onChange={(e) => updateDraft(c.id, i, { descricao: e.target.value })} />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-muted-foreground">V. unit.</Label>
+                                <Input type="number" step="0.01" min="0" value={d.valorUnit}
+                                  onChange={(e) => updateDraft(c.id, i, { valorUnit: Number(e.target.value) })} />
+                              </div>
+                              <Button size="sm" type="button" onClick={() => addDraftRow(c, i)}>
+                                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                              </Button>
+                            </div>
+                          ))}
+                          <Button variant="ghost" size="sm" type="button" onClick={() => addEmptyDraft(c)}>
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Novo item deste contrato
+                          </Button>
                         </div>
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">Qtd</Label>
-                          <Input type="number" step="1" min="1" value={productDraft.quantidade}
-                            onChange={(e) => setProductDraft(d => ({ ...d, quantidade: Number(e.target.value) }))} />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">V. unit.</Label>
-                          <Input type="number" step="0.01" min="0" value={productDraft.valorUnit}
-                            onChange={(e) => setProductDraft(d => ({ ...d, valorUnit: Number(e.target.value) }))} />
-                        </div>
-                        <Button size="sm" type="button" onClick={() => addProductRow(c)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
-                        </Button>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 );
               })}
