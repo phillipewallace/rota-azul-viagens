@@ -349,6 +349,9 @@ export interface UnifiedReceiptItem {
   enderecoObra?: string | null;
   cno?: string | null;
   valor: number;
+  numeroRecibo?: string | null;   // nº do recibo individual gerado por contrato
+  periodoInicio?: string | null;  // YYYY-MM-DD — período do recibo daquele contrato
+  periodoFim?: string | null;     // YYYY-MM-DD
 }
 export interface UnifiedReceiptInput {
   numero: string;
