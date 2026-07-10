@@ -141,6 +141,8 @@ const computeCompetenciaPeriodo = (
   const inicio = `${y}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
   return { inicio, fim: addDaysISO(inicio, 30) };
 };
+
+const FORMA_LABEL: Record<FormaPagamento, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro', boleto: 'Boleto',
   cartao: 'Cartão', transferencia: 'Transferência', outro: 'Outro',
 };
