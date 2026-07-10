@@ -114,6 +114,10 @@ export const MedicaoDialog: React.FC<Props> = ({
   const [observacoes, setObservacoes] = useState('');
 
   const [addContractSearch, setAddContractSearch] = useState('');
+  const [expandedContract, setExpandedContract] = useState<string | null>(null);
+  const [productDraft, setProductDraft] = useState<{ produto: string; quantidade: number; valorUnit: number }>({
+    produto: PRODUCT_CATALOG[0].value, quantidade: 1, valorUnit: 0,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -148,6 +152,7 @@ export const MedicaoDialog: React.FC<Props> = ({
       setObservacoes('');
       setRows([]);
     }
+    setExpandedContract(null);
   }, [open, editing, periodoInicioDefault, periodoFimDefault]);
 
   // Clientes distintos (via contratos ativos) — fonte simples pra picker.
@@ -163,14 +168,13 @@ export const MedicaoDialog: React.FC<Props> = ({
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [contracts]);
 
-  // Contratos disponíveis do cliente escolhido, menos os já adicionados.
+  // Contratos do cliente escolhido (sempre lista — várias linhas por contrato permitidas).
   const contratosDoCliente = useMemo(() => {
     if (!customerId) return [];
-    const usados = new Set(rows.map(r => r.contractId).filter(Boolean) as string[]);
     return contracts
-      .filter(c => c.customerId === customerId && !usados.has(c.id))
+      .filter(c => c.customerId === customerId)
       .filter(c => !addContractSearch || `${c.numero} ${c.descricao || ''}`.toLowerCase().includes(addContractSearch.toLowerCase()));
-  }, [contracts, customerId, rows, addContractSearch]);
+  }, [contracts, customerId, addContractSearch]);
 
   const recalcRow = (r: Row): Row => {
     const total = Math.max(0, Number(r.quantidade || 0) * Number(r.valorUnit || 0) - Number(r.descontoItem || 0));
@@ -182,17 +186,35 @@ export const MedicaoDialog: React.FC<Props> = ({
   };
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r.key !== key));
 
-  const addContract = (c: Contract) => {
-    setRows(prev => [...prev, rowFromContract(c, periodoIni, periodoFim)]);
-    if (!customerId && c.customerId) {
-      setCustomerId(c.customerId);
-      setCustomerLabel(c.customerName || '');
-      setCustomerDocument(c.customerDocument || '');
+  const openProductForm = (c: Contract) => {
+    setExpandedContract(prev => prev === c.id ? null : c.id);
+    setProductDraft({
+      produto: PRODUCT_CATALOG[0].value,
+      quantidade: 1,
+      valorUnit: Number(c.valorMensal || 0),
+    });
+    if (!companyId && c.companyId) setCompanyId(c.companyId);
+  };
+
+  const addProductRow = (c: Contract) => {
+    const qtd = Number(productDraft.quantidade || 0);
+    const vu  = Number(productDraft.valorUnit || 0);
+    if (!productDraft.produto || qtd <= 0) {
+      toast.error('Informe produto e quantidade.');
+      return;
     }
+    setRows(prev => [...prev, rowFromProduct(c, productDraft.produto, qtd, vu, periodoIni, periodoFim)]);
+    setProductDraft(d => ({ ...d, quantidade: 1 }));
+    if (!companyId && c.companyId) setCompanyId(c.companyId);
+  };
+
+  const addSuggested = (c: Contract) => {
+    setRows(prev => [...prev, rowSuggested(c, periodoIni, periodoFim)]);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
   };
 
   const addFreeItem = () => setRows(prev => [...prev, rowEmpty()]);
+
 
   const subtotal = rows.reduce((s, r) => s + Number(r.valorTotal || 0), 0);
   const total = Math.max(0, subtotal - Number(desconto || 0));
