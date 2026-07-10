@@ -1345,6 +1345,14 @@ const ErpFinanceiro: React.FC = () => {
                                 <Button
                                   size="sm" variant="ghost"
                                   className="h-8 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50"
+                                  onClick={() => setViewContractId(r.contractId)}
+                                  aria-label="Ver contrato" title="Ver contrato"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm" variant="ghost"
+                                  className="h-8 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50"
                                   onClick={() => generateReceiptPdf(r)}
                                   aria-label="Baixar PDF do recibo"
                                 >
