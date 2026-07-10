@@ -48,8 +48,12 @@ import {
 } from '@/services/contracts';
 import { erpService, type ErpCompany } from '@/services/erp';
 import { uploadSignedPdf } from '@/services/erp';
+import { medicoesService, type Medicao } from '@/services/medicoes';
+import { MedicaoDialog } from '@/components/erp/MedicaoDialog';
+import { MedicaoViewDialog } from '@/components/erp/MedicaoViewDialog';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateReceiptPdf, generateUnifiedReceiptPdf } from '@/utils/receiptPdf';
+import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
@@ -173,7 +177,15 @@ const ErpFinanceiro: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
   const [batchWorking, setBatchWorking] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'clientes' | 'gastos'>('pendentes');
+  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'medicoes' | 'clientes' | 'gastos'>('pendentes');
+
+  // Medições (aba nova) — proposta de faturamento (pré-recibo)
+  const [medicoes, setMedicoes] = useState<import('@/services/medicoes').Medicao[]>([]);
+  const [medicoesLoading, setMedicoesLoading] = useState(false);
+  const [medicaoDialogOpen, setMedicaoDialogOpen] = useState(false);
+  const [medicaoEditing, setMedicaoEditing] = useState<import('@/services/medicoes').Medicao | null>(null);
+  const [medicaoViewId, setMedicaoViewId] = useState<string | null>(null);
+  const [medicaoViewOpen, setMedicaoViewOpen] = useState(false);
   // popover do recibo unificado
   const [unifOpen, setUnifOpen] = useState(false);
   const [unifIni, setUnifIni] = useState('');
@@ -252,6 +264,17 @@ const ErpFinanceiro: React.FC = () => {
 
   useEffect(() => { loadPendentes(); }, [loadPendentes]);
   useEffect(() => { loadRecibos(); }, [loadRecibos]);
+
+  // Carga das medições da competência
+  const loadMedicoes = useCallback(async () => {
+    setMedicoesLoading(true);
+    try {
+      const r = await medicoesService.list({ competencia });
+      if (mountedRef.current) setMedicoes(r);
+    } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
+    finally { if (mountedRef.current) setMedicoesLoading(false); }
+  }, [competencia]);
+  useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
 
 
   useEffect(() => {
@@ -992,6 +1015,9 @@ const ErpFinanceiro: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="sem-validade">
             Sem validade <Badge variant="outline" className="ml-2">{recibosSemValidade.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="medicoes">
+            Medições <Badge variant="outline" className="ml-2">{medicoes.length}</Badge>
           </TabsTrigger>
           <TabsTrigger value="clientes">
             Por cliente <Badge variant="outline" className="ml-2">{perCustomer.length}</Badge>
@@ -1894,10 +1920,135 @@ const ErpFinanceiro: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="medicoes">
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm text-muted-foreground">
+                  {medicoesLoading ? 'Carregando…' : `${medicoes.length} medição(ões) em ${formatComp(competencia)}`}
+                </div>
+                <div className="ml-auto flex gap-2">
+                  <Button variant="outline" size="sm" onClick={loadMedicoes} disabled={medicoesLoading}>
+                    <RefreshCw className={`h-4 w-4 mr-1 ${medicoesLoading ? 'animate-spin' : ''}`} /> Atualizar
+                  </Button>
+                  <Button size="sm" onClick={() => { setMedicaoEditing(null); setMedicaoDialogOpen(true); }}>
+                    <Plus className="h-4 w-4 mr-1" /> Nova medição
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nº</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Período</TableHead>
+                      <TableHead className="text-right">Itens</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {medicoes.length === 0 && !medicoesLoading && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
+                          Nenhuma medição em {formatComp(competencia)}. Clique em <b>Nova medição</b> para começar.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {medicoes.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell className="font-mono text-xs">{m.numero}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{m.customerName || m.clienteNome || '—'}</div>
+                          <div className="text-xs text-muted-foreground">{m.customerDocument || m.clienteDocumento || ''}</div>
+                        </TableCell>
+                        <TableCell className="text-xs">{m.companyRazaoSocial || '—'}</TableCell>
+                        <TableCell className="text-xs">
+                          {(m.periodoInicio || m.periodoFim) ? formatPeriodo(m.periodoInicio, m.periodoFim) : (m.competencia || '—')}
+                        </TableCell>
+                        <TableCell className="text-right text-xs">{m.itensCount ?? '—'}</TableCell>
+                        <TableCell className="text-right font-medium">{BRL(Number(m.total || 0))}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button size="icon" variant="ghost" title="Visualizar"
+                              onClick={() => { setMedicaoViewId(m.id); setMedicaoViewOpen(true); }}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Baixar PDF"
+                              onClick={async () => {
+                                try {
+                                  const full = await medicoesService.get(m.id);
+                                  await generateMedicaoPdf(full as any);
+                                } catch (e: any) { toast.error(e.message); }
+                              }}>
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Editar"
+                              onClick={async () => {
+                                try {
+                                  const full = await medicoesService.get(m.id);
+                                  setMedicaoEditing(full);
+                                  setMedicaoDialogOpen(true);
+                                } catch (e: any) { toast.error(e.message); }
+                              }}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Excluir"
+                              onClick={async () => {
+                                const ok = await confirmDialog({
+                                  title: `Excluir medição ${m.numero}?`,
+                                  description: 'Esta ação não pode ser desfeita.',
+                                  confirmLabel: 'Excluir', destructive: true,
+                                });
+                                if (!ok) return;
+                                try {
+                                  await medicoesService.remove(m.id);
+                                  toast.success('Medição excluída');
+                                  loadMedicoes();
+                                } catch (e: any) { toast.error(e.message); }
+                              }}>
+                              <Trash2 className="h-4 w-4 text-rose-600" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="gastos">
           <GastosPanel />
         </TabsContent>
       </Tabs>
+
+      {/* Dialogs de Medição */}
+      <MedicaoDialog
+        open={medicaoDialogOpen}
+        onOpenChange={setMedicaoDialogOpen}
+        competencia={competencia}
+        periodoInicioDefault={undefined}
+        periodoFimDefault={undefined}
+        editing={medicaoEditing}
+        onSaved={() => loadMedicoes()}
+      />
+      <MedicaoViewDialog
+        medicaoId={medicaoViewId}
+        open={medicaoViewOpen}
+        onOpenChange={setMedicaoViewOpen}
+        onEdit={(m) => {
+          setMedicaoViewOpen(false);
+          setMedicaoEditing(m);
+          setMedicaoDialogOpen(true);
+        }}
+      />
+
 
       {/* Barra flutuante de ações em lote — recibos */}
       {selectedRecibos.size > 0 && (
