@@ -1920,10 +1920,135 @@ const ErpFinanceiro: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="medicoes">
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm text-muted-foreground">
+                  {medicoesLoading ? 'Carregando…' : `${medicoes.length} medição(ões) em ${formatComp(competencia)}`}
+                </div>
+                <div className="ml-auto flex gap-2">
+                  <Button variant="outline" size="sm" onClick={loadMedicoes} disabled={medicoesLoading}>
+                    <RefreshCw className={`h-4 w-4 mr-1 ${medicoesLoading ? 'animate-spin' : ''}`} /> Atualizar
+                  </Button>
+                  <Button size="sm" onClick={() => { setMedicaoEditing(null); setMedicaoDialogOpen(true); }}>
+                    <Plus className="h-4 w-4 mr-1" /> Nova medição
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nº</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Período</TableHead>
+                      <TableHead className="text-right">Itens</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {medicoes.length === 0 && !medicoesLoading && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
+                          Nenhuma medição em {formatComp(competencia)}. Clique em <b>Nova medição</b> para começar.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {medicoes.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell className="font-mono text-xs">{m.numero}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{m.customerName || m.clienteNome || '—'}</div>
+                          <div className="text-xs text-muted-foreground">{m.customerDocument || m.clienteDocumento || ''}</div>
+                        </TableCell>
+                        <TableCell className="text-xs">{m.companyRazaoSocial || '—'}</TableCell>
+                        <TableCell className="text-xs">
+                          {(m.periodoInicio || m.periodoFim) ? formatPeriodo(m.periodoInicio, m.periodoFim) : (m.competencia || '—')}
+                        </TableCell>
+                        <TableCell className="text-right text-xs">{m.itensCount ?? '—'}</TableCell>
+                        <TableCell className="text-right font-medium">{BRL(Number(m.total || 0))}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button size="icon" variant="ghost" title="Visualizar"
+                              onClick={() => { setMedicaoViewId(m.id); setMedicaoViewOpen(true); }}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Baixar PDF"
+                              onClick={async () => {
+                                try {
+                                  const full = await medicoesService.get(m.id);
+                                  await generateMedicaoPdf(full as any);
+                                } catch (e: any) { toast.error(e.message); }
+                              }}>
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Editar"
+                              onClick={async () => {
+                                try {
+                                  const full = await medicoesService.get(m.id);
+                                  setMedicaoEditing(full);
+                                  setMedicaoDialogOpen(true);
+                                } catch (e: any) { toast.error(e.message); }
+                              }}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Excluir"
+                              onClick={async () => {
+                                const ok = await confirmDialog({
+                                  title: `Excluir medição ${m.numero}?`,
+                                  description: 'Esta ação não pode ser desfeita.',
+                                  confirmText: 'Excluir', variant: 'destructive',
+                                });
+                                if (!ok) return;
+                                try {
+                                  await medicoesService.remove(m.id);
+                                  toast.success('Medição excluída');
+                                  loadMedicoes();
+                                } catch (e: any) { toast.error(e.message); }
+                              }}>
+                              <Trash2 className="h-4 w-4 text-rose-600" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="gastos">
           <GastosPanel />
         </TabsContent>
       </Tabs>
+
+      {/* Dialogs de Medição */}
+      <MedicaoDialog
+        open={medicaoDialogOpen}
+        onOpenChange={setMedicaoDialogOpen}
+        competencia={competencia}
+        periodoInicioDefault={undefined}
+        periodoFimDefault={undefined}
+        editing={medicaoEditing}
+        onSaved={() => loadMedicoes()}
+      />
+      <MedicaoViewDialog
+        medicaoId={medicaoViewId}
+        open={medicaoViewOpen}
+        onOpenChange={setMedicaoViewOpen}
+        onEdit={(m) => {
+          setMedicaoViewOpen(false);
+          setMedicaoEditing(m);
+          setMedicaoDialogOpen(true);
+        }}
+      />
+
 
       {/* Barra flutuante de ações em lote — recibos */}
       {selectedRecibos.size > 0 && (
