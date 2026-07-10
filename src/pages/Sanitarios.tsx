@@ -21,6 +21,7 @@ import { usePolling } from '@/hooks/usePolling';
 import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes, Send, Pencil, Check, ArrowLeft, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
 import {
   AlertDialog,
@@ -568,33 +569,36 @@ export default function Sanitarios() {
 
           <div>
             <label className="text-xs text-muted-foreground">Status</label>
-            <select
-              className="block border rounded-md h-10 px-2 bg-background"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">Todos</option>
-              <option value="em_cliente">Em cliente</option>
-              <option value="disponivel">Disponível</option>
-              <option value="manutencao">Manutenção</option>
-              <option value="inativo">Inativo</option>
-            </select>
+            <SearchableSelect
+              value={statusFilter || '__all__'}
+              triggerClassName="w-[160px]"
+              options={[
+                { value: '__all__', label: 'Todos' },
+                { value: 'em_cliente', label: 'Em cliente' },
+                { value: 'disponivel', label: 'Disponível' },
+                { value: 'manutencao', label: 'Manutenção' },
+                { value: 'inativo', label: 'Inativo' },
+              ]}
+              onValueChange={(v) => setStatusFilter(v === '__all__' ? '' : v)}
+            />
           </div>
 
           <div>
             <label className="text-xs text-muted-foreground">Caminhão</label>
-            <select
-              className="block border rounded-md h-10 px-2 bg-background min-w-[160px]"
-              value={truckFilter}
-              onChange={(e) => setTruckFilter(e.target.value)}
-            >
-              <option value="">Todos</option>
-              {trucks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}{t.plate ? ` (${t.plate})` : ''}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={truckFilter || '__all__'}
+              triggerClassName="min-w-[180px]"
+              searchPlaceholder="Buscar caminhão..."
+              options={[
+                { value: '__all__', label: 'Todos' },
+                ...trucks.map((t) => ({
+                  value: t.id,
+                  label: t.name || '(sem nome)',
+                  hint: t.plate || undefined,
+                })),
+              ]}
+              onValueChange={(v) => setTruckFilter(v === '__all__' ? '' : v)}
+            />
           </div>
 
           {(filter || statusFilter || truckFilter) && (

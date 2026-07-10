@@ -681,14 +681,17 @@ const ErpQuotes: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground">Empresa emissora (CNPJ) *</label>
-                  <select className="w-full border rounded-md h-10 px-2 bg-background"
-                          value={editing.companyId || ''}
-                          onChange={e => setEditing({ ...editing, companyId: e.target.value || undefined })}>
-                    <option value="">— Selecione —</option>
-                    {companies.map(c => (
-                      <option key={c.id} value={c.id}>{c.razaoSocial} · {c.cnpj}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={editing.companyId || ''}
+                    placeholder="— Selecione —"
+                    searchPlaceholder="Buscar empresa..."
+                    options={companies.map(c => ({
+                      value: c.id,
+                      label: c.razaoSocial || '(sem razão)',
+                      hint: c.cnpj || undefined,
+                    }))}
+                    onValueChange={(v) => setEditing({ ...editing, companyId: v || undefined })}
+                  />
                   {!companies.length && (
                     <p className="text-[10px] text-orange-600 flex items-center gap-1 mt-1">
                       <AlertCircle className="h-3 w-3" /> Cadastre uma empresa em Configurações.
@@ -697,16 +700,17 @@ const ErpQuotes: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Cliente *</label>
-                  <select className="w-full border rounded-md h-10 px-2 bg-background"
-                          value={editing.customerId || ''}
-                          onChange={e => setEditing({ ...editing, customerId: e.target.value || undefined })}>
-                    <option value="">— Selecione —</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.customerName}{c.document ? ` · ${c.document}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={editing.customerId || ''}
+                    placeholder="— Selecione —"
+                    searchPlaceholder="Buscar cliente..."
+                    options={customers.map(c => ({
+                      value: c.id,
+                      label: c.customerName || '(sem nome)',
+                      hint: c.document || undefined,
+                    }))}
+                    onValueChange={(v) => setEditing({ ...editing, customerId: v || undefined })}
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Modalidade *</label>
@@ -912,14 +916,16 @@ const ErpQuotes: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Status</label>
-                    <select className="w-full border rounded-md h-10 px-2 bg-background"
-                            value={editing.status}
-                            onChange={e => setEditing({ ...editing, status: e.target.value as Quote['status'] })}>
-                      <option value="rascunho">Rascunho</option>
-                      <option value="enviado">Enviado</option>
-                      <option value="aprovado">Aprovado</option>
-                      <option value="recusado">Recusado</option>
-                    </select>
+                    <SearchableSelect
+                      value={editing.status}
+                      options={[
+                        { value: 'rascunho', label: 'Rascunho' },
+                        { value: 'enviado', label: 'Enviado' },
+                        { value: 'aprovado', label: 'Aprovado' },
+                        { value: 'recusado', label: 'Recusado' },
+                      ]}
+                      onValueChange={(v) => setEditing({ ...editing, status: v as Quote['status'] })}
+                    />
                   </div>
                 </div>
               </div>

@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Loader2, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { contractsService, type Contract } from '@/services/contracts';
@@ -225,39 +226,40 @@ export const MedicaoDialog: React.FC<Props> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs">Cliente</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+              <SearchableSelect
                 value={customerId || ''}
                 disabled={!!editing}
-                onChange={(e) => {
-                  const id = e.target.value || null;
+                placeholder="— Selecione —"
+                searchPlaceholder="Buscar cliente..."
+                triggerClassName="h-9"
+                options={customers.map((c) => ({
+                  value: c.id,
+                  label: c.name || '(sem nome)',
+                  hint: c.document || undefined,
+                }))}
+                onValueChange={(v) => {
+                  const id = v || null;
                   setCustomerId(id);
-                  const c = customers.find(x => x.id === id);
+                  const c = customers.find((x) => x.id === id);
                   setCustomerLabel(c?.name || '');
                   setCustomerDocument(c?.document || '');
-                  setRows([]); // troca de cliente limpa itens
+                  setRows([]);
                 }}
-              >
-                <option value="">— Selecione —</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}{c.document ? ` · ${c.document}` : ''}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <Label className="text-xs">Empresa emissora</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
-                value={companyId || ''}
-                onChange={(e) => setCompanyId(e.target.value || null)}
-              >
-                <option value="">— Padrão do contrato —</option>
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>{c.razaoSocial}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={companyId || '__default__'}
+                placeholder="— Padrão do contrato —"
+                searchPlaceholder="Buscar empresa..."
+                triggerClassName="h-9"
+                options={[
+                  { value: '__default__', label: '— Padrão do contrato —' },
+                  ...companies.map((c) => ({ value: c.id, label: c.razaoSocial || '(sem razão social)' })),
+                ]}
+                onValueChange={(v) => setCompanyId(v === '__default__' ? null : v)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>

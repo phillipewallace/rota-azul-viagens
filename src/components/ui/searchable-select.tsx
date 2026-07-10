@@ -71,19 +71,34 @@ export const SearchableSelect = React.forwardRef<
       else if (ref) (ref as React.MutableRefObject<HTMLButtonElement | null>).current = el;
     };
 
-    const selected = options.find((o) => o.value === value);
-    const showSearch = options.length >= searchThreshold;
+    // Normalize options defensively — labels/values from API may be null/undefined
+    // and would otherwise crash cmdk on filter (`.toLowerCase()` on non-string).
+    const safeOptions = React.useMemo<SearchableSelectOption[]>(
+      () =>
+        (options || [])
+          .filter((o) => o && o.value != null)
+          .map((o) => ({
+            value: String(o.value),
+            label: o.label == null || o.label === '' ? String(o.value) : String(o.label),
+            hint: o.hint == null ? undefined : String(o.hint),
+            disabled: o.disabled,
+          })),
+      [options]
+    );
+
+    const selected = safeOptions.find((o) => o.value === value);
+    const showSearch = safeOptions.length >= searchThreshold;
 
     const filtered = React.useMemo(() => {
       const q = query.trim().toLowerCase();
-      if (!q) return options;
-      return options.filter(
+      if (!q) return safeOptions;
+      return safeOptions.filter(
         (o) =>
           o.label.toLowerCase().includes(q) ||
           (o.hint ? o.hint.toLowerCase().includes(q) : false) ||
           o.value.toLowerCase().includes(q)
       );
-    }, [options, query]);
+    }, [safeOptions, query]);
 
     return (
       <Popover
@@ -116,9 +131,8 @@ export const SearchableSelect = React.forwardRef<
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="p-0"
+          className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[--radix-popover-trigger-width]"
           align="start"
-          style={{ width: internalRef.current?.offsetWidth }}
         >
           <Command shouldFilter={false}>
             {showSearch && (
