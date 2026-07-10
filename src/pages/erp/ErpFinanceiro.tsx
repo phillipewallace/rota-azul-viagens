@@ -231,6 +231,7 @@ const ErpFinanceiro: React.FC = () => {
   // Guarda contra setState após unmount / troca de competência
   const mountedRef = useRef(true);
   const pendentesRequestRef = useRef(0);
+  const previousActiveTabRef = useRef(activeTab);
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -279,7 +280,9 @@ const ErpFinanceiro: React.FC = () => {
   useEffect(() => { loadPendentes(); }, [loadPendentes]);
   useEffect(() => { loadRecibos(); }, [loadRecibos]);
   useEffect(() => {
-    if (activeTab === 'pendentes') void loadPendentes();
+    const previous = previousActiveTabRef.current;
+    previousActiveTabRef.current = activeTab;
+    if (activeTab === 'pendentes' && previous !== 'pendentes') void loadPendentes();
   }, [activeTab, loadPendentes]);
 
   // Carga das medições da competência
