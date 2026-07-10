@@ -1,72 +1,70 @@
+## Objetivo
 
-# Medição detalhada por produto
+Ao invés de o usuário escolher produto num catálogo fixo, a medição vai **ler os itens direto do campo "descrição/objeto" do contrato** (`contract.descricao`). Cada linha reconhecida vira uma sugestão de item já preenchida (qtd + produto), que o usuário pode adicionar com 1 clique — ou editar antes.
 
-Hoje, ao adicionar um contrato na medição, o sistema cria **1 linha única** com o valor mensal do contrato (ex: "Contrato 0007 — R$ 1.200"). O pedido é mudar para **listar os produtos** que compõem aquele contrato (ex: "Contrato 0007 — Sanitário Químico Comum · qtd 3 · R$ 300 = R$ 900" + "Contrato 0007 — Pia · qtd 1 · R$ 150"), mantendo o mesmo layout e fluxo do dialog.
+## Como interpretar a descrição
 
-## 1. Catálogo de produtos
+O campo `descricao` é texto livre, então vou usar um parser simples e tolerante que reconhece linhas no estilo:
 
-Como contratos hoje não têm produtos vinculados no banco, vou usar as **categorias já existentes de sanitários** (`comum`, `pne`, `pia`, `luxo`, `cabine_banho`) como catálogo base, com rótulos amigáveis:
+```text
+2 Sanitários Químicos Comuns
+1x Sanitário PNE
+3 - Pia de Apoio
+Cabine de banho
+Locação mensal - 5 sanitários luxo
+```
 
-- Sanitário Químico Comum
-- Sanitário PNE (Acessível)
-- Pia de Apoio
-- Sanitário Luxo
-- Cabine de Banho
+Regras do parser (por linha, ignorando vazias e cabeçalhos tipo "Objeto:"):
+1. Extrai **quantidade** do começo da linha (`^\s*(\d+)\s*[x\-–:.)]?\s*`); se não achar, assume `1`.
+2. O restante da linha vira **descrição do item** (trim, sem bullets `- • *`).
+3. Sem inferência de preço — `valorUnit` inicia em `0` e o usuário preenche. (Alternativa que posso aplicar se preferir: ratear `valorMensal / soma(qtds)` como sugestão.)
 
-Também mantenho a opção **"Item avulso"** (produto livre digitado à mão), do jeito que já existe.
+Nada é adicionado automaticamente na tabela; cada item aparece como **sugestão clicável** dentro do card do contrato expandido.
 
-## 2. Fluxo dentro do MedicaoDialog
+## Fluxo novo no MedicaoDialog
 
-Sem mudar layout geral. As alterações ficam na seção **"Adicionar contratos ativos do cliente"** e na tabela de itens:
+1. Usuário escolhe cliente → lista contratos ativos (igual hoje).
+2. Clica em **"Itens do contrato"** (substitui o botão "Produto" atual) no card do contrato → o card expande e mostra:
+   - Um preview do texto da descrição (colapsável).
+   - Uma **lista de itens detectados** (qtd editável + descrição editável + valor unit. editável), cada um com botão **"+ Adicionar"**.
+   - Botão **"Adicionar todos"** no topo da lista.
+   - Fallback quando `descricao` está vazia ou nada foi detectado: mensagem "Contrato sem itens na descrição" + botão **"Item avulso"** ligado ao contrato.
+3. Botão **"Sugerir"** (linha única com `valorMensal`) e **"Item avulso"** continuam disponíveis como estão hoje.
+4. Após adicionado, cada item vira uma linha normal na tabela de itens da medição (editável como já é), com badge do nº do contrato.
 
-1. Ao clicar num contrato (botão `+ 0007 · R$ 1.200`), em vez de já criar uma linha, abre um **mini formulário inline** (popover ou bloco expansível dentro do card do contrato) com:
-   - Select de **Produto** (searchable, usando o catálogo acima)
-   - **Quantidade** (default 1)
-   - **Valor unitário** (default = valor mensal do contrato ÷ quantidade, editável)
-   - Botão "Adicionar item"
-2. Cada clique em "Adicionar item" insere uma linha na tabela com:
-   - Descrição = "`{Nome do produto}`" (editável)
-   - Badge do nº do contrato na coluna `#` (já existe hoje)
-   - Qtd, Vunit, Total conforme informado
-   - Unidade = "UN"
-3. Um mesmo contrato pode gerar **várias linhas** (3 comuns + 1 PNE + 1 pia).
-4. "Item avulso" continua adicionando linha em branco, sem contrato vinculado.
+## Arquivos afetados
 
-Rodapé (desconto geral, obs, totais) fica igual.
+- `src/components/erp/MedicaoDialog.tsx` — único arquivo tocado:
+  - Novo helper `parseContractItems(descricao: string): { quantidade: number; descricao: string }[]`.
+  - Remove/renomeia o mini-form de "Produto" (catálogo fixo) — vira "Itens do contrato".
+  - Remove `PRODUCT_CATALOG` e `productDraft` (não são mais necessários); mantém `rowFromProduct`, `rowSuggested`, `rowEmpty`.
+  - Novo estado local por contrato expandido para editar as sugestões antes de adicionar.
 
-## 3. Sugestão inteligente (opcional, marcada como "sugerir")
+Sem mudanças no backend, schema, PDF ou serviços.
 
-Um botão pequeno **"Sugerir produtos"** no card do contrato que:
-- Pré-preenche uma linha "Locação — Sanitário Químico Comum, qtd 1, valor = valorMensal" (fallback compatível com o comportamento atual quando o usuário só quer replicar o valor sem detalhar).
+## Fora de escopo
 
-Isso mantém rapidez para quem não quer detalhar produto por produto.
+- Editar/estruturar o campo descrição no cadastro de contrato (continua texto livre).
+- Vincular produtos ao contrato via tabela separada.
+- Puxar sanitários efetivamente entregues (rota logística) — pedido diferente.
+- Preço automático por item (posso adicionar rateio simples depois se quiser).
 
-## 4. Backend e banco
+## Detalhes técnicos (parser)
 
-**Sem mudanças de schema.** A tabela `erp_medicao_itens` já guarda `descricao`, `quantidade`, `unidade`, `valor_unit`, `contract_id`, `contract_numero` — que é exatamente o que precisamos. Cada produto vira uma row na tabela como qualquer outro item.
+```ts
+function parseContractItems(text?: string) {
+  if (!text) return [];
+  return text
+    .split(/\r?\n|;/)
+    .map(l => l.replace(/^[\s\-•*]+/, '').trim())
+    .filter(l => l && !/^(objeto|descri[cç][aã]o|itens?)\s*:?\s*$/i.test(l))
+    .map(line => {
+      const m = line.match(/^(\d+)\s*(?:x|un|unid|-|–|:|\.|\))?\s*(.+)$/i);
+      if (m) return { quantidade: Number(m[1]) || 1, descricao: m[2].trim() };
+      return { quantidade: 1, descricao: line };
+    })
+    .filter(x => x.descricao.length > 0);
+}
+```
 
-Não vou adicionar coluna "categoria/produto_id" nas medições — a descrição textual já cumpre o papel de identificar o produto no PDF/histórico, e evita acoplar medições ao cadastro de sanitários (que pode mudar).
-
-## 5. PDF da medição
-
-O `medicaoPdf.ts` já renderiza uma linha por item com descrição, qtd, valor unit e total. Como agora vão haver N linhas por contrato, o PDF automaticamente sai detalhado. Vou apenas:
-- Garantir agrupamento visual: linhas do mesmo `contract_numero` ficam **consecutivas** (já ficam, pois são adicionadas em sequência) e o número do contrato aparece na coluna, sem repetir descrição do contrato.
-
-## 6. Retrocompatibilidade
-
-Medições antigas (1 linha por contrato) continuam abrindo/editando normalmente — cada linha antiga é só um item genérico. Nada muda para elas.
-
-## 7. Arquivos afetados
-
-- `src/components/erp/MedicaoDialog.tsx` — adicionar mini-form de produto por contrato, catálogo de categorias, botão "Sugerir produtos".
-- `src/utils/medicaoPdf.ts` — pequeno ajuste visual se necessário (agrupamento por contrato).
-- **Nada** de backend, migrations ou services.
-
-## Fora do escopo
-
-- Cadastro editável de produtos/preços em Settings.
-- Vincular produtos ao contrato no cadastro do contrato.
-- Puxar automaticamente sanitários entregues (OS/sanitários alocados) para a medição.
-- Alterações no layout geral do dialog ou dos filtros da tela ErpFinanceiro.
-
-Aprovando, implemento só as mudanças no `MedicaoDialog` (e ajuste mínimo no PDF se precisar).
+Confirma que faz sentido assim, ou quer que eu (a) também sugira preço rateado a partir do `valorMensal`, e/ou (b) mantenha o catálogo fixo como fallback quando a descrição não bater?

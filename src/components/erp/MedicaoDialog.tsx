@@ -35,14 +35,23 @@ interface Props {
 
 type Row = MedicaoItem & { key: string };
 
-// Catálogo de produtos (baseado nas categorias de sanitários existentes).
-const PRODUCT_CATALOG: { value: string; label: string }[] = [
-  { value: 'Sanitário Químico Comum',   label: 'Sanitário Químico Comum' },
-  { value: 'Sanitário PNE (Acessível)', label: 'Sanitário PNE (Acessível)' },
-  { value: 'Pia de Apoio',              label: 'Pia de Apoio' },
-  { value: 'Sanitário Luxo',            label: 'Sanitário Luxo' },
-  { value: 'Cabine de Banho',           label: 'Cabine de Banho' },
-];
+// Interpreta o campo "descrição/objeto" do contrato como lista de itens.
+// Cada linha vira { quantidade, descricao }. Tolerante a bullets e cabeçalhos.
+export function parseContractItems(text?: string | null): { quantidade: number; descricao: string }[] {
+  if (!text) return [];
+  return text
+    .split(/\r?\n|;/)
+    .map((l) => l.replace(/^[\s\-•*]+/, '').trim())
+    .filter((l) => l && !/^(objeto|descri[cç][aã]o|itens?)\s*:?\s*$/i.test(l))
+    .map((line) => {
+      const m = line.match(/^(\d+)\s*(?:x|un|unid|-|–|:|\.|\))\s*(.+)$/i);
+      if (m) return { quantidade: Number(m[1]) || 1, descricao: m[2].trim() };
+      const m2 = line.match(/^(\d+)\s+(.+)$/);
+      if (m2) return { quantidade: Number(m2[1]) || 1, descricao: m2[2].trim() };
+      return { quantidade: 1, descricao: line };
+    })
+    .filter((x) => x.descricao.length > 0);
+}
 
 const rowFromProduct = (
   c: Contract,
@@ -115,9 +124,10 @@ export const MedicaoDialog: React.FC<Props> = ({
 
   const [addContractSearch, setAddContractSearch] = useState('');
   const [expandedContract, setExpandedContract] = useState<string | null>(null);
-  const [productDraft, setProductDraft] = useState<{ produto: string; quantidade: number; valorUnit: number }>({
-    produto: PRODUCT_CATALOG[0].value, quantidade: 1, valorUnit: 0,
-  });
+  // Drafts editáveis por contrato (parseados a partir da descrição do contrato).
+  const [contractDrafts, setContractDrafts] = useState<
+    Record<string, { quantidade: number; descricao: string; valorUnit: number }[]>
+  >({});
 
   useEffect(() => {
     if (!open) return;
@@ -186,26 +196,73 @@ export const MedicaoDialog: React.FC<Props> = ({
   };
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r.key !== key));
 
-  const openProductForm = (c: Contract) => {
-    setExpandedContract(prev => prev === c.id ? null : c.id);
-    setProductDraft({
-      produto: PRODUCT_CATALOG[0].value,
-      quantidade: 1,
-      valorUnit: Number(c.valorMensal || 0),
+  const ensureDraftsFor = (c: Contract) => {
+    setContractDrafts((prev) => {
+      if (prev[c.id]) return prev;
+      const parsed = parseContractItems(c.descricao);
+      const items = parsed.length > 0 ? parsed : [];
+      return {
+        ...prev,
+        [c.id]: items.map((it) => ({
+          quantidade: it.quantidade,
+          descricao: it.descricao,
+          valorUnit: 0,
+        })),
+      };
     });
+  };
+
+  const openContractItems = (c: Contract) => {
+    setExpandedContract((prev) => (prev === c.id ? null : c.id));
+    ensureDraftsFor(c);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
   };
 
-  const addProductRow = (c: Contract) => {
-    const qtd = Number(productDraft.quantidade || 0);
-    const vu  = Number(productDraft.valorUnit || 0);
-    if (!productDraft.produto || qtd <= 0) {
-      toast.error('Informe produto e quantidade.');
+  const updateDraft = (
+    contractId: string,
+    idx: number,
+    patch: Partial<{ quantidade: number; descricao: string; valorUnit: number }>,
+  ) => {
+    setContractDrafts((prev) => {
+      const list = [...(prev[contractId] || [])];
+      list[idx] = { ...list[idx], ...patch };
+      return { ...prev, [contractId]: list };
+    });
+  };
+
+  const addDraftRow = (c: Contract, idx: number) => {
+    const d = (contractDrafts[c.id] || [])[idx];
+    if (!d || !d.descricao.trim() || d.quantidade <= 0) {
+      toast.error('Informe descrição e quantidade.');
       return;
     }
-    setRows(prev => [...prev, rowFromProduct(c, productDraft.produto, qtd, vu, periodoIni, periodoFim)]);
-    setProductDraft(d => ({ ...d, quantidade: 1 }));
+    setRows((prev) => [
+      ...prev,
+      rowFromProduct(c, d.descricao.trim(), d.quantidade, d.valorUnit, periodoIni, periodoFim),
+    ]);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
+  };
+
+  const addAllDrafts = (c: Contract) => {
+    const list = (contractDrafts[c.id] || []).filter((d) => d.descricao.trim() && d.quantidade > 0);
+    if (list.length === 0) {
+      toast.error('Nenhum item válido para adicionar.');
+      return;
+    }
+    setRows((prev) => [
+      ...prev,
+      ...list.map((d) =>
+        rowFromProduct(c, d.descricao.trim(), d.quantidade, d.valorUnit, periodoIni, periodoFim),
+      ),
+    ]);
+    if (!companyId && c.companyId) setCompanyId(c.companyId);
+  };
+
+  const addEmptyDraft = (c: Contract) => {
+    setContractDrafts((prev) => ({
+      ...prev,
+      [c.id]: [...(prev[c.id] || []), { quantidade: 1, descricao: '', valorUnit: 0 }],
+    }));
   };
 
   const addSuggested = (c: Contract) => {
@@ -362,38 +419,63 @@ export const MedicaoDialog: React.FC<Props> = ({
                         <Button variant="ghost" size="sm" type="button" onClick={() => addSuggested(c)} title="Adiciona 1 linha com o valor mensal do contrato">
                           <Plus className="h-3.5 w-3.5 mr-1" /> Sugerir
                         </Button>
-                        <Button variant={expanded ? 'default' : 'outline'} size="sm" type="button" onClick={() => openProductForm(c)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Produto
+                        <Button variant={expanded ? 'default' : 'outline'} size="sm" type="button" onClick={() => openContractItems(c)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Itens do contrato
                         </Button>
                       </div>
                     </div>
-                    {expanded && (
-                      <div className="border-t p-2 grid grid-cols-1 md:grid-cols-[1fr_90px_130px_auto] gap-2 items-end bg-muted/20">
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">Produto</Label>
-                          <SearchableSelect
-                            value={productDraft.produto}
-                            searchPlaceholder="Buscar produto..."
-                            triggerClassName="h-9"
-                            options={PRODUCT_CATALOG}
-                            onValueChange={(v) => setProductDraft(d => ({ ...d, produto: v }))}
-                          />
+                    {expanded && (() => {
+                      const drafts = contractDrafts[c.id] || [];
+                      return (
+                        <div className="border-t bg-muted/20 p-2 space-y-2">
+                          {c.descricao && (
+                            <div className="rounded-sm bg-background/60 border p-2 text-[11px] whitespace-pre-wrap text-muted-foreground max-h-24 overflow-y-auto">
+                              <span className="font-medium text-foreground">Descrição do contrato:</span>{'\n'}
+                              {c.descricao}
+                            </div>
+                          )}
+                          {drafts.length === 0 ? (
+                            <div className="text-xs text-muted-foreground italic px-1">
+                              Nenhum item detectado na descrição do contrato.
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between px-1">
+                              <div className="text-[11px] text-muted-foreground">
+                                {drafts.length} {drafts.length === 1 ? 'item detectado' : 'itens detectados'} — edite e adicione.
+                              </div>
+                              <Button size="sm" type="button" variant="secondary" onClick={() => addAllDrafts(c)}>
+                                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar todos
+                              </Button>
+                            </div>
+                          )}
+                          {drafts.map((d, i) => (
+                            <div key={i} className="grid grid-cols-[70px_1fr_120px_auto] gap-2 items-end">
+                              <div>
+                                <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                                <Input type="number" step="1" min="1" value={d.quantidade}
+                                  onChange={(e) => updateDraft(c.id, i, { quantidade: Number(e.target.value) })} />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-muted-foreground">Descrição</Label>
+                                <Input value={d.descricao}
+                                  onChange={(e) => updateDraft(c.id, i, { descricao: e.target.value })} />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-muted-foreground">V. unit.</Label>
+                                <Input type="number" step="0.01" min="0" value={d.valorUnit}
+                                  onChange={(e) => updateDraft(c.id, i, { valorUnit: Number(e.target.value) })} />
+                              </div>
+                              <Button size="sm" type="button" onClick={() => addDraftRow(c, i)}>
+                                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                              </Button>
+                            </div>
+                          ))}
+                          <Button variant="ghost" size="sm" type="button" onClick={() => addEmptyDraft(c)}>
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Novo item deste contrato
+                          </Button>
                         </div>
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">Qtd</Label>
-                          <Input type="number" step="1" min="1" value={productDraft.quantidade}
-                            onChange={(e) => setProductDraft(d => ({ ...d, quantidade: Number(e.target.value) }))} />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">V. unit.</Label>
-                          <Input type="number" step="0.01" min="0" value={productDraft.valorUnit}
-                            onChange={(e) => setProductDraft(d => ({ ...d, valorUnit: Number(e.target.value) }))} />
-                        </div>
-                        <Button size="sm" type="button" onClick={() => addProductRow(c)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
-                        </Button>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 );
               })}
