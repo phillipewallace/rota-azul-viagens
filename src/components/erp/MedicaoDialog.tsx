@@ -35,7 +35,37 @@ interface Props {
 
 type Row = MedicaoItem & { key: string };
 
-const rowFromContract = (c: Contract, periodoInicio: string, periodoFim: string): Row => ({
+// Catálogo de produtos (baseado nas categorias de sanitários existentes).
+const PRODUCT_CATALOG: { value: string; label: string }[] = [
+  { value: 'Sanitário Químico Comum',   label: 'Sanitário Químico Comum' },
+  { value: 'Sanitário PNE (Acessível)', label: 'Sanitário PNE (Acessível)' },
+  { value: 'Pia de Apoio',              label: 'Pia de Apoio' },
+  { value: 'Sanitário Luxo',            label: 'Sanitário Luxo' },
+  { value: 'Cabine de Banho',           label: 'Cabine de Banho' },
+];
+
+const rowFromProduct = (
+  c: Contract,
+  produto: string,
+  quantidade: number,
+  valorUnit: number,
+  periodoInicio: string,
+  periodoFim: string,
+): Row => ({
+  key: `p-${c.id}-${Math.random()}`,
+  contractId: c.id,
+  contractNumero: c.numero,
+  descricao: produto,
+  quantidade,
+  unidade: 'UN',
+  valorUnit,
+  descontoItem: 0,
+  valorTotal: Math.max(0, quantidade * valorUnit),
+  periodoInicio,
+  periodoFim,
+});
+
+const rowSuggested = (c: Contract, periodoInicio: string, periodoFim: string): Row => ({
   key: `c-${c.id}-${Math.random()}`,
   contractId: c.id,
   contractNumero: c.numero,

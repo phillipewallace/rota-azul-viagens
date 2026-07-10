@@ -1,67 +1,72 @@
-# Plano: Dropdowns pesquisáveis em todo o sistema
 
-## Objetivo
-Hoje quase todos os campos de seleção usam `<Select>` do shadcn (baseado em Radix), que não tem busca embutida — precisa rolar/clicar letra por letra. Vamos trocar por um combobox com input de busca (Command + Popover), mantendo a mesma aparência e comportamento (label, placeholder, valor controlado), mas com filtro por texto.
+# Medição detalhada por produto
 
-## Abordagem (chave para não virar refatoração gigante)
+Hoje, ao adicionar um contrato na medição, o sistema cria **1 linha única** com o valor mensal do contrato (ex: "Contrato 0007 — R$ 1.200"). O pedido é mudar para **listar os produtos** que compõem aquele contrato (ex: "Contrato 0007 — Sanitário Químico Comum · qtd 3 · R$ 300 = R$ 900" + "Contrato 0007 — Pia · qtd 1 · R$ 150"), mantendo o mesmo layout e fluxo do dialog.
 
-Criar **um único componente reutilizável** `SearchableSelect` que:
-- Recebe as mesmas props que já usamos hoje: `value`, `onValueChange`, `placeholder`, `disabled`, opções `{ value, label, hint? }[]`.
-- Renderiza um botão estilizado igual ao `SelectTrigger` atual (mesma altura, borda, foco) para não quebrar layout.
-- Ao abrir, mostra um `CommandInput` (busca) + lista filtrada por `label` (e por `hint` opcional, ex.: placa do caminhão).
-- Suporta “Todos” / opção especial no topo (ex.: `all`).
-- Suporta grupos (opcional) e opção “nenhum encontrado”.
-- Fecha ao selecionar; tecla `Enter` seleciona o primeiro resultado.
+## 1. Catálogo de produtos
 
-Assim substituímos cada `<Select>` por `<SearchableSelect options={...} />` em poucas linhas, sem reescrever cada tela.
+Como contratos hoje não têm produtos vinculados no banco, vou usar as **categorias já existentes de sanitários** (`comum`, `pne`, `pia`, `luxo`, `cabine_banho`) como catálogo base, com rótulos amigáveis:
 
-## Passo a passo
+- Sanitário Químico Comum
+- Sanitário PNE (Acessível)
+- Pia de Apoio
+- Sanitário Luxo
+- Cabine de Banho
 
-### 1. Componente base
-- Criar `src/components/ui/searchable-select.tsx` usando `Popover` + `Command` (já presentes no projeto, ver `SanitarioMultiCombobox` como referência).
-- Largura do popover = largura do trigger (via `triggerRef.offsetWidth`).
-- Acessibilidade: `role="combobox"`, `aria-expanded`, navegação por teclado nativa do `Command`.
+Também mantenho a opção **"Item avulso"** (produto livre digitado à mão), do jeito que já existe.
 
-### 2. Levantamento dos Selects existentes
-Rodar `rg "from \"@/components/ui/select\"" -l` para listar todos os arquivos. Áreas conhecidas que serão migradas:
-- Filtros: `DateFilters`, `ManagementFilters`, `MaintenanceFilters` (mês, ano, caminhão, rota, status, tipo).
-- Rotas: `CreateRouteModal`, `RouteForm`, `RoutePointsTable` (motorista, caminhão, cliente).
-- Cadastros: `TruckForm`, `DriverForm`, formulários de `Customers`, `Sanitarios`, `Carretinhas`.
-- ERP: `MedicaoDialog`, `RegistrarPagamentoDialog`, `BoletoVencimentoDialog`, `ContractViewDialog`, `ErpFinanceiro`, `ErpContracts`, `ErpCompanies`, `ErpQuotes`, `ServiceOrders`, `Checklists`, `Settings` (usuários/empresas/templates).
-- Manutenção: `MaintenanceModal`.
-- Mobile web (`src/mobile/*`): telas com seleção de rota/caminhão.
+## 2. Fluxo dentro do MedicaoDialog
 
-### 3. Migração incremental
-Para cada arquivo:
-- Importar `SearchableSelect` no lugar de `Select/SelectTrigger/SelectContent/SelectItem`.
-- Converter o array de `<SelectItem>` em `options={[{value,label,hint?}]}`.
-- Manter `value` e `onValueChange` exatamente como estão.
-- Selects com poucas opções fixas e sem ganho real de busca (ex.: 2–3 itens tipo “Sim/Não”, “Ativo/Inativo”): **manter** como estão — busca só atrapalha.
+Sem mudar layout geral. As alterações ficam na seção **"Adicionar contratos ativos do cliente"** e na tabela de itens:
 
-Critério “tem busca”: 5+ opções OU lista dinâmica (caminhões, motoristas, clientes, contratos, rotas, empresas, categorias, meses).
+1. Ao clicar num contrato (botão `+ 0007 · R$ 1.200`), em vez de já criar uma linha, abre um **mini formulário inline** (popover ou bloco expansível dentro do card do contrato) com:
+   - Select de **Produto** (searchable, usando o catálogo acima)
+   - **Quantidade** (default 1)
+   - **Valor unitário** (default = valor mensal do contrato ÷ quantidade, editável)
+   - Botão "Adicionar item"
+2. Cada clique em "Adicionar item" insere uma linha na tabela com:
+   - Descrição = "`{Nome do produto}`" (editável)
+   - Badge do nº do contrato na coluna `#` (já existe hoje)
+   - Qtd, Vunit, Total conforme informado
+   - Unidade = "UN"
+3. Um mesmo contrato pode gerar **várias linhas** (3 comuns + 1 PNE + 1 pia).
+4. "Item avulso" continua adicionando linha em branco, sem contrato vinculado.
 
-### 4. Casos especiais
-- Onde já existe combobox custom (ex.: `SanitarioMultiCombobox`, autocomplete de cliente em `MedicaoDialog`), **não mexer** — já são pesquisáveis.
-- Selects nativos `<select>` HTML puro (se houver algum) serão convertidos junto.
-- Mobile driver app (`mobile/src/*`) é um projeto separado — **fora do escopo** deste pedido, a menos que você peça explicitamente.
+Rodapé (desconto geral, obs, totais) fica igual.
 
-### 5. Verificação
-- `tsgo` para garantir que a API do novo componente bate em todos os call sites.
-- Abrir manualmente as telas mais usadas (Rotas, Manutenção, Financeiro, Medições) e confirmar que:
-  - O visual do trigger continua idêntico.
-  - Digitar filtra a lista.
-  - Selecionar preenche o valor e fecha o popover.
-  - Filtros “Todos” continuam funcionando.
+## 3. Sugestão inteligente (opcional, marcada como "sugerir")
+
+Um botão pequeno **"Sugerir produtos"** no card do contrato que:
+- Pré-preenche uma linha "Locação — Sanitário Químico Comum, qtd 1, valor = valorMensal" (fallback compatível com o comportamento atual quando o usuário só quer replicar o valor sem detalhar).
+
+Isso mantém rapidez para quem não quer detalhar produto por produto.
+
+## 4. Backend e banco
+
+**Sem mudanças de schema.** A tabela `erp_medicao_itens` já guarda `descricao`, `quantidade`, `unidade`, `valor_unit`, `contract_id`, `contract_numero` — que é exatamente o que precisamos. Cada produto vira uma row na tabela como qualquer outro item.
+
+Não vou adicionar coluna "categoria/produto_id" nas medições — a descrição textual já cumpre o papel de identificar o produto no PDF/histórico, e evita acoplar medições ao cadastro de sanitários (que pode mudar).
+
+## 5. PDF da medição
+
+O `medicaoPdf.ts` já renderiza uma linha por item com descrição, qtd, valor unit e total. Como agora vão haver N linhas por contrato, o PDF automaticamente sai detalhado. Vou apenas:
+- Garantir agrupamento visual: linhas do mesmo `contract_numero` ficam **consecutivas** (já ficam, pois são adicionadas em sequência) e o número do contrato aparece na coluna, sem repetir descrição do contrato.
+
+## 6. Retrocompatibilidade
+
+Medições antigas (1 linha por contrato) continuam abrindo/editando normalmente — cada linha antiga é só um item genérico. Nada muda para elas.
+
+## 7. Arquivos afetados
+
+- `src/components/erp/MedicaoDialog.tsx` — adicionar mini-form de produto por contrato, catálogo de categorias, botão "Sugerir produtos".
+- `src/utils/medicaoPdf.ts` — pequeno ajuste visual se necessário (agrupamento por contrato).
+- **Nada** de backend, migrations ou services.
 
 ## Fora do escopo
-- Mudar lógica de negócio, endpoints ou dados.
-- Redesenhar formulários.
-- App mobile nativo (Capacitor).
 
-## Detalhes técnicos (para referência)
-- Stack: shadcn `Popover` + `Command` (cmdk) já instalados.
-- Sem novas dependências.
-- Componente aceita `className` para casos que precisam largura customizada.
-- Fallback: se `options` estiver vazio, mostra “Sem opções”.
+- Cadastro editável de produtos/preços em Settings.
+- Vincular produtos ao contrato no cadastro do contrato.
+- Puxar automaticamente sanitários entregues (OS/sanitários alocados) para a medição.
+- Alterações no layout geral do dialog ou dos filtros da tela ErpFinanceiro.
 
-Aprova que eu já implemento?
+Aprovando, implemento só as mudanças no `MedicaoDialog` (e ajuste mínimo no PDF se precisar).
