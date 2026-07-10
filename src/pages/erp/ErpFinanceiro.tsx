@@ -120,8 +120,27 @@ const dueDateInComp = (competencia: string, diaVencimento: number): string => {
   return `${y}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 };
 
-
-const FORMA_LABEL: Record<FormaPagamento, string> = {
+// Calcula o período (30 dias) do recibo baseado no dia do contrato e na
+// competência mensal escolhida no topo do Financeiro. Se o dia do contrato
+// não existir no mês (ex.: 31 em fev.), usa o último dia válido daquele mês.
+const computeCompetenciaPeriodo = (
+  dataInicioContrato?: string | null,
+  competencia?: string,
+): { inicio: string; fim: string } => {
+  const comp = competencia || '';
+  const [y, m] = comp.split('-').map(Number);
+  if (!y || !m) {
+    const t = todayISO();
+    return { inicio: t, fim: addDaysISO(t, 30) };
+  }
+  const baseDay = dataInicioContrato
+    ? Number(String(dataInicioContrato).slice(8, 10)) || 1
+    : 1;
+  const ultDia = new Date(y, m, 0).getDate();
+  const dia = Math.min(Math.max(1, baseDay), ultDia);
+  const inicio = `${y}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  return { inicio, fim: addDaysISO(inicio, 30) };
+};
   pix: 'PIX', dinheiro: 'Dinheiro', boleto: 'Boleto',
   cartao: 'Cartão', transferencia: 'Transferência', outro: 'Outro',
 };
