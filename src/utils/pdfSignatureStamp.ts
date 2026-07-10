@@ -36,7 +36,8 @@ function sniffImageFormat(bytes: Uint8Array): 'png' | 'jpeg' | 'unknown' {
 
 /** Converte qualquer imagem suportada pelo navegador (WebP, GIF, BMP, etc.) para PNG. */
 async function convertToPng(bytes: Uint8Array, mime: string): Promise<Uint8Array> {
-  const blob = new Blob([bytes], { type: mime || 'image/*' });
+  const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const blob = new Blob([ab], { type: mime || 'image/*' });
   const url = URL.createObjectURL(blob);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
