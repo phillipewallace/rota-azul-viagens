@@ -131,9 +131,8 @@ export const SearchableSelect = React.forwardRef<
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="p-0"
+          className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[--radix-popover-trigger-width]"
           align="start"
-          style={{ width: internalRef.current?.offsetWidth }}
         >
           <Command shouldFilter={false}>
             {showSearch && (
