@@ -80,18 +80,35 @@ export async function stampSignatureOnPdf(
     img = await pdf.embedPng(pngBytes);
   }
 
+  const imgW = img.width;
+  const imgH = img.height;
+  const imgRatio = imgW / imgH;
+
   const pages = pdf.getPages();
   for (const p of placements) {
     const page = pages[p.pageIndex];
     if (!page) continue;
     const { width, height } = page.getSize();
-    const w = p.wPct * width;
-    const h = p.hPct * height;
-    const x = p.xPct * width;
-    // pdf-lib usa origem inferior-esquerda; y é a base da imagem.
-    const y = height - p.yPct * height - h;
-    page.drawImage(img, { x, y, width: w, height: h });
+    const boxW = p.wPct * width;
+    const boxH = p.hPct * height;
+    const boxX = p.xPct * width;
+    const boxYTop = p.yPct * height; // origem topo (UI)
+
+    // Fit "contain" preservando proporção original da assinatura.
+    let drawW = boxW;
+    let drawH = boxW / imgRatio;
+    if (drawH > boxH) {
+      drawH = boxH;
+      drawW = boxH * imgRatio;
+    }
+    // Centraliza dentro da caixa.
+    const x = boxX + (boxW - drawW) / 2;
+    const yTop = boxYTop + (boxH - drawH) / 2;
+    // pdf-lib usa origem inferior-esquerda.
+    const y = height - yTop - drawH;
+    page.drawImage(img, { x, y, width: drawW, height: drawH });
   }
+
 
   return pdf.save();
 }
