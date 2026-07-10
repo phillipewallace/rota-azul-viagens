@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Download, MapPin, Camera, Clock, User, Truck, CheckCircle2,
@@ -164,14 +164,16 @@ const CompletedRoutes: React.FC = () => {
                 />
               </div>
               <div className="md:col-span-3">
-                <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    <SelectItem value="finished">Finalizadas</SelectItem>
-                    <SelectItem value="in_progress">Em andamento</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={statusFilter}
+                  onValueChange={(v: any) => setStatusFilter(v)}
+                  placeholder="Status"
+                  options={[
+                    { value: 'all', label: 'Todos os status' },
+                    { value: 'finished', label: 'Finalizadas' },
+                    { value: 'in_progress', label: 'Em andamento' },
+                  ]}
+                />
               </div>
               <div className="md:col-span-2">
                 <div className="relative">

@@ -395,13 +395,17 @@ const ItemsView: React.FC<{
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas categorias</SelectItem>
-            {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          value={filter}
+          onValueChange={setFilter}
+          triggerClassName="w-56"
+          placeholder="Categoria"
+          searchPlaceholder="Buscar categoria..."
+          options={[
+            { value: 'all', label: 'Todas categorias' },
+            ...categories.map(c => ({ value: c.id, label: c.name })),
+          ]}
+        />
         <div className="flex-1" />
         <Button variant="outline" onClick={() => {
           const headers = ['Item','SKU','Categoria','Estoque','Unidade','Mínimo','Validade'];
@@ -617,26 +621,31 @@ const MovementsView: React.FC<{ movements: ErpMovement[]; items: ErpItem[] }> = 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
           <div>
             <Label className="text-xs">Tipo</Label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="in">Entrada</SelectItem>
-                <SelectItem value="out">Retirada</SelectItem>
-                <SelectItem value="adjust">Ajuste</SelectItem>
-                <SelectItem value="discard">Descarte</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={type}
+              onValueChange={setType}
+              placeholder="Tipo"
+              options={[
+                { value: 'all', label: 'Todos' },
+                { value: 'in', label: 'Entrada' },
+                { value: 'out', label: 'Retirada' },
+                { value: 'adjust', label: 'Ajuste' },
+                { value: 'discard', label: 'Descarte' },
+              ]}
+            />
           </div>
           <div className="col-span-2">
             <Label className="text-xs">Item</Label>
-            <Select value={itemId} onValueChange={setItemId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os itens</SelectItem>
-                {items.map(i => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={itemId}
+              onValueChange={setItemId}
+              placeholder="Item"
+              searchPlaceholder="Buscar item..."
+              options={[
+                { value: 'all', label: 'Todos os itens' },
+                ...items.map(i => ({ value: i.id, label: i.name })),
+              ]}
+            />
           </div>
           <div>
             <Label className="text-xs">De</Label>
@@ -918,13 +927,13 @@ const ItemModal: React.FC<{
             onChange={e => setForm({ ...form, name: e.target.value })} /></div>
           <div>
             <Label>Categoria *</Label>
-            <Select value={form.categoryId}
-              onValueChange={v => setForm({ ...form, categoryId: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={form.categoryId}
+              onValueChange={v => setForm({ ...form, categoryId: v })}
+              placeholder="Categoria"
+              searchPlaceholder="Buscar categoria..."
+              options={categories.map(c => ({ value: c.id, label: c.name }))}
+            />
           </div>
           <div><Label>SKU</Label><Input value={form.sku || ''}
             onChange={e => setForm({ ...form, sku: e.target.value })} /></div>
@@ -1066,16 +1075,17 @@ const MovementModal: React.FC<{
           {requireEmployee && (
             <div>
               <Label>Funcionário {requireEmployee && '*'}</Label>
-              <Select value={employeeId} onValueChange={setEmployeeId}>
-                <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                <SelectContent>
-                  {employees.filter(e => e.active).map(e => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.name}{e.role ? ` — ${e.role}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={employeeId}
+                onValueChange={setEmployeeId}
+                placeholder="Selecionar..."
+                searchPlaceholder="Buscar funcionário..."
+                options={employees.filter(e => e.active).map(e => ({
+                  value: e.id,
+                  label: e.name,
+                  hint: e.role || undefined,
+                }))}
+              />
               {employees.length === 0 && (
                 <p className="text-xs text-warning mt-1">
                   Cadastre funcionários na aba Funcionários.

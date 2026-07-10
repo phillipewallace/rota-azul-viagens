@@ -368,39 +368,47 @@ const ErpContracts: React.FC = () => {
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Status</Label>
-            <Select value={filterAtivo} onValueChange={(v: any) => setFilterAtivo(v)}>
-              <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="true">Ativos</SelectItem>
-                <SelectItem value="false">Encerrados</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterAtivo}
+              onValueChange={(v: any) => setFilterAtivo(v)}
+              triggerClassName="h-9 w-[140px]"
+              placeholder="Status"
+              options={[
+                { value: 'all', label: 'Todos' },
+                { value: 'true', label: 'Ativos' },
+                { value: 'false', label: 'Encerrados' },
+              ]}
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Tipo</Label>
-            <Select value={filterTipo} onValueChange={(v: any) => setFilterTipo(v)}>
-              <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="locacao">Locação</SelectItem>
-                <SelectItem value="evento">Evento</SelectItem>
-                <SelectItem value="obra">Obra</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={filterTipo}
+              onValueChange={(v: any) => setFilterTipo(v)}
+              triggerClassName="h-9 w-[140px]"
+              placeholder="Tipo"
+              options={[
+                { value: 'all', label: 'Todos' },
+                { value: 'locacao', label: 'Locação' },
+                { value: 'evento', label: 'Evento' },
+                { value: 'obra', label: 'Obra' },
+              ]}
+            />
           </div>
           {companies.length > 1 && (
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Empresa emissora</Label>
-              <Select value={filterCompany} onValueChange={setFilterCompany}>
-                <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {companies.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={filterCompany}
+                onValueChange={setFilterCompany}
+                triggerClassName="h-9 w-[200px]"
+                placeholder="Empresa"
+                searchPlaceholder="Buscar empresa..."
+                options={[
+                  { value: 'all', label: 'Todas' },
+                  ...companies.map(c => ({ value: c.id, label: c.razaoSocial })),
+                ]}
+              />
             </div>
           )}
           {activeFiltersCount > 0 && (
@@ -826,50 +834,52 @@ function ContractFormDialog({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Empresa Emissora *</Label>
-            <Select value={form.companyId} onValueChange={(v) => setForm({ ...form, companyId: v })}>
-              <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-              <SelectContent>
-                {companies.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={form.companyId}
+              onValueChange={(v) => setForm({ ...form, companyId: v })}
+              placeholder="Selecione…"
+              searchPlaceholder="Buscar empresa..."
+              options={companies.map(c => ({ value: c.id, label: c.razaoSocial }))}
+            />
           </div>
           <div>
             <Label className="text-xs">Cliente *</Label>
-            <Select value={form.customerId} onValueChange={(v) => setForm({ ...form, customerId: v })}>
-              <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-              <SelectContent className="max-h-64">
-                {customers.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.customerName}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={form.customerId}
+              onValueChange={(v) => setForm({ ...form, customerId: v })}
+              placeholder="Selecione…"
+              searchPlaceholder="Buscar cliente..."
+              options={customers.map(c => ({ value: c.id, label: c.customerName }))}
+            />
           </div>
           <div>
             <Label className="text-xs">Tipo de contrato *</Label>
-            <Select value={form.tipoContrato} onValueChange={(v) => setForm({ ...form, tipoContrato: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="obra">Obra (construção / canteiro)</SelectItem>
-                <SelectItem value="locacao">Locação mensal recorrente</SelectItem>
-                <SelectItem value="evento">Evento (curta duração)</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={form.tipoContrato}
+              onValueChange={(v) => setForm({ ...form, tipoContrato: v })}
+              placeholder="Tipo"
+              options={[
+                { value: 'obra', label: 'Obra (construção / canteiro)' },
+                { value: 'locacao', label: 'Locação mensal recorrente' },
+                { value: 'evento', label: 'Evento (curta duração)' },
+              ]}
+            />
           </div>
           <div>
             <Label className="text-xs">OS vinculada (opcional)</Label>
-            <Select value={form.osId || '__none__'} onValueChange={(v) => setForm({ ...form, osId: v === '__none__' ? '' : v })}>
-              <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-              <SelectContent className="max-h-64">
-                <SelectItem value="__none__">Nenhuma</SelectItem>
-                {oses.map(o => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.numero} — {o.customerName || ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={form.osId || '__none__'}
+              onValueChange={(v) => setForm({ ...form, osId: v === '__none__' ? '' : v })}
+              placeholder="Nenhuma"
+              searchPlaceholder="Buscar OS..."
+              options={[
+                { value: '__none__', label: 'Nenhuma' },
+                ...oses.map((o: any) => ({
+                  value: o.id,
+                  label: `${o.numero}${o.customerName ? ` — ${o.customerName}` : ''}`,
+                })),
+              ]}
+            />
           </div>
           <div>
             <Label className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Início do contrato *</Label>

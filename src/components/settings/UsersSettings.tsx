@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Users, Plus, Pencil, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usersService, type AppUser } from '@/services/users';
@@ -191,14 +191,16 @@ function UserFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Papel</Label>
-              <Select value={form.role} onValueChange={(v) => setForm(f => ({ ...f, role: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">Usuário</SelectItem>
-                  <SelectItem value="manager">Gerente</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={form.role}
+                onValueChange={(v) => setForm(f => ({ ...f, role: v }))}
+                placeholder="Papel"
+                options={[
+                  { value: 'user', label: 'Usuário' },
+                  { value: 'manager', label: 'Gerente' },
+                  { value: 'admin', label: 'Admin' },
+                ]}
+              />
             </div>
             <div className="flex items-end gap-2">
               <Switch checked={form.active} onCheckedChange={(v) => setForm(f => ({ ...f, active: v }))} />
