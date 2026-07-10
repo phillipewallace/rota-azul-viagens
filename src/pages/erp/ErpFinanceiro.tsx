@@ -546,14 +546,8 @@ const ErpFinanceiro: React.FC = () => {
     return { arr, companyId: cId };
   }, [selected, pendentes]);
 
-  const gerarUnificado = async (periodoInicio: string, periodoFim: string) => {
+  const gerarUnificado = async () => {
     if (!unifiedGroup) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
-      toast.error('Datas inválidas'); return;
-    }
-    if (periodoFim < periodoInicio) {
-      toast.error('A data final deve ser igual ou posterior à inicial'); return;
-    }
     setWorking('__unified__');
     try {
       const { arr, companyId } = unifiedGroup;
@@ -567,38 +561,58 @@ const ErpFinanceiro: React.FC = () => {
       const customer = first.customerSnapshot || {
         name: first.customerName, document: first.customerDocument,
       };
+
+      // Período por contrato (30 dias) baseado no dataInicio de cada contrato
+      // e no MÊS de competência selecionado no topo do Financeiro.
+      const periodos = contracts.map((c) => computeCompetenciaPeriodo(c.dataInicio, competencia));
+
+      // Persiste um recibo por contrato — cada um com SEU período de 30 dias.
+      // Coletamos o número retornado para exibir no PDF unificado.
+      const numeros: (string | null)[] = [];
+      let okCount = 0, failCount = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const p = arr[i];
+        const per = periodos[i];
+        try {
+          const out = await receiptsService.generate({
+            contractId: p.contractId,
+            periodoInicio: per.inicio,
+            periodoFim: per.fim,
+            valor: Number(p.valorMensal),
+            pago: true,
+          });
+          numeros.push(out.numeroDisplay || out.numero || null);
+          okCount++;
+        } catch {
+          numeros.push(null);
+          failCount++;
+        }
+      }
+
       const items = contracts.map((c, i) => ({
         contractNumero: c.numero,
         descricao: c.descricao || `Locação mensal — Contrato ${c.numero}`,
         enderecoObra: c.enderecoObra || c.localEvento || '',
         cno: c.cno || '',
         valor: Number(arr[i].valorMensal),
+        numeroRecibo: numeros[i],
+        periodoInicio: periodos[i].inicio,
+        periodoFim: periodos[i].fim,
       }));
       const total = items.reduce((s, it) => s + it.valor, 0);
 
-      // Persiste um recibo por contrato para o período informado
-      // (assim aparecem na aba Recibos e saem da fila de pendentes).
-      let okCount = 0, failCount = 0;
-      for (const p of arr) {
-        try {
-          await receiptsService.generate({
-            contractId: p.contractId,
-            periodoInicio, periodoFim,
-            valor: Number(p.valorMensal),
-            pago: true,
-          });
-          okCount++;
-        } catch { failCount++; }
-      }
+      // Período consolidado do PDF (min início / max fim).
+      const iniCons = periodos.map(p => p.inicio).sort()[0];
+      const fimCons = periodos.map(p => p.fim).sort().slice(-1)[0];
 
       // Gera UM PDF unificado
       const now = new Date();
       const numero = `UNIF-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
       await generateUnifiedReceiptPdf({
         numero,
-        competencia: periodoInicio.slice(0, 7),
-        periodoInicio,
-        periodoFim,
+        competencia,
+        periodoInicio: iniCons,
+        periodoFim: fimCons,
         dataEmissao: todayISO(),
         dataVencimento: null,
         company,
@@ -611,7 +625,7 @@ const ErpFinanceiro: React.FC = () => {
       setUnifOpen(false);
       await load();
       setActiveTab('emitidos');
-      if (failCount === 0) toast.success(`Recibo unificado gerado · ${okCount} contratos · ${formatPeriodo(periodoInicio, periodoFim)}`);
+      if (failCount === 0) toast.success(`Recibo unificado gerado · ${okCount} contratos · ${formatComp(competencia)}`);
       else toast.warning(`PDF gerado. ${okCount} recibos ok, ${failCount} falharam`);
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao gerar recibo unificado');
