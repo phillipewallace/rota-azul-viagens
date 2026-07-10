@@ -339,25 +339,71 @@ export const MedicaoDialog: React.FC<Props> = ({
             </div>
             {!customerId && <div className="text-xs text-muted-foreground">Selecione um cliente para listar seus contratos.</div>}
             {customerId && contratosDoCliente.length === 0 && (
-              <div className="text-xs text-muted-foreground">Nenhum contrato disponível{rows.length ? ' (todos já adicionados)' : ''}.</div>
+              <div className="text-xs text-muted-foreground">Nenhum contrato para este cliente.</div>
             )}
-            <div className="flex flex-wrap gap-2">
-              {contratosDoCliente.map(c => (
-                <Button
-                  key={c.id}
-                  variant="outline" size="sm" type="button"
-                  onClick={() => addContract(c)}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  {c.numero} · {BRL(c.valorMensal)}
-                </Button>
-              ))}
+            <div className="space-y-2">
+              {contratosDoCliente.map(c => {
+                const expanded = expandedContract === c.id;
+                const linhasCount = rows.filter(r => r.contractId === c.id).length;
+                return (
+                  <div key={c.id} className="rounded-md border bg-background">
+                    <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Badge variant="outline" className="text-[10px]">{c.numero}</Badge>
+                        <span className="text-muted-foreground truncate max-w-[260px]">
+                          {c.descricao || '—'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">· {BRL(c.valorMensal)}/mês</span>
+                        {linhasCount > 0 && (
+                          <Badge variant="secondary" className="text-[10px]">{linhasCount} {linhasCount === 1 ? 'item' : 'itens'}</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" type="button" onClick={() => addSuggested(c)} title="Adiciona 1 linha com o valor mensal do contrato">
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Sugerir
+                        </Button>
+                        <Button variant={expanded ? 'default' : 'outline'} size="sm" type="button" onClick={() => openProductForm(c)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Produto
+                        </Button>
+                      </div>
+                    </div>
+                    {expanded && (
+                      <div className="border-t p-2 grid grid-cols-1 md:grid-cols-[1fr_90px_130px_auto] gap-2 items-end bg-muted/20">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Produto</Label>
+                          <SearchableSelect
+                            value={productDraft.produto}
+                            searchPlaceholder="Buscar produto..."
+                            triggerClassName="h-9"
+                            options={PRODUCT_CATALOG}
+                            onValueChange={(v) => setProductDraft(d => ({ ...d, produto: v }))}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                          <Input type="number" step="1" min="1" value={productDraft.quantidade}
+                            onChange={(e) => setProductDraft(d => ({ ...d, quantidade: Number(e.target.value) }))} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">V. unit.</Label>
+                          <Input type="number" step="0.01" min="0" value={productDraft.valorUnit}
+                            onChange={(e) => setProductDraft(d => ({ ...d, valorUnit: Number(e.target.value) }))} />
+                        </div>
+                        <Button size="sm" type="button" onClick={() => addProductRow(c)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               <Button variant="ghost" size="sm" type="button" onClick={addFreeItem}>
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Item avulso
               </Button>
             </div>
           </div>
+
 
           {/* Tabela de itens */}
           <div className="rounded-md border overflow-x-auto">
