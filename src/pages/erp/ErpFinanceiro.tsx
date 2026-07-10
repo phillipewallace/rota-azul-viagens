@@ -1093,7 +1093,7 @@ const ErpFinanceiro: React.FC = () => {
                 <QuickChip active={pendQuick === 'em7'} onClick={() => setPendQuick('em7')} tone="amber">Vence em 7 dias</QuickChip>
                 {pendFiltroAtivo && (
                   <span className="ml-auto text-xs text-muted-foreground self-center">
-                    Exibindo {pendentesFiltrados.length} de {pendentes.length}
+                    {pendentesLoading ? 'Atualizando pendentes…' : `Exibindo ${pendentesFiltrados.length} de ${pendentes.length}`}
                   </span>
                 )}
               </div>
@@ -1207,7 +1207,9 @@ const ErpFinanceiro: React.FC = () => {
                   <TableBody>
                     {pendentesFiltrados.length === 0 && (
                       <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        {pendFiltroAtivo
+                        {pendentesLoading
+                          ? 'Carregando pendentes…'
+                          : pendFiltroAtivo
                           ? 'Nenhum pendente para os filtros selecionados.'
                           : `Nenhuma cobrança pendente para ${formatComp(competencia)}.`}
                       </TableCell></TableRow>
