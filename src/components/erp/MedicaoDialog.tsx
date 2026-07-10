@@ -1,10 +1,12 @@
 /**
- * Nova/Editar Medição — permite escolher cliente e adicionar manualmente
- * contratos (nenhum vem marcado por padrão). Cada item vira uma linha
- * editável (descrição, qtd, valor unit., desconto por item). Rodapé com
- * desconto geral e observações.
+ * Nova/Editar Medição — layout premium em 2 colunas:
+ *  - Esquerda: contratos ativos do cliente com itens parseados da descrição
+ *    (checkbox por item, "sugerir preço" rateado, "copiar do último recibo").
+ *  - Direita: itens adicionados, agrupados por contrato, edição inline.
+ *  - Header e footer sticky com total ao vivo.
+ *  - Autosave em localStorage e atalhos de teclado.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
@@ -13,8 +15,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Loader2, Plus, Trash2, X } from 'lucide-react';
+import {
+  Loader2, Plus, Trash2, ChevronDown, ChevronRight, Sparkles,
+  Copy, FileText, CheckCircle2, Search, Wand2, PackageOpen, Calendar,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { contractsService, type Contract } from '@/services/contracts';
 import { medicoesService, type Medicao, type MedicaoItem } from '@/services/medicoes';
@@ -36,7 +42,6 @@ interface Props {
 type Row = MedicaoItem & { key: string };
 
 // Interpreta o campo "descrição/objeto" do contrato como lista de itens.
-// Cada linha vira { quantidade, descricao }. Tolerante a bullets e cabeçalhos.
 export function parseContractItems(text?: string | null): { quantidade: number; descricao: string }[] {
   if (!text) return [];
   return text
@@ -53,18 +58,14 @@ export function parseContractItems(text?: string | null): { quantidade: number; 
     .filter((x) => x.descricao.length > 0);
 }
 
-const rowFromProduct = (
-  c: Contract,
-  produto: string,
-  quantidade: number,
-  valorUnit: number,
-  periodoInicio: string,
-  periodoFim: string,
+const rowFromDraft = (
+  c: Contract, descricao: string, quantidade: number, valorUnit: number,
+  periodoInicio: string, periodoFim: string,
 ): Row => ({
-  key: `p-${c.id}-${Math.random()}`,
+  key: `p-${c.id}-${Math.random().toString(36).slice(2, 8)}`,
   contractId: c.id,
   contractNumero: c.numero,
-  descricao: produto,
+  descricao,
   quantidade,
   unidade: 'UN',
   valorUnit,
@@ -75,10 +76,10 @@ const rowFromProduct = (
 });
 
 const rowSuggested = (c: Contract, periodoInicio: string, periodoFim: string): Row => ({
-  key: `c-${c.id}-${Math.random()}`,
+  key: `c-${c.id}-${Math.random().toString(36).slice(2, 8)}`,
   contractId: c.id,
   contractNumero: c.numero,
-  descricao: c.descricao || `Locação — Contrato ${c.numero}`,
+  descricao: `Locação — Contrato ${c.numero}`,
   quantidade: 1,
   unidade: 'MÊS',
   valorUnit: Number(c.valorMensal || 0),
@@ -89,7 +90,7 @@ const rowSuggested = (c: Contract, periodoInicio: string, periodoFim: string): R
 });
 
 const rowEmpty = (): Row => ({
-  key: `m-${Math.random()}`,
+  key: `m-${Math.random().toString(36).slice(2, 8)}`,
   contractId: null,
   contractNumero: null,
   descricao: '',
@@ -102,6 +103,24 @@ const rowEmpty = (): Row => ({
   periodoFim: null,
 });
 
+const OBS_CHIPS = [
+  'Pagamento via PIX',
+  'Vencimento em 10 dias',
+  'Vencimento em 30 dias',
+  'Referente à locação do mês',
+  'Sujeito à conferência',
+];
+
+const monthRange = (offset = 0) => {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + offset);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const last = new Date(y, d.getMonth() + 1, 0).getDate();
+  return { ini: `${y}-${m}-01`, fim: `${y}-${m}-${String(last).padStart(2, '0')}` };
+};
+
 export const MedicaoDialog: React.FC<Props> = ({
   open, onOpenChange, competencia, periodoInicioDefault, periodoFimDefault, editing, onSaved,
 }) => {
@@ -109,10 +128,9 @@ export const MedicaoDialog: React.FC<Props> = ({
   const [saving, setSaving] = useState(false);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [companies, setCompanies] = useState<ErpCompany[]>([]);
+  const [prevMedicoes, setPrevMedicoes] = useState<Medicao[]>([]);
 
   const [customerId, setCustomerId] = useState<string | null>(null);
-  const [customerLabel, setCustomerLabel] = useState<string>('');
-  const [customerDocument, setCustomerDocument] = useState<string>('');
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   const [periodoIni, setPeriodoIni] = useState(periodoInicioDefault || '');
@@ -122,13 +140,16 @@ export const MedicaoDialog: React.FC<Props> = ({
   const [desconto, setDesconto] = useState(0);
   const [observacoes, setObservacoes] = useState('');
 
-  const [addContractSearch, setAddContractSearch] = useState('');
-  const [expandedContract, setExpandedContract] = useState<string | null>(null);
-  // Drafts editáveis por contrato (parseados a partir da descrição do contrato).
+  const [contractSearch, setContractSearch] = useState('');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [contractDrafts, setContractDrafts] = useState<
-    Record<string, { quantidade: number; descricao: string; valorUnit: number }[]>
+    Record<string, { quantidade: number; descricao: string; valorUnit: number; checked: boolean }[]>
   >({});
+  const [downloadAfterSave, setDownloadAfterSave] = useState(false);
 
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  // ---------- Load ----------
   useEffect(() => {
     if (!open) return;
     setLoading(true);
@@ -141,87 +162,142 @@ export const MedicaoDialog: React.FC<Props> = ({
     }).finally(() => setLoading(false));
   }, [open]);
 
+  // Reset / hydrate on open
   useEffect(() => {
     if (!open) return;
     if (editing) {
       setCustomerId(editing.customerId || null);
-      setCustomerLabel(editing.customerName || editing.clienteNome || '');
-      setCustomerDocument(editing.customerDocument || editing.clienteDocumento || '');
       setCompanyId(editing.companyId || null);
       setPeriodoIni(editing.periodoInicio || periodoInicioDefault || '');
       setPeriodoFim(editing.periodoFim || periodoFimDefault || '');
       setDesconto(Number(editing.desconto || 0));
       setObservacoes(editing.observacoes || '');
-      setRows((editing.items || []).map((it, i) => ({ ...it, key: `e-${i}` })));
+      setRows((editing.items || []).map((it, i) => ({ ...it, key: `e-${i}-${Math.random().toString(36).slice(2, 6)}` })));
     } else {
-      setCustomerId(null); setCustomerLabel(''); setCustomerDocument('');
-      setCompanyId(null);
+      setCustomerId(null); setCompanyId(null);
       setPeriodoIni(periodoInicioDefault || '');
       setPeriodoFim(periodoFimDefault || '');
-      setDesconto(0);
-      setObservacoes('');
-      setRows([]);
+      setDesconto(0); setObservacoes(''); setRows([]);
     }
-    setExpandedContract(null);
+    setExpanded({});
+    setContractDrafts({});
+    setContractSearch('');
+    setDownloadAfterSave(false);
   }, [open, editing, periodoInicioDefault, periodoFimDefault]);
 
-  // Clientes distintos (via contratos ativos) — fonte simples pra picker.
+  // ---------- Autosave (nova medição) ----------
+  const draftKey = editing ? null : 'medicao:draft:v1';
+  // Restaurar rascunho ao abrir
+  useEffect(() => {
+    if (!open || !draftKey) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || !d.rows?.length) return;
+      toast('Rascunho recuperado', {
+        description: `${d.rows.length} ${d.rows.length === 1 ? 'item' : 'itens'} da sessão anterior`,
+        action: {
+          label: 'Restaurar',
+          onClick: () => {
+            setCustomerId(d.customerId || null);
+            setCompanyId(d.companyId || null);
+            setPeriodoIni(d.periodoIni || '');
+            setPeriodoFim(d.periodoFim || '');
+            setDesconto(Number(d.desconto || 0));
+            setObservacoes(d.observacoes || '');
+            setRows((d.rows || []).map((r: any, i: number) => ({ ...r, key: `r-${i}-${Math.random().toString(36).slice(2, 6)}` })));
+          },
+        },
+      });
+    } catch { /* noop */ }
+  }, [open, draftKey]);
+
+  useEffect(() => {
+    if (!open || !draftKey) return;
+    if (rows.length === 0 && !customerId) return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          customerId, companyId, periodoIni, periodoFim, desconto, observacoes, rows,
+        }));
+      } catch { /* noop */ }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [open, draftKey, customerId, companyId, periodoIni, periodoFim, desconto, observacoes, rows]);
+
+  // ---------- Derivados ----------
   const customers = useMemo(() => {
     const map = new Map<string, { id: string; name: string; document?: string }>();
     for (const c of contracts) {
       if (!c.customerId) continue;
-      const key = c.customerId;
-      if (!map.has(key)) {
-        map.set(key, { id: c.customerId, name: c.customerName || '(sem nome)', document: c.customerDocument });
+      if (!map.has(c.customerId)) {
+        map.set(c.customerId, { id: c.customerId, name: c.customerName || '(sem nome)', document: c.customerDocument });
       }
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [contracts]);
 
-  // Contratos do cliente escolhido (sempre lista — várias linhas por contrato permitidas).
   const contratosDoCliente = useMemo(() => {
     if (!customerId) return [];
     return contracts
       .filter(c => c.customerId === customerId)
-      .filter(c => !addContractSearch || `${c.numero} ${c.descricao || ''}`.toLowerCase().includes(addContractSearch.toLowerCase()));
-  }, [contracts, customerId, addContractSearch]);
+      .filter(c => !contractSearch || `${c.numero} ${c.descricao || ''}`.toLowerCase().includes(contractSearch.toLowerCase()));
+  }, [contracts, customerId, contractSearch]);
 
-  const recalcRow = (r: Row): Row => {
-    const total = Math.max(0, Number(r.quantidade || 0) * Number(r.valorUnit || 0) - Number(r.descontoItem || 0));
-    return { ...r, valorTotal: total };
-  };
+  // Resumo do cliente selecionado
+  const customerSummary = useMemo(() => {
+    if (!customerId) return null;
+    const ativos = contracts.filter(c => c.customerId === customerId);
+    const somaMensal = ativos.reduce((s, c) => s + Number(c.valorMensal || 0), 0);
+    const ultima = prevMedicoes
+      .filter(m => m.customerId === customerId)
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0];
+    return { nContratos: ativos.length, somaMensal, ultima };
+  }, [customerId, contracts, prevMedicoes]);
 
-  const updateRow = (key: string, patch: Partial<Row>) => {
+  // Carrega medições anteriores do cliente (para "última medição" e "copiar preços").
+  useEffect(() => {
+    if (!open || !customerId) { setPrevMedicoes([]); return; }
+    medicoesService.list({ customerId })
+      .then((r) => setPrevMedicoes(r || []))
+      .catch(() => setPrevMedicoes([]));
+  }, [open, customerId]);
+
+  // Subtotal/total
+  const subtotal = rows.reduce((s, r) => s + Number(r.valorTotal || 0), 0);
+  const total = Math.max(0, subtotal - Number(desconto || 0));
+  const canSave = rows.length > 0 && !!customerId;
+
+  // ---------- Handlers ----------
+  const recalcRow = (r: Row): Row => ({
+    ...r,
+    valorTotal: Math.max(0, Number(r.quantidade || 0) * Number(r.valorUnit || 0) - Number(r.descontoItem || 0)),
+  });
+  const updateRow = (key: string, patch: Partial<Row>) =>
     setRows(prev => prev.map(r => r.key === key ? recalcRow({ ...r, ...patch }) : r));
-  };
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r.key !== key));
 
   const ensureDraftsFor = (c: Contract) => {
     setContractDrafts((prev) => {
       if (prev[c.id]) return prev;
       const parsed = parseContractItems(c.descricao);
-      const items = parsed.length > 0 ? parsed : [];
       return {
         ...prev,
-        [c.id]: items.map((it) => ({
-          quantidade: it.quantidade,
-          descricao: it.descricao,
-          valorUnit: 0,
-        })),
+        [c.id]: parsed.map((it) => ({ ...it, valorUnit: 0, checked: true })),
       };
     });
   };
 
-  const openContractItems = (c: Contract) => {
-    setExpandedContract((prev) => (prev === c.id ? null : c.id));
+  const toggleExpand = (c: Contract) => {
+    setExpanded((p) => ({ ...p, [c.id]: !p[c.id] }));
     ensureDraftsFor(c);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
   };
 
   const updateDraft = (
-    contractId: string,
-    idx: number,
-    patch: Partial<{ quantidade: number; descricao: string; valorUnit: number }>,
+    contractId: string, idx: number,
+    patch: Partial<{ quantidade: number; descricao: string; valorUnit: number; checked: boolean }>,
   ) => {
     setContractDrafts((prev) => {
       const list = [...(prev[contractId] || [])];
@@ -230,55 +306,92 @@ export const MedicaoDialog: React.FC<Props> = ({
     });
   };
 
-  const addDraftRow = (c: Contract, idx: number) => {
-    const d = (contractDrafts[c.id] || [])[idx];
-    if (!d || !d.descricao.trim() || d.quantidade <= 0) {
-      toast.error('Informe descrição e quantidade.');
-      return;
-    }
+  const addSelectedDrafts = (c: Contract) => {
+    const list = (contractDrafts[c.id] || []).filter(d => d.checked && d.descricao.trim() && d.quantidade > 0);
+    if (list.length === 0) { toast.error('Nenhum item selecionado válido.'); return; }
     setRows((prev) => [
       ...prev,
-      rowFromProduct(c, d.descricao.trim(), d.quantidade, d.valorUnit, periodoIni, periodoFim),
+      ...list.map((d) => rowFromDraft(c, d.descricao.trim(), d.quantidade, d.valorUnit, periodoIni, periodoFim)),
     ]);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
-  };
-
-  const addAllDrafts = (c: Contract) => {
-    const list = (contractDrafts[c.id] || []).filter((d) => d.descricao.trim() && d.quantidade > 0);
-    if (list.length === 0) {
-      toast.error('Nenhum item válido para adicionar.');
-      return;
-    }
-    setRows((prev) => [
-      ...prev,
-      ...list.map((d) =>
-        rowFromProduct(c, d.descricao.trim(), d.quantidade, d.valorUnit, periodoIni, periodoFim),
-      ),
-    ]);
-    if (!companyId && c.companyId) setCompanyId(c.companyId);
+    toast.success(`${list.length} ${list.length === 1 ? 'item adicionado' : 'itens adicionados'}`);
   };
 
   const addEmptyDraft = (c: Contract) => {
     setContractDrafts((prev) => ({
       ...prev,
-      [c.id]: [...(prev[c.id] || []), { quantidade: 1, descricao: '', valorUnit: 0 }],
+      [c.id]: [...(prev[c.id] || []), { quantidade: 1, descricao: '', valorUnit: 0, checked: true }],
     }));
   };
 
-  const addSuggested = (c: Contract) => {
+  const addSuggestedContract = (c: Contract) => {
     setRows(prev => [...prev, rowSuggested(c, periodoIni, periodoFim)]);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
   };
 
   const addFreeItem = () => setRows(prev => [...prev, rowEmpty()]);
 
+  // Sugere preço rateando valorMensal entre a soma das quantidades dos drafts.
+  const suggestPricesFromMensal = (c: Contract) => {
+    const list = contractDrafts[c.id] || [];
+    const somaQtd = list.reduce((s, d) => s + Number(d.quantidade || 0), 0);
+    if (!c.valorMensal || somaQtd <= 0) { toast.error('Sem valor mensal ou quantidades para ratear.'); return; }
+    const unit = Number(c.valorMensal) / somaQtd;
+    setContractDrafts((prev) => ({
+      ...prev,
+      [c.id]: (prev[c.id] || []).map(d => ({ ...d, valorUnit: Math.round(unit * 100) / 100 })),
+    }));
+    toast.success(`Rateio aplicado: ${BRL(unit)}/unid.`);
+  };
 
-  const subtotal = rows.reduce((s, r) => s + Number(r.valorTotal || 0), 0);
-  const total = Math.max(0, subtotal - Number(desconto || 0));
+  // Copia preços da última medição desse contrato.
+  const copyFromLastMedicao = async (c: Contract) => {
+    try {
+      const last = prevMedicoes.find(m => (m.customerId === customerId));
+      if (!last) { toast.error('Sem medições anteriores para este cliente.'); return; }
+      const full = await medicoesService.get(last.id);
+      const items = (full.items || []).filter(it => it.contractId === c.id);
+      if (items.length === 0) { toast.error('Última medição não tem itens deste contrato.'); return; }
+      setContractDrafts((prev) => {
+        const cur = [...(prev[c.id] || [])];
+        for (const it of items) {
+          const match = cur.findIndex(d => d.descricao.trim().toLowerCase() === (it.descricao || '').trim().toLowerCase());
+          if (match >= 0) cur[match] = { ...cur[match], valorUnit: Number(it.valorUnit || 0) };
+          else cur.push({ quantidade: Number(it.quantidade || 1), descricao: it.descricao, valorUnit: Number(it.valorUnit || 0), checked: true });
+        }
+        return { ...prev, [c.id]: cur };
+      });
+      toast.success(`Preços copiados de ${full.numero}`);
+    } catch (e: any) { toast.error(e.message || 'Erro ao copiar'); }
+  };
 
-  const canSave = rows.length > 0 && !!customerId;
+  const applyDiscountPercent = (pct: number) => {
+    if (!pct || pct <= 0) return;
+    setRows(prev => prev.map(r => recalcRow({
+      ...r,
+      descontoItem: Math.round(Number(r.quantidade || 0) * Number(r.valorUnit || 0) * (pct / 100) * 100) / 100,
+    })));
+    toast.success(`Desconto de ${pct}% aplicado a cada item`);
+  };
 
-  const save = async () => {
+  const clearAllRows = () => {
+    if (rows.length === 0) return;
+    setRows([]);
+    toast('Itens limpos');
+  };
+
+  // Agrupa rows por contrato para exibição.
+  const rowsByContract = useMemo(() => {
+    const groups: Record<string, { numero: string | null; items: Row[] }> = {};
+    for (const r of rows) {
+      const k = r.contractId || '__free__';
+      if (!groups[k]) groups[k] = { numero: r.contractNumero || null, items: [] };
+      groups[k].items.push(r);
+    }
+    return groups;
+  }, [rows]);
+
+  const save = useCallback(async () => {
     if (!canSave) { toast.error('Selecione um cliente e ao menos 1 item.'); return; }
     setSaving(true);
     try {
@@ -303,277 +416,416 @@ export const MedicaoDialog: React.FC<Props> = ({
           ordem: i,
         })),
       };
+      let savedId: string;
+      let savedNumero: string;
       if (editing) {
         await medicoesService.update(editing.id, payload);
+        savedId = editing.id; savedNumero = editing.numero;
         toast.success(`Medição ${editing.numero} atualizada`);
-        onSaved(editing.id);
       } else {
         const r = await medicoesService.create(payload);
+        savedId = r.id; savedNumero = r.numero;
         toast.success(`Medição ${r.numero} gerada`);
-        onSaved(r.id);
+        try { if (draftKey) localStorage.removeItem(draftKey); } catch {}
       }
+      onSaved(savedId);
       onOpenChange(false);
+      // download opcional
+      if (downloadAfterSave) {
+        try {
+          const full = await medicoesService.get(savedId);
+          const { generateMedicaoPdf } = await import('@/utils/medicaoPdf');
+          await generateMedicaoPdf(full as any);
+        } catch (e: any) { toast.error(e.message || 'PDF falhou'); }
+      }
     } catch (e: any) {
       toast.error(e.message || 'Erro ao salvar');
     } finally {
       setSaving(false);
     }
-  };
+  }, [canSave, customerId, companyId, competencia, periodoIni, periodoFim, desconto, observacoes, rows, editing, onSaved, onOpenChange, downloadAfterSave, draftKey]);
+
+  // Ctrl+Enter para salvar
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (canSave && !saving) save();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, canSave, saving, save]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{editing ? `Editar medição ${editing.numero}` : 'Nova medição'}</DialogTitle>
-          <DialogDescription>
-            Consolide produtos, quantidades e valores de um ou mais contratos do mesmo cliente para envio ao cliente antes do faturamento.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-          {/* Cliente + empresa emissora + período */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <Label className="text-xs">Cliente</Label>
-              <SearchableSelect
-                value={customerId || ''}
-                disabled={!!editing}
-                placeholder="— Selecione —"
-                searchPlaceholder="Buscar cliente..."
-                triggerClassName="h-9"
-                options={customers.map((c) => ({
-                  value: c.id,
-                  label: c.name || '(sem nome)',
-                  hint: c.document || undefined,
-                }))}
-                onValueChange={(v) => {
-                  const id = v || null;
-                  setCustomerId(id);
-                  const c = customers.find((x) => x.id === id);
-                  setCustomerLabel(c?.name || '');
-                  setCustomerDocument(c?.document || '');
-                  setRows([]);
-                }}
-              />
+      <DialogContent className="max-w-[1200px] w-[95vw] max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0">
+        {/* Header sticky */}
+        <DialogHeader className="px-5 pt-5 pb-3 border-b bg-background/95 backdrop-blur sticky top-0 z-10">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                {editing ? `Editar medição ${editing.numero}` : 'Nova medição'}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                Consolide produtos e valores de um ou mais contratos do mesmo cliente.
+              </DialogDescription>
             </div>
-            <div>
-              <Label className="text-xs">Empresa emissora</Label>
-              <SearchableSelect
-                value={companyId || '__default__'}
-                placeholder="— Padrão do contrato —"
-                searchPlaceholder="Buscar empresa..."
-                triggerClassName="h-9"
-                options={[
-                  { value: '__default__', label: '— Padrão do contrato —' },
-                  ...companies.map((c) => ({ value: c.id, label: c.razaoSocial || '(sem razão social)' })),
-                ]}
-                onValueChange={(v) => setCompanyId(v === '__default__' ? null : v)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Período início</Label>
-                <Input type="date" value={periodoIni} onChange={(e) => setPeriodoIni(e.target.value)} />
-              </div>
-              <div>
-                <Label className="text-xs">Período fim</Label>
-                <Input type="date" value={periodoFim} onChange={(e) => setPeriodoFim(e.target.value)} />
+            <div className="rounded-lg border bg-primary/5 px-4 py-2 text-right shrink-0" aria-live="polite">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total ao vivo</div>
+              <div className="text-xl font-bold text-primary tabular-nums">{BRL(total)}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {rows.length} {rows.length === 1 ? 'item' : 'itens'}
               </div>
             </div>
           </div>
+        </DialogHeader>
 
-          {/* Adicionar contratos */}
-          <div className="rounded-md border p-3 bg-muted/30">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="text-sm font-medium">Adicionar contratos ativos do cliente</div>
-              <Input
-                placeholder="Buscar por nº ou descrição…"
-                className="max-w-xs"
-                value={addContractSearch}
-                onChange={(e) => setAddContractSearch(e.target.value)}
-                disabled={!customerId}
-              />
-            </div>
-            {!customerId && <div className="text-xs text-muted-foreground">Selecione um cliente para listar seus contratos.</div>}
-            {customerId && contratosDoCliente.length === 0 && (
-              <div className="text-xs text-muted-foreground">Nenhum contrato para este cliente.</div>
-            )}
-            <div className="space-y-2">
-              {contratosDoCliente.map(c => {
-                const expanded = expandedContract === c.id;
-                const linhasCount = rows.filter(r => r.contractId === c.id).length;
-                return (
-                  <div key={c.id} className="rounded-md border bg-background">
-                    <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Badge variant="outline" className="text-[10px]">{c.numero}</Badge>
-                        <span className="text-muted-foreground truncate max-w-[260px]">
-                          {c.descricao || '—'}
-                        </span>
-                        <span className="text-xs text-muted-foreground">· {BRL(c.valorMensal)}/mês</span>
-                        {linhasCount > 0 && (
-                          <Badge variant="secondary" className="text-[10px]">{linhasCount} {linhasCount === 1 ? 'item' : 'itens'}</Badge>
-                        )}
+        {loading && (
+          <div className="flex-1 flex items-center justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {!loading && (
+          <div ref={scrollerRef} className="flex-1 overflow-y-auto">
+            {/* Seção 1 — Cliente & Período */}
+            <section className="px-5 py-4 border-b bg-muted/20">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Cliente</Label>
+                  <SearchableSelect
+                    value={customerId || ''}
+                    disabled={!!editing}
+                    placeholder="— Selecione —"
+                    searchPlaceholder="Buscar cliente..."
+                    triggerClassName="h-9"
+                    options={customers.map((c) => ({
+                      value: c.id,
+                      label: c.name || '(sem nome)',
+                      hint: c.document || undefined,
+                    }))}
+                    onValueChange={(v) => {
+                      setCustomerId(v || null);
+                      setRows([]);
+                      setContractDrafts({});
+                      setExpanded({});
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Empresa emissora</Label>
+                  <SearchableSelect
+                    value={companyId || '__default__'}
+                    placeholder="— Padrão do contrato —"
+                    searchPlaceholder="Buscar empresa..."
+                    triggerClassName="h-9"
+                    options={[
+                      { value: '__default__', label: '— Padrão do contrato —' },
+                      ...companies.map((c) => ({ value: c.id, label: c.razaoSocial || '(sem razão social)' })),
+                    ]}
+                    onValueChange={(v) => setCompanyId(v === '__default__' ? null : v)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Período de referência</Label>
+                  <div className="flex items-center gap-1">
+                    <Input type="date" className="h-9" value={periodoIni} onChange={(e) => setPeriodoIni(e.target.value)} />
+                    <span className="text-muted-foreground text-xs">→</span>
+                    <Input type="date" className="h-9" value={periodoFim} onChange={(e) => setPeriodoFim(e.target.value)} />
+                  </div>
+                  <div className="flex gap-1 mt-1">
+                    <Button type="button" size="sm" variant="ghost" className="h-6 text-[11px] px-2"
+                      onClick={() => { const r = monthRange(0); setPeriodoIni(r.ini); setPeriodoFim(r.fim); }}>
+                      <Calendar className="h-3 w-3 mr-1" /> Este mês
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" className="h-6 text-[11px] px-2"
+                      onClick={() => { const r = monthRange(-1); setPeriodoIni(r.ini); setPeriodoFim(r.fim); }}>
+                      Mês passado
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resumo do cliente */}
+              {customerSummary && (
+                <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground rounded-md border bg-background/60 px-3 py-2">
+                  <span><b className="text-foreground">{customerSummary.nContratos}</b> contrato(s) ativo(s)</span>
+                  <span>Mensal somado: <b className="text-foreground">{BRL(customerSummary.somaMensal)}</b></span>
+                  {customerSummary.ultima ? (
+                    <span>Última medição: <b className="text-foreground">{customerSummary.ultima.numero}</b> · {formatDateBR(customerSummary.ultima.createdAt)} · {BRL(Number(customerSummary.ultima.total || 0))}</span>
+                  ) : (
+                    <span className="italic">Nenhuma medição anterior</span>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* Seção 2 — Itens (2 colunas) */}
+            <section className="px-5 py-4">
+              {!customerId ? (
+                <div className="text-center text-sm text-muted-foreground py-16 border-2 border-dashed rounded-lg">
+                  <PackageOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  Selecione um cliente para ver seus contratos e itens.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Coluna esquerda — Contratos + drafts */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold">Contratos do cliente</div>
+                      <div className="relative">
+                        <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar contrato…"
+                          className="h-8 pl-7 w-56 text-xs"
+                          value={contractSearch}
+                          onChange={(e) => setContractSearch(e.target.value)}
+                        />
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" type="button" onClick={() => addSuggested(c)} title="Adiciona 1 linha com o valor mensal do contrato">
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Sugerir
+                    </div>
+
+                    {contratosDoCliente.length === 0 && (
+                      <div className="text-xs text-muted-foreground italic border rounded-md p-4 text-center">
+                        Nenhum contrato ativo para este cliente.
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {contratosDoCliente.map((c) => {
+                        const isOpen = !!expanded[c.id];
+                        const drafts = contractDrafts[c.id] || [];
+                        const linhasCount = rows.filter(r => r.contractId === c.id).length;
+                        const parsedCount = parseContractItems(c.descricao).length;
+                        return (
+                          <div key={c.id} className="rounded-md border bg-background overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(c)}
+                              className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-muted/40 text-left"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                                <Badge variant="outline" className="text-[10px] shrink-0">{c.numero}</Badge>
+                                <span className="text-xs text-muted-foreground truncate">{c.descricao || '—'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {parsedCount > 0 && !isOpen && (
+                                  <Badge variant="secondary" className="text-[10px]">{parsedCount} detectado(s)</Badge>
+                                )}
+                                {linhasCount > 0 && (
+                                  <Badge className="text-[10px] gap-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    {linhasCount}
+                                  </Badge>
+                                )}
+                                <span className="text-[11px] text-muted-foreground tabular-nums">{BRL(c.valorMensal)}/mês</span>
+                              </div>
+                            </button>
+
+                            {isOpen && (
+                              <div className="border-t bg-muted/10 p-3 space-y-2">
+                                <div className="flex flex-wrap gap-1 mb-1">
+                                  <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => addSelectedDrafts(c)}>
+                                    <Plus className="h-3 w-3 mr-1" /> Adicionar selecionados
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => addSuggestedContract(c)}>
+                                    <Sparkles className="h-3 w-3 mr-1" /> Locação mensal
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => suggestPricesFromMensal(c)}
+                                    title="Rateia o valor mensal do contrato entre a soma das quantidades">
+                                    <Wand2 className="h-3 w-3 mr-1" /> Sugerir preço
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => copyFromLastMedicao(c)}>
+                                    <Copy className="h-3 w-3 mr-1" /> Copiar da última
+                                  </Button>
+                                </div>
+
+                                {drafts.length === 0 && (
+                                  <div className="text-[11px] text-muted-foreground italic">
+                                    Nenhum item detectado na descrição — adicione manualmente abaixo.
+                                  </div>
+                                )}
+
+                                {drafts.map((d, i) => (
+                                  <div key={i} className="grid grid-cols-[auto_60px_1fr_100px] gap-2 items-center">
+                                    <Checkbox
+                                      checked={d.checked}
+                                      onCheckedChange={(v) => updateDraft(c.id, i, { checked: !!v })}
+                                    />
+                                    <Input type="number" step="1" min="1" className="h-8 text-xs" value={d.quantidade}
+                                      onChange={(e) => updateDraft(c.id, i, { quantidade: Number(e.target.value) })} />
+                                    <Input className="h-8 text-xs" value={d.descricao} placeholder="Descrição do item"
+                                      onChange={(e) => updateDraft(c.id, i, { descricao: e.target.value })} />
+                                    <Input type="number" step="0.01" min="0" className="h-8 text-xs text-right"
+                                      placeholder="0,00" value={d.valorUnit || ''}
+                                      onChange={(e) => updateDraft(c.id, i, { valorUnit: Number(e.target.value) })} />
+                                  </div>
+                                ))}
+
+                                <Button variant="ghost" size="sm" type="button" className="h-7 text-xs" onClick={() => addEmptyDraft(c)}>
+                                  <Plus className="h-3 w-3 mr-1" /> Novo item
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Coluna direita — Itens da medição */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-semibold">
+                        Itens da medição <span className="text-muted-foreground font-normal">({rows.length})</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={addFreeItem}>
+                          <Plus className="h-3 w-3 mr-1" /> Item avulso
                         </Button>
-                        <Button variant={expanded ? 'default' : 'outline'} size="sm" type="button" onClick={() => openContractItems(c)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Itens do contrato
+                        <Button size="sm" variant="ghost" className="h-7 text-xs"
+                          onClick={() => {
+                            const v = window.prompt('Aplicar desconto de qual % em cada item?', '5');
+                            const pct = Number(v);
+                            if (pct > 0) applyDiscountPercent(pct);
+                          }}>
+                          <Wand2 className="h-3 w-3 mr-1" /> Desc. %
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-rose-600" onClick={clearAllRows}>
+                          <Trash2 className="h-3 w-3 mr-1" /> Limpar
                         </Button>
                       </div>
                     </div>
-                    {expanded && (() => {
-                      const drafts = contractDrafts[c.id] || [];
-                      return (
-                        <div className="border-t bg-muted/20 p-2 space-y-2">
-                          {c.descricao && (
-                            <div className="rounded-sm bg-background/60 border p-2 text-[11px] whitespace-pre-wrap text-muted-foreground max-h-24 overflow-y-auto">
-                              <span className="font-medium text-foreground">Descrição do contrato:</span>{'\n'}
-                              {c.descricao}
-                            </div>
-                          )}
-                          {drafts.length === 0 ? (
-                            <div className="text-xs text-muted-foreground italic px-1">
-                              Nenhum item detectado na descrição do contrato.
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between px-1">
-                              <div className="text-[11px] text-muted-foreground">
-                                {drafts.length} {drafts.length === 1 ? 'item detectado' : 'itens detectados'} — edite e adicione.
+
+                    {rows.length === 0 ? (
+                      <div className="text-center text-sm text-muted-foreground py-16 border-2 border-dashed rounded-lg">
+                        Adicione itens pelos contratos ao lado.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {Object.entries(rowsByContract).map(([k, g]) => (
+                          <div key={k} className="rounded-md border">
+                            <div className="px-3 py-1.5 bg-muted/50 border-b flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                {g.numero ? (
+                                  <>
+                                    <Badge variant="outline" className="text-[10px]">{g.numero}</Badge>
+                                    <span className="text-muted-foreground">Contrato</span>
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground italic">Itens avulsos</span>
+                                )}
                               </div>
-                              <Button size="sm" type="button" variant="secondary" onClick={() => addAllDrafts(c)}>
-                                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar todos
-                              </Button>
+                              <span className="tabular-nums font-medium">
+                                {BRL(g.items.reduce((s, r) => s + Number(r.valorTotal || 0), 0))}
+                              </span>
                             </div>
-                          )}
-                          {drafts.map((d, i) => (
-                            <div key={i} className="grid grid-cols-[70px_1fr_120px_auto] gap-2 items-end">
-                              <div>
-                                <Label className="text-[10px] text-muted-foreground">Qtd</Label>
-                                <Input type="number" step="1" min="1" value={d.quantidade}
-                                  onChange={(e) => updateDraft(c.id, i, { quantidade: Number(e.target.value) })} />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-muted-foreground">Descrição</Label>
-                                <Input value={d.descricao}
-                                  onChange={(e) => updateDraft(c.id, i, { descricao: e.target.value })} />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-muted-foreground">V. unit.</Label>
-                                <Input type="number" step="0.01" min="0" value={d.valorUnit}
-                                  onChange={(e) => updateDraft(c.id, i, { valorUnit: Number(e.target.value) })} />
-                              </div>
-                              <Button size="sm" type="button" onClick={() => addDraftRow(c, i)}>
-                                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
-                              </Button>
+                            <div className="divide-y">
+                              {g.items.map((r) => (
+                                <div key={r.key} className="p-2 space-y-1.5">
+                                  <div className="flex gap-2">
+                                    <Input
+                                      className="h-8 text-xs flex-1"
+                                      placeholder="Descrição"
+                                      value={r.descricao}
+                                      onChange={(e) => updateRow(r.key, { descricao: e.target.value })}
+                                    />
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeRow(r.key)}>
+                                      <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                    </Button>
+                                  </div>
+                                  <div className="grid grid-cols-[60px_60px_1fr_1fr_auto] gap-2 items-center">
+                                    <Input type="number" step="0.01" min="0" className="h-7 text-xs"
+                                      title="Quantidade"
+                                      value={r.quantidade}
+                                      onChange={(e) => updateRow(r.key, { quantidade: Number(e.target.value) })} />
+                                    <Input className="h-7 text-xs" title="Unidade" value={r.unidade || ''}
+                                      onChange={(e) => updateRow(r.key, { unidade: e.target.value })} />
+                                    <Input type="number" step="0.01" min="0" className="h-7 text-xs text-right"
+                                      title="Valor unitário"
+                                      value={r.valorUnit}
+                                      onChange={(e) => updateRow(r.key, { valorUnit: Number(e.target.value) })} />
+                                    <Input type="number" step="0.01" min="0" className="h-7 text-xs text-right"
+                                      title="Desconto do item"
+                                      value={r.descontoItem}
+                                      onChange={(e) => updateRow(r.key, { descontoItem: Number(e.target.value) })} />
+                                    <div className="text-xs font-semibold text-right tabular-nums min-w-[80px]">
+                                      {BRL(r.valorTotal)}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                          <Button variant="ghost" size="sm" type="button" onClick={() => addEmptyDraft(c)}>
-                            <Plus className="h-3.5 w-3.5 mr-1" /> Novo item deste contrato
-                          </Button>
-                        </div>
-                      );
-                    })()}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-              <Button variant="ghost" size="sm" type="button" onClick={addFreeItem}>
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Item avulso
+                </div>
+              )}
+            </section>
+
+            {/* Seção 3 — Observações + Totais */}
+            <section className="px-5 py-4 border-t bg-muted/10">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2 space-y-2">
+                  <Label className="text-xs">Observações</Label>
+                  <Textarea rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)}
+                    placeholder="Notas que aparecerão no PDF (opcional)" />
+                  <div className="flex flex-wrap gap-1">
+                    {OBS_CHIPS.map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => setObservacoes((prev) => prev ? `${prev}\n${chip}` : chip)}
+                        className="text-[11px] px-2 py-0.5 rounded-full border bg-background hover:bg-muted transition-colors"
+                      >
+                        + {chip}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-md border p-3 bg-background space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium tabular-nums">{BRL(subtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-muted-foreground">Desconto geral</span>
+                    <Input type="number" step="0.01" min="0" className="h-8 w-32 text-right tabular-nums"
+                      value={desconto} onChange={(e) => setDesconto(Number(e.target.value))} />
+                  </div>
+                  <div className="flex items-center justify-between text-base border-t pt-2">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-bold text-primary tabular-nums">{BRL(total)}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* Footer sticky */}
+        <DialogFooter className="px-5 py-3 border-t bg-background/95 backdrop-blur sticky bottom-0">
+          <div className="flex items-center justify-between w-full gap-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+              <Checkbox checked={downloadAfterSave} onCheckedChange={(v) => setDownloadAfterSave(!!v)} />
+              Baixar PDF ao salvar
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground hidden md:inline">
+                Ctrl+Enter para salvar
+              </span>
+              <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+              <Button onClick={save} disabled={saving || !canSave}>
+                {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                {editing ? 'Salvar alterações' : 'Gerar medição'}
               </Button>
             </div>
           </div>
-
-
-          {/* Tabela de itens */}
-          <div className="rounded-md border overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr className="text-left">
-                  <th className="px-2 py-2 w-8">#</th>
-                  <th className="px-2 py-2 min-w-[220px]">Descrição</th>
-                  <th className="px-2 py-2 w-20">Qtd</th>
-                  <th className="px-2 py-2 w-16">Un</th>
-                  <th className="px-2 py-2 w-32">V. unit.</th>
-                  <th className="px-2 py-2 w-28">Desc. item</th>
-                  <th className="px-2 py-2 w-32 text-right">Total</th>
-                  <th className="px-2 py-2 w-8"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 && (
-                  <tr><td colSpan={8} className="text-center text-muted-foreground py-6 text-xs">
-                    Adicione ao menos 1 item.
-                  </td></tr>
-                )}
-                {rows.map((r, idx) => (
-                  <tr key={r.key} className="border-t">
-                    <td className="px-2 py-1 text-xs text-muted-foreground">
-                      {idx + 1}
-                      {r.contractNumero && <div><Badge variant="outline" className="text-[10px]">{r.contractNumero}</Badge></div>}
-                    </td>
-                    <td className="px-2 py-1">
-                      <Input value={r.descricao} onChange={(e) => updateRow(r.key, { descricao: e.target.value })} />
-                    </td>
-                    <td className="px-2 py-1">
-                      <Input type="number" step="0.01" min="0" value={r.quantidade}
-                        onChange={(e) => updateRow(r.key, { quantidade: Number(e.target.value) })} />
-                    </td>
-                    <td className="px-2 py-1">
-                      <Input value={r.unidade || ''} onChange={(e) => updateRow(r.key, { unidade: e.target.value })} />
-                    </td>
-                    <td className="px-2 py-1">
-                      <Input type="number" step="0.01" min="0" value={r.valorUnit}
-                        onChange={(e) => updateRow(r.key, { valorUnit: Number(e.target.value) })} />
-                    </td>
-                    <td className="px-2 py-1">
-                      <Input type="number" step="0.01" min="0" value={r.descontoItem}
-                        onChange={(e) => updateRow(r.key, { descontoItem: Number(e.target.value) })} />
-                    </td>
-                    <td className="px-2 py-1 text-right font-medium">{BRL(r.valorTotal)}</td>
-                    <td className="px-2 py-1">
-                      <Button variant="ghost" size="icon" onClick={() => removeRow(r.key)}>
-                        <Trash2 className="h-4 w-4 text-rose-600" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Rodapé: desconto + obs + totais */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="md:col-span-2">
-              <Label className="text-xs">Observações</Label>
-              <Textarea rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
-            </div>
-            <div className="rounded-md border p-3 bg-muted/20 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-medium">{BRL(subtotal)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-muted-foreground">Desconto geral</span>
-                <Input type="number" step="0.01" min="0" className="h-8 w-32 text-right"
-                  value={desconto} onChange={(e) => setDesconto(Number(e.target.value))} />
-              </div>
-              <div className="flex items-center justify-between text-base border-t pt-2">
-                <span className="font-semibold">Total</span>
-                <span className="font-bold text-primary">{BRL(total)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-          <Button onClick={save} disabled={saving || !canSave}>
-            {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-            {editing ? 'Salvar alterações' : 'Gerar medição'}
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
