@@ -48,8 +48,12 @@ import {
 } from '@/services/contracts';
 import { erpService, type ErpCompany } from '@/services/erp';
 import { uploadSignedPdf } from '@/services/erp';
+import { medicoesService, type Medicao } from '@/services/medicoes';
+import { MedicaoDialog } from '@/components/erp/MedicaoDialog';
+import { MedicaoViewDialog } from '@/components/erp/MedicaoViewDialog';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateReceiptPdf, generateUnifiedReceiptPdf } from '@/utils/receiptPdf';
+import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
@@ -173,7 +177,15 @@ const ErpFinanceiro: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
   const [batchWorking, setBatchWorking] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'clientes' | 'gastos'>('pendentes');
+  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'medicoes' | 'clientes' | 'gastos'>('pendentes');
+
+  // Medições (aba nova) — proposta de faturamento (pré-recibo)
+  const [medicoes, setMedicoes] = useState<import('@/services/medicoes').Medicao[]>([]);
+  const [medicoesLoading, setMedicoesLoading] = useState(false);
+  const [medicaoDialogOpen, setMedicaoDialogOpen] = useState(false);
+  const [medicaoEditing, setMedicaoEditing] = useState<import('@/services/medicoes').Medicao | null>(null);
+  const [medicaoViewId, setMedicaoViewId] = useState<string | null>(null);
+  const [medicaoViewOpen, setMedicaoViewOpen] = useState(false);
   // popover do recibo unificado
   const [unifOpen, setUnifOpen] = useState(false);
   const [unifIni, setUnifIni] = useState('');
