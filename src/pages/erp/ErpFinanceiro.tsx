@@ -1194,7 +1194,11 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                              onConfirm={(inicio, fim, semValidade) => { void gerarPeriodo(p, inicio, fim, { semValidade }); }}
+                              onConfirm={(semValidade) => {
+                                const per = computeCompetenciaPeriodo(p.dataInicio, competencia);
+                                void gerarPeriodo(p, per.inicio, per.fim, { semValidade });
+                              }}
+                              competencia={competencia}
                             >
                               <Button
                                 size="sm"
