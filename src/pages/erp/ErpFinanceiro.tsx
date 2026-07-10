@@ -162,6 +162,7 @@ const ErpFinanceiro: React.FC = () => {
   const [companies, setCompanies] = useState<ErpCompany[]>([]);
   const [summary, setSummary] = useState<ReceiptsSummaryPoint[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pendentesLoading, setPendentesLoading] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
 
   // filtros
@@ -229,6 +230,8 @@ const ErpFinanceiro: React.FC = () => {
 
   // Guarda contra setState após unmount / troca de competência
   const mountedRef = useRef(true);
+  const pendentesRequestRef = useRef(0);
+  const previousActiveTabRef = useRef(activeTab);
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -238,11 +241,23 @@ const ErpFinanceiro: React.FC = () => {
   // Isso evita que mexer em filtro de Recibos re-baixe (e às vezes zere) a lista
   // de Pendentes ao voltar para essa sub-aba.
   const loadPendentes = useCallback(async () => {
+    const requestId = ++pendentesRequestRef.current;
+    setPendentesLoading(true);
     try {
       const p = await receiptsService.pending(competencia);
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || requestId !== pendentesRequestRef.current) return;
       setPendentes(p.pendentes);
-    } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
+      setSelected(prev => {
+        if (prev.size === 0) return prev;
+        const valid = new Set(p.pendentes.map(item => item.contractId));
+        const next = new Set(Array.from(prev).filter(id => valid.has(id)));
+        return next.size === prev.size ? prev : next;
+      });
+    } catch (e: any) {
+      if (mountedRef.current && requestId === pendentesRequestRef.current) toast.error(e.message);
+    } finally {
+      if (mountedRef.current && requestId === pendentesRequestRef.current) setPendentesLoading(false);
+    }
   }, [competencia]);
 
   const loadRecibos = useCallback(async () => {
@@ -264,6 +279,11 @@ const ErpFinanceiro: React.FC = () => {
 
   useEffect(() => { loadPendentes(); }, [loadPendentes]);
   useEffect(() => { loadRecibos(); }, [loadRecibos]);
+  useEffect(() => {
+    const previous = previousActiveTabRef.current;
+    previousActiveTabRef.current = activeTab;
+    if (activeTab === 'pendentes' && previous !== 'pendentes') void loadPendentes();
+  }, [activeTab, loadPendentes]);
 
   // Carga das medições da competência
   const loadMedicoes = useCallback(async () => {
@@ -1073,7 +1093,7 @@ const ErpFinanceiro: React.FC = () => {
                 <QuickChip active={pendQuick === 'em7'} onClick={() => setPendQuick('em7')} tone="amber">Vence em 7 dias</QuickChip>
                 {pendFiltroAtivo && (
                   <span className="ml-auto text-xs text-muted-foreground self-center">
-                    Exibindo {pendentesFiltrados.length} de {pendentes.length}
+                    {pendentesLoading ? 'Atualizando pendentes…' : `Exibindo ${pendentesFiltrados.length} de ${pendentes.length}`}
                   </span>
                 )}
               </div>
@@ -1187,7 +1207,9 @@ const ErpFinanceiro: React.FC = () => {
                   <TableBody>
                     {pendentesFiltrados.length === 0 && (
                       <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        {pendFiltroAtivo
+                        {pendentesLoading
+                          ? 'Carregando pendentes…'
+                          : pendFiltroAtivo
                           ? 'Nenhum pendente para os filtros selecionados.'
                           : `Nenhuma cobrança pendente para ${formatComp(competencia)}.`}
                       </TableCell></TableRow>

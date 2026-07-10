@@ -48,17 +48,24 @@ export function VirtualRows<T>({
     overscan,
   });
 
-  if (!shouldVirtualize) {
-    return (
-      <>
-        {items.map((item, i) => (
-          <Fragment key={getKey(item, i)}>{renderRow(item, i)}</Fragment>
-        ))}
-      </>
-    );
+  const renderAllRows = () => (
+    <>
+      {items.map((item, i) => (
+        <Fragment key={getKey(item, i)}>{renderRow(item, i)}</Fragment>
+      ))}
+    </>
+  );
+
+  if (!shouldVirtualize || !scrollRef.current) {
+    return renderAllRows();
   }
 
   const virtualItems = virtualizer.getVirtualItems();
+
+  if (virtualItems.length === 0 && items.length > 0) {
+    return renderAllRows();
+  }
+
   const totalSize = virtualizer.getTotalSize();
   const paddingTop = virtualItems[0]?.start ?? 0;
   const paddingBottom =
