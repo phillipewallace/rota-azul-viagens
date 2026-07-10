@@ -35,7 +35,37 @@ interface Props {
 
 type Row = MedicaoItem & { key: string };
 
-const rowFromContract = (c: Contract, periodoInicio: string, periodoFim: string): Row => ({
+// Catálogo de produtos (baseado nas categorias de sanitários existentes).
+const PRODUCT_CATALOG: { value: string; label: string }[] = [
+  { value: 'Sanitário Químico Comum',   label: 'Sanitário Químico Comum' },
+  { value: 'Sanitário PNE (Acessível)', label: 'Sanitário PNE (Acessível)' },
+  { value: 'Pia de Apoio',              label: 'Pia de Apoio' },
+  { value: 'Sanitário Luxo',            label: 'Sanitário Luxo' },
+  { value: 'Cabine de Banho',           label: 'Cabine de Banho' },
+];
+
+const rowFromProduct = (
+  c: Contract,
+  produto: string,
+  quantidade: number,
+  valorUnit: number,
+  periodoInicio: string,
+  periodoFim: string,
+): Row => ({
+  key: `p-${c.id}-${Math.random()}`,
+  contractId: c.id,
+  contractNumero: c.numero,
+  descricao: produto,
+  quantidade,
+  unidade: 'UN',
+  valorUnit,
+  descontoItem: 0,
+  valorTotal: Math.max(0, quantidade * valorUnit),
+  periodoInicio,
+  periodoFim,
+});
+
+const rowSuggested = (c: Contract, periodoInicio: string, periodoFim: string): Row => ({
   key: `c-${c.id}-${Math.random()}`,
   contractId: c.id,
   contractNumero: c.numero,
@@ -84,6 +114,10 @@ export const MedicaoDialog: React.FC<Props> = ({
   const [observacoes, setObservacoes] = useState('');
 
   const [addContractSearch, setAddContractSearch] = useState('');
+  const [expandedContract, setExpandedContract] = useState<string | null>(null);
+  const [productDraft, setProductDraft] = useState<{ produto: string; quantidade: number; valorUnit: number }>({
+    produto: PRODUCT_CATALOG[0].value, quantidade: 1, valorUnit: 0,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -118,6 +152,7 @@ export const MedicaoDialog: React.FC<Props> = ({
       setObservacoes('');
       setRows([]);
     }
+    setExpandedContract(null);
   }, [open, editing, periodoInicioDefault, periodoFimDefault]);
 
   // Clientes distintos (via contratos ativos) — fonte simples pra picker.
@@ -133,14 +168,13 @@ export const MedicaoDialog: React.FC<Props> = ({
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [contracts]);
 
-  // Contratos disponíveis do cliente escolhido, menos os já adicionados.
+  // Contratos do cliente escolhido (sempre lista — várias linhas por contrato permitidas).
   const contratosDoCliente = useMemo(() => {
     if (!customerId) return [];
-    const usados = new Set(rows.map(r => r.contractId).filter(Boolean) as string[]);
     return contracts
-      .filter(c => c.customerId === customerId && !usados.has(c.id))
+      .filter(c => c.customerId === customerId)
       .filter(c => !addContractSearch || `${c.numero} ${c.descricao || ''}`.toLowerCase().includes(addContractSearch.toLowerCase()));
-  }, [contracts, customerId, rows, addContractSearch]);
+  }, [contracts, customerId, addContractSearch]);
 
   const recalcRow = (r: Row): Row => {
     const total = Math.max(0, Number(r.quantidade || 0) * Number(r.valorUnit || 0) - Number(r.descontoItem || 0));
@@ -152,17 +186,35 @@ export const MedicaoDialog: React.FC<Props> = ({
   };
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r.key !== key));
 
-  const addContract = (c: Contract) => {
-    setRows(prev => [...prev, rowFromContract(c, periodoIni, periodoFim)]);
-    if (!customerId && c.customerId) {
-      setCustomerId(c.customerId);
-      setCustomerLabel(c.customerName || '');
-      setCustomerDocument(c.customerDocument || '');
+  const openProductForm = (c: Contract) => {
+    setExpandedContract(prev => prev === c.id ? null : c.id);
+    setProductDraft({
+      produto: PRODUCT_CATALOG[0].value,
+      quantidade: 1,
+      valorUnit: Number(c.valorMensal || 0),
+    });
+    if (!companyId && c.companyId) setCompanyId(c.companyId);
+  };
+
+  const addProductRow = (c: Contract) => {
+    const qtd = Number(productDraft.quantidade || 0);
+    const vu  = Number(productDraft.valorUnit || 0);
+    if (!productDraft.produto || qtd <= 0) {
+      toast.error('Informe produto e quantidade.');
+      return;
     }
+    setRows(prev => [...prev, rowFromProduct(c, productDraft.produto, qtd, vu, periodoIni, periodoFim)]);
+    setProductDraft(d => ({ ...d, quantidade: 1 }));
+    if (!companyId && c.companyId) setCompanyId(c.companyId);
+  };
+
+  const addSuggested = (c: Contract) => {
+    setRows(prev => [...prev, rowSuggested(c, periodoIni, periodoFim)]);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
   };
 
   const addFreeItem = () => setRows(prev => [...prev, rowEmpty()]);
+
 
   const subtotal = rows.reduce((s, r) => s + Number(r.valorTotal || 0), 0);
   const total = Math.max(0, subtotal - Number(desconto || 0));
@@ -287,25 +339,71 @@ export const MedicaoDialog: React.FC<Props> = ({
             </div>
             {!customerId && <div className="text-xs text-muted-foreground">Selecione um cliente para listar seus contratos.</div>}
             {customerId && contratosDoCliente.length === 0 && (
-              <div className="text-xs text-muted-foreground">Nenhum contrato disponível{rows.length ? ' (todos já adicionados)' : ''}.</div>
+              <div className="text-xs text-muted-foreground">Nenhum contrato para este cliente.</div>
             )}
-            <div className="flex flex-wrap gap-2">
-              {contratosDoCliente.map(c => (
-                <Button
-                  key={c.id}
-                  variant="outline" size="sm" type="button"
-                  onClick={() => addContract(c)}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  {c.numero} · {BRL(c.valorMensal)}
-                </Button>
-              ))}
+            <div className="space-y-2">
+              {contratosDoCliente.map(c => {
+                const expanded = expandedContract === c.id;
+                const linhasCount = rows.filter(r => r.contractId === c.id).length;
+                return (
+                  <div key={c.id} className="rounded-md border bg-background">
+                    <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Badge variant="outline" className="text-[10px]">{c.numero}</Badge>
+                        <span className="text-muted-foreground truncate max-w-[260px]">
+                          {c.descricao || '—'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">· {BRL(c.valorMensal)}/mês</span>
+                        {linhasCount > 0 && (
+                          <Badge variant="secondary" className="text-[10px]">{linhasCount} {linhasCount === 1 ? 'item' : 'itens'}</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" type="button" onClick={() => addSuggested(c)} title="Adiciona 1 linha com o valor mensal do contrato">
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Sugerir
+                        </Button>
+                        <Button variant={expanded ? 'default' : 'outline'} size="sm" type="button" onClick={() => openProductForm(c)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Produto
+                        </Button>
+                      </div>
+                    </div>
+                    {expanded && (
+                      <div className="border-t p-2 grid grid-cols-1 md:grid-cols-[1fr_90px_130px_auto] gap-2 items-end bg-muted/20">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Produto</Label>
+                          <SearchableSelect
+                            value={productDraft.produto}
+                            searchPlaceholder="Buscar produto..."
+                            triggerClassName="h-9"
+                            options={PRODUCT_CATALOG}
+                            onValueChange={(v) => setProductDraft(d => ({ ...d, produto: v }))}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                          <Input type="number" step="1" min="1" value={productDraft.quantidade}
+                            onChange={(e) => setProductDraft(d => ({ ...d, quantidade: Number(e.target.value) }))} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">V. unit.</Label>
+                          <Input type="number" step="0.01" min="0" value={productDraft.valorUnit}
+                            onChange={(e) => setProductDraft(d => ({ ...d, valorUnit: Number(e.target.value) }))} />
+                        </div>
+                        <Button size="sm" type="button" onClick={() => addProductRow(c)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               <Button variant="ghost" size="sm" type="button" onClick={addFreeItem}>
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Item avulso
               </Button>
             </div>
           </div>
+
 
           {/* Tabela de itens */}
           <div className="rounded-md border overflow-x-auto">
