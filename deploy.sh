@@ -136,24 +136,57 @@ chmod -R 755 "${UPLOADS_DIR}"
 ok "Uploads OK em ${UPLOADS_DIR}"
 
 # ─── 5.2) Importação one-shot dos ERPs legados (DSR + MIC BAN) ──────────────
-# Só roda 1x. Depois de importar, cria o marker e nunca mais executa.
-# Para forçar reimportação (raro), delete .imported-legacy-erp e rode de novo.
-IMPORT_MARKER="${PROJECT_DIR}/backend/scripts/.imported-legacy-erp"
+# v2: agora enriquece com dados extraídos das Observações (endereço, descrição,
+# CNO, responsável nome/tel/email, data de entrega, qtde de limpezas).
+# Marker versionado: se só existe o marker antigo (v1), roda mais uma vez pra
+# enriquecer contratos já importados. Depois cria .imported-legacy-erp-v2.
+
+IMPORT_MARKER_V1="${PROJECT_DIR}/backend/scripts/.imported-legacy-erp"
+IMPORT_MARKER="${PROJECT_DIR}/backend/scripts/.imported-legacy-erp-v2"
 IMPORT_SCRIPT="${PROJECT_DIR}/backend/scripts/import-legacy-erp.js"
+CONVERT_SCRIPT="${PROJECT_DIR}/backend/scripts/convert-legacy-xlsx.py"
+LEGACY_DIR="${PROJECT_DIR}/backend/scripts/legacy-data"
+
 if [[ -f "$IMPORT_SCRIPT" && ! -f "$IMPORT_MARKER" ]]; then
-  log "Importando contratos legados (DSR + MIC BAN)…"
-  log "  → Dry-run primeiro (nada é gravado):"
-  (cd "${PROJECT_DIR}/backend" && node scripts/import-legacy-erp.js) || warn "Dry-run falhou"
+  # (a) Python + libs pra converter XLSX → JSON enriquecido (idempotente)
+  if [[ -f "$CONVERT_SCRIPT" ]]; then
+    command -v python3 >/dev/null || { log "Instalando python3…"; apt-get install -y python3 python3-pip >/dev/null; }
+    if ! python3 -c "import pandas, openpyxl" 2>/dev/null; then
+      log "Instalando pandas + openpyxl…"
+      pip3 install --break-system-packages --quiet pandas openpyxl 2>/dev/null \
+        || pip3 install --quiet pandas openpyxl 2>/dev/null \
+        || warn "Falha instalando pandas — usando JSONs já existentes"
+    fi
+
+    # (b) Regenera JSON se XLSX for mais novo que JSON (ou JSON não existir)
+    NEED_CONVERT=0
+    for pair in "DSR.xlsx:dsr.json" "MICBAN.xlsx:micban.json"; do
+      x="${LEGACY_DIR}/${pair%%:*}"; j="${LEGACY_DIR}/${pair##*:}"
+      [[ -f "$x" ]] || continue
+      [[ ! -f "$j" || "$x" -nt "$j" ]] && NEED_CONVERT=1
+    done
+    if [[ "$NEED_CONVERT" == "1" ]] && python3 -c "import pandas, openpyxl" 2>/dev/null; then
+      log "Convertendo XLSX legados → JSON enriquecido…"
+      python3 "$CONVERT_SCRIPT" || warn "convert-legacy-xlsx.py falhou — usando JSON existente"
+    fi
+  fi
+
+  # (c) Import com --update-existing (enriquece contratos já criados só em campos vazios)
+  log "Enriquecendo contratos legados (DSR + MIC BAN) com dados das Observações…"
+  log "  → Dry-run (nada é gravado):"
+  (cd "${PROJECT_DIR}/backend" && node scripts/import-legacy-erp.js --update-existing) || warn "Dry-run falhou"
   log "  → Aplicando de verdade:"
-  if (cd "${PROJECT_DIR}/backend" && node scripts/import-legacy-erp.js --apply); then
+  if (cd "${PROJECT_DIR}/backend" && node scripts/import-legacy-erp.js --apply --update-existing); then
     date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_MARKER"
-    ok "Importação concluída (marker: $IMPORT_MARKER)"
+    rm -f "$IMPORT_MARKER_V1"
+    ok "Importação/enriquecimento concluído (marker: $IMPORT_MARKER)"
   else
     warn "Importação falhou — sem marker, tentará novamente no próximo deploy"
   fi
 elif [[ -f "$IMPORT_MARKER" ]]; then
-  ok "Importação legada já executada em $(cat "$IMPORT_MARKER") — pulando"
+  ok "Importação legada v2 já executada em $(cat "$IMPORT_MARKER") — pulando"
 fi
+
 
 # ─── 5.3) Usuário de demonstração (idempotente) ─────────────────────────────
 DEMO_SCRIPT="${PROJECT_DIR}/backend/scripts/ensure-demo-user.js"
