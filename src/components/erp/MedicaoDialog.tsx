@@ -35,14 +35,23 @@ interface Props {
 
 type Row = MedicaoItem & { key: string };
 
-// Catálogo de produtos (baseado nas categorias de sanitários existentes).
-const PRODUCT_CATALOG: { value: string; label: string }[] = [
-  { value: 'Sanitário Químico Comum',   label: 'Sanitário Químico Comum' },
-  { value: 'Sanitário PNE (Acessível)', label: 'Sanitário PNE (Acessível)' },
-  { value: 'Pia de Apoio',              label: 'Pia de Apoio' },
-  { value: 'Sanitário Luxo',            label: 'Sanitário Luxo' },
-  { value: 'Cabine de Banho',           label: 'Cabine de Banho' },
-];
+// Interpreta o campo "descrição/objeto" do contrato como lista de itens.
+// Cada linha vira { quantidade, descricao }. Tolerante a bullets e cabeçalhos.
+export function parseContractItems(text?: string | null): { quantidade: number; descricao: string }[] {
+  if (!text) return [];
+  return text
+    .split(/\r?\n|;/)
+    .map((l) => l.replace(/^[\s\-•*]+/, '').trim())
+    .filter((l) => l && !/^(objeto|descri[cç][aã]o|itens?)\s*:?\s*$/i.test(l))
+    .map((line) => {
+      const m = line.match(/^(\d+)\s*(?:x|un|unid|-|–|:|\.|\))\s*(.+)$/i);
+      if (m) return { quantidade: Number(m[1]) || 1, descricao: m[2].trim() };
+      const m2 = line.match(/^(\d+)\s+(.+)$/);
+      if (m2) return { quantidade: Number(m2[1]) || 1, descricao: m2[2].trim() };
+      return { quantidade: 1, descricao: line };
+    })
+    .filter((x) => x.descricao.length > 0);
+}
 
 const rowFromProduct = (
   c: Contract,
