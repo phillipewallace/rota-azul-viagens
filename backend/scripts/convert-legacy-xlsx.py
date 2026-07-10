@@ -154,20 +154,31 @@ def parse_observacoes(text):
         if m:
             out["quantidade_limpezas"] = m.group(1).strip().rstrip(".;,")
 
-    # descrição = primeira linha "real" (sem rótulo estruturado)
+    # descrição = primeira linha "real" (sem rótulo estruturado, sem e-mail/telefone puro)
     for raw in t.splitlines():
         line = raw.strip(" -•\t")
-        if not line:
+        if not line or len(line) < 8:
             continue
         if LABEL_LINE_RE.match(line):
             continue
-        # descarta linhas curtas tipo "-"
-        if len(line) < 8:
+        # ignora linhas que são só um e-mail ou telefone
+        if EMAIL_RE.fullmatch(line) or PHONE_RE.fullmatch(line):
+            continue
+        # ignora linhas que começam com e-mail (continuação de "E-mail:")
+        if EMAIL_RE.match(line):
             continue
         out["descricao"] = line
         break
 
+    # limpa prefixos ruins no nome do responsável ("pela R", "e Guilherme", "escritório X", "da obra Engenheiro Thiago" → "Thiago")
+    if out["responsavel_nome"]:
+        n = out["responsavel_nome"]
+        n = re.sub(r"^(?:e\s+|pel[oa]\s+\w*\s*|escrit[óo]rio\s+|da\s+obra\s+|do\s+escrit[óo]rio\s+|engenheir[oa]\s+|sr\.?\s+|sra\.?\s+)+", "", n, flags=re.IGNORECASE).strip()
+        # se sobrou algo muito curto ou vazio, mantém o original
+        out["responsavel_nome"] = n if len(n) >= 2 else out["responsavel_nome"]
+
     return out
+
 
 
 def situacao_ok(s):
