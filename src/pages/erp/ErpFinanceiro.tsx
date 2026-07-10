@@ -2001,7 +2001,7 @@ const ErpFinanceiro: React.FC = () => {
                                 const ok = await confirmDialog({
                                   title: `Excluir medição ${m.numero}?`,
                                   description: 'Esta ação não pode ser desfeita.',
-                                  confirmText: 'Excluir', variant: 'destructive',
+                                  confirmLabel: 'Excluir', destructive: true,
                                 });
                                 if (!ok) return;
                                 try {
