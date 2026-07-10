@@ -10,8 +10,9 @@ import {
   DollarSign, Loader2, Download, RefreshCw, Receipt as ReceiptIcon,
   CalendarDays, CheckCircle2, AlertCircle, Filter, Plus, Trash2, Wrench,
   TrendingDown, TrendingUp, Search, AlertTriangle, Pencil, MoreVertical,
-  XCircle, Repeat, Tag, PlayCircle, BarChart3, FileSpreadsheet, Users2, TimerOff, X,
+  XCircle, Repeat, Tag, PlayCircle, BarChart3, FileSpreadsheet, Users2, TimerOff, X, Eye,
 } from 'lucide-react';
+import { ContractViewDialog } from '@/components/erp/ContractViewDialog';
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
