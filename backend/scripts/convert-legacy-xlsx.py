@@ -186,7 +186,8 @@ def convert(xlsx_name, json_name):
     rows = []
     stats = {"total": 0, "endereco": 0, "resp_nome": 0, "resp_tel": 0,
              "resp_email": 0, "cno": 0, "data_entrega": 0, "descricao": 0,
-             "limpezas": 0}
+             "quantidade_limpezas": 0}
+
 
     for _, r in df.iterrows():
         obs_raw = clean(r.get("Observações"))
