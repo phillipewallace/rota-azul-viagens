@@ -81,9 +81,9 @@ export const medicoesService = {
   get: (id: string) => req<Medicao>('GET', `/erp/medicoes/${id}`),
   preview: (contractIds: string[], competencia?: string) =>
     req<{ competencia?: string; contracts: MedicaoPreviewContract[] }>('POST', '/erp/medicoes/preview', { contractIds, competencia }),
-  create: (data: Partial<Medicao> & { items: Partial<MedicaoItem>[] }) =>
+  create: (data: Omit<Partial<Medicao>, 'items'> & { items: Partial<MedicaoItem>[] }) =>
     req<{ ok: true; id: string; numero: string }>('POST', '/erp/medicoes', data),
-  update: (id: string, data: Partial<Medicao> & { items: Partial<MedicaoItem>[] }) =>
+  update: (id: string, data: Omit<Partial<Medicao>, 'items'> & { items: Partial<MedicaoItem>[] }) =>
     req<{ ok: true }>('PUT', `/erp/medicoes/${id}`, data),
   remove: (id: string) => req<{ ok: true }>('DELETE', `/erp/medicoes/${id}`),
 };
