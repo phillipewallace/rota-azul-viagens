@@ -2103,38 +2103,26 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
 };
 
 // ========================= GerarReciboPopover =========================
-// Cardzinho compacto: pede as 2 datas exatas (Início / Fim) que passarão a
-// aparecer na competência do recibo no formato "DD/MM/YYYY - DD/MM/YYYY".
-// Mostra a data de início do contrato como referência (clique preenche o "Início").
+// Popover compacto: mostra o período que será calculado automaticamente
+// (data de início do contrato + 30 dias, dentro do mês da competência)
+// e permite marcar o recibo como "sem validade jurídica".
 const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
-  onConfirm: (periodoInicio: string, periodoFim: string, semValidade: boolean) => void;
+  competencia: string;
+  onConfirm: (semValidade: boolean) => void;
   children: React.ReactNode;
-}> = ({ pending, working, onConfirm, children }) => {
+}> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
-  const [inicio, setInicio] = useState('');
-  const [fim, setFim]       = useState('');
   const [semValidade, setSemValidade] = useState(false);
-
-  const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
   useEffect(() => {
     if (!open) return;
-    // Sugestão: início = hoje, fim = +30 dias.
-    const t = todayISO();
-    setInicio(t);
-    setFim(addDaysISO(t, 30));
     setSemValidade(false);
-  }, [open, pending.contractId]); // eslint-disable-line
+  }, [open, pending.contractId]);
 
-  const valido = /^\d{4}-\d{2}-\d{2}$/.test(inicio)
-              && /^\d{4}-\d{2}-\d{2}$/.test(fim)
-              && fim >= inicio;
-  const dias = valido ? diffDays(fim, inicio) + 1 : 0;
-
-
-
+  const periodo = computeCompetenciaPeriodo(pending.dataInicio, competencia);
+  const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
   return (
     <Popover open={open} onOpenChange={(o) => !working && setOpen(o)}>
@@ -2147,94 +2135,28 @@ const GerarReciboPopover: React.FC<{
         <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
           <p className="text-sm font-semibold leading-tight tracking-tight">Gerar recibo</p>
           <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-            Informe o período exato — aparecerá no recibo como{' '}
-            <span className="font-medium text-foreground">competência</span>.
+            Período calculado automaticamente com base no contrato.
           </p>
         </div>
 
-        {/* Colinha: início do contrato (clicável) */}
-        {dataInicioContrato && (
-          <button
-            type="button"
-            onClick={() => {
-              setInicio(dataInicioContrato);
-              if (fim && fim < dataInicioContrato) setFim(addDaysISO(dataInicioContrato, 30));
-            }}
-            className="w-full flex items-center justify-between gap-2 px-4 py-2 text-[11px]
-                       bg-primary/[0.04] hover:bg-primary/10 border-b border-border/60
-                       text-muted-foreground hover:text-foreground
-                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-                       transition-colors duration-200"
-            title="Usar como data de início"
-          >
-            <span className="flex items-center gap-1.5">
-              <CalendarDays className="h-3 w-3" />
-              Início do contrato
-            </span>
-            <span className="font-medium text-foreground tabular-nums">
-              {formatDateBR(dataInicioContrato)}
-            </span>
-          </button>
-        )}
-
-        {/* Form */}
         <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <Label htmlFor={`gr-ini-${pending.contractId}`} className="text-[11px] text-muted-foreground">
-                Início
-              </Label>
-              <Input
-                id={`gr-ini-${pending.contractId}`}
-                type="date"
-                value={inicio}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setInicio(v);
-                  if (fim && v && fim < v) setFim(v);
-                }}
-                className="h-9 text-sm tabular-nums transition-colors duration-200"
-              />
+          {/* Preview do período */}
+          <div className="rounded-md px-3 py-2 border bg-muted/40 border-border/60 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Competência
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`gr-fim-${pending.contractId}`} className="text-[11px] text-muted-foreground">
-                Fim
-              </Label>
-              <Input
-                id={`gr-fim-${pending.contractId}`}
-                type="date"
-                value={fim}
-                min={inicio || undefined}
-                onChange={(e) => setFim(e.target.value)}
-                className="h-9 text-sm tabular-nums transition-colors duration-200"
-              />
+            <div className="text-sm font-semibold text-foreground tabular-nums">
+              {formatPeriodo(periodo.inicio, periodo.fim)}
             </div>
-          </div>
-
-          {/* Preview / validação */}
-          <div
-            className={
-              'rounded-md px-3 py-2 text-[11px] leading-snug border transition-colors duration-200 ' +
-              (valido
-                ? 'bg-muted/40 border-border/60 text-muted-foreground'
-                : 'bg-destructive/5 border-destructive/30 text-destructive')
-            }
-          >
-            {valido ? (
-              <>
-                Competência:{' '}
-                <span className="font-semibold text-foreground tabular-nums">
-                  {formatPeriodo(inicio, fim)}
-                </span>
-                <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
-              </>
-            ) : (
-              'Preencha as duas datas (fim ≥ início).'
+            {dataInicioContrato && (
+              <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <CalendarDays className="h-3 w-3" />
+                Contrato iniciado em <span className="font-medium text-foreground">{formatDateBR(dataInicioContrato)}</span> · 30 dias
+              </div>
             )}
           </div>
 
-
-          {/* Toggle: sem validade jurídica (controle interno) */}
+          {/* Toggle: sem validade jurídica */}
           <label
             htmlFor={`gr-sv-${pending.contractId}`}
             className={
@@ -2270,8 +2192,8 @@ const GerarReciboPopover: React.FC<{
             </Button>
             <Button
               size="sm"
-              onClick={() => { onConfirm(inicio, fim, semValidade); setOpen(false); }}
-              disabled={working || !valido}
+              onClick={() => { onConfirm(semValidade); setOpen(false); }}
+              disabled={working}
               className={
                 'h-8 transition-colors duration-200 ' +
                 (semValidade
