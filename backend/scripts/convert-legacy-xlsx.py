@@ -223,7 +223,8 @@ def convert(xlsx_name, json_name):
 
         stats["total"] += 1
         for k in ("endereco","descricao","cno","data_entrega","quantidade_limpezas"):
-            if row[k]: stats[k if k != "descricao" else "descricao"] += 1
+            if row[k]: stats[k] += 1
+
         if row["responsavel_nome"]:     stats["resp_nome"]  += 1
         if row["responsavel_telefone"]: stats["resp_tel"]   += 1
         if row["responsavel_email"]:    stats["resp_email"] += 1
