@@ -190,6 +190,9 @@ const ErpFinanceiro: React.FC = () => {
   const [cancelDialog, setCancelDialog] = useState<Receipt | null>(null);
   const [reabrirDialog, setReabrirDialog] = useState<Receipt | null>(null);
 
+  // visualização de contrato (somente leitura) — acessível de qualquer linha
+  const [viewContractId, setViewContractId] = useState<string | null>(null);
+
   // exportação em ZIP por período
   const [zipOpen, setZipOpen] = useState(false);
   const [zipFrom, setZipFrom] = useState('');
