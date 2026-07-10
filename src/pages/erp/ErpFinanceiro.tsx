@@ -10,8 +10,9 @@ import {
   DollarSign, Loader2, Download, RefreshCw, Receipt as ReceiptIcon,
   CalendarDays, CheckCircle2, AlertCircle, Filter, Plus, Trash2, Wrench,
   TrendingDown, TrendingUp, Search, AlertTriangle, Pencil, MoreVertical,
-  XCircle, Repeat, Tag, PlayCircle, BarChart3, FileSpreadsheet, Users2, TimerOff, X,
+  XCircle, Repeat, Tag, PlayCircle, BarChart3, FileSpreadsheet, Users2, TimerOff, X, Eye,
 } from 'lucide-react';
+import { ContractViewDialog } from '@/components/erp/ContractViewDialog';
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
@@ -119,6 +120,27 @@ const dueDateInComp = (competencia: string, diaVencimento: number): string => {
   return `${y}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 };
 
+// Calcula o período (30 dias) do recibo baseado no dia do contrato e na
+// competência mensal escolhida no topo do Financeiro. Se o dia do contrato
+// não existir no mês (ex.: 31 em fev.), usa o último dia válido daquele mês.
+const computeCompetenciaPeriodo = (
+  dataInicioContrato?: string | null,
+  competencia?: string,
+): { inicio: string; fim: string } => {
+  const comp = competencia || '';
+  const [y, m] = comp.split('-').map(Number);
+  if (!y || !m) {
+    const t = todayISO();
+    return { inicio: t, fim: addDaysISO(t, 30) };
+  }
+  const baseDay = dataInicioContrato
+    ? Number(String(dataInicioContrato).slice(8, 10)) || 1
+    : 1;
+  const ultDia = new Date(y, m, 0).getDate();
+  const dia = Math.min(Math.max(1, baseDay), ultDia);
+  const inicio = `${y}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  return { inicio, fim: addDaysISO(inicio, 30) };
+};
 
 const FORMA_LABEL: Record<FormaPagamento, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro', boleto: 'Boleto',
@@ -167,6 +189,9 @@ const ErpFinanceiro: React.FC = () => {
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Receipt | null>(null);
   const [reabrirDialog, setReabrirDialog] = useState<Receipt | null>(null);
+
+  // visualização de contrato (somente leitura) — acessível de qualquer linha
+  const [viewContractId, setViewContractId] = useState<string | null>(null);
 
   // exportação em ZIP por período
   const [zipOpen, setZipOpen] = useState(false);
@@ -521,14 +546,8 @@ const ErpFinanceiro: React.FC = () => {
     return { arr, companyId: cId };
   }, [selected, pendentes]);
 
-  const gerarUnificado = async (periodoInicio: string, periodoFim: string) => {
+  const gerarUnificado = async () => {
     if (!unifiedGroup) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
-      toast.error('Datas inválidas'); return;
-    }
-    if (periodoFim < periodoInicio) {
-      toast.error('A data final deve ser igual ou posterior à inicial'); return;
-    }
     setWorking('__unified__');
     try {
       const { arr, companyId } = unifiedGroup;
@@ -542,38 +561,58 @@ const ErpFinanceiro: React.FC = () => {
       const customer = first.customerSnapshot || {
         name: first.customerName, document: first.customerDocument,
       };
+
+      // Período por contrato (30 dias) baseado no dataInicio de cada contrato
+      // e no MÊS de competência selecionado no topo do Financeiro.
+      const periodos = contracts.map((c) => computeCompetenciaPeriodo(c.dataInicio, competencia));
+
+      // Persiste um recibo por contrato — cada um com SEU período de 30 dias.
+      // Coletamos o número retornado para exibir no PDF unificado.
+      const numeros: (string | null)[] = [];
+      let okCount = 0, failCount = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const p = arr[i];
+        const per = periodos[i];
+        try {
+          const out = await receiptsService.generate({
+            contractId: p.contractId,
+            periodoInicio: per.inicio,
+            periodoFim: per.fim,
+            valor: Number(p.valorMensal),
+            pago: true,
+          });
+          numeros.push(out.numeroDisplay || out.numero || null);
+          okCount++;
+        } catch {
+          numeros.push(null);
+          failCount++;
+        }
+      }
+
       const items = contracts.map((c, i) => ({
         contractNumero: c.numero,
         descricao: c.descricao || `Locação mensal — Contrato ${c.numero}`,
         enderecoObra: c.enderecoObra || c.localEvento || '',
         cno: c.cno || '',
         valor: Number(arr[i].valorMensal),
+        numeroRecibo: numeros[i],
+        periodoInicio: periodos[i].inicio,
+        periodoFim: periodos[i].fim,
       }));
       const total = items.reduce((s, it) => s + it.valor, 0);
 
-      // Persiste um recibo por contrato para o período informado
-      // (assim aparecem na aba Recibos e saem da fila de pendentes).
-      let okCount = 0, failCount = 0;
-      for (const p of arr) {
-        try {
-          await receiptsService.generate({
-            contractId: p.contractId,
-            periodoInicio, periodoFim,
-            valor: Number(p.valorMensal),
-            pago: true,
-          });
-          okCount++;
-        } catch { failCount++; }
-      }
+      // Período consolidado do PDF (min início / max fim).
+      const iniCons = periodos.map(p => p.inicio).sort()[0];
+      const fimCons = periodos.map(p => p.fim).sort().slice(-1)[0];
 
       // Gera UM PDF unificado
       const now = new Date();
       const numero = `UNIF-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
       await generateUnifiedReceiptPdf({
         numero,
-        competencia: periodoInicio.slice(0, 7),
-        periodoInicio,
-        periodoFim,
+        competencia,
+        periodoInicio: iniCons,
+        periodoFim: fimCons,
         dataEmissao: todayISO(),
         dataVencimento: null,
         company,
@@ -586,7 +625,7 @@ const ErpFinanceiro: React.FC = () => {
       setUnifOpen(false);
       await load();
       setActiveTab('emitidos');
-      if (failCount === 0) toast.success(`Recibo unificado gerado · ${okCount} contratos · ${formatPeriodo(periodoInicio, periodoFim)}`);
+      if (failCount === 0) toast.success(`Recibo unificado gerado · ${okCount} contratos · ${formatComp(competencia)}`);
       else toast.warning(`PDF gerado. ${okCount} recibos ok, ${failCount} falharam`);
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao gerar recibo unificado');
@@ -1026,11 +1065,6 @@ const ErpFinanceiro: React.FC = () => {
                     onOpenChange={(o) => {
                       if (working === '__unified__') return;
                       setUnifOpen(o);
-                      if (o) {
-                        const t = todayISO();
-                        setUnifIni(t);
-                        setUnifFim(addDaysISO(t, 30));
-                      }
                     }}
                   >
                     <PopoverTrigger asChild>
@@ -1060,77 +1094,29 @@ const ErpFinanceiro: React.FC = () => {
                         </p>
                       </div>
                       <div className="p-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1.5">
-                            <Label htmlFor="unif-ini" className="text-[11px] text-muted-foreground">Início</Label>
-                            <Input
-                              id="unif-ini"
-                              type="date"
-                              value={unifIni}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setUnifIni(v);
-                                if (unifFim && v && unifFim < v) setUnifFim(v);
-                              }}
-                              className="h-9 text-sm tabular-nums transition-colors duration-200"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="unif-fim" className="text-[11px] text-muted-foreground">Fim</Label>
-                            <Input
-                              id="unif-fim"
-                              type="date"
-                              value={unifFim}
-                              min={unifIni || undefined}
-                              onChange={(e) => setUnifFim(e.target.value)}
-                              className="h-9 text-sm tabular-nums transition-colors duration-200"
-                            />
-                          </div>
+                        <div className="rounded-md px-3 py-2 text-[11px] leading-snug border bg-muted/40 border-border/60 text-muted-foreground">
+                          O período de cada recibo será calculado automaticamente:
+                          <span className="ml-1 font-medium text-foreground">
+                            data de início do contrato + 30 dias
+                          </span>
+                          , dentro da competência <span className="font-semibold text-foreground">{formatComp(competencia)}</span>.
                         </div>
-                        {(() => {
-                          const ok = /^\d{4}-\d{2}-\d{2}$/.test(unifIni)
-                                  && /^\d{4}-\d{2}-\d{2}$/.test(unifFim)
-                                  && unifFim >= unifIni;
-                          const dias = ok ? diffDays(unifFim, unifIni) + 1 : 0;
-                          return (
-                            <>
-                              <div className={
-                                'rounded-md px-3 py-2 text-[11px] leading-snug border transition-colors duration-200 ' +
-                                (ok
-                                  ? 'bg-muted/40 border-border/60 text-muted-foreground'
-                                  : 'bg-destructive/5 border-destructive/30 text-destructive')
-                              }>
-                                {ok ? (
-                                  <>
-                                    Competência:{' '}
-                                    <span className="font-semibold text-foreground tabular-nums">
-                                      {formatPeriodo(unifIni, unifFim)}
-                                    </span>
-                                    <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
-                                  </>
-                                ) : (
-                                  'Preencha as duas datas (fim ≥ início).'
-                                )}
-                              </div>
-                              <div className="flex items-center justify-end gap-2 pt-0.5">
-                                <Button size="sm" variant="ghost" onClick={() => setUnifOpen(false)} disabled={working === '__unified__'} className="h-8 transition-colors duration-200">
-                                  Cancelar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => gerarUnificado(unifIni, unifFim)}
-                                  disabled={working === '__unified__' || !ok}
-                                  className="h-8 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
-                                >
-                                  {working === '__unified__'
-                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                                    : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                                  Gerar
-                                </Button>
-                              </div>
-                            </>
-                          );
-                        })()}
+                        <div className="flex items-center justify-end gap-2 pt-0.5">
+                          <Button size="sm" variant="ghost" onClick={() => setUnifOpen(false)} disabled={working === '__unified__'} className="h-8 transition-colors duration-200">
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => gerarUnificado()}
+                            disabled={working === '__unified__'}
+                            className="h-8 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
+                          >
+                            {working === '__unified__'
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                              : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
+                            Gerar
+                          </Button>
+                        </div>
                       </div>
                     </PopoverContent>
                   </Popover>
@@ -1201,6 +1187,10 @@ const ErpFinanceiro: React.FC = () => {
 
                           <TableCell className="text-right font-semibold">{BRL(Number(p.valorMensal))}</TableCell>
                           <TableCell className="text-right whitespace-nowrap space-x-1">
+                            <Button size="sm" variant="ghost" onClick={() => setViewContractId(p.contractId)}
+                              title="Ver contrato" aria-label="Ver contrato">
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
                               disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
                               <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
@@ -1208,7 +1198,11 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                              onConfirm={(inicio, fim, semValidade) => { void gerarPeriodo(p, inicio, fim, { semValidade }); }}
+                              onConfirm={(semValidade) => {
+                                const per = computeCompetenciaPeriodo(p.dataInicio, competencia);
+                                void gerarPeriodo(p, per.inicio, per.fim, { semValidade });
+                              }}
+                              competencia={competencia}
                             >
                               <Button
                                 size="sm"
@@ -1348,6 +1342,14 @@ const ErpFinanceiro: React.FC = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
+                                <Button
+                                  size="sm" variant="ghost"
+                                  className="h-8 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50"
+                                  onClick={() => setViewContractId(r.contractId)}
+                                  aria-label="Ver contrato" title="Ver contrato"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
                                 <Button
                                   size="sm" variant="ghost"
                                   className="h-8 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -1631,6 +1633,10 @@ const ErpFinanceiro: React.FC = () => {
                               <StatusBadge r={r} />
                             </TableCell>
                             <TableCell className="text-right whitespace-nowrap">
+                              <Button size="sm" variant="ghost" onClick={() => setViewContractId(r.contractId)}
+                                aria-label="Ver contrato" title="Ver contrato" className="mr-1">
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
                               <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
                                 <Download className="h-3.5 w-3.5 mr-1" /> PDF
                               </Button>
@@ -1770,6 +1776,10 @@ const ErpFinanceiro: React.FC = () => {
                         <TableCell className="text-right font-semibold">{BRL(Number(r.valor))}</TableCell>
                         <TableCell><StatusBadge r={r} /></TableCell>
                         <TableCell className="text-right whitespace-nowrap">
+                          <Button size="sm" variant="ghost" onClick={() => setViewContractId(r.contractId)}
+                            aria-label="Ver contrato" title="Ver contrato" className="mr-1">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
                             <Download className="h-3.5 w-3.5 mr-1" /> PDF
                           </Button>
@@ -2037,6 +2047,11 @@ const ErpFinanceiro: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <ContractViewDialog
+        contractId={viewContractId}
+        onClose={() => setViewContractId(null)}
+      />
+
     </div>
   );
 };
@@ -2113,38 +2128,26 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
 };
 
 // ========================= GerarReciboPopover =========================
-// Cardzinho compacto: pede as 2 datas exatas (Início / Fim) que passarão a
-// aparecer na competência do recibo no formato "DD/MM/YYYY - DD/MM/YYYY".
-// Mostra a data de início do contrato como referência (clique preenche o "Início").
+// Popover compacto: mostra o período que será calculado automaticamente
+// (data de início do contrato + 30 dias, dentro do mês da competência)
+// e permite marcar o recibo como "sem validade jurídica".
 const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
-  onConfirm: (periodoInicio: string, periodoFim: string, semValidade: boolean) => void;
+  competencia: string;
+  onConfirm: (semValidade: boolean) => void;
   children: React.ReactNode;
-}> = ({ pending, working, onConfirm, children }) => {
+}> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
-  const [inicio, setInicio] = useState('');
-  const [fim, setFim]       = useState('');
   const [semValidade, setSemValidade] = useState(false);
-
-  const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
   useEffect(() => {
     if (!open) return;
-    // Sugestão: início = hoje, fim = +30 dias.
-    const t = todayISO();
-    setInicio(t);
-    setFim(addDaysISO(t, 30));
     setSemValidade(false);
-  }, [open, pending.contractId]); // eslint-disable-line
+  }, [open, pending.contractId]);
 
-  const valido = /^\d{4}-\d{2}-\d{2}$/.test(inicio)
-              && /^\d{4}-\d{2}-\d{2}$/.test(fim)
-              && fim >= inicio;
-  const dias = valido ? diffDays(fim, inicio) + 1 : 0;
-
-
-
+  const periodo = computeCompetenciaPeriodo(pending.dataInicio, competencia);
+  const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
   return (
     <Popover open={open} onOpenChange={(o) => !working && setOpen(o)}>
@@ -2157,94 +2160,28 @@ const GerarReciboPopover: React.FC<{
         <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
           <p className="text-sm font-semibold leading-tight tracking-tight">Gerar recibo</p>
           <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-            Informe o período exato — aparecerá no recibo como{' '}
-            <span className="font-medium text-foreground">competência</span>.
+            Período calculado automaticamente com base no contrato.
           </p>
         </div>
 
-        {/* Colinha: início do contrato (clicável) */}
-        {dataInicioContrato && (
-          <button
-            type="button"
-            onClick={() => {
-              setInicio(dataInicioContrato);
-              if (fim && fim < dataInicioContrato) setFim(addDaysISO(dataInicioContrato, 30));
-            }}
-            className="w-full flex items-center justify-between gap-2 px-4 py-2 text-[11px]
-                       bg-primary/[0.04] hover:bg-primary/10 border-b border-border/60
-                       text-muted-foreground hover:text-foreground
-                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-                       transition-colors duration-200"
-            title="Usar como data de início"
-          >
-            <span className="flex items-center gap-1.5">
-              <CalendarDays className="h-3 w-3" />
-              Início do contrato
-            </span>
-            <span className="font-medium text-foreground tabular-nums">
-              {formatDateBR(dataInicioContrato)}
-            </span>
-          </button>
-        )}
-
-        {/* Form */}
         <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <Label htmlFor={`gr-ini-${pending.contractId}`} className="text-[11px] text-muted-foreground">
-                Início
-              </Label>
-              <Input
-                id={`gr-ini-${pending.contractId}`}
-                type="date"
-                value={inicio}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setInicio(v);
-                  if (fim && v && fim < v) setFim(v);
-                }}
-                className="h-9 text-sm tabular-nums transition-colors duration-200"
-              />
+          {/* Preview do período */}
+          <div className="rounded-md px-3 py-2 border bg-muted/40 border-border/60 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Competência
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`gr-fim-${pending.contractId}`} className="text-[11px] text-muted-foreground">
-                Fim
-              </Label>
-              <Input
-                id={`gr-fim-${pending.contractId}`}
-                type="date"
-                value={fim}
-                min={inicio || undefined}
-                onChange={(e) => setFim(e.target.value)}
-                className="h-9 text-sm tabular-nums transition-colors duration-200"
-              />
+            <div className="text-sm font-semibold text-foreground tabular-nums">
+              {formatPeriodo(periodo.inicio, periodo.fim)}
             </div>
-          </div>
-
-          {/* Preview / validação */}
-          <div
-            className={
-              'rounded-md px-3 py-2 text-[11px] leading-snug border transition-colors duration-200 ' +
-              (valido
-                ? 'bg-muted/40 border-border/60 text-muted-foreground'
-                : 'bg-destructive/5 border-destructive/30 text-destructive')
-            }
-          >
-            {valido ? (
-              <>
-                Competência:{' '}
-                <span className="font-semibold text-foreground tabular-nums">
-                  {formatPeriodo(inicio, fim)}
-                </span>
-                <span className="ml-1 text-muted-foreground">· {dias} dia(s)</span>
-              </>
-            ) : (
-              'Preencha as duas datas (fim ≥ início).'
+            {dataInicioContrato && (
+              <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <CalendarDays className="h-3 w-3" />
+                Contrato iniciado em <span className="font-medium text-foreground">{formatDateBR(dataInicioContrato)}</span> · 30 dias
+              </div>
             )}
           </div>
 
-
-          {/* Toggle: sem validade jurídica (controle interno) */}
+          {/* Toggle: sem validade jurídica */}
           <label
             htmlFor={`gr-sv-${pending.contractId}`}
             className={
@@ -2280,8 +2217,8 @@ const GerarReciboPopover: React.FC<{
             </Button>
             <Button
               size="sm"
-              onClick={() => { onConfirm(inicio, fim, semValidade); setOpen(false); }}
-              disabled={working || !valido}
+              onClick={() => { onConfirm(semValidade); setOpen(false); }}
+              disabled={working}
               className={
                 'h-8 transition-colors duration-200 ' +
                 (semValidade

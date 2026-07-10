@@ -349,6 +349,9 @@ export interface UnifiedReceiptItem {
   enderecoObra?: string | null;
   cno?: string | null;
   valor: number;
+  numeroRecibo?: string | null;   // nº do recibo individual gerado por contrato
+  periodoInicio?: string | null;  // YYYY-MM-DD — período do recibo daquele contrato
+  periodoFim?: string | null;     // YYYY-MM-DD
 }
 export interface UnifiedReceiptInput {
   numero: string;
@@ -492,24 +495,29 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   y += 4;
   const body = input.items.map((it, idx) => {
     const desc = it.enderecoObra ? `${it.descricao} — ${it.enderecoObra}` : it.descricao;
+    const periodo = (it.periodoInicio || it.periodoFim)
+      ? formatPeriodo(it.periodoInicio, it.periodoFim)
+      : '—';
     return [
-      String(idx + 1), 'MÊS',
+      String(idx + 1),
+      it.numeroRecibo || '—',
       `Contrato ${it.contractNumero} · ${desc}`,
-      BRL(it.valor), BRL(it.valor),
+      periodo,
+      BRL(it.valor),
     ];
   });
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Unid', 'Descrição', 'Valor Unitário', 'Total']],
+    head: [['#', 'Recibo', 'Descrição', 'Período (competência)', 'Total']],
     body,
-    styles: { fontSize: 9, cellPadding: 3, lineColor: [220, 224, 230] },
+    styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [220, 224, 230] },
     headStyles: { fillColor: PRIMARY, textColor: 255, halign: 'center', fontStyle: 'bold' },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      1: { halign: 'center', cellWidth: 16 },
-      3: { halign: 'right',  cellWidth: 30 },
-      4: { halign: 'right',  cellWidth: 30, fontStyle: 'bold' },
+      0: { halign: 'center', cellWidth: 8 },
+      1: { halign: 'center', cellWidth: 22, fontStyle: 'bold' },
+      3: { halign: 'center', cellWidth: 38, fontStyle: 'bold' },
+      4: { halign: 'right',  cellWidth: 28, fontStyle: 'bold' },
     },
     margin: { left: M, right: M },
   });
