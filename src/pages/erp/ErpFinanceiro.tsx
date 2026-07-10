@@ -187,6 +187,9 @@ const ErpFinanceiro: React.FC = () => {
   const [medicaoEditing, setMedicaoEditing] = useState<import('@/services/medicoes').Medicao | null>(null);
   const [medicaoViewId, setMedicaoViewId] = useState<string | null>(null);
   const [medicaoViewOpen, setMedicaoViewOpen] = useState(false);
+  const [medicoesSearch, setMedicoesSearch] = useState('');
+  const [medicoesClienteFilter, setMedicoesClienteFilter] = useState<string>('');
+  const [medicoesPrevMonthTotal, setMedicoesPrevMonthTotal] = useState<number | null>(null);
   // popover do recibo unificado
   const [unifOpen, setUnifOpen] = useState(false);
   const [unifIni, setUnifIni] = useState('');
