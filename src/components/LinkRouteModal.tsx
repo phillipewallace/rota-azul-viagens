@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useTrucks } from '@/hooks/useTrucks';
@@ -168,23 +168,18 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <Label htmlFor="truck">Selecionar Caminhão</Label>
-            <Select value={selectedTruck} onValueChange={setSelectedTruck} disabled={trucksLoading || isLoading}>
-              <SelectTrigger>
-                <SelectValue placeholder={trucksLoading ? "Carregando..." : "Escolha um caminhão"} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTrucks.map((truck) => (
-                  <SelectItem key={truck.id} value={truck.id}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{truck.name} - {truck.plate}</span>
-                      <span className="ml-2 px-2 py-1 rounded text-xs bg-green-100 text-green-800">
-                        Disponível
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedTruck}
+              onValueChange={setSelectedTruck}
+              disabled={trucksLoading || isLoading}
+              placeholder={trucksLoading ? "Carregando..." : "Escolha um caminhão"}
+              searchPlaceholder="Buscar caminhão..."
+              options={availableTrucks.map((t) => ({
+                value: t.id,
+                label: `${t.name} - ${t.plate}`,
+                hint: 'Disponível',
+              }))}
+            />
             {availableTrucks.length === 0 && !trucksLoading && (
               <p className="text-sm text-gray-500 mt-1">Nenhum caminhão disponível</p>
             )}
@@ -209,23 +204,18 @@ export const LinkRouteModal: React.FC<LinkRouteModalProps> = ({
                 <span className="ml-1">Atualizar</span>
               </Button>
             </div>
-            <Select value={selectedRoute} onValueChange={setSelectedRoute} disabled={routesLoading || isLoading}>
-              <SelectTrigger>
-                <SelectValue placeholder={routesLoading ? "Carregando..." : "Escolha uma rota"} />
-              </SelectTrigger>
-              <SelectContent>
-                {activeRoutes.map((route) => (
-                  <SelectItem key={route.id} value={route.id}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{route.name}</span>
-                      <span className="text-sm text-gray-500">
-                        {formatPointCount(route.points)} pontos • {formatDistance(route.totalDistance)}km
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedRoute}
+              onValueChange={setSelectedRoute}
+              disabled={routesLoading || isLoading}
+              placeholder={routesLoading ? "Carregando..." : "Escolha uma rota"}
+              searchPlaceholder="Buscar rota..."
+              options={activeRoutes.map((r) => ({
+                value: r.id,
+                label: r.name,
+                hint: `${formatPointCount(r.points)} pts · ${formatDistance(r.totalDistance)}km`,
+              }))}
+            />
             {activeRoutes.length === 0 && !routesLoading && (
               <p className="text-sm text-gray-500 mt-1">Nenhuma rota ativa disponível</p>
             )}

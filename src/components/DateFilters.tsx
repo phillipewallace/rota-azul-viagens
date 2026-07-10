@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface DateFiltersProps {
   selectedMonth: string;
@@ -36,32 +36,22 @@ export const DateFilters: React.FC<DateFiltersProps> = ({
   return (
     <div className="flex gap-4">
       <div className="flex-1">
-        <Select value={selectedMonth} onValueChange={onMonthChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o mês" />
-          </SelectTrigger>
-          <SelectContent>
-            {months.map((month) => (
-              <SelectItem key={month.value} value={month.value}>
-                {month.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          value={selectedMonth}
+          onValueChange={onMonthChange}
+          placeholder="Selecione o mês"
+          searchPlaceholder="Buscar mês..."
+          options={months}
+        />
       </div>
       <div className="flex-1">
-        <Select value={selectedYear} onValueChange={onYearChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o ano" />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((year) => (
-              <SelectItem key={year} value={year.toString()}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          value={selectedYear}
+          onValueChange={onYearChange}
+          placeholder="Selecione o ano"
+          searchPlaceholder="Buscar ano..."
+          options={years.map((y) => ({ value: y.toString(), label: y.toString() }))}
+        />
       </div>
     </div>
   );

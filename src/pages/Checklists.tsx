@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ArrowLeft, FileDown, Printer, Search, Trash2, Loader2, ClipboardCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -209,15 +209,17 @@ export default function Checklists() {
             <div><Label>Até</Label><Input type="date" value={to} onChange={e => setTo(e.target.value)} /></div>
             <div>
               <Label>Status</Label>
-              <Select value={status || 'all'} onValueChange={v => setStatus(v === 'all' ? '' : v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="ok">OK</SelectItem>
-                  <SelectItem value="attention">Atenção</SelectItem>
-                  <SelectItem value="critical">Crítico</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={status || 'all'}
+                onValueChange={v => setStatus(v === 'all' ? '' : v)}
+                placeholder="Status"
+                options={[
+                  { value: 'all', label: 'Todos' },
+                  { value: 'ok', label: 'OK' },
+                  { value: 'attention', label: 'Atenção' },
+                  { value: 'critical', label: 'Crítico' },
+                ]}
+              />
             </div>
             <div className="flex items-end">
               <Button onClick={load} className="w-full" disabled={loading}>

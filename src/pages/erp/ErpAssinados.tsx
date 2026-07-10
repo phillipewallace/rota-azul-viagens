@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { erpService, type ErpCompany, type SignedPdf } from '@/services/erp';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
@@ -107,15 +107,16 @@ const ErpAssinados: React.FC = () => {
       <Card className="p-4 grid md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Empresa</Label>
-          <Select value={companyFilter} onValueChange={setCompanyFilter}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as empresas</SelectItem>
-              {companies.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            value={companyFilter}
+            onValueChange={setCompanyFilter}
+            placeholder="Empresa"
+            searchPlaceholder="Buscar empresa..."
+            options={[
+              { value: 'all', label: 'Todas as empresas' },
+              ...companies.map((c) => ({ value: c.id, label: c.razaoSocial })),
+            ]}
+          />
         </div>
         <div className="space-y-2">
           <Label>Buscar</Label>

@@ -13,7 +13,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { erpService, uploadSignedPdfBlob, type ErpCompany } from '@/services/erp';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
@@ -319,16 +319,16 @@ const ErpAssinatura: React.FC = () => {
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Empresa emissora</Label>
-            <Select value={companyId} onValueChange={setCompanyId}>
-              <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
-              <SelectContent>
-                {companies.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.razaoSocial} {c.assinaturaUrl ? '' : '(sem assinatura)'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={companyId}
+              onValueChange={setCompanyId}
+              placeholder="Selecione a empresa"
+              searchPlaceholder="Buscar empresa..."
+              options={companies.map(c => ({
+                value: c.id,
+                label: c.razaoSocial + (c.assinaturaUrl ? '' : ' (sem assinatura)'),
+              }))}
+            />
             {company && !company.assinaturaUrl && (
               <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
                 <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />

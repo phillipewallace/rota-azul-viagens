@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Driver } from '@/hooks/useDrivers';
 
 interface DriverFormProps {
@@ -63,33 +63,28 @@ export const DriverForm = ({ driver, onSubmit, onCancel, isLoading }: DriverForm
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="licenseCategory">Categoria</Label>
-          <Select
+          <SearchableSelect
+            id="licenseCategory"
             value={licenseCategory}
             onValueChange={(value) => setValue('licenseCategory', value)}
-          >
-            <SelectTrigger id="licenseCategory">
-              <SelectValue placeholder="—" />
-            </SelectTrigger>
-            <SelectContent>
-              {LICENSE_CATEGORIES.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="—"
+            options={LICENSE_CATEGORIES.map((c) => ({ value: c, label: c }))}
+          />
         </div>
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="status">Status</Label>
-        <Select value={status} onValueChange={(value) => setValue('status', value as Driver['status'])}>
-          <SelectTrigger id="status">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Ativo</SelectItem>
-            <SelectItem value="inactive">Inativo</SelectItem>
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          id="status"
+          value={status}
+          onValueChange={(value) => setValue('status', value as Driver['status'])}
+          placeholder="Status"
+          options={[
+            { value: 'active', label: 'Ativo' },
+            { value: 'inactive', label: 'Inativo' },
+          ]}
+        />
       </div>
 
       <div className="flex gap-2 pt-4">

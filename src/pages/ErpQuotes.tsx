@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -472,41 +472,49 @@ const ErpQuotes: React.FC = () => {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Status</Label>
-              <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
-                <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="rascunho">Rascunho</SelectItem>
-                  <SelectItem value="enviado">Enviado</SelectItem>
-                  <SelectItem value="aprovado">Aprovado</SelectItem>
-                  <SelectItem value="recusado">Recusado</SelectItem>
-                  <SelectItem value="convertido">Convertido</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={filterStatus}
+                onValueChange={(v: any) => setFilterStatus(v)}
+                triggerClassName="h-9 w-[150px]"
+                placeholder="Status"
+                options={[
+                  { value: 'all', label: 'Todos' },
+                  { value: 'rascunho', label: 'Rascunho' },
+                  { value: 'enviado', label: 'Enviado' },
+                  { value: 'aprovado', label: 'Aprovado' },
+                  { value: 'recusado', label: 'Recusado' },
+                  { value: 'convertido', label: 'Convertido' },
+                ]}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Modalidade</Label>
-              <Select value={filterModalidade} onValueChange={(v: any) => setFilterModalidade(v)}>
-                <SelectTrigger className="h-9 w-[130px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="diaria">Diária</SelectItem>
-                  <SelectItem value="mensal">Mensal</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={filterModalidade}
+                onValueChange={(v: any) => setFilterModalidade(v)}
+                triggerClassName="h-9 w-[130px]"
+                placeholder="Modalidade"
+                options={[
+                  { value: 'all', label: 'Todas' },
+                  { value: 'diaria', label: 'Diária' },
+                  { value: 'mensal', label: 'Mensal' },
+                ]}
+              />
             </div>
             {companies.length > 1 && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Empresa emissora</Label>
-                <Select value={filterCompany} onValueChange={setFilterCompany}>
-                  <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {companies.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={filterCompany}
+                  onValueChange={setFilterCompany}
+                  triggerClassName="h-9 w-[200px]"
+                  placeholder="Empresa"
+                  searchPlaceholder="Buscar empresa..."
+                  options={[
+                    { value: 'all', label: 'Todas' },
+                    ...companies.map(c => ({ value: c.id, label: c.razaoSocial })),
+                  ]}
+                />
               </div>
             )}
             <div className="space-y-1">

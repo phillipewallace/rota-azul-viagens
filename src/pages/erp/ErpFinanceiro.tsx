@@ -34,7 +34,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -1043,13 +1043,17 @@ const ErpFinanceiro: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-xs">Empresa</Label>
-                  <Select value={pendCompanyId} onValueChange={setPendCompanyId}>
-                    <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={pendCompanyId}
+                    onValueChange={setPendCompanyId}
+                    triggerClassName="h-9 w-[200px]"
+                    placeholder="Empresa"
+                    searchPlaceholder="Buscar empresa..."
+                    options={[
+                      { value: 'all', label: 'Todas' },
+                      ...companies.map(c => ({ value: c.id, label: c.razaoSocial })),
+                    ]}
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Vencimento de</Label>
@@ -1494,13 +1498,16 @@ const ErpFinanceiro: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-xs">Base</Label>
-                  <Select value={dateBase} onValueChange={(v: any) => setDateBase(v)}>
-                    <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="emissao">Emissão</SelectItem>
-                      <SelectItem value="vencimento">Vencimento</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={dateBase}
+                    onValueChange={(v: any) => setDateBase(v)}
+                    triggerClassName="h-9 w-[140px]"
+                    placeholder="Base"
+                    options={[
+                      { value: 'emissao', label: 'Emissão' },
+                      { value: 'vencimento', label: 'Vencimento' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">De</Label>
@@ -1512,26 +1519,33 @@ const ErpFinanceiro: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-xs">Empresa</Label>
-                  <Select value={filterCompanyId} onValueChange={setFilterCompanyId}>
-                    <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.razaoSocial}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={filterCompanyId}
+                    onValueChange={setFilterCompanyId}
+                    triggerClassName="h-9 w-[200px]"
+                    placeholder="Empresa"
+                    searchPlaceholder="Buscar empresa..."
+                    options={[
+                      { value: 'all', label: 'Todas' },
+                      ...companies.map(c => ({ value: c.id, label: c.razaoSocial })),
+                    ]}
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Status</Label>
-                  <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
-                    <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="pago">Pagos</SelectItem>
-                      <SelectItem value="parcial">Parciais</SelectItem>
-                      <SelectItem value="aberto">Em aberto</SelectItem>
-                      <SelectItem value="cancelado">Cancelados</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={filterStatus}
+                    onValueChange={(v: any) => setFilterStatus(v)}
+                    triggerClassName="h-9 w-[140px]"
+                    placeholder="Status"
+                    options={[
+                      { value: 'all', label: 'Todos' },
+                      { value: 'pago', label: 'Pagos' },
+                      { value: 'parcial', label: 'Parciais' },
+                      { value: 'aberto', label: 'Em aberto' },
+                      { value: 'cancelado', label: 'Cancelados' },
+                    ]}
+                  />
                 </div>
                 <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar</Button>
                 <Button
@@ -2438,13 +2452,15 @@ const PayDialog: React.FC<{
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Forma de pagamento</Label>
-              <Select value={forma} onValueChange={(v: any) => setForma(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(FORMA_LABEL) as FormaPagamento[]).map(k =>
-                    <SelectItem key={k} value={k}>{FORMA_LABEL[k]}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={forma}
+                onValueChange={(v: any) => setForma(v)}
+                placeholder="Forma"
+                options={(Object.keys(FORMA_LABEL) as FormaPagamento[]).map(k => ({
+                  value: k,
+                  label: FORMA_LABEL[k],
+                }))}
+              />
             </div>
             <div>
               <Label className="text-xs">Data do pagamento</Label>
@@ -2642,25 +2658,32 @@ function GastosPanel() {
           </div>
           <div>
             <Label className="text-xs">Categoria</Label>
-            <Select value={cat} onValueChange={setCat}>
-              <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {activeCats.map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
-                <SelectItem value="manutencao">Manutenção</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={cat}
+              onValueChange={setCat}
+              triggerClassName="h-9 w-[180px]"
+              placeholder="Categoria"
+              searchPlaceholder="Buscar categoria..."
+              options={[
+                { value: 'all', label: 'Todas' },
+                ...activeCats.map(c => ({ value: c.key, label: c.label })),
+                { value: 'manutencao', label: 'Manutenção' },
+              ]}
+            />
           </div>
           <div>
             <Label className="text-xs">Origem</Label>
-            <Select value={origem} onValueChange={(v: any) => setOrigem(v)}>
-              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="manual">Manuais</SelectItem>
-                <SelectItem value="manutencao">Manutenção</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={origem}
+              onValueChange={(v: any) => setOrigem(v)}
+              triggerClassName="h-9 w-[160px]"
+              placeholder="Origem"
+              options={[
+                { value: 'all', label: 'Todas' },
+                { value: 'manual', label: 'Manuais' },
+                { value: 'manutencao', label: 'Manutenção' },
+              ]}
+            />
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setCatsOpen(true)}>
@@ -2772,12 +2795,13 @@ function GastosPanel() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Categoria</Label>
-              <Select value={form.categoria} onValueChange={(v) => setForm({ ...form, categoria: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {activeCats.map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={form.categoria}
+                onValueChange={(v) => setForm({ ...form, categoria: v })}
+                placeholder="Categoria"
+                searchPlaceholder="Buscar categoria..."
+                options={activeCats.map(c => ({ value: c.key, label: c.label }))}
+              />
             </div>
             <div>
               <Label className="text-xs">Data</Label>
@@ -3042,12 +3066,13 @@ const RecurringDialog: React.FC<{
             </div>
             <div>
               <Label className="text-xs">Categoria</Label>
-              <Select value={editing.categoria || 'outros'} onValueChange={(v) => setEditing({ ...editing, categoria: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {categories.map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={editing.categoria || 'outros'}
+                onValueChange={(v) => setEditing({ ...editing, categoria: v })}
+                placeholder="Categoria"
+                searchPlaceholder="Buscar categoria..."
+                options={categories.map(c => ({ value: c.key, label: c.label }))}
+              />
             </div>
             <div>
               <Label className="text-xs">Fornecedor</Label>

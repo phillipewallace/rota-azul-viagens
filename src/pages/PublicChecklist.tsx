@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Truck, CheckCircle2, AlertTriangle, XCircle, MinusCircle, Loader2, PenLine, ArrowLeft } from 'lucide-react';
 import { CHECKLIST_TEMPLATE, ChecklistStatus, STATUS_LABEL, VehicleType, getChecklistFor } from '@/data/checklistTemplate';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { SignaturePad, SignaturePadHandle } from '@/components/SignaturePad';
 import { checklistsService, PendingChecklist } from '@/services/checklists';
 
@@ -316,13 +316,15 @@ export default function PublicChecklist() {
             ) : (
               <div>
                 <Label>Tipo de veículo</Label>
-                <Select value={vehicleType ?? ''} onValueChange={(v) => setVehicleType(v as VehicleType)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione: Carroceria ou Tanque" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="carroceria">Carroceria</SelectItem>
-                    <SelectItem value="tanque">Tanque</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={vehicleType ?? ''}
+                  onValueChange={(v) => setVehicleType(v as VehicleType)}
+                  placeholder="Selecione: Carroceria ou Tanque"
+                  options={[
+                    { value: 'carroceria', label: 'Carroceria' },
+                    { value: 'tanque', label: 'Tanque' },
+                  ]}
+                />
               </div>
             )}
             {!isCarretinha && (
@@ -339,14 +341,16 @@ export default function PublicChecklist() {
             )}
             <div>
               <Label>Assinatura adicional necessária?</Label>
-              <Select value={signatureMode} onValueChange={(v) => setSignatureMode(v as SignatureMode)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem assinatura adicional</SelectItem>
-                  <SelectItem value="cliente">Assinatura do cliente (capturar depois)</SelectItem>
-                  <SelectItem value="conferente">Assinatura do conferente (capturar depois)</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={signatureMode}
+                onValueChange={(v) => setSignatureMode(v as SignatureMode)}
+                placeholder="Assinatura"
+                options={[
+                  { value: 'none', label: 'Sem assinatura adicional' },
+                  { value: 'cliente', label: 'Assinatura do cliente (capturar depois)' },
+                  { value: 'conferente', label: 'Assinatura do conferente (capturar depois)' },
+                ]}
+              />
               {signatureMode !== 'none' && (
                 <p className="text-xs text-muted-foreground mt-1">
                   A checklist ficará pendente desta assinatura. Ao buscar a placa novamente, ela aparecerá no topo para ser assinada.
