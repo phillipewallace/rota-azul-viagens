@@ -21,6 +21,7 @@ import { usePolling } from '@/hooks/usePolling';
 import { Search, MapPin, User, Calendar, Plus, RefreshCcw, History, Wrench, PackageCheck, PackageOpen, ArrowRightLeft, LogOut, Trash2, FileText, Boxes, Send, Pencil, Check, ArrowLeft, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
 import {
   AlertDialog,
