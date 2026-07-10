@@ -36,13 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -501,49 +495,42 @@ const Maintenance = () => {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Caminhão</Label>
-                    <Select value={selectedTruck} onValueChange={setSelectedTruck}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {trucks.map((t: any) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name} — {t.plate}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={selectedTruck}
+                      onValueChange={setSelectedTruck}
+                      placeholder="Caminhão"
+                      searchPlaceholder="Buscar caminhão..."
+                      options={[
+                        { value: 'all', label: 'Todos' },
+                        ...trucks.map((t: any) => ({ value: t.id, label: t.name, hint: t.plate })),
+                      ]}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Status</Label>
-                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="pending">Agendada</SelectItem>
-                        <SelectItem value="in_progress">Em andamento</SelectItem>
-                        <SelectItem value="completed">Concluída</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={selectedStatus}
+                      onValueChange={setSelectedStatus}
+                      placeholder="Status"
+                      options={[
+                        { value: 'all', label: 'Todos' },
+                        { value: 'pending', label: 'Agendada' },
+                        { value: 'in_progress', label: 'Em andamento' },
+                        { value: 'completed', label: 'Concluída' },
+                      ]}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Tipo</Label>
-                    <Select value={selectedType} onValueChange={setSelectedType}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        {Object.entries(TYPE_LABEL).map(([v, l]) => (
-                          <SelectItem key={v} value={v}>
-                            {l}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={selectedType}
+                      onValueChange={setSelectedType}
+                      placeholder="Tipo"
+                      options={[
+                        { value: 'all', label: 'Todos' },
+                        ...Object.entries(TYPE_LABEL).map(([v, l]) => ({ value: v, label: l as string })),
+                      ]}
+                    />
                   </div>
                   <div className="flex items-end">
                     <Button variant="outline" className="w-full" onClick={resetFilters}>
