@@ -124,9 +124,10 @@ export const MedicaoDialog: React.FC<Props> = ({
 
   const [addContractSearch, setAddContractSearch] = useState('');
   const [expandedContract, setExpandedContract] = useState<string | null>(null);
-  const [productDraft, setProductDraft] = useState<{ produto: string; quantidade: number; valorUnit: number }>({
-    produto: PRODUCT_CATALOG[0].value, quantidade: 1, valorUnit: 0,
-  });
+  // Drafts editáveis por contrato (parseados a partir da descrição do contrato).
+  const [contractDrafts, setContractDrafts] = useState<
+    Record<string, { quantidade: number; descricao: string; valorUnit: number }[]>
+  >({});
 
   useEffect(() => {
     if (!open) return;
