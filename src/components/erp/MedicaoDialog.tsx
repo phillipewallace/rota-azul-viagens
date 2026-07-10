@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Loader2, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { contractsService, type Contract } from '@/services/contracts';
