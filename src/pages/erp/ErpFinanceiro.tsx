@@ -299,6 +299,18 @@ const ErpFinanceiro: React.FC = () => {
   }, [competencia]);
   useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
 
+  // Total do mês anterior (para delta no KPI)
+  useEffect(() => {
+    const [y, m] = (competencia || '').split('-').map(Number);
+    if (!y || !m) { setMedicoesPrevMonthTotal(null); return; }
+    const prevY = m === 1 ? y - 1 : y;
+    const prevM = m === 1 ? 12 : m - 1;
+    const prevComp = `${prevY}-${String(prevM).padStart(2, '0')}`;
+    medicoesService.list({ competencia: prevComp })
+      .then((r) => setMedicoesPrevMonthTotal(r.reduce((s, x) => s + Number(x.total || 0), 0)))
+      .catch(() => setMedicoesPrevMonthTotal(null));
+  }, [competencia]);
+
 
   useEffect(() => {
     let cancelled = false;
