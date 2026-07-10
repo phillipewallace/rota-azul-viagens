@@ -196,26 +196,73 @@ export const MedicaoDialog: React.FC<Props> = ({
   };
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r.key !== key));
 
-  const openProductForm = (c: Contract) => {
-    setExpandedContract(prev => prev === c.id ? null : c.id);
-    setProductDraft({
-      produto: PRODUCT_CATALOG[0].value,
-      quantidade: 1,
-      valorUnit: Number(c.valorMensal || 0),
+  const ensureDraftsFor = (c: Contract) => {
+    setContractDrafts((prev) => {
+      if (prev[c.id]) return prev;
+      const parsed = parseContractItems(c.descricao);
+      const items = parsed.length > 0 ? parsed : [];
+      return {
+        ...prev,
+        [c.id]: items.map((it) => ({
+          quantidade: it.quantidade,
+          descricao: it.descricao,
+          valorUnit: 0,
+        })),
+      };
     });
+  };
+
+  const openContractItems = (c: Contract) => {
+    setExpandedContract((prev) => (prev === c.id ? null : c.id));
+    ensureDraftsFor(c);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
   };
 
-  const addProductRow = (c: Contract) => {
-    const qtd = Number(productDraft.quantidade || 0);
-    const vu  = Number(productDraft.valorUnit || 0);
-    if (!productDraft.produto || qtd <= 0) {
-      toast.error('Informe produto e quantidade.');
+  const updateDraft = (
+    contractId: string,
+    idx: number,
+    patch: Partial<{ quantidade: number; descricao: string; valorUnit: number }>,
+  ) => {
+    setContractDrafts((prev) => {
+      const list = [...(prev[contractId] || [])];
+      list[idx] = { ...list[idx], ...patch };
+      return { ...prev, [contractId]: list };
+    });
+  };
+
+  const addDraftRow = (c: Contract, idx: number) => {
+    const d = (contractDrafts[c.id] || [])[idx];
+    if (!d || !d.descricao.trim() || d.quantidade <= 0) {
+      toast.error('Informe descrição e quantidade.');
       return;
     }
-    setRows(prev => [...prev, rowFromProduct(c, productDraft.produto, qtd, vu, periodoIni, periodoFim)]);
-    setProductDraft(d => ({ ...d, quantidade: 1 }));
+    setRows((prev) => [
+      ...prev,
+      rowFromProduct(c, d.descricao.trim(), d.quantidade, d.valorUnit, periodoIni, periodoFim),
+    ]);
     if (!companyId && c.companyId) setCompanyId(c.companyId);
+  };
+
+  const addAllDrafts = (c: Contract) => {
+    const list = (contractDrafts[c.id] || []).filter((d) => d.descricao.trim() && d.quantidade > 0);
+    if (list.length === 0) {
+      toast.error('Nenhum item válido para adicionar.');
+      return;
+    }
+    setRows((prev) => [
+      ...prev,
+      ...list.map((d) =>
+        rowFromProduct(c, d.descricao.trim(), d.quantidade, d.valorUnit, periodoIni, periodoFim),
+      ),
+    ]);
+    if (!companyId && c.companyId) setCompanyId(c.companyId);
+  };
+
+  const addEmptyDraft = (c: Contract) => {
+    setContractDrafts((prev) => ({
+      ...prev,
+      [c.id]: [...(prev[c.id] || []), { quantidade: 1, descricao: '', valorUnit: 0 }],
+    }));
   };
 
   const addSuggested = (c: Contract) => {
