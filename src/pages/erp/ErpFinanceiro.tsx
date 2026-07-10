@@ -1776,6 +1776,10 @@ const ErpFinanceiro: React.FC = () => {
                         <TableCell className="text-right font-semibold">{BRL(Number(r.valor))}</TableCell>
                         <TableCell><StatusBadge r={r} /></TableCell>
                         <TableCell className="text-right whitespace-nowrap">
+                          <Button size="sm" variant="ghost" onClick={() => setViewContractId(r.contractId)}
+                            aria-label="Ver contrato" title="Ver contrato" className="mr-1">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
                             <Download className="h-3.5 w-3.5 mr-1" /> PDF
                           </Button>
