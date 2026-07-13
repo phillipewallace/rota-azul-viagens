@@ -32,6 +32,10 @@ export interface ServiceOrderPdfInput {
   formaPagamento?: 'cartao' | 'pix' | 'boleto' | string | null;
   items?: Array<{ produto?: string; descricao?: string; quantidade?: number }>;
   sanitariosNumeros?: string[];
+  // Contato específico deste pedido (vem do orçamento vinculado).
+  responsavelNome?: string | null;
+  responsavelTelefone?: string | null;
+  responsavelEmail?: string | null;
 }
 
 export async function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
@@ -96,6 +100,20 @@ export async function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
     customer.contact_phone ? `Contato: ${customer.contact_phone}` : null,
   ].filter(Boolean).join('   |   ');
   if (cCont) { doc.text(cCont, M, y); y += 5; }
+
+  // Contato deste pedido (responsável específico do orçamento vinculado).
+  const respLine = [
+    os.responsavelNome ? `Responsável: ${os.responsavelNome}` : null,
+    os.responsavelTelefone ? `Tel.: ${os.responsavelTelefone}` : null,
+    os.responsavelEmail ? `E-mail: ${os.responsavelEmail}` : null,
+  ].filter(Boolean).join('   |   ');
+  if (respLine) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Contato deste pedido:', M, y); y += 4.5;
+    doc.setFont('helvetica', 'normal');
+    const wrapped = doc.splitTextToSize(respLine, W - 2 * M);
+    doc.text(wrapped, M, y); y += wrapped.length * 4.5 + 1;
+  }
 
   // Endereço de entrega — bloco grande (sem emoji: jsPDF padrão não renderiza)
   y += 2;

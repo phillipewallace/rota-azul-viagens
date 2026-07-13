@@ -161,6 +161,9 @@ const ServiceOrders: React.FC = () => {
         companyRazaoSocial: o.companyRazaoSocial,
         items: d.items || [],
         sanitariosNumeros: (d.sanitarios || []).map((s: any) => s.numero).filter(Boolean),
+        responsavelNome: d.responsavelNome,
+        responsavelTelefone: d.responsavelTelefone,
+        responsavelEmail: d.responsavelEmail,
       });
       toast.success('OS para entrega gerada');
     } catch (e: any) { toast.error(e.message); }

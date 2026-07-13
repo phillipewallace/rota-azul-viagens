@@ -237,6 +237,9 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
         companyRazaoSocial: os.companyRazaoSocial,
         items: detail.items || [],
         sanitariosNumeros: (detail.sanitarios || []).map((s: any) => s.numero).filter(Boolean),
+        responsavelNome: detail.responsavelNome,
+        responsavelTelefone: detail.responsavelTelefone,
+        responsavelEmail: detail.responsavelEmail,
       });
       toast.success('OS para entrega gerada');
     } catch (e: any) { toast.error(e.message); }
