@@ -316,9 +316,17 @@ router.get('/:id', async (req, res) => {
            FROM erp_quote_items WHERE quote_id=$1 ORDER BY ordem ASC, id ASC`, [row.quote_id]);
       items = it.rows;
       const qs = await pool.query(
-        `SELECT company_snapshot, frete FROM erp_quotes WHERE id=$1`, [row.quote_id]);
+        `SELECT company_snapshot, frete,
+                responsavel_nome     AS "responsavelNome",
+                responsavel_telefone AS "responsavelTelefone",
+                responsavel_email    AS "responsavelEmail"
+           FROM erp_quotes WHERE id=$1`, [row.quote_id]);
       companySnapshot = qs.rows[0]?.company_snapshot || null;
       freteFromQuote = qs.rows[0]?.frete != null ? Number(qs.rows[0].frete) : null;
+      // Responsável do pedido: reaproveita o do orçamento vinculado (fonte única).
+      (row as any).responsavelNome = qs.rows[0]?.responsavelNome || null;
+      (row as any).responsavelTelefone = qs.rows[0]?.responsavelTelefone || null;
+      (row as any).responsavelEmail = qs.rows[0]?.responsavelEmail || null;
     }
     if (!companySnapshot && row.razao_social) {
       companySnapshot = {
