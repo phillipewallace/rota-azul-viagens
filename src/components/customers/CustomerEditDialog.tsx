@@ -77,9 +77,8 @@ export const CustomerEditDialog: React.FC<Props> = ({
     if (cnpj.length !== 14) { toast.error('Digite um CNPJ válido (14 dígitos)'); return; }
     setLookingUpCnpj(true);
     try {
-      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
-      if (!r.ok) throw new Error('CNPJ não encontrado');
-      const d = await r.json();
+      const { lookupCnpj } = await import('@/utils/cnpjLookup');
+      const d = await lookupCnpj(cnpj);
       const formatCep = (c: unknown) =>
         c ? String(c).replace(/\D/g, '').replace(/^(\d{5})(\d{3}).*/, '$1-$2') : '';
       setDraft(prev => prev ? {
@@ -103,7 +102,8 @@ export const CustomerEditDialog: React.FC<Props> = ({
           if (g) setDraft(prev => prev ? { ...prev, lat: g.lat, lng: g.lng } : prev);
         }
       } catch { /* idem */ }
-      toast.success('Dados do CNPJ preenchidos automaticamente');
+      const srcLabel = d._source === 'brasilapi' ? 'BrasilAPI' : d._source === 'cnpjws' ? 'CNPJ.ws' : 'ReceitaWS';
+      toast.success(`Dados do CNPJ preenchidos (fonte: ${srcLabel})`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Falha ao consultar CNPJ');
     } finally {
