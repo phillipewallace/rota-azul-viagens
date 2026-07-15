@@ -803,10 +803,14 @@ function ContractFormDialog({
   };
 
   const submit = async () => {
+    // Guarda síncrona: previne duplicidade em duplo-clique/enter rápido
+    // antes de o React aplicar o `disabled` no botão.
+    if (savingRef.current) return;
     if (!form.companyId || !form.customerId || !form.dataInicio) {
       toast.error('Empresa, cliente e data de início são obrigatórios');
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       const payload = {
@@ -822,7 +826,10 @@ function ContractFormDialog({
       toast.success(editing ? 'Contrato atualizado' : 'Contrato criado');
       onSaved();
     } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
+    finally {
+      setSaving(false);
+      savingRef.current = false;
+    }
   };
 
   return (
