@@ -4,15 +4,10 @@ import { requireAuth, AuthedRequest, requireRole } from '../middleware/requireAu
 
 const router = Router();
 
-// Apenas admins
-function requireAdmin(req: AuthedRequest, res: Response, next: any) {
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'Acesso restrito a administradores' });
-  }
-  next();
-}
-
-router.use(requireAuth, requireAdmin);
+// Autenticação para todo o módulo; escrita restrita a admin/manager por rota.
+// (leituras liberadas p/ qualquer usuário autenticado — consistente com o resto do ERP.)
+router.use(requireAuth);
+const WRITE = requireRole('admin', 'manager');
 
 // ============ CATEGORIAS ============
 router.get('/categories', async (_req: Request, res: Response) => {
@@ -29,7 +24,7 @@ router.get('/categories', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/categories', async (req: Request, res: Response) => {
+router.post('/categories', WRITE, async (req: Request, res: Response) => {
   try {
     const { name, description, icon, tracksExpiry, requiresSignedTerm } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
@@ -46,7 +41,7 @@ router.post('/categories', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/categories/:id', async (req: Request, res: Response) => {
+router.put('/categories/:id', WRITE, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, description, icon, tracksExpiry, requiresSignedTerm } = req.body;
@@ -94,7 +89,7 @@ router.get('/items', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/items', async (req: Request, res: Response) => {
+router.post('/items', WRITE, async (req: Request, res: Response) => {
   try {
     const { categoryId, name, sku, unit, currentQty, minQty, expiryDate, expiryAlertDays, notes } = req.body;
     if (!categoryId || !name) return res.status(400).json({ error: 'Categoria e nome obrigatórios' });
@@ -108,7 +103,7 @@ router.post('/items', async (req: Request, res: Response) => {
   } catch (e: any) { console.error('[ERP items POST]', e); res.status(500).json({ error: e.message }); }
 });
 
-router.put('/items/:id', async (req: Request, res: Response) => {
+router.put('/items/:id', WRITE, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, sku, unit, minQty, expiryDate, expiryAlertDays, notes, active, categoryId } = req.body;
@@ -143,7 +138,7 @@ router.get('/employees', async (_req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/employees', async (req: Request, res: Response) => {
+router.post('/employees', WRITE, async (req: Request, res: Response) => {
   try {
     const { name, role, cpf, phone } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
@@ -155,7 +150,7 @@ router.post('/employees', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/employees/:id', async (req: Request, res: Response) => {
+router.put('/employees/:id', WRITE, async (req: Request, res: Response) => {
   try {
     const { name, role, cpf, phone, active } = req.body;
     const r = await pool.query(
@@ -199,7 +194,7 @@ router.get('/movements', async (req: Request, res: Response) => {
   } catch (e: any) { console.error('[ERP movs GET]', e); res.status(500).json({ error: e.message }); }
 });
 
-router.post('/movements', async (req: AuthedRequest, res: Response) => {
+router.post('/movements', WRITE, async (req: AuthedRequest, res: Response) => {
   const client = await pool.connect();
   try {
     const { itemId, type, qty, employeeId, notes, signedPdfUrl } = req.body;
@@ -288,7 +283,7 @@ router.get('/vehicles', async (_req: Request, res: Response) => {
   } catch (e: any) { console.error('[ERP vehicles GET]', e); res.status(500).json({ error: e.message }); }
 });
 
-router.post('/vehicles', async (req: Request, res: Response) => {
+router.post('/vehicles', WRITE, async (req: Request, res: Response) => {
   try {
     const { name, vehicleType, brand, model, year, plate, renavam, chassis, color, fuel, acquisitionDate, notes } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
@@ -303,7 +298,7 @@ router.post('/vehicles', async (req: Request, res: Response) => {
   } catch (e: any) { console.error('[ERP vehicles POST]', e); res.status(500).json({ error: e.message }); }
 });
 
-router.put('/vehicles/:id', async (req: Request, res: Response) => {
+router.put('/vehicles/:id', WRITE, async (req: Request, res: Response) => {
   try {
     const { name, vehicleType, brand, model, year, plate, renavam, chassis, color, fuel, acquisitionDate, notes, active } = req.body;
     const r = await pool.query(
@@ -344,7 +339,7 @@ router.get('/vehicles/:id/comments', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/vehicles/:id/comments', async (req: AuthedRequest, res: Response) => {
+router.post('/vehicles/:id/comments', WRITE, async (req: AuthedRequest, res: Response) => {
   try {
     const { comment, category, referenceDate, amount, status, attachmentUrl } = req.body;
     if (!comment || !comment.trim()) return res.status(400).json({ error: 'Comentário obrigatório' });
@@ -359,7 +354,7 @@ router.post('/vehicles/:id/comments', async (req: AuthedRequest, res: Response) 
   } catch (e: any) { console.error('[ERP veh comments POST]', e); res.status(500).json({ error: e.message }); }
 });
 
-router.put('/vehicles/:vid/comments/:cid', async (req: Request, res: Response) => {
+router.put('/vehicles/:vid/comments/:cid', WRITE, async (req: Request, res: Response) => {
   try {
     const { comment, category, referenceDate, amount, status, attachmentUrl } = req.body;
     const r = await pool.query(

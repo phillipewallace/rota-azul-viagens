@@ -24,6 +24,7 @@ import { quotesService, serviceOrdersService, type ServiceOrder } from '@/servic
 import { erpService, fetchSanitarioStockSummary, type SanitarioStockSummary } from '@/services/erp';
 import { receiptsService, type ReceiptsSummaryPoint, type PendingReceipt } from '@/services/contracts';
 import { useCustomers } from '@/hooks/useCustomers';
+import { parseLocalDate } from '@/utils/dateFormat';
 
 // ---------- helpers ----------
 const BRL = (n: number) =>
@@ -541,7 +542,7 @@ const ErpDashboard: React.FC = () => {
                                 <Badge className="bg-warning/15 text-warning hover:bg-warning/20 border-transparent">Amanhã</Badge>
                               ) : (
                                 <span className="text-xs text-muted-foreground">
-                                  {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                  {(parseLocalDate(u.dataEntrega) ?? new Date()).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </span>
                               )}
                             </td>
@@ -561,10 +562,10 @@ const ErpDashboard: React.FC = () => {
                         >
                           <span className="inline-flex flex-col items-center justify-center h-11 w-11 shrink-0 rounded-lg bg-info/10 text-info">
                             <span className="text-[9px] font-semibold uppercase tracking-wider leading-none">
-                              {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
+                              {(parseLocalDate(u.dataEntrega) ?? new Date()).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
                             </span>
                             <span className="font-display text-sm font-bold leading-none mt-0.5 tabular-nums">
-                              {new Date(u.dataEntrega).getDate()}
+                              {(parseLocalDate(u.dataEntrega) ?? new Date()).getDate()}
                             </span>
                           </span>
                           <div className="min-w-0 flex-1">

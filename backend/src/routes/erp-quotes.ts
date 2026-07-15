@@ -240,7 +240,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
  * Não consome sanitários reais — apenas registra qtd_reservada na OS.
  * Os números reais são vinculados depois, no fluxo "Entregar / vincular".
  */
-router.post('/:id/convert-to-os', async (req, res) => {
+router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -298,7 +298,7 @@ router.post('/:id/convert-to-os', async (req, res) => {
  * Duplica um orçamento: cria um novo registro com numeração nova,
  * status 'rascunho', mesmas informações e itens.
  */
-router.post('/:id/duplicate', async (req, res) => {
+router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

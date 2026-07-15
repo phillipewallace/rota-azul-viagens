@@ -27,7 +27,7 @@ import { generateQuotePdf } from '@/utils/quotePdf';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { FileSignature } from 'lucide-react';
 import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento, calcVencimentoBoleto, type FormaPagamento } from '@/utils/fixedObservations';
-import { formatDateBR } from '@/utils/dateFormat';
+import { formatDateBR, parseLocalDate } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -43,7 +43,9 @@ const daysBetween = (from: Date, iso?: string | null): number | null => {
 /** Retorna quantos dias faltam pra validade expirar (positivo=futuro, negativo=vencido). */
 const daysUntilExpire = (dataEmissao?: string | null, validadeDias?: number): number | null => {
   if (!dataEmissao || !validadeDias) return null;
-  const emissao = new Date(dataEmissao);
+  // Parse LOCAL para não deslocar -1 dia em fuso BR (bug de timezone).
+  const emissao = parseLocalDate(dataEmissao);
+  if (!emissao) return null;
   const expiry = new Date(emissao.getFullYear(), emissao.getMonth(), emissao.getDate() + validadeDias);
   return daysBetween(new Date(), expiry.toISOString());
 };

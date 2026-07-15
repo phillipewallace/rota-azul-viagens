@@ -11,6 +11,22 @@ import fsp from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
+import { sendError } from '../utils/apiError';
+
+// Valida "YYYY-MM-DD" como data real (rejeita mês 13, dia 32, etc.).
+function isValidISODate(s: any): boolean {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+// Valida número financeiro: finito, >= 0.
+function parseMoney(v: any): number | null {
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : NaN as any;
+}
+const actor = (req: any) => req.user?.username || req.user?.name || null;
 
 const router = Router();
 router.use(requireAuth);
@@ -109,8 +125,7 @@ router.get('/', async (req: any, res: any) => {
     );
     res.json(r.rows);
   } catch (e: any) {
-    console.error('[erp-invoices GET]', e);
-    res.status(500).json({ error: e.message });
+    return sendError(res, e, '[erp-invoices GET]');
   }
 });
 
@@ -127,7 +142,7 @@ router.get('/:id', async (req: any, res: any) => {
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { return sendError(res, e, '[erp-invoices GET id]'); }
 });
 
 // ---------- CREATE (multipart) ------------------------------------------
@@ -145,6 +160,13 @@ router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
       if (!contractId)   return res.status(400).json({ error: 'contractId obrigatório' });
       if (!numero)       return res.status(400).json({ error: 'Número da NF obrigatório' });
       if (!dataEmissao)  return res.status(400).json({ error: 'Data de emissão obrigatória' });
+      if (!isValidISODate(dataEmissao)) {
+        return res.status(400).json({ error: 'Data de emissão inválida (use YYYY-MM-DD).' });
+      }
+      const valorNum = parseMoney(valor);
+      if (valorNum === null || Number.isNaN(valorNum)) {
+        return res.status(400).json({ error: 'Valor da NF inválido (deve ser um número ≥ 0).' });
+      }
 
       // Deriva competência do dataEmissao quando não informada.
       const comp = competencia || String(dataEmissao).slice(0, 7);
@@ -175,17 +197,16 @@ router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
          RETURNING id`,
         [
           contractId, comp, String(numero).trim(), serie || null,
-          dataEmissao, Number(valor || 0),
+          dataEmissao, valorNum,
           formaPagamento || null, observacoes || null,
           url, file.originalname, file.filename, file.size || null,
-          req.user?.username || req.user?.name || null,
+          actor(req),
         ],
       );
       keepFile = true;
       res.json({ ok: true, id: r.rows[0].id });
     } catch (e: any) {
-      console.error('[erp-invoices POST]', e);
-      res.status(500).json({ error: e.message });
+      return sendError(res, e, '[erp-invoices POST]');
     } finally {
       if (file && !keepFile) await safeUnlink(file.filename);
     }
@@ -194,40 +215,54 @@ router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
 
 // ---------- UPDATE metadata ---------------------------------------------
 router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
-  try {
-    const body = req.body || {};
-    const { numero, dataEmissao, valor, formaPagamento } = body;
-    // Campos opcionais: usamos `in body` para distinguir "não informado"
-    // (mantém valor atual) de "string vazia" (limpa a coluna).
-    const serieProvided = Object.prototype.hasOwnProperty.call(body, 'serie');
-    const obsProvided   = Object.prototype.hasOwnProperty.call(body, 'observacoes');
-    const formaProvided = Object.prototype.hasOwnProperty.call(body, 'formaPagamento');
+  const body = req.body || {};
+  const { numero, dataEmissao, valor, formaPagamento } = body;
+  const serieProvided = Object.prototype.hasOwnProperty.call(body, 'serie');
+  const obsProvided   = Object.prototype.hasOwnProperty.call(body, 'observacoes');
+  const formaProvided = Object.prototype.hasOwnProperty.call(body, 'formaPagamento');
 
-    const cur = await pool.query(
-      'SELECT status, contract_id, competencia FROM erp_invoices WHERE id=$1',
+  // Validações defensivas antes de tocar em transação.
+  if (dataEmissao && !isValidISODate(dataEmissao)) {
+    return res.status(400).json({ error: 'Data de emissão inválida (use YYYY-MM-DD).' });
+  }
+  let valorNum: number | null = null;
+  if (valor !== undefined && valor !== null) {
+    const v = parseMoney(valor);
+    if (v === null || Number.isNaN(v)) {
+      return res.status(400).json({ error: 'Valor inválido (deve ser número ≥ 0).' });
+    }
+    valorNum = v;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Lock da NF em edição — evita TOCTOU entre dup-check e UPDATE.
+    const cur = await client.query(
+      'SELECT status, contract_id, competencia FROM erp_invoices WHERE id=$1 FOR UPDATE',
       [req.params.id],
     );
-    if (!cur.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
+    if (!cur.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Nota fiscal não encontrada' });
+    }
     if (cur.rows[0].status === 'cancelada') {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: 'NF cancelada — reative para editar (contate um administrador).' });
     }
 
-    // Se dataEmissao mudou de mês, recalcula competência e revalida duplicidade
-    // (o índice único parcial só protege dentro do mesmo mês).
     let newComp: string | null = null;
     if (dataEmissao) {
       const comp = String(dataEmissao).slice(0, 7);
-      if (!/^\d{4}-\d{2}$/.test(comp)) {
-        return res.status(400).json({ error: 'Data de emissão inválida' });
-      }
       if (comp !== cur.rows[0].competencia) {
-        const dup = await pool.query(
+        const dup = await client.query(
           `SELECT id, numero FROM erp_invoices
             WHERE contract_id = $1 AND competencia = $2
               AND status = 'ativa' AND id <> $3 LIMIT 1`,
           [cur.rows[0].contract_id, comp, req.params.id],
         );
         if (dup.rows[0]) {
+          await client.query('ROLLBACK');
           return res.status(409).json({
             error: `Já existe uma NF ativa (${dup.rows[0].numero}) na competência ${comp} para este contrato.`,
           });
@@ -242,7 +277,7 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
       return s.length ? s : null;
     };
 
-    await pool.query(
+    await client.query(
       `UPDATE erp_invoices
           SET numero = COALESCE($2, numero),
               serie  = CASE WHEN $3::boolean THEN $4 ELSE serie END,
@@ -251,20 +286,27 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
               valor  = COALESCE($6, valor),
               forma_pagamento = CASE WHEN $7::boolean THEN $8 ELSE forma_pagamento END,
               observacoes     = CASE WHEN $9::boolean THEN $10 ELSE observacoes END,
+              updated_by = $12,
               updated_at = NOW()
         WHERE id = $1`,
       [req.params.id,
        numero ? String(numero).trim() : null,
        serieProvided, serieProvided ? norm(body.serie) : null,
        dataEmissao || null,
-       valor === undefined || valor === null ? null : Number(valor),
+       valorNum,
        formaProvided, formaProvided ? norm(formaPagamento) : null,
        obsProvided, obsProvided ? norm(body.observacoes) : null,
-       newComp],
+       newComp,
+       actor(req)],
     );
-
+    await client.query('COMMIT');
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    await client.query('ROLLBACK').catch(() => {});
+    return sendError(res, e, '[erp-invoices PATCH]');
+  } finally {
+    client.release();
+  }
 });
 
 // ---------- REPLACE PDF -------------------------------------------------
@@ -306,7 +348,7 @@ router.post('/:id/replace-pdf', requireRole(...FIN_ROLES), (req: any, res: any) 
       oldStored = cur.rows[0].pdf_stored_filename || null;
       res.json({ ok: true, pdfUrl: url });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      return sendError(res, e, '[erp-invoices replace-pdf]');
     } finally {
       if (file && !keepFile) await safeUnlink(file.filename);
       if (keepFile && oldStored) await safeUnlink(oldStored);
@@ -331,12 +373,14 @@ router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res: any)
           SET status = 'cancelada',
               cancelado_em = NOW(),
               motivo_cancelamento = $2,
+              cancelado_por = $3,
+              updated_by = $3,
               updated_at = NOW()
         WHERE id = $1`,
-      [req.params.id, String(motivo).trim()],
+      [req.params.id, String(motivo).trim(), actor(req)],
     );
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { return sendError(res, e, '[erp-invoices cancel]'); }
 });
 
 // ---------- DELETE (admin/manager) --------------------------------------
@@ -349,7 +393,7 @@ router.delete('/:id', requireRole('admin', 'manager'), async (req: any, res: any
     if (!r.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
     await safeUnlink(r.rows[0].pdf_stored_filename);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { return sendError(res, e, '[erp-invoices DELETE]'); }
 });
 
 export default router;

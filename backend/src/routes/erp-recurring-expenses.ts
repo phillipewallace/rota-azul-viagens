@@ -24,7 +24,7 @@ router.get('/', async (_req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireRole('admin','manager'), async (req, res) => {
   try {
     const e = req.body || {};
     if (!e.descricao || e.valor == null) return res.status(400).json({ error: 'descricao e valor obrigatórios' });
@@ -39,7 +39,7 @@ router.post('/', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireRole('admin','manager'), async (req, res) => {
   try {
     const e = req.body || {};
     await pool.query(
@@ -76,7 +76,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
  * Materializa todas as recorrências ativas em erp_expenses para a competência.
  * Idempotente: unique index (recurring_id, competencia) evita duplicar.
  */
-router.post('/run', async (req, res) => {
+router.post('/run', requireRole('admin','manager'), async (req, res) => {
   const competencia = String((req.query as any).competencia || (req.body || {}).competencia || competenciaAtual());
   const client = await pool.connect();
   try {

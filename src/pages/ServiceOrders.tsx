@@ -259,8 +259,8 @@ const ServiceOrders: React.FC = () => {
       rows: finData.rows.map((r: any) => [
         r.numero, r.customerName || '—', r.modalidade, r.tipoLocacao || '—',
         r.emAtraso ? 'EM ATRASO' : r.status,
-        r.dataInicio ? new Date(r.dataInicio).toLocaleDateString('pt-BR') : '',
-        r.dataFimPrevista ? new Date(r.dataFimPrevista).toLocaleDateString('pt-BR') : '',
+        r.dataInicio ? formatDateBR(r.dataInicio) : '',
+        r.dataFimPrevista ? formatDateBR(r.dataFimPrevista) : '',
         BRL(Number(r.valorTotal || 0)),
       ]),
     });
