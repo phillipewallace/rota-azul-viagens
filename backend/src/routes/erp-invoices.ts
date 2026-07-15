@@ -348,7 +348,7 @@ router.post('/:id/replace-pdf', requireRole(...FIN_ROLES), (req: any, res: any) 
       oldStored = cur.rows[0].pdf_stored_filename || null;
       res.json({ ok: true, pdfUrl: url });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      return sendError(res, e, '[erp-invoices replace-pdf]');
     } finally {
       if (file && !keepFile) await safeUnlink(file.filename);
       if (keepFile && oldStored) await safeUnlink(oldStored);
