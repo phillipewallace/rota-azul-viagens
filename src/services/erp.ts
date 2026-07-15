@@ -1,4 +1,6 @@
 import { API_BASE_URL } from './config';
+import { appendPageParams, type PageParams, type Paged } from '@/lib/pagination';
+
 
 const authHeaders = () => {
   const token = localStorage.getItem('auth_token');
