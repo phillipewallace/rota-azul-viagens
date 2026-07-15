@@ -48,6 +48,34 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
   const [deliver, setDeliver] = useState<DeliverState | null>(null);
   const [closing, setClosing] = useState<CloseState | null>(null);
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+
+  const sendToContracts = async (os: ServiceOrder) => {
+    if (os.convertedContractId) {
+      toast.info(`OS ${os.numero} já vinculada ao contrato ${os.convertedContractNumero || ''}`);
+      navigate(`/erp/contratos?search=${encodeURIComponent(os.convertedContractNumero || '')}`);
+      return;
+    }
+    if (!os.customerId || !os.companyId) {
+      toast.error('OS precisa ter cliente e empresa emissora para gerar contrato');
+      return;
+    }
+    if (!(await confirmDialog({
+      description: `Criar contrato a partir da OS ${os.numero}? Ele aparecerá na aba Contratos para revisão/edição manual.`,
+    }))) return;
+    try {
+      const r = await serviceOrdersService.convertToContract(os.id);
+      toast.success(`Contrato ${r.contractNumero} criado`, {
+        action: { label: 'Abrir', onClick: () => navigate(`/erp/contratos?search=${encodeURIComponent(r.contractNumero)}`) },
+      });
+      await load();
+      onChanged?.();
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (msg.includes('já foi convertida')) { toast.info(msg); await load(); }
+      else toast.error(msg || 'Erro ao converter em contrato');
+    }
+  };
   const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
 
   const load = async () => {
