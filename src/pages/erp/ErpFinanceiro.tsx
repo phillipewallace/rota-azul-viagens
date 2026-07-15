@@ -242,7 +242,18 @@ const ErpFinanceiro: React.FC = () => {
   const [medicaoViewId, setMedicaoViewId] = useState<string | null>(null);
   const [medicaoViewOpen, setMedicaoViewOpen] = useState(false);
   const [medicoesSearch, setMedicoesSearch] = useState('');
-  const [medicoesClienteFilter, setMedicoesClienteFilter] = useState<string>('');
+  const [debouncedMedSearch, setDebouncedMedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedMedSearch(medicoesSearch.trim()), 350);
+    return () => clearTimeout(t);
+  }, [medicoesSearch]);
+  const [medPage, setMedPage] = useState(1);
+  const [medPageSize, setMedPageSize] = useState(50);
+  const [medTotal, setMedTotal] = useState(0);
+  const [medKpis, setMedKpis] = useState<{
+    total: number; totalValor: number; ticketMedio: number; clientesDistintos: number;
+  } | null>(null);
+  const [medExportBusy, setMedExportBusy] = useState(false);
   const [medicoesPrevMonthTotal, setMedicoesPrevMonthTotal] = useState<number | null>(null);
   // popover do recibo unificado
   const [unifOpen, setUnifOpen] = useState(false);
