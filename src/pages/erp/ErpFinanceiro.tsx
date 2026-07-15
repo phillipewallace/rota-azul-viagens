@@ -296,8 +296,8 @@ const ErpFinanceiro: React.FC = () => {
 
   // Conveniência: recarrega tudo (usada pelo botão Atualizar e após ações).
   const load = useCallback(async () => {
-    await Promise.all([loadPendentes(), loadRecibos()]);
-  }, [loadPendentes, loadRecibos]);
+    await Promise.all([loadPendentes(), loadRecibos(), loadInvoices()]);
+  }, [loadPendentes, loadRecibos, loadInvoices]);
 
   useEffect(() => { loadPendentes(); }, [loadPendentes]);
   useEffect(() => { loadRecibos(); }, [loadRecibos]);
