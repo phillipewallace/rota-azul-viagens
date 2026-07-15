@@ -27,7 +27,7 @@ import { generateQuotePdf } from '@/utils/quotePdf';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { FileSignature } from 'lucide-react';
 import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento, calcVencimentoBoleto, type FormaPagamento } from '@/utils/fixedObservations';
-import { formatDateBR } from '@/utils/dateFormat';
+import { formatDateBR, parseLocalDate } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
 const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
