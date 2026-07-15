@@ -414,16 +414,65 @@ const ErpFinanceiro: React.FC = () => {
   }, [activeTab, loadPendentes]);
 
 
-  // Carga das medições da competência
+  // Filtros server-side das Medições.
+  const medBaseFilters = useMemo(() => ({
+    competencia,
+    search: debouncedMedSearch || undefined,
+  }), [competencia, debouncedMedSearch]);
+
   const loadMedicoes = useCallback(async () => {
     setMedicoesLoading(true);
     try {
-      const r = await medicoesService.list({ competencia });
-      if (mountedRef.current) setMedicoes(r);
+      const [pg, k] = await Promise.all([
+        medicoesService.listPaged({ ...medBaseFilters, page: medPage, pageSize: medPageSize }),
+        medicoesService.kpis(medBaseFilters),
+      ]);
+      if (!mountedRef.current) return;
+      setMedicoes(pg.data);
+      setMedTotal(pg.total);
+      setMedKpis(k);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setMedicoesLoading(false); }
-  }, [competencia]);
+  }, [medBaseFilters, medPage, medPageSize]);
   useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
+  useEffect(() => { setMedPage(1); }, [medBaseFilters, medPageSize]);
+
+  /** Baixa TODAS as medições do filtro atual (paginando em blocos de 200). */
+  const fetchAllFilteredMedicoes = useCallback(async (hardLimit = 5000) => {
+    const PAGE = 200;
+    const first = await medicoesService.listPaged({ ...medBaseFilters, page: 1, pageSize: PAGE });
+    if (first.total > hardLimit) {
+      toast.error(`Muitas medições (${first.total}). Refine os filtros — limite ${hardLimit}.`);
+      return null;
+    }
+    const all = [...first.data];
+    const totalPages = Math.max(1, Math.ceil(first.total / PAGE));
+    for (let p = 2; p <= totalPages; p++) {
+      const pg = await medicoesService.listPaged({ ...medBaseFilters, page: p, pageSize: PAGE });
+      all.push(...pg.data);
+    }
+    return all;
+  }, [medBaseFilters]);
+
+  const exportAllFilteredMedicoesCsv = useCallback(async () => {
+    setMedExportBusy(true);
+    try {
+      const all = await fetchAllFilteredMedicoes();
+      if (!all) return;
+      const headers = ['Número','Cliente','Documento','Empresa','Competência','Período início','Período fim','Itens','Total'];
+      const rows = all.map(m => [
+        m.numero, m.customerName || m.clienteNome || '',
+        m.customerDocument || m.clienteDocumento || '',
+        m.companyRazaoSocial || '', m.competencia || '',
+        m.periodoInicio || '', m.periodoFim || '',
+        String(m.itensCount ?? ''),
+        Number(m.total || 0).toFixed(2).replace('.', ','),
+      ]);
+      downloadCsv(`medicoes-${competencia}`, headers, rows);
+      toast.success(`CSV exportado (${all.length} medições).`);
+    } catch (e: any) { toast.error(e.message || 'Falha ao exportar CSV.'); }
+    finally { setMedExportBusy(false); }
+  }, [fetchAllFilteredMedicoes, competencia]);
 
   // Filtros server-side das Notas Fiscais (sem paginação).
   const nfBaseFilters = useMemo(() => {
