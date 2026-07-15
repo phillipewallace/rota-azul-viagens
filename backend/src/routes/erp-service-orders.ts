@@ -646,11 +646,12 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
     const companySnap = compQ.rows[0] || null;
     const customerSnap = custQ.rows[0] || os.customer_snapshot || null;
 
-    // Frete + responsável vêm do orçamento vinculado (fonte única já usada nos PDFs).
+    // Frete + responsável + itens vêm do orçamento vinculado (fonte única já usada nos PDFs).
     let frete = 0;
     let responsavelNome: string | null = null;
     let responsavelTelefone: string | null = null;
     let responsavelEmail: string | null = null;
+    let itensDescricao = '';
     if (os.quote_id) {
       const qq = await client.query(
         `SELECT frete, responsavel_nome, responsavel_telefone, responsavel_email
@@ -660,6 +661,20 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
         responsavelNome     = qq.rows[0].responsavel_nome     || null;
         responsavelTelefone = qq.rows[0].responsavel_telefone || null;
         responsavelEmail    = qq.rows[0].responsavel_email    || null;
+      }
+      // Itens/produtos do orçamento → descrição/objeto do contrato.
+      const itQ = await client.query(
+        `SELECT produto, descricao, quantidade, valor_unitario, valor_total
+           FROM erp_quote_items WHERE quote_id=$1 ORDER BY ordem ASC, id ASC`, [os.quote_id]);
+      if (itQ.rows.length) {
+        itensDescricao = itQ.rows.map((it: any) => {
+          const qtd = Number(it.quantidade || 0);
+          const prod = String(it.produto || '').trim();
+          const det = String(it.descricao || '').trim();
+          const partes = [`${qtd}x ${prod}`];
+          if (det) partes.push(`— ${det}`);
+          return `• ${partes.join(' ')}`;
+        }).join('\n');
       }
     }
 
@@ -698,9 +713,15 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
       ? body.diaVencimento : 10;
     const renovacaoAutomatica = typeof body.renovacaoAutomatica === 'boolean' ? body.renovacaoAutomatica : true;
     const cno = body.cno ? String(body.cno).trim() : null;
-    const descricao = body.descricao ? String(body.descricao).trim() : `Gerado automaticamente a partir da OS ${os.numero}`;
+    // Descrição/objeto: usa override → itens do orçamento → fallback simples.
+    const descricaoBase = itensDescricao
+      ? `Objeto do contrato — itens do orçamento vinculado à OS ${os.numero}:\n${itensDescricao}`
+      : `Gerado automaticamente a partir da OS ${os.numero}`;
+    const descricao = body.descricao ? String(body.descricao).trim() : descricaoBase;
     const observacoes = body.observacoes != null ? String(body.observacoes) : (os.observacoes || null);
-    const dataFim = body.dataFim || os.data_fim_prevista || null;
+    // Vigência: fim = data_recolhimento (quando definida) → data_fim_prevista → override.
+    // Para eventos no mesmo dia, entrega/recolhimento coincidem e a vigência fica correta.
+    const dataFim = body.dataFim || os.data_recolhimento || os.data_fim_prevista || null;
 
     // Numeração via helper.
     const numQ = await client.query(`SELECT erp_next_doc_number('CTR') AS num`);
