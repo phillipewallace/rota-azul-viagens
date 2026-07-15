@@ -393,7 +393,7 @@ router.delete('/:id', requireRole('admin', 'manager'), async (req: any, res: any
     if (!r.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
     await safeUnlink(r.rows[0].pdf_stored_filename);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { return sendError(res, e, '[erp-invoices DELETE]'); }
 });
 
 export default router;
