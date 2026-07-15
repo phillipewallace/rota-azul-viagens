@@ -172,17 +172,65 @@ export const receiptsService = {
     const s = q.toString();
     return req<Receipt[]>('GET', `/erp/receipts${s ? '?' + s : ''}`);
   },
-  /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
-  listPaged: (params?: { contractId?: string; competencia?: string; pago?: boolean; from?: string; to?: string } & PageParams) => {
+  /** Variante paginada — envelope `{ data, total, page, pageSize }` com filtros server-side. */
+  listPaged: (params?: {
+    contractId?: string; competencia?: string; pago?: boolean;
+    from?: string; to?: string;
+    status?: ReceiptStatus | 'all';
+    companyId?: string;
+    search?: string;
+    semValidade?: boolean;
+    dateBase?: 'emissao' | 'vencimento';
+    vencidoAte?: string;   // YYYY-MM-DD — abertos/parciais com venc < esta data
+    venceAte?: string;     // YYYY-MM-DD — abertos/parciais com venc <= esta data
+  } & PageParams) => {
     const q = new URLSearchParams();
-    if (params?.contractId) q.set('contractId', params.contractId);
-    if (params?.competencia) q.set('competencia', params.competencia);
-    if (params?.pago !== undefined) q.set('pago', String(params.pago));
-    if (params?.from) q.set('from', params.from);
-    if (params?.to) q.set('to', params.to);
+    const p = params || {};
+    if (p.contractId) q.set('contractId', p.contractId);
+    if (p.competencia) q.set('competencia', p.competencia);
+    if (p.pago !== undefined) q.set('pago', String(p.pago));
+    if (p.from) q.set('from', p.from);
+    if (p.to) q.set('to', p.to);
+    if (p.status && p.status !== 'all') q.set('status', p.status);
+    if (p.companyId) q.set('companyId', p.companyId);
+    if (p.search) q.set('search', p.search);
+    if (p.semValidade !== undefined) q.set('semValidade', String(p.semValidade));
+    if (p.dateBase) q.set('dateBase', p.dateBase);
+    if (p.vencidoAte) q.set('vencidoAte', p.vencidoAte);
+    if (p.venceAte) q.set('venceAte', p.venceAte);
     appendPageParams(q, params);
     return req<Paged<Receipt>>('GET', `/erp/receipts?${q.toString()}`);
   },
+  /** KPIs agregados server-side (respeita os mesmos filtros da listagem). */
+  kpis: (params?: {
+    contractId?: string; competencia?: string;
+    status?: ReceiptStatus | 'all';
+    companyId?: string;
+    search?: string;
+    semValidade?: boolean;
+    dateBase?: 'emissao' | 'vencimento';
+    from?: string; to?: string;
+  }) => {
+    const q = new URLSearchParams();
+    const p = params || {};
+    if (p.contractId) q.set('contractId', p.contractId);
+    if (p.competencia) q.set('competencia', p.competencia);
+    if (p.status && p.status !== 'all') q.set('status', p.status);
+    if (p.companyId) q.set('companyId', p.companyId);
+    if (p.search) q.set('search', p.search);
+    if (p.semValidade !== undefined) q.set('semValidade', String(p.semValidade));
+    if (p.dateBase) q.set('dateBase', p.dateBase);
+    if (p.from) q.set('from', p.from);
+    if (p.to) q.set('to', p.to);
+    const s = q.toString();
+    return req<{
+      total: number;
+      qtdPagos: number; qtdAbertos: number; qtdParciais: number; qtdCancelados: number;
+      qtdVencidos: number;
+      recebido: number; aberto: number; vencido: number; totalAtivos: number;
+    }>('GET', `/erp/receipts/stats/kpis${s ? '?' + s : ''}`);
+  },
+
 
   pending: (competencia?: string) =>
     req<{ competencia: string; pendentes: PendingReceipt[] }>(
