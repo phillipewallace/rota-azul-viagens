@@ -1885,9 +1885,17 @@ const ErpFinanceiro: React.FC = () => {
                   </TableBody>
                 </Table>
               </div>
+              <div className="px-4 pb-3">
+                <PaginationBar
+                  page={page} pageSize={pageSize} total={totalRecibos}
+                  onPageChange={setPage} onPageSizeChange={setPageSize}
+                  pageSizeOptions={[25, 50, 100, 200]}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="sem-validade">
           <Card>
