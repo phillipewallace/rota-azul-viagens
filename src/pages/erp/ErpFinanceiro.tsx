@@ -831,6 +831,34 @@ const ErpFinanceiro: React.FC = () => {
     setPendVencFrom(''); setPendVencTo(''); setPendQuick('none');
   };
 
+  // Exporta CSV dos pendentes conforme filtros aplicados na aba.
+  const exportPendentesCsv = useCallback(() => {
+    try {
+      const headers = [
+        'Nº contrato', 'Cliente', 'Documento', 'Empresa', 'CNPJ empresa',
+        'Competência', 'Dia venc.', 'Vencimento', 'Valor mensal',
+      ];
+      const rows = pendentesFiltrados.map(p => {
+        const venc = dueDateInComp(competencia, Number(p.diaVencimento || 10)) || '';
+        return [
+          p.contractNumero || '',
+          p.customerName || '',
+          p.customerDocument || '',
+          p.companyRazaoSocial || '',
+          p.companyCnpj || '',
+          competencia,
+          String(p.diaVencimento ?? ''),
+          venc,
+          Number(p.valorMensal || 0).toFixed(2).replace('.', ','),
+        ];
+      });
+      downloadCsv(`pendentes-${competencia}`, headers, rows);
+      toast.success(`CSV exportado (${rows.length} pendentes).`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao exportar CSV.');
+    }
+  }, [pendentesFiltrados, competencia]);
+
   // Habilita "recibo unificado" quando 2+ pendentes selecionados são
   // da MESMA empresa emissora E do MESMO cliente.
 
@@ -1417,6 +1445,16 @@ const ErpFinanceiro: React.FC = () => {
                 {pendFiltroAtivo && (
                   <Button variant="ghost" size="sm" onClick={clearPendFilters}>Limpar</Button>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportPendentesCsv}
+                  disabled={pendentesFiltrados.length === 0}
+                  title="Exportar CSV dos pendentes exibidos (respeitando os filtros)"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Exportar CSV (filtro)
+                </Button>
               </div>
               <div className="flex flex-wrap gap-2">
                 <QuickChip active={pendQuick === 'none'} onClick={() => setPendQuick('none')}>Todos</QuickChip>
