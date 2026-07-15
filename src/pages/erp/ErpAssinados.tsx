@@ -60,7 +60,7 @@ const ErpAssinados: React.FC = () => {
   }, [items, q]);
 
   const handleDownload = (it: SignedPdf) => {
-    const url = toAbsoluteUrl(it.fileUrl);
+    const url = toAuthedUrl(it.fileUrl);
     if (!url) return;
     const a = document.createElement('a');
     a.href = url;
