@@ -14,7 +14,7 @@ router.get('/', async (_req, res) => {
       `SELECT ${SEL} FROM erp_expense_categories ORDER BY ordem ASC, label ASC`
     );
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.post('/', async (req, res) => {
@@ -32,7 +32,7 @@ router.post('/', async (req, res) => {
       [norm, String(label).trim(), color || null, ordem != null ? Number(ordem) : null]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.put('/:id', async (req, res) => {
@@ -49,7 +49,7 @@ router.put('/:id', async (req, res) => {
       [req.params.id, label || null, color || null, ativo, ordem != null ? Number(ordem) : null]
     );
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
@@ -64,7 +64,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
     }
     await pool.query(`DELETE FROM erp_expense_categories WHERE id=$1`, [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 export default router;

@@ -21,7 +21,7 @@ router.get('/', async (_req, res) => {
     res.json(r.rows);
   } catch (e: any) {
     console.error('[ERP companies GET]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -71,7 +71,7 @@ router.post('/', async (req, res) => {
     if (String(e.message).includes('duplicate key')) {
       return res.status(400).json({ error: 'CNPJ já cadastrado' });
     }
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -101,7 +101,7 @@ router.put('/:id', async (req, res) => {
     res.json(r.rows[0]);
   } catch (e: any) {
     console.error('[ERP companies PUT]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -112,7 +112,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
     res.json({ ok: true });
   } catch (e: any) {
     console.error('[ERP companies DELETE]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 

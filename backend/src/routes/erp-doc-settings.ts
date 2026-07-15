@@ -21,7 +21,7 @@ router.get('/', async (_req, res) => {
       doc: d, startNumber: 0, includeYear: d === 'ORC' || d === 'OS', padding: 4, prefix: d,
     });
     res.json(rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.put('/:doc', async (req, res) => {
@@ -42,7 +42,7 @@ router.put('/:doc', async (req, res) => {
        Math.max(1, Number(padding) || 4), prefix || null]
     );
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 export default router;

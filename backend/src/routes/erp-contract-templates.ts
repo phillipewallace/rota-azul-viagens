@@ -36,7 +36,7 @@ router.get('/', async (_req, res) => {
         ORDER BY CASE tipo WHEN 'obra' THEN 1 WHEN 'evento' THEN 2 ELSE 3 END`
     );
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.get('/:tipo', async (req, res) => {
@@ -50,7 +50,7 @@ router.get('/:tipo', async (req, res) => {
       [tipo]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.put('/:tipo', async (req, res) => {
@@ -71,7 +71,7 @@ router.put('/:tipo', async (req, res) => {
       [tipo, titulo, corpo]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.post('/:tipo/reset', async (req, res) => {
@@ -89,7 +89,7 @@ router.post('/:tipo/reset', async (req, res) => {
       [tipo, DEFAULTS[tipo].titulo, DEFAULTS[tipo].corpo_html]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 export default router;

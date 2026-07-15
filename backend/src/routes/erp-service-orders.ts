@@ -50,7 +50,7 @@ router.get('/', async (req, res) => {
     res.json(r.rows);
   } catch (e: any) {
     console.error('[erp-service-orders GET]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -73,7 +73,7 @@ router.get('/notifications/upcoming', async (_req, res) => {
                        WHERE s.os_id=o.id AND s.devolvido_em IS NULL AND sa.status='em_cliente'),0) = 0
        ORDER BY o.data_entrega ASC`);
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 
@@ -86,7 +86,7 @@ router.get('/overdue/count', async (_req, res) => {
          AND data_fim_prevista IS NOT NULL
          AND data_fim_prevista < CURRENT_DATE`);
     res.json({ overdue: r.rows[0].qtd });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // Resumo financeiro: receita por período, status, tipo de locação
@@ -127,7 +127,7 @@ router.get('/financial/summary', async (req, res) => {
         count: rows.rows.length,
       },
     });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // Relatório financeiro COMPLETO: OS + itens (via quote) + sanitários + manutenções + breakdowns
@@ -257,7 +257,7 @@ router.get('/financial/complete', async (req, res) => {
     });
   } catch (e: any) {
     console.error('[financial/complete]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -284,7 +284,7 @@ router.get('/movements/history', async (req, res) => {
       params
     );
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 
@@ -340,7 +340,7 @@ router.get('/:id', async (req, res) => {
     // [fix] Frete vive no orçamento (não há coluna na OS). Devolvemos aqui
     // para o gerador de contrato separar corretamente locação × frete.
     res.json({ ...row, sanitarios: sans.rows, items, companySnapshot, frete: freteFromQuote });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // Cria OS manualmente
@@ -388,7 +388,7 @@ router.post('/', async (req, res) => {
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-service-orders POST]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -451,7 +451,7 @@ router.post('/:id/close', async (req: any, res) => {
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-service-orders close]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -471,7 +471,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
     res.json({ ok: true });
   } catch (e: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -545,7 +545,7 @@ router.post('/:id/deliver', async (req: any, res) => {
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-service-orders deliver]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 

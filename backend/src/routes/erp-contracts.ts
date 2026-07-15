@@ -53,7 +53,7 @@ router.get('/', async (req, res) => {
       params
     );
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.get('/:id', async (req, res) => {
@@ -68,7 +68,7 @@ router.get('/:id', async (req, res) => {
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.post('/', async (req, res) => {
@@ -123,7 +123,7 @@ router.post('/', async (req, res) => {
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-contracts POST]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -179,7 +179,7 @@ router.put('/:id', async (req, res) => {
        c.responsavelNome ?? null, c.responsavelTelefone ?? null, c.responsavelEmail ?? null]
     );
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 
@@ -198,7 +198,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
     const r = await pool.query('DELETE FROM erp_contracts WHERE id=$1 RETURNING id', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 

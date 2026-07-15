@@ -57,7 +57,7 @@ router.get('/', async (req, res) => {
       params
     );
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 
@@ -97,7 +97,7 @@ router.get('/pending', async (req, res) => {
       [competencia]
     );
     res.json({ competencia, pendentes: r.rows });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 
@@ -263,7 +263,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-receipts generate]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -328,7 +328,7 @@ router.patch('/:id/pago', requireRole(...FIN_ROLES), async (req: any, res) => {
       ]
     );
     res.json({ ok: true, status: finalStatus, valorPago: finalValorPago });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 
@@ -357,7 +357,7 @@ router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res) => {
       [req.params.id, String(motivo).trim(), actor]
     );
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 
@@ -373,7 +373,7 @@ router.post('/:id/reopen', requireRole(...FIN_ROLES), async (req, res) => {
     }
     await pool.query('DELETE FROM erp_receipts WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // GET /summary?months=12 — série mensal para gráfico
@@ -444,7 +444,7 @@ router.get('/summary', async (req, res) => {
       .sort((a, b) => a.competencia.localeCompare(b.competencia))
       .map(r => ({ ...r, resultado: r.recebido - r.gasto }));
     res.json({ series });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
@@ -459,7 +459,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
     }
     await pool.query('DELETE FROM erp_receipts WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 export default router;
