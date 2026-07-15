@@ -598,4 +598,159 @@ router.post('/:id/deliver', async (req: any, res) => {
   } finally { client.release(); }
 });
 
+
+// Converte uma OS em Contrato (rascunho), copiando dados chave e criando o vínculo.
+// - 1 contrato por OS (índice único). Se já convertida, devolve 409 com o contrato existente.
+// - Não altera status da OS: ela continua aberta/fechada normalmente.
+// - Aceita overrides opcionais no body: diaVencimento, renovacaoAutomatica, cno,
+//   observacoes, dataFim, descricao.
+router.post('/:id/convert-to-contract', async (req: any, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Carrega OS travando a linha (evita conversão concorrente duplicada).
+    const osQ = await client.query(
+      `SELECT o.*,
+              cu.customer_name, cu.document AS customer_document, cu.address AS customer_address,
+              cu.email AS customer_email, cu.phone AS customer_phone,
+              c.razao_social, c.cnpj, c.inscricao_estadual,
+              c.endereco AS company_endereco, c.cidade AS company_cidade, c.estado AS company_estado,
+              c.telefone AS company_telefone, c.email AS company_email
+         FROM erp_service_orders o
+         LEFT JOIN customers cu ON cu.id = o.customer_id
+         LEFT JOIN erp_companies c ON c.id = o.company_id
+        WHERE o.id=$1 FOR UPDATE OF o`, [req.params.id]);
+    if (!osQ.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'OS não encontrada' }); }
+    const os = osQ.rows[0];
+
+    // Já convertida? devolve o contrato existente.
+    if (os.converted_contract_id) {
+      const ex = await client.query(
+        `SELECT id, numero FROM erp_contracts WHERE id=$1`, [os.converted_contract_id]);
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'OS já foi convertida em contrato',
+        contractId: ex.rows[0]?.id || os.converted_contract_id,
+        contractNumero: ex.rows[0]?.numero || null,
+      });
+    }
+
+    // Validações mínimas para gerar um contrato consistente.
+    if (!os.customer_id) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'OS sem cliente vinculado — impossível gerar contrato' }); }
+    if (!os.company_id)  { await client.query('ROLLBACK'); return res.status(400).json({ error: 'OS sem empresa emissora — impossível gerar contrato' }); }
+
+    // Snapshots atuais (mesma lógica do POST /erp/contracts).
+    const compQ = await client.query('SELECT * FROM erp_companies WHERE id=$1', [os.company_id]);
+    const custQ = await client.query('SELECT * FROM customers WHERE id=$1', [os.customer_id]);
+    const companySnap = compQ.rows[0] || null;
+    const customerSnap = custQ.rows[0] || os.customer_snapshot || null;
+
+    // Frete + responsável vêm do orçamento vinculado (fonte única já usada nos PDFs).
+    let frete = 0;
+    let responsavelNome: string | null = null;
+    let responsavelTelefone: string | null = null;
+    let responsavelEmail: string | null = null;
+    if (os.quote_id) {
+      const qq = await client.query(
+        `SELECT frete, responsavel_nome, responsavel_telefone, responsavel_email
+           FROM erp_quotes WHERE id=$1`, [os.quote_id]);
+      if (qq.rows[0]) {
+        frete = Number(qq.rows[0].frete || 0);
+        responsavelNome     = qq.rows[0].responsavel_nome     || null;
+        responsavelTelefone = qq.rows[0].responsavel_telefone || null;
+        responsavelEmail    = qq.rows[0].responsavel_email    || null;
+      }
+    }
+
+    // Mapeia tipo do contrato a partir do tipo de locação da OS.
+    const tipoLoc = String(os.tipo_locacao || '').toLowerCase();
+    const tipoContrato: 'evento' | 'obra' | 'locacao' =
+      tipoLoc === 'evento' ? 'evento' : tipoLoc === 'obra' ? 'obra' : 'locacao';
+
+    const valorTotal = Number(os.valor_total || 0);
+    const isEvento = tipoContrato === 'evento';
+    const valorMensal = isEvento ? 0 : valorTotal;
+    const valorTotalEvento = isEvento ? valorTotal : null;
+
+    // Datas: privilegia data_entrega (quando existe) como início do contrato.
+    const dataInicio = os.data_entrega || os.data_inicio || new Date().toISOString().slice(0, 10);
+
+    // Overrides opcionais.
+    const body = req.body || {};
+    const diaVencimento = Number.isInteger(body.diaVencimento) && body.diaVencimento >= 1 && body.diaVencimento <= 28
+      ? body.diaVencimento : 10;
+    const renovacaoAutomatica = typeof body.renovacaoAutomatica === 'boolean' ? body.renovacaoAutomatica : true;
+    const cno = body.cno ? String(body.cno).trim() : null;
+    const descricao = body.descricao ? String(body.descricao).trim() : `Gerado automaticamente a partir da OS ${os.numero}`;
+    const observacoes = body.observacoes != null ? String(body.observacoes) : (os.observacoes || null);
+    const dataFim = body.dataFim || os.data_fim_prevista || null;
+
+    // Numeração via helper.
+    const numQ = await client.query(`SELECT erp_next_doc_number('CTR') AS num`);
+    const numero = numQ.rows[0].num;
+
+    let insId: string;
+    try {
+      const ins = await client.query(
+        `INSERT INTO erp_contracts
+           (numero, company_id, customer_id, os_id, origem, descricao,
+            tipo_contrato, data_inicio, data_fim,
+            data_evento, data_recolhimento, local_evento, hora_entrega, valor_total_evento,
+            dia_vencimento, valor_mensal,
+            renovacao_automatica, ativo, observacoes,
+            company_snapshot, customer_snapshot, frete, endereco_obra, cno,
+            responsavel_nome, responsavel_telefone, responsavel_email)
+         VALUES ($1,$2,$3,$4,'sistema',$5,
+                 $6,$7,$8,
+                 $9,$10,$11,$12,$13,
+                 $14,$15,
+                 $16,TRUE,$17,
+                 $18,$19,$20,$21,$22,
+                 $23,$24,$25)
+         RETURNING id, numero`,
+        [numero, os.company_id, os.customer_id, os.id, descricao,
+         tipoContrato, dataInicio, dataFim,
+         isEvento ? (os.data_entrega || os.data_inicio) : null,
+         os.data_recolhimento || null,
+         os.local_evento || null,
+         os.hora_entrega || null,
+         valorTotalEvento,
+         diaVencimento, valorMensal,
+         renovacaoAutomatica, observacoes,
+         companySnap, customerSnap, frete,
+         os.endereco_entrega || null, cno,
+         responsavelNome, responsavelTelefone, responsavelEmail]
+      );
+      insId = ins.rows[0].id;
+    } catch (e: any) {
+      // Corrida: outra requisição pode ter criado o contrato entre nossa checagem e o INSERT.
+      if (e && (e.code === '23505')) {
+        await client.query('ROLLBACK');
+        const ex = await pool.query(
+          `SELECT id, numero FROM erp_contracts WHERE os_id=$1 LIMIT 1`, [os.id]);
+        return res.status(409).json({
+          error: 'OS já foi convertida em contrato',
+          contractId: ex.rows[0]?.id || null,
+          contractNumero: ex.rows[0]?.numero || null,
+        });
+      }
+      throw e;
+    }
+
+    // Vincula na OS (status permanece inalterado — só cria o link).
+    await client.query(
+      `UPDATE erp_service_orders
+          SET converted_contract_id = $2, converted_at = NOW(), updated_at = NOW()
+        WHERE id = $1`, [os.id, insId]);
+
+    await client.query('COMMIT');
+    res.json({ ok: true, contractId: insId, contractNumero: numero });
+  } catch (e: any) {
+    await client.query('ROLLBACK');
+    console.error('[erp-service-orders convert-to-contract]', e);
+    sendError(res, e);
+  } finally { client.release(); }
+});
+
 export default router;
