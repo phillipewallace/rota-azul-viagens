@@ -3,7 +3,7 @@
  * fechamento devolve sanitários, exportação financeira e histórico de movimentação.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ClipboardList, AlertTriangle, CheckCircle2, RefreshCcw, Trash2, Loader2, Search,
   FileDown, History, X, ChevronDown, ChevronRight, MapPin, Calendar, User, Building2, Package,
