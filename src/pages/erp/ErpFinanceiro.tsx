@@ -57,7 +57,7 @@ import { VincularNfDialog } from '@/components/erp/VincularNfDialog';
 import { medicoesService, type Medicao } from '@/services/medicoes';
 import { MedicaoDialog } from '@/components/erp/MedicaoDialog';
 import { MedicaoViewDialog } from '@/components/erp/MedicaoViewDialog';
-import { toAbsoluteUrl } from '@/utils/absoluteUrl';
+import { toAbsoluteUrl, toAuthedUrl } from '@/utils/absoluteUrl';
 import { generateReceiptPdf, generateUnifiedReceiptPdf } from '@/utils/receiptPdf';
 import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
@@ -320,19 +320,26 @@ const ErpFinanceiro: React.FC = () => {
   }, [competencia]);
   useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
 
-  // Carga das Notas Fiscais (competência atual)
+  // Carga das Notas Fiscais.
+  // Empurra filtros server-side (status/forma/empresa) para reduzir payload.
+  // A busca textual (nfSearch) permanece client-side para UX de digitação.
   const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
     try {
-      const r = await invoicesService.list(
-        nfFrom || nfTo ? { from: nfFrom || undefined, to: nfTo || undefined }
-                       : { competencia },
-      );
+      const usaRange = !!(nfFrom || nfTo);
+      const r = await invoicesService.list({
+        ...(usaRange ? { from: nfFrom || undefined, to: nfTo || undefined }
+                     : { competencia }),
+        status: nfStatus !== 'all' ? nfStatus : undefined,
+        formaPagamento: nfForma !== 'all' ? nfForma : undefined,
+        companyId: nfCompanyId !== 'all' ? nfCompanyId : undefined,
+      });
       if (mountedRef.current) setInvoices(r);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setInvoicesLoading(false); }
-  }, [competencia, nfFrom, nfTo]);
+  }, [competencia, nfFrom, nfTo, nfStatus, nfForma, nfCompanyId]);
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
+
 
   // Total do mês anterior (para delta no KPI)
   useEffect(() => {
@@ -2037,7 +2044,7 @@ const ErpFinanceiro: React.FC = () => {
                   { label: periodoLabel, value: String(doPeriodo.length), icon: FileText },
                   { label: totalLabel, value: BRL(doPeriodo.reduce((s, i) => s + Number(i.valor || 0), 0)), icon: DollarSign },
                   { label: 'Ticket médio', value: BRL(ticket), icon: ReceiptIcon },
-                  { label: 'Total geral', value: String(ativas.length), icon: CheckCircle2 },
+                  { label: 'NFs ativas no período', value: String(ativas.length), icon: CheckCircle2 },
                 ];
 
                 return (
@@ -2110,20 +2117,16 @@ const ErpFinanceiro: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {(() => {
+                      // Filtros status/forma/empresa/período são aplicados no servidor
+                      // (ver loadInvoices). Aqui só refinamos a busca textual.
                       const term = nfSearch.trim().toLowerCase();
-                      const empresaAlvo = nfCompanyId !== 'all'
-                        ? (companies.find(c => c.id === nfCompanyId)?.razaoSocial || '').toLowerCase()
-                        : '';
-                      const filtradas = invoices.filter(i => {
-                        if (nfStatus !== 'all' && i.status !== nfStatus) return false;
-                        if (nfForma  !== 'all' && i.formaPagamento !== nfForma) return false;
-                        if (empresaAlvo && !(i.companyRazaoSocial || '').toLowerCase().includes(empresaAlvo)) return false;
-                        if (term) {
-                          const hay = `${i.numero} ${i.serie || ''} ${i.customerName || ''} ${i.contractNumero || ''} ${i.companyRazaoSocial || ''}`.toLowerCase();
-                          if (!hay.includes(term)) return false;
-                        }
-                        return true;
-                      });
+                      const filtradas = term
+                        ? invoices.filter(i => {
+                            const hay = `${i.numero} ${i.serie || ''} ${i.customerName || ''} ${i.contractNumero || ''} ${i.companyRazaoSocial || ''}`.toLowerCase();
+                            return hay.includes(term);
+                          })
+                        : invoices;
+
                       if (invoicesLoading) {
                         return (<TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando notas fiscais…</TableCell></TableRow>);
                       }
@@ -2149,17 +2152,19 @@ const ErpFinanceiro: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap space-x-1">
                             <Button
                               size="sm" variant="ghost"
-                              onClick={() => window.open(toAbsoluteUrl(i.pdfUrl), '_blank', 'noopener')}
+                              onClick={() => window.open(toAuthedUrl(i.pdfUrl), '_blank', 'noopener,noreferrer')}
                               title="Ver PDF">
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               size="sm" variant="ghost" asChild title="Baixar PDF">
-                              <a href={toAbsoluteUrl(i.pdfUrl)}
+                              <a href={toAuthedUrl(i.pdfUrl)}
+                                rel="noopener noreferrer"
                                 download={i.pdfOriginalFilename || `nf-${i.numero}.pdf`}>
                                 <Download className="h-3.5 w-3.5" />
                               </a>
                             </Button>
+
                             {i.status === 'ativa' && (
                               <Button
                                 size="sm" variant="ghost"
@@ -2452,7 +2457,7 @@ const ErpFinanceiro: React.FC = () => {
 
       {/* Cancelar NF */}
       <Dialog open={!!nfCancelTarget} onOpenChange={(o) => { if (!o) { setNfCancelTarget(null); setNfCancelMotivo(''); } }}>
-        <DialogContent>
+        <DialogContent className="max-w-md w-[calc(100vw-2rem)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-rose-600" /> Cancelar Nota Fiscal
@@ -2464,14 +2469,22 @@ const ErpFinanceiro: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label className="text-xs">Motivo</Label>
+            <Label className="text-xs" htmlFor="nf-cancel-motivo">Motivo *</Label>
             <Textarea
+              id="nf-cancel-motivo"
+              autoFocus
               value={nfCancelMotivo}
               onChange={(e) => setNfCancelMotivo(e.target.value)}
               placeholder="Ex.: NF emitida com dados errados, cliente pediu reemissão…"
               className="min-h-[90px]"
+              aria-invalid={!nfCancelMotivo.trim()}
+              aria-describedby="nf-cancel-motivo-help"
             />
+            <p id="nf-cancel-motivo-help" className="text-[11px] text-muted-foreground">
+              O motivo fica registrado no histórico para auditoria.
+            </p>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => { setNfCancelTarget(null); setNfCancelMotivo(''); }}>
               Voltar

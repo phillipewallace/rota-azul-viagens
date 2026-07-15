@@ -5,6 +5,10 @@ import { requireAuth, requireRole } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
+// Papéis autorizados a mutar recibos (gerar, marcar pago, cancelar, reabrir).
+const FIN_ROLES = ['admin', 'manager'] as const;
+
+
 const SELECT = `
   r.id, r.numero, r.contract_id AS "contractId", r.competencia,
   r.periodo_inicio AS "periodoInicio", r.periodo_fim AS "periodoFim",
@@ -97,7 +101,7 @@ router.get('/pending', async (req, res) => {
 
 
 // Gera (ou regera) recibo da competência. Se já existir, atualiza valor e marca regerado.
-router.post('/generate', async (req, res) => {
+router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   const {
     contractId, competencia: comp, valor, pago = true, regerar = false,
     periodoInicio, periodoFim, semValidade = false,
@@ -268,7 +272,7 @@ router.post('/generate', async (req, res) => {
  *   0 < valorPago < valor       → 'parcial'
  *   valorPago == 0 ou null      → 'aberto'
  */
-router.patch('/:id/pago', async (req, res) => {
+router.patch('/:id/pago', requireRole(...FIN_ROLES), async (req: any, res) => {
   try {
     const { pago, formaPagamento, dataPagamento, valorPago, status: statusIn } = req.body || {};
     const cur = await pool.query('SELECT valor, status FROM erp_receipts WHERE id=$1', [req.params.id]);
@@ -296,6 +300,7 @@ router.patch('/:id/pago', async (req, res) => {
 
     const finalPagoBool = finalStatus === 'pago';
     const finalDataPag  = (finalStatus === 'aberto') ? null : (dataPagamento || new Date().toISOString().slice(0, 10));
+    const actor = req.user?.username || req.user?.name || null;
 
     await pool.query(
       `UPDATE erp_receipts
@@ -303,7 +308,9 @@ router.patch('/:id/pago', async (req, res) => {
               pago             = $3,
               valor_pago       = $4,
               forma_pagamento  = COALESCE($5, forma_pagamento),
-              data_pagamento   = $6
+              data_pagamento   = $6,
+              updated_by       = $7,
+              updated_at       = NOW()
         WHERE id = $1`,
       [
         req.params.id,
@@ -312,14 +319,16 @@ router.patch('/:id/pago', async (req, res) => {
         finalValorPago,
         formaPagamento || null,
         finalDataPag,
+        actor,
       ]
     );
     res.json({ ok: true, status: finalStatus, valorPago: finalValorPago });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+
 // POST /:id/cancel — marca recibo como cancelado preservando histórico
-router.post('/:id/cancel', async (req, res) => {
+router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res) => {
   try {
     const { motivo } = req.body || {};
     if (!motivo || !String(motivo).trim()) {
@@ -330,23 +339,27 @@ router.post('/:id/cancel', async (req, res) => {
     if (cur.rows[0].status === 'cancelado') {
       return res.status(409).json({ error: 'Recibo já está cancelado.' });
     }
+    const actor = req.user?.username || req.user?.name || null;
     await pool.query(
       `UPDATE erp_receipts
           SET status = 'cancelado',
               pago = FALSE,
               cancelado_em = NOW(),
-              motivo_cancelamento = $2
+              motivo_cancelamento = $2,
+              updated_by = $3,
+              updated_at = NOW()
         WHERE id = $1`,
-      [req.params.id, String(motivo).trim()]
+      [req.params.id, String(motivo).trim(), actor]
     );
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+
 // POST /:id/reopen — reverte um recibo CANCELADO ao estado "não faturado",
 // removendo-o para que a competência volte à lista de pendentes.
 // Uso típico: clique acidental no cancelar. Só funciona para status='cancelado'.
-router.post('/:id/reopen', async (req, res) => {
+router.post('/:id/reopen', requireRole(...FIN_ROLES), async (req, res) => {
   try {
     const cur = await pool.query('SELECT status FROM erp_receipts WHERE id=$1', [req.params.id]);
     if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });

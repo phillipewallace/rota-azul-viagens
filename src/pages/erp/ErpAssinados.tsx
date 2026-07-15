@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { erpService, type ErpCompany, type SignedPdf } from '@/services/erp';
-import { toAbsoluteUrl } from '@/utils/absoluteUrl';
+import { toAuthedUrl } from '@/utils/absoluteUrl';
 import { confirmDialog } from '@/lib/confirm';
 import { Files, Download, ExternalLink, Trash2, Search, RefreshCw, FileText } from 'lucide-react';
 
@@ -60,7 +60,7 @@ const ErpAssinados: React.FC = () => {
   }, [items, q]);
 
   const handleDownload = (it: SignedPdf) => {
-    const url = toAbsoluteUrl(it.fileUrl);
+    const url = toAuthedUrl(it.fileUrl);
     if (!url) return;
     const a = document.createElement('a');
     a.href = url;
@@ -168,7 +168,7 @@ const ErpAssinados: React.FC = () => {
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost" size="sm"
-                          onClick={() => window.open(toAbsoluteUrl(it.fileUrl) || '#', '_blank', 'noopener')}
+                          onClick={() => window.open(toAuthedUrl(it.fileUrl) || '#', '_blank', 'noopener,noreferrer')}
                           title="Abrir em nova aba"
                         >
                           <ExternalLink className="h-4 w-4" />
