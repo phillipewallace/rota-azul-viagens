@@ -113,20 +113,20 @@ router.get('/', async (req: any, res: any) => {
     }
 
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const from = `FROM erp_invoices i
+    const fromSql = `FROM erp_invoices i
          JOIN erp_contracts c ON c.id = i.contract_id
          LEFT JOIN erp_companies emp ON emp.id = c.company_id
          LEFT JOIN customers cu ON cu.id = c.customer_id
          ${where}`;
     const pg = parsePagination(req, params.length);
     const rowsQ = await pool.query(
-      `SELECT ${SELECT} ${from}
+      `SELECT ${SELECT} ${fromSql}
         ORDER BY i.data_emissao DESC, i.created_at DESC
         ${pg.sql}`,
       [...params, ...pg.params],
     );
     if (pg.paginated) {
-      const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${from}`, params);
+      const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${fromSql}`, params);
       return sendPaginated(res, rowsQ.rows, totalQ.rows[0].c, pg);
     }
     res.json(rowsQ.rows);
