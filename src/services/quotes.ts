@@ -152,7 +152,10 @@ export const serviceOrdersService = {
     return req<ServiceOrder[]>('GET', `/erp/service-orders${q ? '?' + q : ''}`);
   },
   /** Variante paginada — retorna envelope `{ data, total, page, pageSize }`. */
-  listPaged: (params?: { status?: string; overdue?: boolean } & PageParams) => {
+  listPaged: (params?: {
+    status?: string; overdue?: boolean;
+    tipoLocacao?: string; search?: string;
+  } & PageParams) => {
     const q = new URLSearchParams();
     Object.entries(params || {}).forEach(([k, v]) => {
       if (k === 'page' || k === 'pageSize') return;
@@ -161,6 +164,17 @@ export const serviceOrdersService = {
     appendPageParams(q, params);
     return req<Paged<ServiceOrder>>('GET', `/erp/service-orders?${q.toString()}`);
   },
+  /** Contagens por aba (respeita filtros tipo/search). */
+  counts: (params?: { tipoLocacao?: string; search?: string }) => {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+    });
+    const s = q.toString();
+    return req<{ todas: number; abertas: number; atrasadas: number; fechadas: number }>(
+      'GET', `/erp/service-orders/stats/counts${s ? '?' + s : ''}`);
+  },
+
   get: (id: string) => req<ServiceOrder & { sanitarios: any[]; items: any[]; companySnapshot: any; customer_snapshot?: any; quote_id?: string }>('GET', `/erp/service-orders/${id}`),
   create: (data: any) => req<{ id: string; numero: string }>('POST', '/erp/service-orders', data),
   close: (id: string, body?: { descricao?: string }) => req<{ ok: true; recolhidos?: boolean }>('POST', `/erp/service-orders/${id}/close`, body || {}),
