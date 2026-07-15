@@ -66,6 +66,7 @@ import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
 import { BRL } from '@/utils/currency';
 import PaginationBar from '@/components/PaginationBar';
+import { downloadCsv } from '@/utils/exporters';
 
 const D = (s?: string) => s ? formatDateBR(s) : '—';
 
