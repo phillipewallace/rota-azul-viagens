@@ -4,15 +4,10 @@ import { requireAuth, AuthedRequest, requireRole } from '../middleware/requireAu
 
 const router = Router();
 
-// Apenas admins
-function requireAdmin(req: AuthedRequest, res: Response, next: any) {
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: 'Acesso restrito a administradores' });
-  }
-  next();
-}
-
-router.use(requireAuth, requireAdmin);
+// Autenticação para todo o módulo; escrita restrita a admin/manager por rota.
+// (leituras liberadas p/ qualquer usuário autenticado — consistente com o resto do ERP.)
+router.use(requireAuth);
+const WRITE = requireRole('admin', 'manager');
 
 // ============ CATEGORIAS ============
 router.get('/categories', async (_req: Request, res: Response) => {
