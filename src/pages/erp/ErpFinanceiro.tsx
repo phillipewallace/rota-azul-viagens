@@ -2487,8 +2487,9 @@ const ErpFinanceiro: React.FC = () => {
               <XCircle className="h-4 w-4 mr-1" /> Cancelar NF
             </Button>
           </DialogFooter>
-        </Dialog>
+        </DialogContent>
       </Dialog>
+
 
 
 
