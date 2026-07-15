@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 /**
  * ERP · Medições — proposta de faturamento (pré-recibo).
  * CRUD + numeração sequencial (MED-YYYY-NNNN). Sem fluxo de pagamento:

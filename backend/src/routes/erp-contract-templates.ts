@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth } from '../middleware/requireAuth';

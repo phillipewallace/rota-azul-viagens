@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 /**
  * ERP → Assinatura → histórico de PDFs assinados.
  * Salva o arquivo em uploads/signed/<uuid>.pdf e registra metadata em erp_signed_pdfs.
