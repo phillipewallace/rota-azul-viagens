@@ -2428,6 +2428,70 @@ const ErpFinanceiro: React.FC = () => {
         }}
       />
 
+      {/* ============ Vincular Nota Fiscal (Marcar pago) ============ */}
+      <VincularNfDialog
+        open={!!nfDialogTarget}
+        onOpenChange={(o) => { if (!o) setNfDialogTarget(null); }}
+        pending={nfDialogTarget}
+        competencia={competencia}
+        onSuccess={async () => {
+          setNfDialogTarget(null);
+          await Promise.all([loadPendentes(), loadInvoices()]);
+          setActiveTab('notas');
+        }}
+      />
+
+      {/* Cancelar NF */}
+      <Dialog open={!!nfCancelTarget} onOpenChange={(o) => { if (!o) { setNfCancelTarget(null); setNfCancelMotivo(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-rose-600" /> Cancelar Nota Fiscal
+            </DialogTitle>
+            <DialogDescription>
+              A NF <span className="font-semibold text-foreground">{nfCancelTarget?.numero}</span>{' '}
+              será marcada como cancelada e o contrato voltará à lista de pendentes desta competência.
+              O PDF é preservado no histórico.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs">Motivo</Label>
+            <Textarea
+              value={nfCancelMotivo}
+              onChange={(e) => setNfCancelMotivo(e.target.value)}
+              placeholder="Ex.: NF emitida com dados errados, cliente pediu reemissão…"
+              className="min-h-[90px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setNfCancelTarget(null); setNfCancelMotivo(''); }}>
+              Voltar
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!nfCancelTarget) return;
+                if (!nfCancelMotivo.trim()) { toast.error('Informe o motivo.'); return; }
+                try {
+                  await invoicesService.cancel(nfCancelTarget.id, nfCancelMotivo.trim());
+                  toast.success(`NF ${nfCancelTarget.numero} cancelada`);
+                  setNfCancelTarget(null);
+                  setNfCancelMotivo('');
+                  await Promise.all([loadInvoices(), loadPendentes()]);
+                } catch (e: any) {
+                  toast.error(e?.message || 'Falha ao cancelar NF');
+                }
+              }}
+              disabled={!nfCancelMotivo.trim()}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              <XCircle className="h-4 w-4 mr-1" /> Cancelar NF
+            </Button>
+          </DialogFooter>
+        </Dialog>
+      </Dialog>
+
+
+
 
       {/* Barra flutuante de ações em lote — recibos */}
       {selectedRecibos.size > 0 && (
