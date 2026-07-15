@@ -41,14 +41,57 @@ interface CloseState {
   descricao: string;
 }
 
+interface MissingState {
+  os: ServiceOrder;
+  responsavelNome: string;
+  responsavelTelefone: string;
+  responsavelEmail: string;
+  enderecoEntrega: string;
+  dataEntrega: string;
+  valorTotal: string;
+  // quais campos foram detectados como obrigatórios/faltantes
+  need: {
+    responsavelNome: boolean;
+    responsavelTelefone: boolean;
+    enderecoEntrega: boolean;
+    dataEntrega: boolean;
+    valorTotal: boolean;
+  };
+}
+
 export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onChanged?: () => void; refreshKey?: number }) {
   const [list, setList] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [deliver, setDeliver] = useState<DeliverState | null>(null);
   const [closing, setClosing] = useState<CloseState | null>(null);
+  const [missing, setMissing] = useState<MissingState | null>(null);
+  const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+
+
+  const runConvert = async (
+    os: ServiceOrder,
+    overrides?: {
+      responsavelNome?: string; responsavelTelefone?: string; responsavelEmail?: string;
+      enderecoEntrega?: string; dataEntrega?: string; valorTotal?: number;
+    },
+  ) => {
+    try {
+      const r = await serviceOrdersService.convertToContract(os.id, overrides);
+      toast.success(`Contrato ${r.contractNumero} criado`, {
+        action: { label: 'Abrir', onClick: () => navigate(`/erp/contratos?search=${encodeURIComponent(r.contractNumero)}`) },
+      });
+      setMissing(null);
+      await load();
+      onChanged?.();
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (msg.includes('já foi convertida')) { toast.info(msg); await load(); }
+      else toast.error(msg || 'Erro ao converter em contrato');
+    }
+  };
 
   const sendToContracts = async (os: ServiceOrder) => {
     if (os.convertedContractId) {
@@ -63,20 +106,74 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
     if (!(await confirmDialog({
       description: `Criar contrato a partir da OS ${os.numero}? Ele aparecerá na aba Contratos para revisão/edição manual.`,
     }))) return;
+
+    // Busca detalhe da OS para conferir se todos os dados essenciais estão presentes
+    // (responsável, endereço, data de entrega, valor). Se faltar, abre modal.
     try {
-      const r = await serviceOrdersService.convertToContract(os.id);
-      toast.success(`Contrato ${r.contractNumero} criado`, {
-        action: { label: 'Abrir', onClick: () => navigate(`/erp/contratos?search=${encodeURIComponent(r.contractNumero)}`) },
-      });
-      await load();
-      onChanged?.();
+      const detail = await serviceOrdersService.get(os.id) as any;
+      const respNome  = (detail.responsavelNome     || '').toString().trim();
+      const respTel   = (detail.responsavelTelefone || '').toString().trim();
+      const respEmail = (detail.responsavelEmail    || '').toString().trim();
+      const endereco  = (detail.endereco_entrega    || detail.enderecoEntrega || os.enderecoEntrega || os.customerAddress || '').toString().trim();
+      const dataEntr  = (detail.data_entrega        || detail.dataEntrega     || os.dataEntrega || '').toString().slice(0, 10);
+      const valor     = Number(detail.valor_total ?? detail.valorTotal ?? os.valorTotal ?? 0);
+
+      const need = {
+        responsavelNome: !respNome,
+        responsavelTelefone: !respTel,
+        enderecoEntrega: !endereco,
+        dataEntrega: !dataEntr,
+        valorTotal: !(valor > 0),
+      };
+      const hasMissing = Object.values(need).some(Boolean);
+
+      if (hasMissing) {
+        setMissing({
+          os,
+          responsavelNome: respNome,
+          responsavelTelefone: respTel,
+          responsavelEmail: respEmail,
+          enderecoEntrega: endereco,
+          dataEntrega: dataEntr,
+          valorTotal: valor > 0 ? String(valor) : '',
+          need,
+        });
+        return;
+      }
+
+      await runConvert(os);
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (msg.includes('já foi convertida')) { toast.info(msg); await load(); }
-      else toast.error(msg || 'Erro ao converter em contrato');
+      toast.error(e?.message || 'Erro ao carregar dados da OS');
     }
   };
-  const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
+
+  const submitMissing = async () => {
+    if (!missing) return;
+    // Valida os obrigatórios preenchidos.
+    const errs: string[] = [];
+    if (missing.need.responsavelNome     && !missing.responsavelNome.trim())     errs.push('Nome do responsável');
+    if (missing.need.responsavelTelefone && !missing.responsavelTelefone.trim()) errs.push('Telefone do responsável');
+    if (missing.need.enderecoEntrega     && !missing.enderecoEntrega.trim())     errs.push('Endereço de entrega');
+    if (missing.need.dataEntrega         && !missing.dataEntrega.trim())         errs.push('Data de entrega');
+    if (missing.need.valorTotal) {
+      const v = Number(missing.valorTotal);
+      if (!(v > 0)) errs.push('Valor total (maior que zero)');
+    }
+    if (errs.length) { toast.error(`Preencha: ${errs.join(', ')}`); return; }
+
+    setBusy(true);
+    try {
+      await runConvert(missing.os, {
+        responsavelNome:     missing.responsavelNome.trim()     || undefined,
+        responsavelTelefone: missing.responsavelTelefone.trim() || undefined,
+        responsavelEmail:    missing.responsavelEmail.trim()    || undefined,
+        enderecoEntrega:     missing.enderecoEntrega.trim()     || undefined,
+        dataEntrega:         missing.dataEntrega.trim()         || undefined,
+        valorTotal:          missing.valorTotal.trim() ? Number(missing.valorTotal) : undefined,
+      });
+    } finally { setBusy(false); }
+  };
+
 
   const load = async () => {
     setLoading(true);
@@ -514,6 +611,76 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
           if (os) await downloadContractPdf(os, dataVencimento, preview, format);
         }}
       />
+
+      {/* Modal para preencher dados que faltam antes de gerar o contrato */}
+      <Dialog open={!!missing} onOpenChange={(o) => !o && setMissing(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Complete os dados do contrato · OS {missing?.os.numero}</DialogTitle>
+            <DialogDescription>
+              Alguns campos essenciais não estão preenchidos na OS. Informe abaixo para gerar o contrato.
+              Os campos já preenchidos vieram automaticamente do orçamento/OS.
+            </DialogDescription>
+          </DialogHeader>
+          {missing && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Responsável (nome) {missing.need.responsavelNome && <span className="text-red-600">*</span>}
+                  </label>
+                  <Input value={missing.responsavelNome}
+                         onChange={e => setMissing({ ...missing, responsavelNome: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Telefone {missing.need.responsavelTelefone && <span className="text-red-600">*</span>}
+                  </label>
+                  <Input value={missing.responsavelTelefone}
+                         onChange={e => setMissing({ ...missing, responsavelTelefone: e.target.value })}
+                         placeholder="(00) 00000-0000" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">E-mail do responsável (opcional)</label>
+                <Input type="email" value={missing.responsavelEmail}
+                       onChange={e => setMissing({ ...missing, responsavelEmail: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">
+                  Endereço de entrega {missing.need.enderecoEntrega && <span className="text-red-600">*</span>}
+                </label>
+                <Textarea rows={2} value={missing.enderecoEntrega}
+                          onChange={e => setMissing({ ...missing, enderecoEntrega: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Data de entrega {missing.need.dataEntrega && <span className="text-red-600">*</span>}
+                  </label>
+                  <Input type="date" value={missing.dataEntrega}
+                         onChange={e => setMissing({ ...missing, dataEntrega: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Valor total (R$) {missing.need.valorTotal && <span className="text-red-600">*</span>}
+                  </label>
+                  <Input type="number" step="0.01" min="0" value={missing.valorTotal}
+                         onChange={e => setMissing({ ...missing, valorTotal: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setMissing(null)}>Cancelar</Button>
+            <Button onClick={submitMissing} disabled={busy} className="bg-indigo-600 hover:bg-indigo-700">
+              {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileSignature className="h-4 w-4 mr-1" />}
+              Gerar contrato
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }

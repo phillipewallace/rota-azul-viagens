@@ -663,21 +663,37 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
       }
     }
 
+    // Overrides opcionais (inclui campos preenchidos via modal quando faltam na OS).
+    const body = req.body || {};
+
     // Mapeia tipo do contrato a partir do tipo de locação da OS.
     const tipoLoc = String(os.tipo_locacao || '').toLowerCase();
     const tipoContrato: 'evento' | 'obra' | 'locacao' =
       tipoLoc === 'evento' ? 'evento' : tipoLoc === 'obra' ? 'obra' : 'locacao';
 
-    const valorTotal = Number(os.valor_total || 0);
+    // Aplica override de valor total (frontend pode passar body.valorTotal quando faltar).
+    const valorTotal = Number(body.valorTotal != null ? body.valorTotal : (os.valor_total || 0));
     const isEvento = tipoContrato === 'evento';
     const valorMensal = isEvento ? 0 : valorTotal;
     const valorTotalEvento = isEvento ? valorTotal : null;
 
-    // Datas: privilegia data_entrega (quando existe) como início do contrato.
-    const dataInicio = os.data_entrega || os.data_inicio || new Date().toISOString().slice(0, 10);
+    // Datas: privilegia override → data_entrega da OS → data_inicio → hoje.
+    const dataEntregaFinal = body.dataEntrega || os.data_entrega || null;
+    const dataInicio = dataEntregaFinal || os.data_inicio || new Date().toISOString().slice(0, 10);
 
-    // Overrides opcionais.
-    const body = req.body || {};
+    // Endereço de entrega — aceita override.
+    const enderecoEntregaFinal = (body.enderecoEntrega != null && String(body.enderecoEntrega).trim())
+      ? String(body.enderecoEntrega).trim()
+      : (os.endereco_entrega || null);
+
+    // Responsável — override vence sobre o valor do orçamento.
+    if (body.responsavelNome != null && String(body.responsavelNome).trim())
+      responsavelNome = String(body.responsavelNome).trim();
+    if (body.responsavelTelefone != null && String(body.responsavelTelefone).trim())
+      responsavelTelefone = String(body.responsavelTelefone).trim();
+    if (body.responsavelEmail != null && String(body.responsavelEmail).trim())
+      responsavelEmail = String(body.responsavelEmail).trim();
+
     const diaVencimento = Number.isInteger(body.diaVencimento) && body.diaVencimento >= 1 && body.diaVencimento <= 28
       ? body.diaVencimento : 10;
     const renovacaoAutomatica = typeof body.renovacaoAutomatica === 'boolean' ? body.renovacaoAutomatica : true;
@@ -711,7 +727,7 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
          RETURNING id, numero`,
         [numero, os.company_id, os.customer_id, os.id, descricao,
          tipoContrato, dataInicio, dataFim,
-         isEvento ? (os.data_entrega || os.data_inicio) : null,
+         isEvento ? dataEntregaFinal : null,
          os.data_recolhimento || null,
          os.local_evento || null,
          os.hora_entrega || null,
@@ -719,8 +735,9 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
          diaVencimento, valorMensal,
          renovacaoAutomatica, observacoes,
          companySnap, customerSnap, frete,
-         os.endereco_entrega || null, cno,
+         enderecoEntregaFinal, cno,
          responsavelNome, responsavelTelefone, responsavelEmail]
+
       );
       insId = ins.rows[0].id;
     } catch (e: any) {
