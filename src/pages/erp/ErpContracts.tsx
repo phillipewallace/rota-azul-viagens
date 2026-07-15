@@ -42,7 +42,7 @@ import { formatDateBR } from '@/utils/dateFormat';
 // Cliente vem do endpoint /customers que retorna camelCase (customerName)
 type Customer = { id: string; customerName: string; document?: string };
 
-const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { BRL } from '@/utils/currency';
 const D = (s?: string | null) => s ? formatDateBR(s) : '—';
 
 /** Dias até uma data (positivo = futuro, negativo = passado). Null se não houver data. */

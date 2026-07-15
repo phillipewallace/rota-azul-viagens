@@ -30,7 +30,7 @@ import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento, calcVencimentoBoleto, 
 import { formatDateBR, parseLocalDate } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
-const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { BRL } from '@/utils/currency';
 
 /** Dias até uma data ISO (positivo = futuro). */
 const daysBetween = (from: Date, iso?: string | null): number | null => {

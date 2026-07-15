@@ -14,8 +14,7 @@ import { formatDateBR } from '@/utils/dateFormat';
 import { maskCnpj, maskCpf } from '@/utils/brazilianDocs';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 
-const BRL = (n?: number | null) =>
-  (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { BRL } from '@/utils/currency';
 
 const D = (s?: string | null) => (s ? formatDateBR(s) : '—');
 

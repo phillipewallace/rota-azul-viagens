@@ -27,14 +27,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { parseLocalDate } from '@/utils/dateFormat';
 
 // ---------- helpers ----------
-const BRL = (n: number) =>
-  (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const BRLc = (n: number) => {
-  const v = Number(n) || 0;
-  if (Math.abs(v) >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(v) >= 1_000) return `R$ ${(v / 1_000).toFixed(1)}k`;
-  return BRL(v);
-};
+import { BRL, BRLc } from '@/utils/currency';
 const NUM = (n: number) => (Number(n) || 0).toLocaleString('pt-BR');
 const formatComp = (yyyyMm: string) => {
   const [y, m] = yyyyMm.split('-');
