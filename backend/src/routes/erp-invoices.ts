@@ -125,8 +125,7 @@ router.get('/', async (req: any, res: any) => {
     );
     res.json(r.rows);
   } catch (e: any) {
-    console.error('[erp-invoices GET]', e);
-    res.status(500).json({ error: e.message });
+    return sendError(res, e, '[erp-invoices GET]');
   }
 });
 
