@@ -172,6 +172,10 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     }
 
     const baseValor = Number(valor ?? ct.valor_mensal ?? 0);
+    if (!Number.isFinite(baseValor) || baseValor < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Valor do recibo inválido (número ≥ 0).' });
+    }
     const valorFinal = baseValor + freteAplicado;
 
     // Vencimento é definido pelo CONTRATO (dia_vencimento no mês da competência).
