@@ -21,6 +21,8 @@ pm2 restart all
 sudo -u postgres psql -d roteirizador1 -f database/migration-v2-categorias-fotos-concluidas.sql
 sudo -u postgres psql -d roteirizador1 -f database/migration-v2-sanitarios.sql
 sudo -u postgres psql -d roteirizador1 -f database/migration-v2-fixes.sql
+sudo -u postgres psql -d roteirizador1 -f database/migration-performance-indexes.sql
+sudo -u postgres psql -d roteirizador1 -c "ANALYZE customers, sanitarios, erp_expenses, erp_receipts, erp_signed_pdfs, erp_service_orders, erp_quotes;"
 sudo -u postgres psql -d roteirizador1 -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO lipe; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO lipe;"
 mkdir -p /var/www/rota-azul-viagens/backend/uploads/photos
 chown -R www-data:www-data /var/www/rota-azul-viagens/backend/uploads
