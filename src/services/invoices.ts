@@ -1,4 +1,6 @@
 import { API_BASE_URL } from './config';
+import { appendPageParams, type Paged, type PageParams } from '@/lib/pagination';
+
 
 const authHeader = () => {
   const t = localStorage.getItem('auth_token');
@@ -71,6 +73,19 @@ export const invoicesService = {
     if (p) Object.entries(p).forEach(([k, v]) => { if (v) q.set(k, String(v)); });
     const s = q.toString();
     return reqJson<Invoice[]>('GET', `/erp/invoices${s ? '?' + s : ''}`);
+  },
+  /**
+   * Variante paginada — retorna `{ data, total, page, pageSize }`.
+   * Use `page`/`pageSize` para acionar; o backend faz o COUNT(*).
+   */
+  listPaged: (p?: InvoiceListParams & PageParams) => {
+    const q = new URLSearchParams();
+    if (p) Object.entries(p).forEach(([k, v]) => {
+      if (k === 'page' || k === 'pageSize') return;
+      if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+    });
+    appendPageParams(q, p);
+    return reqJson<Paged<Invoice>>('GET', `/erp/invoices?${q.toString()}`);
   },
   get: (id: string) => reqJson<Invoice>('GET', `/erp/invoices/${id}`),
   create: (data: {

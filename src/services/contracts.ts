@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './config';
+import { appendPageParams, type Paged, type PageParams } from '@/lib/pagination';
 
 const headers = () => {
   const t = localStorage.getItem('auth_token');
@@ -76,6 +77,14 @@ export const contractsService = {
     const s = q.toString();
     return req<Contract[]>('GET', `/erp/contracts${s ? '?' + s : ''}`);
   },
+  /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
+  listPaged: (params?: { ativo?: boolean; customerId?: string } & PageParams) => {
+    const q = new URLSearchParams();
+    if (params?.ativo !== undefined) q.set('ativo', String(params.ativo));
+    if (params?.customerId) q.set('customerId', params.customerId);
+    appendPageParams(q, params);
+    return req<Paged<Contract>>('GET', `/erp/contracts?${q.toString()}`);
+  },
   get: (id: string) => req<Contract>('GET', `/erp/contracts/${id}`),
   create: (data: Partial<Contract>) => req<{ id: string; numero: string }>('POST', '/erp/contracts', data),
   update: (id: string, data: Partial<Contract>) => req<{ ok: true }>('PUT', `/erp/contracts/${id}`, data),
@@ -149,6 +158,17 @@ export const receiptsService = {
     if (params?.to) q.set('to', params.to);
     const s = q.toString();
     return req<Receipt[]>('GET', `/erp/receipts${s ? '?' + s : ''}`);
+  },
+  /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
+  listPaged: (params?: { contractId?: string; competencia?: string; pago?: boolean; from?: string; to?: string } & PageParams) => {
+    const q = new URLSearchParams();
+    if (params?.contractId) q.set('contractId', params.contractId);
+    if (params?.competencia) q.set('competencia', params.competencia);
+    if (params?.pago !== undefined) q.set('pago', String(params.pago));
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    appendPageParams(q, params);
+    return req<Paged<Receipt>>('GET', `/erp/receipts?${q.toString()}`);
   },
 
   pending: (competencia?: string) =>
