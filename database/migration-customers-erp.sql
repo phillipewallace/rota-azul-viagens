@@ -26,10 +26,17 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS responsavel_nome TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS responsavel_cpf TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS tipo_cliente TEXT;
 
-UPDATE customers
-   SET customer_name = COALESCE(customer_name, name),
-       contact_phone = COALESCE(contact_phone, phone)
- WHERE customer_name IS NULL OR contact_phone IS NULL;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='customers' AND column_name='name') THEN
+    EXECUTE 'UPDATE customers SET customer_name = COALESCE(customer_name, name) WHERE customer_name IS NULL';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='customers' AND column_name='phone') THEN
+    EXECUTE 'UPDATE customers SET contact_phone = COALESCE(contact_phone, phone) WHERE contact_phone IS NULL';
+  END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_document_unique
   ON customers (document) WHERE document IS NOT NULL AND document <> '';
