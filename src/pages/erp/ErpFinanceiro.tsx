@@ -296,8 +296,10 @@ const ErpFinanceiro: React.FC = () => {
 
   // Conveniência: recarrega tudo (usada pelo botão Atualizar e após ações).
   const load = useCallback(async () => {
-    await Promise.all([loadPendentes(), loadRecibos(), loadInvoices()]);
-  }, [loadPendentes, loadRecibos, loadInvoices]);
+    // loadInvoices tem seu próprio useEffect; recarrega automaticamente
+    // quando a competência muda ou quando chamado via onSuccess do dialog.
+    await Promise.all([loadPendentes(), loadRecibos()]);
+  }, [loadPendentes, loadRecibos]);
 
   useEffect(() => { loadPendentes(); }, [loadPendentes]);
   useEffect(() => { loadRecibos(); }, [loadRecibos]);
