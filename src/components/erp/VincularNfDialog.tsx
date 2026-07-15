@@ -44,9 +44,13 @@ export const VincularNfDialog: React.FC<Props> = ({
   const [serie, setSerie] = useState('');
   const [dataEmissao, setDataEmissao] = useState(todayISO());
   const [valor, setValor] = useState('');
-  const [formaPagamento, setFormaPagamento] = useState<InvoiceFormaPagamento>('pix');
+  // Vazio como default — evita gravar "pix" silenciosamente quando o usuário
+  // não interage. Validado no submit.
+  const [formaPagamento, setFormaPagamento] = useState<InvoiceFormaPagamento | ''>('');
   const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const MAX_FILE_MB = 50;
 
   useEffect(() => {
     if (open && pending) {
@@ -55,19 +59,33 @@ export const VincularNfDialog: React.FC<Props> = ({
       setSerie('');
       setDataEmissao(todayISO());
       setValor(String(Number(pending.valorMensal || 0).toFixed(2)));
-      setFormaPagamento('pix');
+      setFormaPagamento('');
       setObservacoes('');
     }
   }, [open, pending]);
 
   if (!pending) return null;
 
+  const handleFileChange = (f: File | null) => {
+    if (!f) { setFile(null); return; }
+    if (!/pdf/i.test(f.type) && !/\.pdf$/i.test(f.name)) {
+      toast.error('Somente PDF é aceito.');
+      return;
+    }
+    if (f.size > MAX_FILE_MB * 1024 * 1024) {
+      toast.error(`Arquivo muito grande (${(f.size / 1024 / 1024).toFixed(1)} MB). Máximo: ${MAX_FILE_MB} MB.`);
+      return;
+    }
+    setFile(f);
+  };
+
   const handleSubmit = async () => {
-    if (!file)               { toast.error('Selecione o PDF da nota fiscal.'); return; }
-    if (!numero.trim())      { toast.error('Informe o número da NF.'); return; }
-    if (!dataEmissao)        { toast.error('Informe a data de emissão.'); return; }
+    if (!file)                { toast.error('Selecione o PDF da nota fiscal.'); return; }
+    if (!numero.trim())       { toast.error('Informe o número da NF.'); return; }
+    if (!dataEmissao)         { toast.error('Informe a data de emissão.'); return; }
+    if (!formaPagamento)      { toast.error('Selecione a forma de pagamento.'); return; }
     const val = Number(valor.replace(',', '.'));
-    if (!(val > 0))          { toast.error('Valor inválido.'); return; }
+    if (!(val > 0))           { toast.error('Valor inválido.'); return; }
 
     setSaving(true);
     try {
@@ -79,7 +97,7 @@ export const VincularNfDialog: React.FC<Props> = ({
         serie: serie.trim() || undefined,
         dataEmissao,
         valor: val,
-        formaPagamento,
+        formaPagamento: formaPagamento as InvoiceFormaPagamento,
         observacoes: observacoes.trim() || undefined,
       });
       toast.success(`NF ${numero.trim()} vinculada ao contrato ${pending.contractNumero}`);
@@ -91,6 +109,7 @@ export const VincularNfDialog: React.FC<Props> = ({
       setSaving(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!saving) onOpenChange(o); }}>
