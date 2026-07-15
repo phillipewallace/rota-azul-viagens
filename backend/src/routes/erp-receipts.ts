@@ -328,7 +328,7 @@ router.patch('/:id/pago', requireRole(...FIN_ROLES), async (req: any, res) => {
 
 
 // POST /:id/cancel — marca recibo como cancelado preservando histórico
-router.post('/:id/cancel', async (req, res) => {
+router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res) => {
   try {
     const { motivo } = req.body || {};
     if (!motivo || !String(motivo).trim()) {
@@ -339,18 +339,22 @@ router.post('/:id/cancel', async (req, res) => {
     if (cur.rows[0].status === 'cancelado') {
       return res.status(409).json({ error: 'Recibo já está cancelado.' });
     }
+    const actor = req.user?.username || req.user?.name || null;
     await pool.query(
       `UPDATE erp_receipts
           SET status = 'cancelado',
               pago = FALSE,
               cancelado_em = NOW(),
-              motivo_cancelamento = $2
+              motivo_cancelamento = $2,
+              updated_by = $3,
+              updated_at = NOW()
         WHERE id = $1`,
-      [req.params.id, String(motivo).trim()]
+      [req.params.id, String(motivo).trim(), actor]
     );
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
+
 
 // POST /:id/reopen — reverte um recibo CANCELADO ao estado "não faturado",
 // removendo-o para que a competência volte à lista de pendentes.
