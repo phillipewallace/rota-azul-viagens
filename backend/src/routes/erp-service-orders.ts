@@ -10,15 +10,23 @@ router.use(requireAuth);
 // Lista (com flag de atraso para diárias)
 router.get('/', async (req, res) => {
   try {
-    const { status, overdue } = req.query as any;
+    const { status, overdue, tipoLocacao, search } = req.query as Record<string, string | undefined>;
     const conds: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     // [#12 alto] quando overdue=true, ignora status (já força 'aberta'), evitando AND conflitante.
     if (overdue === 'true') {
       conds.push(`o.status = 'aberta' AND o.modalidade='diaria' AND o.data_fim_prevista IS NOT NULL AND o.data_fim_prevista < CURRENT_DATE`);
     } else if (status) {
       params.push(status);
       conds.push(`o.status = $${params.length}`);
+    }
+    if (tipoLocacao) {
+      params.push(tipoLocacao);
+      conds.push(`o.tipo_locacao = $${params.length}`);
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      conds.push(`(o.numero ILIKE $${params.length} OR cu.customer_name ILIKE $${params.length})`);
     }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const fromSql = `FROM erp_service_orders o
@@ -60,6 +68,33 @@ router.get('/', async (req, res) => {
     sendError(res, e);
   }
 });
+
+// Contadores por aba (todas/abertas/atrasadas/fechadas) — respeita filtros de tipo/busca
+router.get('/stats/counts', async (req, res) => {
+  try {
+    const { tipoLocacao, search } = req.query as Record<string, string | undefined>;
+    const conds: string[] = [];
+    const params: unknown[] = [];
+    if (tipoLocacao) { params.push(tipoLocacao); conds.push(`o.tipo_locacao = $${params.length}`); }
+    if (search) { params.push(`%${search}%`); conds.push(`(o.numero ILIKE $${params.length} OR cu.customer_name ILIKE $${params.length})`); }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const q = await pool.query(`
+      SELECT
+        COUNT(*)::int AS todas,
+        COUNT(*) FILTER (WHERE o.status='aberta' AND NOT (
+          o.modalidade='diaria' AND o.data_fim_prevista IS NOT NULL AND o.data_fim_prevista < CURRENT_DATE
+        ))::int AS abertas,
+        COUNT(*) FILTER (WHERE o.status='aberta' AND o.modalidade='diaria'
+                          AND o.data_fim_prevista IS NOT NULL
+                          AND o.data_fim_prevista < CURRENT_DATE)::int AS atrasadas,
+        COUNT(*) FILTER (WHERE o.status='fechada')::int AS fechadas
+      FROM erp_service_orders o
+      LEFT JOIN customers cu ON cu.id = o.customer_id
+      ${where}`, params);
+    res.json(q.rows[0] || { todas: 0, abertas: 0, atrasadas: 0, fechadas: 0 });
+  } catch (e: any) { sendError(res, e); }
+});
+
 
 
 // OS com entrega próxima (hoje ou amanhã) ainda em aberto — para notificações
