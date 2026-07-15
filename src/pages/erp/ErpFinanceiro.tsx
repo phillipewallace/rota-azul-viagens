@@ -11,6 +11,7 @@ import {
   CalendarDays, CheckCircle2, AlertCircle, Filter, Plus, Trash2, Wrench,
   TrendingDown, TrendingUp, Search, AlertTriangle, Pencil, MoreVertical,
   XCircle, Repeat, Tag, PlayCircle, BarChart3, FileSpreadsheet, Users2, TimerOff, X, Eye, Copy,
+  FileText, ExternalLink,
 } from 'lucide-react';
 import { ContractViewDialog } from '@/components/erp/ContractViewDialog';
 import {
@@ -48,6 +49,11 @@ import {
 } from '@/services/contracts';
 import { erpService, type ErpCompany } from '@/services/erp';
 import { uploadSignedPdf } from '@/services/erp';
+import {
+  invoicesService, INVOICE_FORMA_LABEL,
+  type Invoice, type InvoiceFormaPagamento, type InvoiceStatus,
+} from '@/services/invoices';
+import { VincularNfDialog } from '@/components/erp/VincularNfDialog';
 import { medicoesService, type Medicao } from '@/services/medicoes';
 import { MedicaoDialog } from '@/components/erp/MedicaoDialog';
 import { MedicaoViewDialog } from '@/components/erp/MedicaoViewDialog';
