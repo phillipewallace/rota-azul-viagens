@@ -5,6 +5,10 @@ import { requireAuth, requireRole } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
+// Papéis autorizados a mutar recibos (gerar, marcar pago, cancelar, reabrir).
+const FIN_ROLES = ['admin', 'manager'] as const;
+
+
 const SELECT = `
   r.id, r.numero, r.contract_id AS "contractId", r.competencia,
   r.periodo_inicio AS "periodoInicio", r.periodo_fim AS "periodoFim",
