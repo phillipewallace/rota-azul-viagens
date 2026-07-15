@@ -80,6 +80,14 @@ router.get('/pending', async (req, res) => {
              SELECT 1 FROM erp_receipts r
               WHERE r.contract_id = c.id AND r.competencia = $1
           )
+          -- Também considera "faturado" quando há NF ativa vinculada
+          -- (fluxo: cliente paga por Nota Fiscal do portal do governo).
+          AND NOT EXISTS (
+             SELECT 1 FROM erp_invoices i
+              WHERE i.contract_id = c.id
+                AND i.competencia = $1
+                AND i.status = 'ativa'
+          )
         ORDER BY c.dia_vencimento ASC`,
       [competencia]
     );
