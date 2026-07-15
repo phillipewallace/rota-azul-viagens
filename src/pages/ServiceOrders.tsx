@@ -567,7 +567,10 @@ const ServiceOrders: React.FC = () => {
                   <div className="text-xs text-muted-foreground space-y-0.5">
                     <div>{o.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'} · {BRL(o.valorTotal)}</div>
                     <div>Tipo: {tipoLabel((o as any).tipoLocacao)}</div>
-                    <div>Início: {D(o.dataInicio)} · Fim previsto: {D(o.dataFimPrevista)}</div>
+                    <div>
+                      Início: {D(o.dataEntrega || o.dataInicio)}
+                      {o.dataRecolhimento && <> · Fim previsto: {D(o.dataRecolhimento)}</>}
+                    </div>
                     <div>Sanitários alocados: <strong>{o.sanitariosAlocados || 0}</strong></div>
                   </div>
 
