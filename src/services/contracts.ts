@@ -270,15 +270,40 @@ export interface Expense {
   origem?: 'manual' | 'manutencao';
   createdAt?: string;
 }
+export interface ExpenseListParams {
+  from?: string; to?: string; categoria?: string;
+  origem?: 'manual' | 'manutencao' | 'all';
+  search?: string; fornecedor?: string;
+}
+function buildExpenseQuery(params?: ExpenseListParams) {
+  const q = new URLSearchParams();
+  if (params?.from)       q.set('from', params.from);
+  if (params?.to)         q.set('to', params.to);
+  if (params?.categoria)  q.set('categoria', params.categoria);
+  if (params?.origem && params.origem !== 'all') q.set('origem', params.origem);
+  if (params?.search)     q.set('search', params.search);
+  if (params?.fornecedor) q.set('fornecedor', params.fornecedor);
+  return q;
+}
 export const expensesService = {
-  list: (params?: { from?: string; to?: string; categoria?: string; origem?: 'manual' | 'manutencao' | 'all' }) => {
-    const q = new URLSearchParams();
-    if (params?.from) q.set('from', params.from);
-    if (params?.to)   q.set('to', params.to);
-    if (params?.categoria) q.set('categoria', params.categoria);
-    if (params?.origem && params.origem !== 'all') q.set('origem', params.origem);
-    const s = q.toString();
+  list: (params?: ExpenseListParams) => {
+    const s = buildExpenseQuery(params).toString();
     return req<Expense[]>('GET', `/erp/expenses${s ? '?' + s : ''}`);
+  },
+  /** Variante paginada — passa `page`/`pageSize` para receber { data, total, page, pageSize }. */
+  listPaged: (params?: ExpenseListParams & PageParams) => {
+    const q = buildExpenseQuery(params);
+    appendPageParams(q, params);
+    return req<Paged<Expense>>('GET', `/erp/expenses?${q.toString()}`);
+  },
+  /** KPIs agregados server-side (respeitam os filtros). */
+  kpis: (params?: ExpenseListParams) => {
+    const s = buildExpenseQuery(params).toString();
+    return req<{
+      total: number; totalValor: number;
+      qtdManual: number; qtdManutencao: number;
+      totalManual: number; totalManutencao: number;
+    }>('GET', `/erp/expenses/stats/kpis${s ? '?' + s : ''}`);
   },
   create: (data: Partial<Expense>) => req<Expense>('POST', '/erp/expenses', data),
   update: (id: string, data: Partial<Expense>) => req<{ ok: true }>('PUT', `/erp/expenses/${id}`, data),

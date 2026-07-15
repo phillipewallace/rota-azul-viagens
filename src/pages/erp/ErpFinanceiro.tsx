@@ -3251,6 +3251,21 @@ function GastosPanel() {
   const [to, setTo] = useState('');
   const [cat, setCat] = useState<string>('all');
   const [origem, setOrigem] = useState<'all' | 'manual' | 'manutencao'>('all');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [kpis, setKpis] = useState<{
+    total: number; totalValor: number;
+    qtdManual: number; qtdManutencao: number;
+    totalManual: number; totalManutencao: number;
+  } | null>(null);
+  const [exportBusy, setExportBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Expense>>(emptyForm());
@@ -3264,29 +3279,78 @@ function GastosPanel() {
     return categories.find(c => c.key === key)?.label || key;
   }, [categories]);
 
+  const baseFilters = useMemo(() => ({
+    from: from || undefined,
+    to: to || undefined,
+    categoria: cat,
+    origem,
+    search: debouncedSearch || undefined,
+  }), [from, to, cat, origem, debouncedSearch]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setList(await expensesService.list({
-        from: from || undefined, to: to || undefined, categoria: cat, origem,
-      }));
+      const [pg, k] = await Promise.all([
+        expensesService.listPaged({ ...baseFilters, page, pageSize }),
+        expensesService.kpis(baseFilters),
+      ]);
+      setList(pg.data);
+      setTotal(pg.total);
+      setKpis(k);
     } catch (e: any) { toast.error(e.message); }
     finally { setLoading(false); }
-  }, [from, to, cat, origem]);
+  }, [baseFilters, page, pageSize]);
 
   const loadCats = useCallback(async () => {
-    try { setCategories(await expenseCategoriesService.list()); } catch {}
+    try { setCategories(await expenseCategoriesService.list()); } catch { /* silencioso */ }
   }, []);
   const loadRec = useCallback(async () => {
-    try { setRecurring(await recurringExpensesService.list()); } catch {}
+    try { setRecurring(await recurringExpensesService.list()); } catch { /* silencioso */ }
   }, []);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadCats(); loadRec(); }, [loadCats, loadRec]);
+  // Reset página quando filtros mudam
+  useEffect(() => { setPage(1); }, [baseFilters, pageSize]);
 
-  const total      = useMemo(() => list.reduce((a, e) => a + Number(e.valor || 0), 0), [list]);
-  const totManual  = useMemo(() => list.filter(e => e.origem !== 'manutencao').reduce((a, e) => a + Number(e.valor || 0), 0), [list]);
-  const totManut   = useMemo(() => list.filter(e => e.origem === 'manutencao').reduce((a, e) => a + Number(e.valor || 0), 0), [list]);
+  /** Baixa TODOS os gastos do filtro atual (paginando em blocos de 200). */
+  const fetchAllFiltered = useCallback(async (hardLimit = 5000): Promise<Expense[] | null> => {
+    const PAGE = 200;
+    const first = await expensesService.listPaged({ ...baseFilters, page: 1, pageSize: PAGE });
+    if (first.total > hardLimit) {
+      toast.error(`Muitos gastos (${first.total}). Refine os filtros — limite ${hardLimit}.`);
+      return null;
+    }
+    const all: Expense[] = [...first.data];
+    const totalPages = Math.max(1, Math.ceil(first.total / PAGE));
+    for (let p = 2; p <= totalPages; p++) {
+      const pg = await expensesService.listPaged({ ...baseFilters, page: p, pageSize: PAGE });
+      all.push(...pg.data);
+    }
+    return all;
+  }, [baseFilters]);
+
+  const exportAllCsv = useCallback(async () => {
+    setExportBusy(true);
+    try {
+      const all = await fetchAllFiltered();
+      if (!all) return;
+      const headers = ['Data','Categoria','Descrição','Fornecedor','NF','Valor','Origem','Observações'];
+      const rows = all.map(e => [
+        e.data, catLabel(e.categoria), e.descricao, e.fornecedor || '',
+        e.notaFiscal || '', Number(e.valor).toFixed(2).replace('.', ','),
+        e.origem === 'manutencao' ? 'Manutenção' : 'Manual',
+        e.observacoes || '',
+      ]);
+      downloadCsv(`gastos-${from || 'inicio'}_${to || 'hoje'}`, headers, rows);
+      toast.success(`CSV exportado (${all.length} gastos).`);
+    } catch (e: any) { toast.error(e.message || 'Falha ao exportar CSV.'); }
+    finally { setExportBusy(false); }
+  }, [fetchAllFiltered, catLabel, from, to]);
+
+  const totalValor = kpis?.totalValor ?? 0;
+  const totManual  = kpis?.totalManual ?? 0;
+  const totManut   = kpis?.totalManutencao ?? 0;
 
   const activeCats = useMemo(() => categories.filter(c => c.ativo), [categories]);
 
@@ -3333,7 +3397,7 @@ function GastosPanel() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <KPI label="Total no período" value={BRL(total)} icon={TrendingDown} accent="from-rose-500 to-red-600" />
+        <KPI label="Total no período" value={BRL(totalValor)} icon={TrendingDown} accent="from-rose-500 to-red-600" />
         <KPI label="Gastos manuais / NFs" value={BRL(totManual)} icon={TrendingUp} accent="from-violet-500 to-purple-600" />
         <KPI label="Manutenção de frota" value={BRL(totManut)} icon={Wrench} accent="from-amber-500 to-orange-600" />
       </div>
@@ -3377,7 +3441,16 @@ function GastosPanel() {
               ]}
             />
           </div>
+          <div className="flex-1 min-w-[200px]">
+            <Label className="text-xs">Buscar</Label>
+            <Input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Descrição, fornecedor, NF…" className="h-9" />
+          </div>
           <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={exportBusy} onClick={exportAllCsv}>
+              {exportBusy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+              Exportar CSV (filtro)
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setCatsOpen(true)}>
               <Tag className="h-4 w-4 mr-1" /> Categorias
             </Button>
@@ -3478,6 +3551,12 @@ function GastosPanel() {
           </div>
         </CardContent>
       </Card>
+
+      <PaginationBar
+        page={page} pageSize={pageSize} total={total}
+        onPageChange={setPage} onPageSizeChange={setPageSize}
+        pageSizeOptions={[25, 50, 100, 200]}
+      />
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditingId(null); setForm(emptyForm()); } }}>
         <DialogContent>
