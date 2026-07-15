@@ -263,7 +263,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
 
     const merged = { ...cur.rows[0], ...req.body, id };
-    const saved = await upsertCustomer(merged, false);
+    const saved = await upsertCustomer(merged);
     res.json(saved);
   } catch (e: any) {
     console.error('[PATCH /customers/:id]', e);
