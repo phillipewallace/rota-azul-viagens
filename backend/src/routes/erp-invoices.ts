@@ -142,7 +142,7 @@ router.get('/:id', async (req: any, res: any) => {
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { return sendError(res, e, '[erp-invoices GET id]'); }
 });
 
 // ---------- CREATE (multipart) ------------------------------------------
