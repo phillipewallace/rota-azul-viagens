@@ -676,7 +676,17 @@ const ServiceOrders: React.FC = () => {
                     </Button>
                     <Button size="sm" variant="default" className="flex-1 min-w-[110px] bg-indigo-600 hover:bg-indigo-700"
                             onClick={() => setContractTarget(o)} disabled={pdfBusy === o.id}>
-                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato (PDF)
+                    </Button>
+                  </div>
+                  <div className="flex gap-1 pt-1">
+                    <Button size="sm" variant="outline"
+                            className={`flex-1 min-w-[140px] ${o.convertedContractId ? 'text-emerald-700 border-emerald-300 hover:bg-emerald-50' : 'text-indigo-700 border-indigo-300 hover:bg-indigo-50'}`}
+                            onClick={() => sendToContracts(o)} disabled={pdfBusy === o.id}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" />
+                      {o.convertedContractId
+                        ? `Ver contrato ${o.convertedContractNumero || ''}`.trim()
+                        : 'Enviar para Contratos'}
                     </Button>
                   </div>
                   <div className="flex gap-1 pt-1">
