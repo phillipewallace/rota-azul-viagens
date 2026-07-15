@@ -242,7 +242,18 @@ const ErpFinanceiro: React.FC = () => {
   const [medicaoViewId, setMedicaoViewId] = useState<string | null>(null);
   const [medicaoViewOpen, setMedicaoViewOpen] = useState(false);
   const [medicoesSearch, setMedicoesSearch] = useState('');
-  const [medicoesClienteFilter, setMedicoesClienteFilter] = useState<string>('');
+  const [debouncedMedSearch, setDebouncedMedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedMedSearch(medicoesSearch.trim()), 350);
+    return () => clearTimeout(t);
+  }, [medicoesSearch]);
+  const [medPage, setMedPage] = useState(1);
+  const [medPageSize, setMedPageSize] = useState(50);
+  const [medTotal, setMedTotal] = useState(0);
+  const [medKpis, setMedKpis] = useState<{
+    total: number; totalValor: number; ticketMedio: number; clientesDistintos: number;
+  } | null>(null);
+  const [medExportBusy, setMedExportBusy] = useState(false);
   const [medicoesPrevMonthTotal, setMedicoesPrevMonthTotal] = useState<number | null>(null);
   // popover do recibo unificado
   const [unifOpen, setUnifOpen] = useState(false);
@@ -403,16 +414,65 @@ const ErpFinanceiro: React.FC = () => {
   }, [activeTab, loadPendentes]);
 
 
-  // Carga das medições da competência
+  // Filtros server-side das Medições.
+  const medBaseFilters = useMemo(() => ({
+    competencia,
+    search: debouncedMedSearch || undefined,
+  }), [competencia, debouncedMedSearch]);
+
   const loadMedicoes = useCallback(async () => {
     setMedicoesLoading(true);
     try {
-      const r = await medicoesService.list({ competencia });
-      if (mountedRef.current) setMedicoes(r);
+      const [pg, k] = await Promise.all([
+        medicoesService.listPaged({ ...medBaseFilters, page: medPage, pageSize: medPageSize }),
+        medicoesService.kpis(medBaseFilters),
+      ]);
+      if (!mountedRef.current) return;
+      setMedicoes(pg.data);
+      setMedTotal(pg.total);
+      setMedKpis(k);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setMedicoesLoading(false); }
-  }, [competencia]);
+  }, [medBaseFilters, medPage, medPageSize]);
   useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
+  useEffect(() => { setMedPage(1); }, [medBaseFilters, medPageSize]);
+
+  /** Baixa TODAS as medições do filtro atual (paginando em blocos de 200). */
+  const fetchAllFilteredMedicoes = useCallback(async (hardLimit = 5000) => {
+    const PAGE = 200;
+    const first = await medicoesService.listPaged({ ...medBaseFilters, page: 1, pageSize: PAGE });
+    if (first.total > hardLimit) {
+      toast.error(`Muitas medições (${first.total}). Refine os filtros — limite ${hardLimit}.`);
+      return null;
+    }
+    const all = [...first.data];
+    const totalPages = Math.max(1, Math.ceil(first.total / PAGE));
+    for (let p = 2; p <= totalPages; p++) {
+      const pg = await medicoesService.listPaged({ ...medBaseFilters, page: p, pageSize: PAGE });
+      all.push(...pg.data);
+    }
+    return all;
+  }, [medBaseFilters]);
+
+  const exportAllFilteredMedicoesCsv = useCallback(async () => {
+    setMedExportBusy(true);
+    try {
+      const all = await fetchAllFilteredMedicoes();
+      if (!all) return;
+      const headers = ['Número','Cliente','Documento','Empresa','Competência','Período início','Período fim','Itens','Total'];
+      const rows = all.map(m => [
+        m.numero, m.customerName || m.clienteNome || '',
+        m.customerDocument || m.clienteDocumento || '',
+        m.companyRazaoSocial || '', m.competencia || '',
+        m.periodoInicio || '', m.periodoFim || '',
+        String(m.itensCount ?? ''),
+        Number(m.total || 0).toFixed(2).replace('.', ','),
+      ]);
+      downloadCsv(`medicoes-${competencia}`, headers, rows);
+      toast.success(`CSV exportado (${all.length} medições).`);
+    } catch (e: any) { toast.error(e.message || 'Falha ao exportar CSV.'); }
+    finally { setMedExportBusy(false); }
+  }, [fetchAllFilteredMedicoes, competencia]);
 
   // Filtros server-side das Notas Fiscais (sem paginação).
   const nfBaseFilters = useMemo(() => {
@@ -1308,7 +1368,7 @@ const ErpFinanceiro: React.FC = () => {
             Notas Fiscais <Badge variant="outline" className="ml-2">{nfTotal}</Badge>
           </TabsTrigger>
           <TabsTrigger value="medicoes">
-            Medições <Badge variant="outline" className="ml-2">{medicoes.length}</Badge>
+            Medições <Badge variant="outline" className="ml-2">{medTotal}</Badge>
           </TabsTrigger>
           <TabsTrigger value="clientes">
             Por cliente <Badge variant="outline" className="ml-2">{perCustomer.length}</Badge>
@@ -2427,33 +2487,19 @@ const ErpFinanceiro: React.FC = () => {
 
         <TabsContent value="medicoes">
           {(() => {
-            const totalMes = medicoes.reduce((s, m) => s + Number(m.total || 0), 0);
-            const ticket = medicoes.length ? totalMes / medicoes.length : 0;
-            const clientesDistintos = new Set(medicoes.map(m => m.customerId || m.clienteDocumento || m.id)).size;
+            const totalMes = medKpis?.totalValor ?? 0;
+            const ticket = medKpis?.ticketMedio ?? 0;
+            const clientesDistintos = medKpis?.clientesDistintos ?? 0;
             const delta = medicoesPrevMonthTotal !== null && medicoesPrevMonthTotal > 0
               ? ((totalMes - medicoesPrevMonthTotal) / medicoesPrevMonthTotal) * 100
               : null;
-            const clientesOptions = Array.from(new Map(
-              medicoes.map(m => [m.customerId || m.clienteDocumento || m.id, {
-                value: m.customerId || m.clienteDocumento || m.id,
-                label: m.customerName || m.clienteNome || '(sem nome)',
-              }]),
-            ).values()).sort((a, b) => a.label.localeCompare(b.label));
-
-            const filtered = medicoes.filter((m) => {
-              if (medicoesClienteFilter && (m.customerId || m.clienteDocumento || m.id) !== medicoesClienteFilter) return false;
-              if (medicoesSearch) {
-                const q = medicoesSearch.toLowerCase();
-                const hay = `${m.numero} ${m.customerName || m.clienteNome || ''} ${m.customerDocument || m.clienteDocumento || ''} ${m.companyRazaoSocial || ''}`.toLowerCase();
-                if (!hay.includes(q)) return false;
-              }
-              return true;
-            });
-            const filteredHasFilter = !!(medicoesSearch || medicoesClienteFilter);
+            // Filtragem server-side (competencia + search debounce).
+            const filtered = medicoes;
+            const filteredHasFilter = !!medicoesSearch;
 
             return (
               <div className="space-y-4">
-                {/* KPIs */}
+                {/* KPIs — agregados server-side (independem da página) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   <Card><CardContent className="p-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -2471,7 +2517,7 @@ const ErpFinanceiro: React.FC = () => {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <FileSpreadsheet className="h-3.5 w-3.5" /> Nº medições
                     </div>
-                    <div className="text-xl font-bold tabular-nums mt-1">{medicoes.length}</div>
+                    <div className="text-xl font-bold tabular-nums mt-1">{medKpis?.total ?? 0}</div>
                   </CardContent></Card>
                   <Card><CardContent className="p-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -2500,26 +2546,21 @@ const ErpFinanceiro: React.FC = () => {
                           onChange={(e) => setMedicoesSearch(e.target.value)}
                         />
                       </div>
-                      <SearchableSelect
-                        value={medicoesClienteFilter || '__all__'}
-                        placeholder="Todos os clientes"
-                        searchPlaceholder="Filtrar cliente..."
-                        triggerClassName="h-9 w-56"
-                        options={[
-                          { value: '__all__', label: 'Todos os clientes' },
-                          ...clientesOptions,
-                        ]}
-                        onValueChange={(v) => setMedicoesClienteFilter(v === '__all__' ? '' : v)}
-                      />
                       {filteredHasFilter && (
-                        <Button size="sm" variant="ghost" onClick={() => { setMedicoesSearch(''); setMedicoesClienteFilter(''); }}>
+                        <Button size="sm" variant="ghost" onClick={() => setMedicoesSearch('')}>
                           <X className="h-3.5 w-3.5 mr-1" /> Limpar
                         </Button>
                       )}
                       <div className="text-xs text-muted-foreground ml-1">
-                        {medicoesLoading ? 'Carregando…' : `${filtered.length} de ${medicoes.length} em ${formatComp(competencia)}`}
+                        {medicoesLoading ? 'Carregando…' : `${medTotal} em ${formatComp(competencia)}`}
                       </div>
                       <div className="ml-auto flex gap-2">
+                        <Button variant="outline" size="sm" disabled={medExportBusy} onClick={exportAllFilteredMedicoesCsv}>
+                          {medExportBusy
+                            ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            : <Download className="h-4 w-4 mr-1" />}
+                          Exportar CSV (filtro)
+                        </Button>
                         <Button variant="outline" size="sm" onClick={loadMedicoes} disabled={medicoesLoading}>
                           <RefreshCw className={`h-4 w-4 mr-1 ${medicoesLoading ? 'animate-spin' : ''}`} /> Atualizar
                         </Button>
@@ -2648,6 +2689,11 @@ const ErpFinanceiro: React.FC = () => {
                         </TableBody>
                       </Table>
                     </div>
+                    <PaginationBar
+                      page={medPage} pageSize={medPageSize} total={medTotal}
+                      onPageChange={setMedPage} onPageSizeChange={setMedPageSize}
+                      pageSizeOptions={[25, 50, 100, 200]}
+                    />
                   </CardContent>
                 </Card>
               </div>

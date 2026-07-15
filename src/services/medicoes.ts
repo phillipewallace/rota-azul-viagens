@@ -70,23 +70,43 @@ export interface MedicaoPreviewContract {
   customerDocument?: string | null;
 }
 
+export interface MedicaoListParams {
+  competencia?: string;
+  clienteDoc?: string;
+  customerId?: string;
+  companyId?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+}
+function buildMedicoesQuery(p?: MedicaoListParams) {
+  const q = new URLSearchParams();
+  if (p?.competencia) q.set('competencia', p.competencia);
+  if (p?.clienteDoc)  q.set('clienteDoc', p.clienteDoc);
+  if (p?.customerId)  q.set('customerId', p.customerId);
+  if (p?.companyId)   q.set('companyId', p.companyId);
+  if (p?.from)        q.set('from', p.from);
+  if (p?.to)          q.set('to', p.to);
+  if (p?.search)      q.set('search', p.search);
+  return q;
+}
 export const medicoesService = {
-  list: (params?: { competencia?: string; clienteDoc?: string; customerId?: string }) => {
-    const q = new URLSearchParams();
-    if (params?.competencia) q.set('competencia', params.competencia);
-    if (params?.clienteDoc)  q.set('clienteDoc', params.clienteDoc);
-    if (params?.customerId)  q.set('customerId', params.customerId);
-    const s = q.toString();
+  list: (params?: MedicaoListParams) => {
+    const s = buildMedicoesQuery(params).toString();
     return req<Medicao[]>('GET', `/erp/medicoes${s ? '?' + s : ''}`);
   },
   /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
-  listPaged: (params?: { competencia?: string; clienteDoc?: string; customerId?: string } & PageParams) => {
-    const q = new URLSearchParams();
-    if (params?.competencia) q.set('competencia', params.competencia);
-    if (params?.clienteDoc)  q.set('clienteDoc', params.clienteDoc);
-    if (params?.customerId)  q.set('customerId', params.customerId);
+  listPaged: (params?: MedicaoListParams & PageParams) => {
+    const q = buildMedicoesQuery(params);
     appendPageParams(q, params);
     return req<Paged<Medicao>>('GET', `/erp/medicoes?${q.toString()}`);
+  },
+  /** KPIs agregados server-side (respeitam os filtros). */
+  kpis: (params?: MedicaoListParams) => {
+    const s = buildMedicoesQuery(params).toString();
+    return req<{
+      total: number; totalValor: number; ticketMedio: number; clientesDistintos: number;
+    }>('GET', `/erp/medicoes/stats/kpis${s ? '?' + s : ''}`);
   },
   get: (id: string) => req<Medicao>('GET', `/erp/medicoes/${id}`),
   preview: (contractIds: string[], competencia?: string) =>

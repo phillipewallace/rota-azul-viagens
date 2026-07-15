@@ -47,17 +47,33 @@ async function nextNumero(client: any): Promise<string> {
   return `${prefix}${String(n).padStart(4, '0')}`;
 }
 
+// Constrói WHERE reutilizável para GET / e /stats/kpis.
+function buildMedicoesWhere(q: any) {
+  const conds: string[] = [];
+  const params: any[] = [];
+  const { competencia, clienteDoc, customerId, companyId, from, to, search } = q || {};
+  if (competencia) { params.push(competencia); conds.push(`m.competencia = $${params.length}`); }
+  if (clienteDoc)  { params.push(clienteDoc);  conds.push(`m.cliente_documento = $${params.length}`); }
+  if (customerId)  { params.push(customerId);  conds.push(`m.customer_id = $${params.length}`); }
+  if (companyId)   { params.push(companyId);   conds.push(`m.company_id = $${params.length}`); }
+  if (from)        { params.push(from);        conds.push(`m.created_at::date >= $${params.length}`); }
+  if (to)          { params.push(to);          conds.push(`m.created_at::date <= $${params.length}`); }
+  if (search) {
+    params.push(`%${String(search).toLowerCase()}%`);
+    const n = params.length;
+    conds.push(`(LOWER(m.numero) LIKE $${n}
+              OR LOWER(COALESCE(m.cliente_nome,'')) LIKE $${n}
+              OR LOWER(COALESCE(cu.customer_name,'')) LIKE $${n}
+              OR LOWER(COALESCE(emp.razao_social,'')) LIKE $${n})`);
+  }
+  return { where: conds.length ? `WHERE ${conds.join(' AND ')}` : '', params };
+}
+
 // GET / — lista
 router.get('/', async (req, res) => {
   try {
-    const { competencia, clienteDoc, customerId } = req.query as any;
-    const conds: string[] = [];
-    const params: any[] = [];
-    if (competencia) { params.push(competencia); conds.push(`m.competencia = $${params.length}`); }
-    if (clienteDoc)  { params.push(clienteDoc);  conds.push(`m.cliente_documento = $${params.length}`); }
-    if (customerId)  { params.push(customerId);  conds.push(`m.customer_id = $${params.length}`); }
-    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const from = `FROM erp_medicoes m
+    const { where, params } = buildMedicoesWhere(req.query);
+    const fromSql = `FROM erp_medicoes m
          LEFT JOIN erp_companies emp ON emp.id = m.company_id
          LEFT JOIN customers cu ON cu.id = m.customer_id
          ${where}`;
@@ -65,15 +81,33 @@ router.get('/', async (req, res) => {
     const rowsQ = await pool.query(
       `SELECT ${SEL},
               (SELECT COUNT(*) FROM erp_medicao_itens i WHERE i.medicao_id = m.id)::int AS "itensCount"
-         ${from}
+         ${fromSql}
          ORDER BY m.created_at DESC ${pg.sql}`,
       [...params, ...pg.params],
     );
     if (pg.paginated) {
-      const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${from}`, params);
+      const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${fromSql}`, params);
       return sendPaginated(res, rowsQ.rows, totalQ.rows[0].c, pg);
     }
     res.json(rowsQ.rows);
+  } catch (e: any) { sendError(res, e); }
+});
+
+// KPIs (respeitam os mesmos filtros)
+router.get('/stats/kpis', async (req, res) => {
+  try {
+    const { where, params } = buildMedicoesWhere(req.query);
+    const q = await pool.query(`
+      SELECT
+        COUNT(*)::int                           AS total,
+        COALESCE(SUM(m.total), 0)::float        AS "totalValor",
+        COALESCE(AVG(m.total), 0)::float        AS "ticketMedio",
+        COUNT(DISTINCT COALESCE(m.customer_id::text, m.cliente_documento))::int AS "clientesDistintos"
+      FROM erp_medicoes m
+      LEFT JOIN erp_companies emp ON emp.id = m.company_id
+      LEFT JOIN customers cu ON cu.id = m.customer_id
+      ${where}`, params);
+    res.json(q.rows[0] || { total: 0, totalValor: 0, ticketMedio: 0, clientesDistintos: 0 });
   } catch (e: any) { sendError(res, e); }
 });
 
