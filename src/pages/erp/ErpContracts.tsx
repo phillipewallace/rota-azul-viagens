@@ -3,7 +3,7 @@
  * com vínculo opcional a cliente + OS, valor mensal, dia de vencimento,
  * renovação automática e PDF assinado anexo.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileSignature, Plus, Search, Upload, FileDown, Power, PowerOff,
   Calendar, Loader2, Trash2, Pencil, Copy,
