@@ -135,6 +135,48 @@ router.get('/', async (req: any, res: any) => {
   }
 });
 
+// ---------- KPIs (respeitam os mesmos filtros server-side, sem paginação) ----
+router.get('/stats/kpis', async (req: any, res: any) => {
+  try {
+    const { contractId, competencia, from, to, status, formaPagamento, companyId, search } =
+      req.query || {};
+    const conds: string[] = [];
+    const params: any[] = [];
+    const push = (sql: string, val: any) => { params.push(val); conds.push(sql.replace('?', `$${params.length}`)); };
+    if (contractId)     push('i.contract_id = ?', contractId);
+    if (competencia)    push('i.competencia = ?', competencia);
+    if (from)           push('i.data_emissao >= ?', from);
+    if (to)             push('i.data_emissao <= ?', to);
+    if (status)         push('i.status = ?', status);
+    if (formaPagamento) push('i.forma_pagamento = ?', formaPagamento);
+    if (companyId)      push('c.company_id = ?', companyId);
+    if (search) {
+      const s = `%${String(search).toLowerCase()}%`;
+      params.push(s);
+      conds.push(`(LOWER(i.numero) LIKE $${params.length}
+                OR LOWER(COALESCE(cu.customer_name,'')) LIKE $${params.length}
+                OR LOWER(COALESCE(c.numero,'')) LIKE $${params.length}
+                OR LOWER(COALESCE(emp.razao_social,'')) LIKE $${params.length})`);
+    }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const q = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE i.status='ativa')::int      AS "qtdAtivas",
+        COUNT(*) FILTER (WHERE i.status='cancelada')::int  AS "qtdCanceladas",
+        COALESCE(SUM(CASE WHEN i.status='ativa' THEN i.valor ELSE 0 END), 0)::float AS "totalAtivo",
+        COALESCE(AVG(CASE WHEN i.status='ativa' THEN i.valor END), 0)::float        AS "ticketMedio"
+      FROM erp_invoices i
+      JOIN erp_contracts c ON c.id = i.contract_id
+      LEFT JOIN erp_companies emp ON emp.id = c.company_id
+      LEFT JOIN customers cu ON cu.id = c.customer_id
+      ${where}`, params);
+    res.json(q.rows[0] || {
+      total: 0, qtdAtivas: 0, qtdCanceladas: 0, totalAtivo: 0, ticketMedio: 0,
+    });
+  } catch (e: any) { return sendError(res, e, '[erp-invoices kpis]'); }
+});
+
 router.get('/:id', async (req: any, res: any) => {
   try {
     const r = await pool.query(
