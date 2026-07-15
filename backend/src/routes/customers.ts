@@ -191,7 +191,7 @@ router.get('/', async (req: Request, res: Response) => {
 // ============================================================
 // Individual: POST / PATCH / DELETE
 // ============================================================
-async function upsertCustomer(c: any, isInsert: boolean) {
+async function upsertCustomer(c: any, executor: { query: (sql: string, params?: any[]) => Promise<any> } = pool) {
   const doc = c.document ? String(c.document).replace(/\D/g, '') : null;
   const values = [
     c.id,
