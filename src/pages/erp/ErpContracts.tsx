@@ -3,7 +3,7 @@
  * com vínculo opcional a cliente + OS, valor mensal, dia de vencimento,
  * renovação automática e PDF assinado anexo.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileSignature, Plus, Search, Upload, FileDown, Power, PowerOff,
   Calendar, Loader2, Trash2, Pencil, Copy,
@@ -743,6 +743,7 @@ function ContractFormDialog({
 
   const [form, setForm] = useState<any>(empty);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   // Se o usuário editou manualmente o dia, paramos de auto-preencher.
   // Limpar o campo reativa o auto-preenchimento.
@@ -802,10 +803,14 @@ function ContractFormDialog({
   };
 
   const submit = async () => {
+    // Guarda síncrona: previne duplicidade em duplo-clique/enter rápido
+    // antes de o React aplicar o `disabled` no botão.
+    if (savingRef.current) return;
     if (!form.companyId || !form.customerId || !form.dataInicio) {
       toast.error('Empresa, cliente e data de início são obrigatórios');
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       const payload = {
@@ -821,7 +826,10 @@ function ContractFormDialog({
       toast.success(editing ? 'Contrato atualizado' : 'Contrato criado');
       onSaved();
     } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
+    finally {
+      setSaving(false);
+      savingRef.current = false;
+    }
   };
 
   return (
