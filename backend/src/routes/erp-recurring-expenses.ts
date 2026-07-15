@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
@@ -21,7 +22,7 @@ router.get('/', async (_req, res) => {
   try {
     const r = await pool.query(`SELECT ${SEL} FROM erp_recurring_expenses ORDER BY ativo DESC, descricao ASC`);
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.post('/', requireRole('admin','manager'), async (req, res) => {
@@ -36,7 +37,7 @@ router.post('/', requireRole('admin','manager'), async (req, res) => {
       [e.categoria || null, e.descricao, Number(e.valor) || 0, dia, e.fornecedor || null, e.observacoes || null, e.ativo]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.put('/:id', requireRole('admin','manager'), async (req, res) => {
@@ -61,14 +62,14 @@ router.put('/:id', requireRole('admin','manager'), async (req, res) => {
       ]
     );
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
   try {
     await pool.query(`DELETE FROM erp_recurring_expenses WHERE id=$1`, [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 /**
@@ -110,7 +111,7 @@ router.post('/run', requireRole('admin','manager'), async (req, res) => {
     res.json({ ok: true, competencia, geradas, totalAtivas: ativos.rowCount });
   } catch (e: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 

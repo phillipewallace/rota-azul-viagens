@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 /**
  * ERP → Assinatura → histórico de PDFs assinados.
  * Salva o arquivo em uploads/signed/<uuid>.pdf e registra metadata em erp_signed_pdfs.
@@ -65,7 +66,7 @@ router.get('/', async (req: any, res: any) => {
     res.json(r.rows);
   } catch (e: any) {
     console.error('[erp-signed-pdfs GET]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -102,7 +103,7 @@ router.post('/', (req: any, res: any) => {
       res.json(r.rows[0]);
     } catch (e: any) {
       console.error('[erp-signed-pdfs POST]', e);
-      res.status(500).json({ error: e.message });
+      sendError(res, e);
     }
   });
 });
@@ -121,7 +122,7 @@ router.delete('/:id', async (req: any, res: any) => {
     res.json({ ok: true });
   } catch (e: any) {
     console.error('[erp-signed-pdfs DELETE]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 

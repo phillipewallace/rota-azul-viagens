@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
@@ -59,7 +60,7 @@ router.get('/', async (req, res) => {
       (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
     );
     res.json(all);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.post('/', async (req, res) => {
@@ -74,7 +75,7 @@ router.post('/', async (req, res) => {
        e.fornecedor || null, e.notaFiscal || null, e.anexoUrl || null, e.observacoes || null]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.put('/:id', async (req, res) => {
@@ -94,14 +95,14 @@ router.put('/:id', async (req, res) => {
        e.fornecedor || null, e.notaFiscal || null, e.anexoUrl || null, e.observacoes || null]
     );
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
   try {
     await pool.query('DELETE FROM erp_expenses WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 export default router;

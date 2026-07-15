@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 import { Router, Request, Response } from 'express';
 import { pool } from '../config/database';
 import { requireAuth, AuthedRequest, requireRole } from '../middleware/requireAuth';
@@ -20,7 +21,7 @@ router.get('/categories', async (_req: Request, res: Response) => {
     res.json(r.rows);
   } catch (e: any) {
     console.error('[ERP categories GET]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -37,7 +38,7 @@ router.post('/categories', WRITE, async (req: Request, res: Response) => {
     res.json(r.rows[0]);
   } catch (e: any) {
     console.error('[ERP categories POST]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -55,14 +56,14 @@ router.put('/categories/:id', WRITE, async (req: Request, res: Response) => {
       [id, name, description || null, icon || null, tracksExpiry, requiresSignedTerm]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/categories/:id', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_categories WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // ============ ITENS ============
@@ -85,7 +86,7 @@ router.get('/items', async (_req: Request, res: Response) => {
     res.json(r.rows);
   } catch (e: any) {
     console.error('[ERP items GET]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -100,7 +101,7 @@ router.post('/items', WRITE, async (req: Request, res: Response) => {
       [categoryId, name, sku || null, unit, currentQty, minQty, expiryDate || null, expiryAlertDays, notes || null]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { console.error('[ERP items POST]', e); res.status(500).json({ error: e.message }); }
+  } catch (e: any) { console.error('[ERP items POST]', e); sendError(res, e); }
 });
 
 router.put('/items/:id', WRITE, async (req: Request, res: Response) => {
@@ -119,14 +120,14 @@ router.put('/items/:id', WRITE, async (req: Request, res: Response) => {
       [id, categoryId, name, sku || null, unit, minQty, expiryDate || null, expiryAlertDays, notes || null, active]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/items/:id', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_items WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // ============ FUNCIONÁRIOS ============
@@ -135,7 +136,7 @@ router.get('/employees', async (_req: Request, res: Response) => {
     const r = await pool.query(`SELECT id,name,role,cpf,phone,active,created_at AS "createdAt"
       FROM erp_employees ORDER BY name`);
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.post('/employees', WRITE, async (req: Request, res: Response) => {
@@ -147,7 +148,7 @@ router.post('/employees', WRITE, async (req: Request, res: Response) => {
       [name, role || null, cpf || null, phone || null]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.put('/employees/:id', WRITE, async (req: Request, res: Response) => {
@@ -159,14 +160,14 @@ router.put('/employees/:id', WRITE, async (req: Request, res: Response) => {
       [req.params.id, name, role || null, cpf || null, phone || null, active]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/employees/:id', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_employees WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // ============ MOVIMENTAÇÕES ============
@@ -191,7 +192,7 @@ router.get('/movements', async (req: Request, res: Response) => {
       LIMIT $${params.length}
     `, params);
     res.json(r.rows);
-  } catch (e: any) { console.error('[ERP movs GET]', e); res.status(500).json({ error: e.message }); }
+  } catch (e: any) { console.error('[ERP movs GET]', e); sendError(res, e); }
 });
 
 router.post('/movements', WRITE, async (req: AuthedRequest, res: Response) => {
@@ -227,7 +228,7 @@ router.post('/movements', WRITE, async (req: AuthedRequest, res: Response) => {
     try { await client.query('ROLLBACK'); }
     catch (rbErr) { console.error('[ERP movs POST] rollback failed', rbErr); }
     console.error('[ERP movs POST]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -264,7 +265,7 @@ router.get('/dashboard', async (_req: Request, res: Response) => {
       totals: totals.rows[0],
       alertCount: lowStock.rows.length + expiring.rows.length,
     });
-  } catch (e: any) { console.error('[ERP dashboard]', e); res.status(500).json({ error: e.message }); }
+  } catch (e: any) { console.error('[ERP dashboard]', e); sendError(res, e); }
 });
 
 // ============ FROTA (veículos) ============
@@ -280,7 +281,7 @@ router.get('/vehicles', async (_req: Request, res: Response) => {
       FROM erp_vehicles v
       ORDER BY v.name`);
     res.json(r.rows);
-  } catch (e: any) { console.error('[ERP vehicles GET]', e); res.status(500).json({ error: e.message }); }
+  } catch (e: any) { console.error('[ERP vehicles GET]', e); sendError(res, e); }
 });
 
 router.post('/vehicles', WRITE, async (req: Request, res: Response) => {
@@ -295,7 +296,7 @@ router.post('/vehicles', WRITE, async (req: Request, res: Response) => {
        acquisitionDate || null, notes || null]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { console.error('[ERP vehicles POST]', e); res.status(500).json({ error: e.message }); }
+  } catch (e: any) { console.error('[ERP vehicles POST]', e); sendError(res, e); }
 });
 
 router.put('/vehicles/:id', WRITE, async (req: Request, res: Response) => {
@@ -313,14 +314,14 @@ router.put('/vehicles/:id', WRITE, async (req: Request, res: Response) => {
        acquisitionDate || null, notes || null, active]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/vehicles/:id', requireRole('admin','manager'), async (req: Request, res: Response) => {
   try {
     await pool.query('DELETE FROM erp_vehicles WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // Comentários do veículo (timeline: multas, manutenções, observações)
@@ -336,7 +337,7 @@ router.get('/vehicles/:id/comments', async (req: Request, res: Response) => {
       [req.params.id]
     );
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.post('/vehicles/:id/comments', WRITE, async (req: AuthedRequest, res: Response) => {
@@ -351,7 +352,7 @@ router.post('/vehicles/:id/comments', WRITE, async (req: AuthedRequest, res: Res
        req.user?.username || null]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { console.error('[ERP veh comments POST]', e); res.status(500).json({ error: e.message }); }
+  } catch (e: any) { console.error('[ERP veh comments POST]', e); sendError(res, e); }
 });
 
 router.put('/vehicles/:vid/comments/:cid', WRITE, async (req: Request, res: Response) => {
@@ -368,7 +369,7 @@ router.put('/vehicles/:vid/comments/:cid', WRITE, async (req: Request, res: Resp
        status, attachmentUrl || null]
     );
     res.json(r.rows[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.delete('/vehicles/:vid/comments/:cid', requireRole('admin','manager'), async (req: Request, res: Response) => {
@@ -376,7 +377,7 @@ router.delete('/vehicles/:vid/comments/:cid', requireRole('admin','manager'), as
     await pool.query('DELETE FROM erp_vehicle_comments WHERE id=$2 AND vehicle_id=$1',
       [req.params.vid, req.params.cid]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 export default router;

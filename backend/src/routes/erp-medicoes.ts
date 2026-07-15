@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 /**
  * ERP · Medições — proposta de faturamento (pré-recibo).
  * CRUD + numeração sequencial (MED-YYYY-NNNN). Sem fluxo de pagamento:
@@ -66,7 +67,7 @@ router.get('/', async (req, res) => {
       params,
     );
     res.json(r.rows);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // GET /:id — detalhe com itens
@@ -92,7 +93,7 @@ router.get('/:id', async (req, res) => {
       [req.params.id],
     );
     res.json({ ...m.rows[0], items: items.rows });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // POST /preview — gera itens sugeridos a partir de contractIds + competência.
@@ -115,7 +116,7 @@ router.post('/preview', async (req, res) => {
       [contractIds],
     );
     res.json({ competencia, contracts: r.rows });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 // POST / — cria medição + itens (snapshot empresa/cliente)
@@ -201,7 +202,7 @@ router.post('/', async (req, res) => {
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-medicoes create]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -254,7 +255,7 @@ router.put('/:id', async (req, res) => {
     res.json({ ok: true });
   } catch (e: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -263,7 +264,7 @@ router.delete('/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM erp_medicoes WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 export default router;

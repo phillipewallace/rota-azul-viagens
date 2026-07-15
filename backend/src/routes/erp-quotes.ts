@@ -1,3 +1,4 @@
+import { sendError } from '../utils/apiError';
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
@@ -69,7 +70,7 @@ router.get('/', async (req, res) => {
     res.json(r.rows);
   } catch (e: any) {
     console.error('[erp-quotes GET]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -87,7 +88,7 @@ router.get('/:id', async (req, res) => {
     quote.items = await loadItems(req.params.id);
     res.json(quote);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   }
 });
 
@@ -146,7 +147,7 @@ router.post('/', async (req, res) => {
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-quotes POST]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -223,7 +224,7 @@ router.put('/:id', async (req, res) => {
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-quotes PUT]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -232,7 +233,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
     const r = await pool.query('DELETE FROM erp_quotes WHERE id=$1 RETURNING id', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { sendError(res, e); }
 });
 
 /**
@@ -289,7 +290,7 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-quotes convert]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
@@ -341,7 +342,7 @@ router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) =
   } catch (e: any) {
     await client.query('ROLLBACK');
     console.error('[erp-quotes duplicate]', e);
-    res.status(500).json({ error: e.message });
+    sendError(res, e);
   } finally { client.release(); }
 });
 
