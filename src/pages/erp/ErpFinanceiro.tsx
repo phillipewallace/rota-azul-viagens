@@ -2487,33 +2487,19 @@ const ErpFinanceiro: React.FC = () => {
 
         <TabsContent value="medicoes">
           {(() => {
-            const totalMes = medicoes.reduce((s, m) => s + Number(m.total || 0), 0);
-            const ticket = medicoes.length ? totalMes / medicoes.length : 0;
-            const clientesDistintos = new Set(medicoes.map(m => m.customerId || m.clienteDocumento || m.id)).size;
+            const totalMes = medKpis?.totalValor ?? 0;
+            const ticket = medKpis?.ticketMedio ?? 0;
+            const clientesDistintos = medKpis?.clientesDistintos ?? 0;
             const delta = medicoesPrevMonthTotal !== null && medicoesPrevMonthTotal > 0
               ? ((totalMes - medicoesPrevMonthTotal) / medicoesPrevMonthTotal) * 100
               : null;
-            const clientesOptions = Array.from(new Map(
-              medicoes.map(m => [m.customerId || m.clienteDocumento || m.id, {
-                value: m.customerId || m.clienteDocumento || m.id,
-                label: m.customerName || m.clienteNome || '(sem nome)',
-              }]),
-            ).values()).sort((a, b) => a.label.localeCompare(b.label));
-
-            const filtered = medicoes.filter((m) => {
-              if (medicoesClienteFilter && (m.customerId || m.clienteDocumento || m.id) !== medicoesClienteFilter) return false;
-              if (medicoesSearch) {
-                const q = medicoesSearch.toLowerCase();
-                const hay = `${m.numero} ${m.customerName || m.clienteNome || ''} ${m.customerDocument || m.clienteDocumento || ''} ${m.companyRazaoSocial || ''}`.toLowerCase();
-                if (!hay.includes(q)) return false;
-              }
-              return true;
-            });
-            const filteredHasFilter = !!(medicoesSearch || medicoesClienteFilter);
+            // Filtragem server-side (competencia + search debounce).
+            const filtered = medicoes;
+            const filteredHasFilter = !!medicoesSearch;
 
             return (
               <div className="space-y-4">
-                {/* KPIs */}
+                {/* KPIs — agregados server-side (independem da página) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   <Card><CardContent className="p-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -2531,7 +2517,7 @@ const ErpFinanceiro: React.FC = () => {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <FileSpreadsheet className="h-3.5 w-3.5" /> Nº medições
                     </div>
-                    <div className="text-xl font-bold tabular-nums mt-1">{medicoes.length}</div>
+                    <div className="text-xl font-bold tabular-nums mt-1">{medKpis?.total ?? 0}</div>
                   </CardContent></Card>
                   <Card><CardContent className="p-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -2560,26 +2546,21 @@ const ErpFinanceiro: React.FC = () => {
                           onChange={(e) => setMedicoesSearch(e.target.value)}
                         />
                       </div>
-                      <SearchableSelect
-                        value={medicoesClienteFilter || '__all__'}
-                        placeholder="Todos os clientes"
-                        searchPlaceholder="Filtrar cliente..."
-                        triggerClassName="h-9 w-56"
-                        options={[
-                          { value: '__all__', label: 'Todos os clientes' },
-                          ...clientesOptions,
-                        ]}
-                        onValueChange={(v) => setMedicoesClienteFilter(v === '__all__' ? '' : v)}
-                      />
                       {filteredHasFilter && (
-                        <Button size="sm" variant="ghost" onClick={() => { setMedicoesSearch(''); setMedicoesClienteFilter(''); }}>
+                        <Button size="sm" variant="ghost" onClick={() => setMedicoesSearch('')}>
                           <X className="h-3.5 w-3.5 mr-1" /> Limpar
                         </Button>
                       )}
                       <div className="text-xs text-muted-foreground ml-1">
-                        {medicoesLoading ? 'Carregando…' : `${filtered.length} de ${medicoes.length} em ${formatComp(competencia)}`}
+                        {medicoesLoading ? 'Carregando…' : `${medTotal} em ${formatComp(competencia)}`}
                       </div>
                       <div className="ml-auto flex gap-2">
+                        <Button variant="outline" size="sm" disabled={medExportBusy} onClick={exportAllFilteredMedicoesCsv}>
+                          {medExportBusy
+                            ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            : <Download className="h-4 w-4 mr-1" />}
+                          Exportar CSV (filtro)
+                        </Button>
                         <Button variant="outline" size="sm" onClick={loadMedicoes} disabled={medicoesLoading}>
                           <RefreshCw className={`h-4 w-4 mr-1 ${medicoesLoading ? 'animate-spin' : ''}`} /> Atualizar
                         </Button>
