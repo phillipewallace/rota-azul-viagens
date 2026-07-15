@@ -43,7 +43,9 @@ const daysBetween = (from: Date, iso?: string | null): number | null => {
 /** Retorna quantos dias faltam pra validade expirar (positivo=futuro, negativo=vencido). */
 const daysUntilExpire = (dataEmissao?: string | null, validadeDias?: number): number | null => {
   if (!dataEmissao || !validadeDias) return null;
-  const emissao = new Date(dataEmissao);
+  // Parse LOCAL para não deslocar -1 dia em fuso BR (bug de timezone).
+  const emissao = parseLocalDate(dataEmissao);
+  if (!emissao) return null;
   const expiry = new Date(emissao.getFullYear(), emissao.getMonth(), emissao.getDate() + validadeDias);
   return daysBetween(new Date(), expiry.toISOString());
 };
