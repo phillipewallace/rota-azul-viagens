@@ -41,14 +41,55 @@ interface CloseState {
   descricao: string;
 }
 
+interface MissingState {
+  os: ServiceOrder;
+  responsavelNome: string;
+  responsavelTelefone: string;
+  responsavelEmail: string;
+  enderecoEntrega: string;
+  dataEntrega: string;
+  valorTotal: string;
+  // quais campos foram detectados como obrigatórios/faltantes
+  need: {
+    responsavelNome: boolean;
+    responsavelTelefone: boolean;
+    enderecoEntrega: boolean;
+    dataEntrega: boolean;
+    valorTotal: boolean;
+  };
+}
+
 export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onChanged?: () => void; refreshKey?: number }) {
   const [list, setList] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [deliver, setDeliver] = useState<DeliverState | null>(null);
   const [closing, setClosing] = useState<CloseState | null>(null);
+  const [missing, setMissing] = useState<MissingState | null>(null);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+
+  const runConvert = async (
+    os: ServiceOrder,
+    overrides?: {
+      responsavelNome?: string; responsavelTelefone?: string; responsavelEmail?: string;
+      enderecoEntrega?: string; dataEntrega?: string; valorTotal?: number;
+    },
+  ) => {
+    try {
+      const r = await serviceOrdersService.convertToContract(os.id, overrides);
+      toast.success(`Contrato ${r.contractNumero} criado`, {
+        action: { label: 'Abrir', onClick: () => navigate(`/erp/contratos?search=${encodeURIComponent(r.contractNumero)}`) },
+      });
+      setMissing(null);
+      await load();
+      onChanged?.();
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (msg.includes('já foi convertida')) { toast.info(msg); await load(); }
+      else toast.error(msg || 'Erro ao converter em contrato');
+    }
+  };
 
   const sendToContracts = async (os: ServiceOrder) => {
     if (os.convertedContractId) {
@@ -63,20 +104,74 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
     if (!(await confirmDialog({
       description: `Criar contrato a partir da OS ${os.numero}? Ele aparecerá na aba Contratos para revisão/edição manual.`,
     }))) return;
+
+    // Busca detalhe da OS para conferir se todos os dados essenciais estão presentes
+    // (responsável, endereço, data de entrega, valor). Se faltar, abre modal.
     try {
-      const r = await serviceOrdersService.convertToContract(os.id);
-      toast.success(`Contrato ${r.contractNumero} criado`, {
-        action: { label: 'Abrir', onClick: () => navigate(`/erp/contratos?search=${encodeURIComponent(r.contractNumero)}`) },
-      });
-      await load();
-      onChanged?.();
+      const detail = await serviceOrdersService.get(os.id) as any;
+      const respNome  = (detail.responsavelNome     || '').toString().trim();
+      const respTel   = (detail.responsavelTelefone || '').toString().trim();
+      const respEmail = (detail.responsavelEmail    || '').toString().trim();
+      const endereco  = (detail.endereco_entrega    || detail.enderecoEntrega || os.enderecoEntrega || os.customerAddress || '').toString().trim();
+      const dataEntr  = (detail.data_entrega        || detail.dataEntrega     || os.dataEntrega || '').toString().slice(0, 10);
+      const valor     = Number(detail.valor_total ?? detail.valorTotal ?? os.valorTotal ?? 0);
+
+      const need = {
+        responsavelNome: !respNome,
+        responsavelTelefone: !respTel,
+        enderecoEntrega: !endereco,
+        dataEntrega: !dataEntr,
+        valorTotal: !(valor > 0),
+      };
+      const hasMissing = Object.values(need).some(Boolean);
+
+      if (hasMissing) {
+        setMissing({
+          os,
+          responsavelNome: respNome,
+          responsavelTelefone: respTel,
+          responsavelEmail: respEmail,
+          enderecoEntrega: endereco,
+          dataEntrega: dataEntr,
+          valorTotal: valor > 0 ? String(valor) : '',
+          need,
+        });
+        return;
+      }
+
+      await runConvert(os);
     } catch (e: any) {
-      const msg = String(e?.message || '');
-      if (msg.includes('já foi convertida')) { toast.info(msg); await load(); }
-      else toast.error(msg || 'Erro ao converter em contrato');
+      toast.error(e?.message || 'Erro ao carregar dados da OS');
     }
   };
-  const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
+
+  const submitMissing = async () => {
+    if (!missing) return;
+    // Valida os obrigatórios preenchidos.
+    const errs: string[] = [];
+    if (missing.need.responsavelNome     && !missing.responsavelNome.trim())     errs.push('Nome do responsável');
+    if (missing.need.responsavelTelefone && !missing.responsavelTelefone.trim()) errs.push('Telefone do responsável');
+    if (missing.need.enderecoEntrega     && !missing.enderecoEntrega.trim())     errs.push('Endereço de entrega');
+    if (missing.need.dataEntrega         && !missing.dataEntrega.trim())         errs.push('Data de entrega');
+    if (missing.need.valorTotal) {
+      const v = Number(missing.valorTotal);
+      if (!(v > 0)) errs.push('Valor total (maior que zero)');
+    }
+    if (errs.length) { toast.error(`Preencha: ${errs.join(', ')}`); return; }
+
+    setBusy(true);
+    try {
+      await runConvert(missing.os, {
+        responsavelNome:     missing.responsavelNome.trim()     || undefined,
+        responsavelTelefone: missing.responsavelTelefone.trim() || undefined,
+        responsavelEmail:    missing.responsavelEmail.trim()    || undefined,
+        enderecoEntrega:     missing.enderecoEntrega.trim()     || undefined,
+        dataEntrega:         missing.dataEntrega.trim()         || undefined,
+        valorTotal:          missing.valorTotal.trim() ? Number(missing.valorTotal) : undefined,
+      });
+    } finally { setBusy(false); }
+  };
+
 
   const load = async () => {
     setLoading(true);
