@@ -44,21 +44,11 @@ CREATE INDEX IF NOT EXISTS idx_sanitarios_status_em_cliente
   WHERE status = 'em_cliente';
 
 -- ---------- erp_expenses ----------
--- Já: data DESC, categoria. Falta company/contract usados em joins.
-CREATE INDEX IF NOT EXISTS idx_erp_expenses_company
-  ON erp_expenses (company_id);
-CREATE INDEX IF NOT EXISTS idx_erp_expenses_contract
-  ON erp_expenses (contract_id);
-
--- ---------- erp_invoices ----------
-CREATE INDEX IF NOT EXISTS idx_erp_invoices_company
-  ON erp_invoices (company_id);
-CREATE INDEX IF NOT EXISTS idx_erp_invoices_customer
-  ON erp_invoices (customer_id);
+-- Já: data DESC, categoria. Adiciona created_at para ordenação estável.
+CREATE INDEX IF NOT EXISTS idx_erp_expenses_created_at
+  ON erp_expenses (created_at DESC);
 
 -- ---------- erp_receipts ----------
-CREATE INDEX IF NOT EXISTS idx_erp_receipts_customer
-  ON erp_receipts (customer_id);
 CREATE INDEX IF NOT EXISTS idx_erp_receipts_created_at
   ON erp_receipts (created_at DESC);
 
