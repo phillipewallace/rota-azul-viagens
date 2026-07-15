@@ -1,4 +1,5 @@
 import { sendError } from '../utils/apiError';
+import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
@@ -20,7 +21,12 @@ router.get('/', async (req, res) => {
       conds.push(`o.status = $${params.length}`);
     }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const r = await pool.query(`
+    const fromSql = `FROM erp_service_orders o
+        LEFT JOIN customers cu ON cu.id = o.customer_id
+        LEFT JOIN erp_companies c ON c.id = o.company_id
+        ${where}`;
+    const pg = parsePagination(req, params.length);
+    const rowsQ = await pool.query(`
       SELECT o.id, o.numero, o.quote_id AS "quoteId", o.company_id AS "companyId",
              o.customer_id AS "customerId", o.modalidade, o.tipo_locacao AS "tipoLocacao",
              o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
@@ -42,12 +48,13 @@ router.get('/', async (req, res) => {
              COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s
                         JOIN sanitarios sa ON sa.id=s.sanitario_id
                         WHERE s.os_id=o.id AND s.devolvido_em IS NULL AND sa.status='em_cliente'),0)::int AS "sanitariosEntregues"
-        FROM erp_service_orders o
-        LEFT JOIN customers cu ON cu.id = o.customer_id
-        LEFT JOIN erp_companies c ON c.id = o.company_id
-        ${where}
-        ORDER BY o.created_at DESC LIMIT 500`, params);
-    res.json(r.rows);
+        ${fromSql}
+        ORDER BY o.created_at DESC ${pg.sql}`, [...params, ...pg.params]);
+    if (pg.paginated) {
+      const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${fromSql}`, params);
+      return sendPaginated(res, rowsQ.rows, totalQ.rows[0].c, pg);
+    }
+    res.json(rowsQ.rows);
   } catch (e: any) {
     console.error('[erp-service-orders GET]', e);
     sendError(res, e);

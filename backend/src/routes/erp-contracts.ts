@@ -1,4 +1,5 @@
 import { sendError } from '../utils/apiError';
+import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
@@ -42,17 +43,22 @@ router.get('/', async (req, res) => {
     if (ativo === 'false') conds.push(`c.ativo = FALSE`);
     if (customerId) { params.push(customerId); conds.push(`c.customer_id = $${params.length}`); }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const r = await pool.query(
-      `SELECT ${SELECT}
-         FROM erp_contracts c
+    const from = `FROM erp_contracts c
          LEFT JOIN erp_companies emp ON emp.id = c.company_id
          LEFT JOIN customers cu ON cu.id = c.customer_id
          LEFT JOIN erp_service_orders os ON os.id = c.os_id
-         ${where}
-         ORDER BY c.ativo DESC, c.created_at DESC LIMIT 1000`,
-      params
+         ${where}`;
+    const pg = parsePagination(req, params.length);
+    const rowsQ = await pool.query(
+      `SELECT ${SELECT} ${from}
+         ORDER BY c.ativo DESC, c.created_at DESC ${pg.sql}`,
+      [...params, ...pg.params]
     );
-    res.json(r.rows);
+    if (pg.paginated) {
+      const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${from}`, params);
+      return sendPaginated(res, rowsQ.rows, totalQ.rows[0].c, pg);
+    }
+    res.json(rowsQ.rows);
   } catch (e: any) { sendError(res, e); }
 });
 
