@@ -413,25 +413,74 @@ const ErpFinanceiro: React.FC = () => {
   }, [competencia]);
   useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
 
-  // Carga das Notas Fiscais.
-  // Empurra filtros server-side (status/forma/empresa) para reduzir payload.
-  // A busca textual (nfSearch) permanece client-side para UX de digitação.
+  // Filtros server-side das Notas Fiscais (sem paginação).
+  const nfBaseFilters = useMemo(() => {
+    const usaRange = !!(nfFrom || nfTo);
+    return {
+      ...(usaRange ? { from: nfFrom || undefined, to: nfTo || undefined }
+                   : { competencia }),
+      status:         nfStatus !== 'all' ? nfStatus : undefined,
+      formaPagamento: nfForma !== 'all' ? nfForma : undefined,
+      companyId:      nfCompanyId !== 'all' ? nfCompanyId : undefined,
+      search:         debouncedNfSearch || undefined,
+    } as const;
+  }, [competencia, nfFrom, nfTo, nfStatus, nfForma, nfCompanyId, debouncedNfSearch]);
+
   const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
     try {
-      const usaRange = !!(nfFrom || nfTo);
-      const r = await invoicesService.list({
-        ...(usaRange ? { from: nfFrom || undefined, to: nfTo || undefined }
-                     : { competencia }),
-        status: nfStatus !== 'all' ? nfStatus : undefined,
-        formaPagamento: nfForma !== 'all' ? nfForma : undefined,
-        companyId: nfCompanyId !== 'all' ? nfCompanyId : undefined,
-      });
-      if (mountedRef.current) setInvoices(r);
+      const [pg, k] = await Promise.all([
+        invoicesService.listPaged({ ...nfBaseFilters, page: nfPage, pageSize: nfPageSize }),
+        invoicesService.kpis(nfBaseFilters),
+      ]);
+      if (!mountedRef.current) return;
+      setInvoices(pg.data);
+      setNfTotal(pg.total);
+      setNfKpis(k);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setInvoicesLoading(false); }
-  }, [competencia, nfFrom, nfTo, nfStatus, nfForma, nfCompanyId]);
+  }, [nfBaseFilters, nfPage, nfPageSize]);
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
+
+  // Reset da página das NFs quando qualquer filtro muda.
+  useEffect(() => { setNfPage(1); }, [nfBaseFilters, nfPageSize]);
+
+  /** Baixa TODAS as NFs do filtro atual (paginando em blocos de 200). */
+  const fetchAllFilteredInvoices = useCallback(async (hardLimit = 5000): Promise<Invoice[] | null> => {
+    const PAGE = 200;
+    const first = await invoicesService.listPaged({ ...nfBaseFilters, page: 1, pageSize: PAGE });
+    if (first.total > hardLimit) {
+      toast.error(`Muitas notas fiscais (${first.total}). Refine os filtros — limite ${hardLimit}.`);
+      return null;
+    }
+    const all: Invoice[] = [...first.data];
+    const totalPages = Math.max(1, Math.ceil(first.total / PAGE));
+    for (let p = 2; p <= totalPages; p++) {
+      const pg = await invoicesService.listPaged({ ...nfBaseFilters, page: p, pageSize: PAGE });
+      all.push(...pg.data);
+    }
+    return all;
+  }, [nfBaseFilters]);
+
+  const exportAllFilteredNfCsv = useCallback(async () => {
+    setNfExportBusy(true);
+    try {
+      const all = await fetchAllFilteredInvoices();
+      if (!all) return;
+      const headers = ['Número','Série','Cliente','Contrato','Empresa','Emissão','Competência','Forma pgto.','Valor','Status'];
+      const rows = all.map(i => [
+        i.numero, i.serie || '', i.customerName || '', i.contractNumero || '',
+        i.companyRazaoSocial || '', i.dataEmissao, i.competencia,
+        i.formaPagamento ? INVOICE_FORMA_LABEL[i.formaPagamento] : '',
+        Number(i.valor).toFixed(2).replace('.', ','), i.status,
+      ]);
+      downloadCsv(`notas-fiscais-${competencia}`, headers, rows);
+      toast.success(`CSV exportado (${all.length} NFs).`);
+    } catch (e: any) { toast.error(e.message || 'Falha ao exportar CSV.'); }
+    finally { setNfExportBusy(false); }
+  }, [fetchAllFilteredInvoices, competencia]);
+
+
 
 
   // Total do mês anterior (para delta no KPI)
