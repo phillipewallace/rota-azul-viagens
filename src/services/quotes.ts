@@ -192,8 +192,16 @@ export const serviceOrdersService = {
     dataFim?: string | null;
     observacoes?: string;
     descricao?: string;
+    // Overrides preenchidos via modal quando faltarem na OS/orçamento:
+    responsavelNome?: string;
+    responsavelTelefone?: string;
+    responsavelEmail?: string;
+    enderecoEntrega?: string;
+    dataEntrega?: string;
+    valorTotal?: number;
   }) => req<{ ok: true; contractId: string; contractNumero: string }>(
     'POST', `/erp/service-orders/${id}/convert-to-contract`, body || {}),
+
   overdueCount: () => req<{ overdue: number }>('GET', `/erp/service-orders/overdue/count`),
   financial: (params?: { from?: string; to?: string; status?: string; tipoLocacao?: string }) => {
     const q = new URLSearchParams(
