@@ -318,6 +318,20 @@ const ErpFinanceiro: React.FC = () => {
   }, [competencia]);
   useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
 
+  // Carga das Notas Fiscais (competência atual)
+  const loadInvoices = useCallback(async () => {
+    setInvoicesLoading(true);
+    try {
+      const r = await invoicesService.list(
+        nfFrom || nfTo ? { from: nfFrom || undefined, to: nfTo || undefined }
+                       : { competencia },
+      );
+      if (mountedRef.current) setInvoices(r);
+    } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
+    finally { if (mountedRef.current) setInvoicesLoading(false); }
+  }, [competencia, nfFrom, nfTo]);
+  useEffect(() => { loadInvoices(); }, [loadInvoices]);
+
   // Total do mês anterior (para delta no KPI)
   useEffect(() => {
     const [y, m] = (competencia || '').split('-').map(Number);
