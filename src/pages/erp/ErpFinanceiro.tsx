@@ -2044,7 +2044,7 @@ const ErpFinanceiro: React.FC = () => {
                   { label: periodoLabel, value: String(doPeriodo.length), icon: FileText },
                   { label: totalLabel, value: BRL(doPeriodo.reduce((s, i) => s + Number(i.valor || 0), 0)), icon: DollarSign },
                   { label: 'Ticket médio', value: BRL(ticket), icon: ReceiptIcon },
-                  { label: 'Total geral', value: String(ativas.length), icon: CheckCircle2 },
+                  { label: 'NFs ativas no período', value: String(ativas.length), icon: CheckCircle2 },
                 ];
 
                 return (
