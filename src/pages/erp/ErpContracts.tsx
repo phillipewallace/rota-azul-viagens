@@ -407,7 +407,7 @@ const ErpContracts: React.FC = () => {
             </Button>
           )}
           <div className="ml-auto text-xs text-muted-foreground tabular-nums">
-            {filtered.length} de {list.length}
+            {filtered.length} nesta página · {total} no total
           </div>
         </CardContent>
       </Card>
