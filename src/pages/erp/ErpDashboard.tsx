@@ -24,6 +24,7 @@ import { quotesService, serviceOrdersService, type ServiceOrder } from '@/servic
 import { erpService, fetchSanitarioStockSummary, type SanitarioStockSummary } from '@/services/erp';
 import { receiptsService, type ReceiptsSummaryPoint, type PendingReceipt } from '@/services/contracts';
 import { useCustomers } from '@/hooks/useCustomers';
+import { parseLocalDate } from '@/utils/dateFormat';
 
 // ---------- helpers ----------
 const BRL = (n: number) =>
