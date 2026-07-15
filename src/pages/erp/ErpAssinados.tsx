@@ -1,8 +1,9 @@
 /**
  * ERP → Assinados
  * Lista todos os PDFs gerados pela aba Assinatura, com download/abrir/excluir.
+ * Paginação, filtros e KPIs são calculados no servidor.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { erpService, type ErpCompany, type SignedPdf } from '@/services/erp';
 import { toAuthedUrl } from '@/utils/absoluteUrl';
 import { confirmDialog } from '@/lib/confirm';
+import PaginationBar from '@/components/PaginationBar';
+import { downloadCsv } from '@/utils/exporters';
 import { Files, Download, ExternalLink, Trash2, Search, RefreshCw, FileText } from 'lucide-react';
 
 const fmtBytes = (n?: number) => {
@@ -28,36 +31,53 @@ const ErpAssinados: React.FC = () => {
   const [companyFilter, setCompanyFilter] = useState<string>('all');
   const [items, setItems] = useState<SignedPdf[]>([]);
   const [q, setQ] = useState('');
+  const [qDebounced, setQDebounced] = useState('');
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [kpis, setKpis] = useState<{ total: number; totalBytes: number; totalPages: number; empresasDistintas: number }>({
+    total: 0, totalBytes: 0, totalPages: 0, empresasDistintas: 0,
+  });
+  const [exportBusy, setExportBusy] = useState(false);
+  const reqRef = useRef(0);
 
-  const load = async () => {
+  // Debounce da busca (350ms)
+  useEffect(() => {
+    const t = setTimeout(() => setQDebounced(q.trim()), 350);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => { setPage(1); }, [companyFilter, qDebounced, pageSize]);
+
+  const filterOpts = useMemo(() => ({
+    companyId: companyFilter === 'all' ? undefined : companyFilter,
+    search: qDebounced || undefined,
+  }), [companyFilter, qDebounced]);
+
+  const load = useCallback(async () => {
+    const id = ++reqRef.current;
     setLoading(true);
     try {
-      const list = await erpService.listSignedPdfs(
-        companyFilter === 'all' ? undefined : companyFilter,
-      );
-      setItems(list);
+      const [paged, k] = await Promise.all([
+        erpService.listSignedPdfsPaged({ ...filterOpts, page, pageSize }),
+        erpService.signedPdfsKpis(filterOpts),
+      ]);
+      if (id !== reqRef.current) return;
+      setItems(paged.data);
+      setTotal(paged.total);
+      setKpis(k);
     } catch (e: any) {
-      toast({ title: 'Erro ao carregar', description: e?.message, variant: 'destructive' });
+      if (id === reqRef.current) toast({ title: 'Erro ao carregar', description: e?.message, variant: 'destructive' });
     } finally {
-      setLoading(false);
+      if (id === reqRef.current) setLoading(false);
     }
-  };
+  }, [filterOpts, page, pageSize, toast]);
 
   useEffect(() => {
     erpService.listCompanies().then(setCompanies).catch(() => {});
   }, []);
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyFilter]);
-
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (!term) return items;
-    return items.filter(
-      (i) =>
-        i.originalFilename.toLowerCase().includes(term) ||
-        (i.companyName || '').toLowerCase().includes(term),
-    );
-  }, [items, q]);
+  useEffect(() => { load(); }, [load]);
 
   const handleDownload = (it: SignedPdf) => {
     const url = toAuthedUrl(it.fileUrl);
@@ -82,12 +102,45 @@ const ErpAssinados: React.FC = () => {
     if (!ok) return;
     try {
       await erpService.deleteSignedPdf(it.id);
-      setItems((prev) => prev.filter((x) => x.id !== it.id));
       toast({ title: 'PDF excluído' });
+      load();
     } catch (e: any) {
       toast({ title: 'Erro ao excluir', description: e?.message, variant: 'destructive' });
     }
   };
+
+  // Exporta CSV percorrendo TODO o dataset filtrado (blocos de 200, cap 5000).
+  const exportCsv = useCallback(async () => {
+    setExportBusy(true);
+    try {
+      const CAP = 5000;
+      const CHUNK = 200;
+      const all: SignedPdf[] = [];
+      let p = 1;
+      while (all.length < CAP) {
+        const res = await erpService.listSignedPdfsPaged({ ...filterOpts, page: p, pageSize: CHUNK });
+        all.push(...res.data);
+        if (res.data.length < CHUNK || all.length >= res.total) break;
+        p++;
+      }
+      const trimmed = all.slice(0, CAP);
+      const headers = ['Arquivo', 'Empresa', 'Data', 'Páginas', 'Tamanho (bytes)', 'Criado por'];
+      const rows = trimmed.map(it => [
+        it.originalFilename,
+        it.companyName || '',
+        fmtDate(it.createdAt),
+        it.pages ?? '',
+        it.sizeBytes ?? '',
+        it.createdBy || '',
+      ]);
+      downloadCsv(`pdfs-assinados-${new Date().toISOString().slice(0, 10)}`, headers, rows);
+      toast({ title: `CSV exportado (${trimmed.length} registros).` });
+    } catch (e: any) {
+      toast({ title: 'Falha ao exportar', description: e?.message, variant: 'destructive' });
+    } finally {
+      setExportBusy(false);
+    }
+  }, [filterOpts, toast]);
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
@@ -102,7 +155,35 @@ const ErpAssinados: React.FC = () => {
         <Button variant="outline" size="sm" onClick={load} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Atualizar
         </Button>
+        <Button
+          variant="outline" size="sm"
+          onClick={exportCsv}
+          disabled={exportBusy || kpis.total === 0}
+          title="Exporta o dataset inteiro respeitando os filtros"
+        >
+          <Download className={`h-4 w-4 mr-1 ${exportBusy ? 'animate-spin' : ''}`} />
+          Exportar CSV (filtro)
+        </Button>
       </header>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Total de PDFs</div>
+          <div className="text-lg font-semibold tabular-nums">{kpis.total.toLocaleString('pt-BR')}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Páginas assinadas</div>
+          <div className="text-lg font-semibold tabular-nums">{kpis.totalPages.toLocaleString('pt-BR')}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Empresas</div>
+          <div className="text-lg font-semibold tabular-nums">{kpis.empresasDistintas.toLocaleString('pt-BR')}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Armazenamento</div>
+          <div className="text-lg font-semibold tabular-nums">{fmtBytes(Number(kpis.totalBytes) || 0)}</div>
+        </Card>
+      </div>
 
       <Card className="p-4 grid md:grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -133,7 +214,7 @@ const ErpAssinados: React.FC = () => {
       </Card>
 
       <Card className="p-0 overflow-hidden">
-        {filtered.length === 0 ? (
+        {items.length === 0 ? (
           <div className="p-10 text-center text-muted-foreground">
             <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
             {loading ? 'Carregando…' : 'Nenhum PDF assinado ainda. Vá para a aba Assinatura para começar.'}
@@ -152,7 +233,7 @@ const ErpAssinados: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((it) => (
+                {items.map((it) => (
                   <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                     <td className="px-4 py-3 max-w-[280px] truncate" title={it.originalFilename}>
                       <div className="flex items-center gap-2">
@@ -192,6 +273,16 @@ const ErpAssinados: React.FC = () => {
             </table>
           </div>
         )}
+
+        <div className="px-4">
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
       </Card>
     </div>
   );
