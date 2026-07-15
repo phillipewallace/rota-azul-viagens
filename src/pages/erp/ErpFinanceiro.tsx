@@ -2013,6 +2013,7 @@ const ErpFinanceiro: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
         {/* ================== Notas Fiscais ================== */}
         <TabsContent value="notas">
