@@ -77,14 +77,27 @@ export const contractsService = {
     const s = q.toString();
     return req<Contract[]>('GET', `/erp/contracts${s ? '?' + s : ''}`);
   },
-  /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
-  listPaged: (params?: { ativo?: boolean; customerId?: string } & PageParams) => {
+  /** Variante paginada — envelope `{ data, total, page, pageSize }` com filtros server-side. */
+  listPaged: (params?: {
+    ativo?: boolean; customerId?: string;
+    tipoContrato?: 'locacao' | 'evento' | 'obra';
+    companyId?: string;
+    search?: string;
+    vencendo?: boolean;
+  } & PageParams) => {
     const q = new URLSearchParams();
     if (params?.ativo !== undefined) q.set('ativo', String(params.ativo));
     if (params?.customerId) q.set('customerId', params.customerId);
+    if (params?.tipoContrato) q.set('tipoContrato', params.tipoContrato);
+    if (params?.companyId) q.set('companyId', params.companyId);
+    if (params?.search) q.set('search', params.search);
+    if (params?.vencendo) q.set('vencendo', 'true');
     appendPageParams(q, params);
     return req<Paged<Contract>>('GET', `/erp/contracts?${q.toString()}`);
   },
+  kpis: () => req<{ ativos: number; mrr: number; vencendo: number; encerradosMes: number }>(
+    'GET', '/erp/contracts/stats/kpis'),
+
   get: (id: string) => req<Contract>('GET', `/erp/contracts/${id}`),
   create: (data: Partial<Contract>) => req<{ id: string; numero: string }>('POST', '/erp/contracts', data),
   update: (id: string, data: Partial<Contract>) => req<{ ok: true }>('PUT', `/erp/contracts/${id}`, data),

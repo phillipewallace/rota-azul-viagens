@@ -38,6 +38,8 @@ import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { BoletoVencimentoDialog } from '@/components/erp/BoletoVencimentoDialog';
 import { formatDateBR } from '@/utils/dateFormat';
+import PaginationBar from '@/components/PaginationBar';
+
 
 // Cliente vem do endpoint /customers que retorna camelCase (customerName)
 type Customer = { id: string; customerName: string; document?: string };
@@ -59,6 +61,10 @@ const TIPO_LABEL: Record<string, string> = {
 
 const ErpContracts: React.FC = () => {
   const [list, setList] = useState<Contract[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [kpis, setKpis] = useState({ ativos: 0, mrr: 0, vencendo: 0, encerradosMes: 0 });
   const [companies, setCompanies] = useState<ErpCompany[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [oses, setOses] = useState<any[]>([]);
@@ -67,18 +73,38 @@ const ErpContracts: React.FC = () => {
   const [filterCompany, setFilterCompany] = useState<string>('all');
   const [filterVencendo, setFilterVencendo] = useState<boolean>(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<Contract | null>(null);
   const [openForm, setOpenForm] = useState(false);
   const [deleting, setDeleting] = useState<Contract | null>(null);
   const [vencTarget, setVencTarget] = useState<Contract | null>(null);
-  
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const serverParams = useMemo(() => {
+    const p: Parameters<typeof contractsService.listPaged>[0] = {};
+    if (filterAtivo !== 'all') p.ativo = filterAtivo === 'true';
+    if (filterTipo !== 'all') p.tipoContrato = filterTipo;
+    if (filterCompany !== 'all') p.companyId = filterCompany;
+    if (filterVencendo) p.vencendo = true;
+    if (debouncedSearch) p.search = debouncedSearch;
+    return p;
+  }, [filterAtivo, filterTipo, filterCompany, filterVencendo, debouncedSearch]);
 
   const load = async () => {
     setLoading(true);
     try {
-      // Sempre traz tudo — status vira filtro de UI para permitir clicar nos KPIs.
-      setList(await contractsService.list());
+      const [pg, k] = await Promise.all([
+        contractsService.listPaged({ ...serverParams, page, pageSize }),
+        contractsService.kpis(),
+      ]);
+      setList(pg.data);
+      setTotal(pg.total);
+      setKpis(k);
     } catch (e: any) { toast.error(e.message); }
     finally { setLoading(false); }
   };
@@ -96,50 +122,12 @@ const ErpContracts: React.FC = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [serverParams, page, pageSize]);
+  useEffect(() => { setPage(1); }, [serverParams, pageSize]);
   useEffect(() => { loadAux(); }, []);
 
-  // ---- KPIs ----------------------------------------------------------------
-  const kpis = useMemo(() => {
-    const ativos = list.filter(c => c.ativo);
-    const mrr = ativos.reduce((s, c) => s + Number(c.valorMensal || 0), 0);
-    const vencendo = ativos.filter(c => {
-      const d = daysUntil(c.dataFim);
-      return d !== null && d >= 0 && d <= 30;
-    });
-    // Encerrados no mês corrente
-    const now = new Date();
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const encMes = list.filter(c => !c.ativo && (c.encerradoEm || '').startsWith(ym));
-    return {
-      ativos: ativos.length,
-      mrr,
-      vencendo: vencendo.length,
-      encerradosMes: encMes.length,
-    };
-  }, [list]);
-
-  // ---- Filtragem -----------------------------------------------------------
-  const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase();
-    return list.filter(c => {
-      if (filterAtivo === 'true'  && !c.ativo) return false;
-      if (filterAtivo === 'false' &&  c.ativo) return false;
-      if (filterTipo !== 'all' && (c.tipoContrato || 'locacao') !== filterTipo) return false;
-      if (filterCompany !== 'all' && c.companyId !== filterCompany) return false;
-      if (filterVencendo) {
-        const d = daysUntil(c.dataFim);
-        if (!(c.ativo && d !== null && d >= 0 && d <= 30)) return false;
-      }
-      if (s && !(
-        (c.numero || '').toLowerCase().includes(s) ||
-        (c.customerName || '').toLowerCase().includes(s) ||
-        (c.companyRazaoSocial || '').toLowerCase().includes(s) ||
-        (c.descricao || '').toLowerCase().includes(s)
-      )) return false;
-      return true;
-    });
-  }, [list, search, filterAtivo, filterTipo, filterCompany, filterVencendo]);
+  // Página já vem filtrada do server
+  const filtered = list;
 
   const activeFiltersCount =
     (filterAtivo !== 'all' ? 1 : 0) +
@@ -152,6 +140,7 @@ const ErpContracts: React.FC = () => {
     setFilterAtivo('all'); setFilterTipo('all');
     setFilterCompany('all'); setFilterVencendo(false); setSearch('');
   };
+
 
   const onSaved = async () => {
     setOpenForm(false); setEditing(null);
@@ -420,7 +409,7 @@ const ErpContracts: React.FC = () => {
             </Button>
           )}
           <div className="ml-auto text-xs text-muted-foreground tabular-nums">
-            {filtered.length} de {list.length}
+            {filtered.length} nesta página · {total} no total
           </div>
         </CardContent>
       </Card>
@@ -565,8 +554,19 @@ const ErpContracts: React.FC = () => {
               </TableBody>
             </Table>
           </div>
+          <div className="px-4 pb-3">
+            <PaginationBar
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[25, 50, 100, 200]}
+            />
+          </div>
         </CardContent>
       </Card>
+
 
       <ContractFormDialog
         open={openForm}
