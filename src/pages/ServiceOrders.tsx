@@ -225,6 +225,40 @@ const ServiceOrders: React.FC = () => {
     finally { setPdfBusy(null); }
   };
 
+  const navigate = useNavigate();
+  const sendToContracts = async (o: ServiceOrder) => {
+    // OS já convertida → apenas navega para a aba Contratos filtrando pelo número.
+    if (o.convertedContractId) {
+      toast.info(`OS ${o.numero} já vinculada ao contrato ${o.convertedContractNumero || ''}`);
+      navigate(`/erp/contratos?search=${encodeURIComponent(o.convertedContractNumero || '')}`);
+      return;
+    }
+    if (!o.customerId || !o.companyId) {
+      toast.error('OS precisa ter cliente e empresa emissora para gerar contrato');
+      return;
+    }
+    if (!(await confirmDialog({
+      description: `Criar contrato a partir da OS ${o.numero}? Ele aparecerá na aba Contratos para revisão/edição manual.`,
+    }))) return;
+    setPdfBusy(o.id);
+    try {
+      const r = await serviceOrdersService.convertToContract(o.id);
+      toast.success(`Contrato ${r.contractNumero} criado com sucesso`, {
+        action: { label: 'Abrir', onClick: () => navigate(`/erp/contratos?search=${encodeURIComponent(r.contractNumero)}`) },
+      });
+      await load();
+    } catch (e: any) {
+      // 409 → contrato já existente: navega para ele.
+      const msg = String(e?.message || '');
+      if (msg.includes('já foi convertida')) {
+        toast.info(msg);
+        await load();
+      } else {
+        toast.error(msg || 'Erro ao converter em contrato');
+      }
+    } finally { setPdfBusy(null); }
+  };
+
 
 
   const openFinanceiro = async () => {
