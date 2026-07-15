@@ -743,6 +743,7 @@ function ContractFormDialog({
 
   const [form, setForm] = useState<any>(empty);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   // Se o usuário editou manualmente o dia, paramos de auto-preencher.
   // Limpar o campo reativa o auto-preenchimento.
