@@ -1417,6 +1417,16 @@ const ErpFinanceiro: React.FC = () => {
                 {pendFiltroAtivo && (
                   <Button variant="ghost" size="sm" onClick={clearPendFilters}>Limpar</Button>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportPendentesCsv}
+                  disabled={pendentesFiltrados.length === 0}
+                  title="Exportar CSV dos pendentes exibidos (respeitando os filtros)"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Exportar CSV (filtro)
+                </Button>
               </div>
               <div className="flex flex-wrap gap-2">
                 <QuickChip active={pendQuick === 'none'} onClick={() => setPendQuick('none')}>Todos</QuickChip>
