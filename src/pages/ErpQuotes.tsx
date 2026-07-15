@@ -684,6 +684,13 @@ const ErpQuotes: React.FC = () => {
             })}
           </div>
         )}
+
+        {/* Paginação server-side (aparece só quando há mais de 1 página) */}
+        <PaginationBar
+          page={page} pageSize={pageSize} total={totalCount}
+          onPageChange={setPage} onPageSizeChange={setPageSize}
+          pageSizeOptions={[12, 24, 48, 96]}
+        />
       </div>
 
       {/* Editor Modal */}
