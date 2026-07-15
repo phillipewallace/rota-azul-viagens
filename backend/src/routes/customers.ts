@@ -237,7 +237,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const c = req.body || {};
     if (!c.id) { res.status(400).json({ error: 'id obrigatório' }); return; }
-    const saved = await upsertCustomer(c, true);
+    const saved = await upsertCustomer(c);
     res.json(saved);
   } catch (e: any) {
     console.error('[POST /customers]', e);
