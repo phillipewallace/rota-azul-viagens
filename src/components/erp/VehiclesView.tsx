@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { erpService, ErpVehicle, ErpVehicleComment } from '@/services/erp';
 
 import { confirmDialog } from '@/lib/confirm';
+import { formatDateBR } from '@/utils/dateFormat';
 const VEHICLE_TYPES = [
   { value: 'caminhao',   label: 'Caminhão' },
   { value: 'carretinha', label: 'Carretinha' },
