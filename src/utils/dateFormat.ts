@@ -44,3 +44,20 @@ export function formatPeriodo(
   const b = fim ? formatDateBR(fim) : '—';
   return `${a} - ${b}`;
 }
+
+// [dedupe] Último dia do mês da data informada — evita a repetição de
+// `new Date(y, m + 1, 0)` espalhada pelo ERP.
+export function lastDayOfMonth(d: Date = new Date()): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+
+// Intervalo YYYY-MM-DD do mês (útil para filtros "from/to").
+export function monthRangeISO(d: Date = new Date()): { from: string; to: string } {
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const from = `${y}-${pad(m + 1)}-01`;
+  const last = new Date(y, m + 1, 0).getDate();
+  const to = `${y}-${pad(m + 1)}-${pad(last)}`;
+  return { from, to };
+}
