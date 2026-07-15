@@ -171,6 +171,17 @@ const ErpFinanceiro: React.FC = () => {
   const [pendentesLoading, setPendentesLoading] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
 
+  // Paginação server-side dos recibos
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalRecibos, setTotalRecibos] = useState(0);
+  // KPIs agregados no servidor (respeitam filtros; independe da página)
+  const [kpisRecibos, setKpisRecibos] = useState<{
+    total: number; qtdPagos: number; qtdAbertos: number; qtdParciais: number;
+    qtdCancelados: number; qtdVencidos: number;
+    recebido: number; aberto: number; vencido: number; totalAtivos: number;
+  } | null>(null);
+
   // filtros
   const [filterStatus, setFilterStatus] = useState<'all' | 'pago' | 'aberto' | 'parcial' | 'cancelado'>('all');
   const [filterCompanyId, setFilterCompanyId] = useState<string>('all');
@@ -179,12 +190,20 @@ const ErpFinanceiro: React.FC = () => {
   const [dateBase, setDateBase] = useState<DateBase>('emissao');
   const [quick, setQuick] = useState<QuickFilter>('none');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce da busca (350ms) — usado no filtro server-side E no client-side.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // seleção lote (pendentes) e (recibos)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
   const [batchWorking, setBatchWorking] = useState(false);
   const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'notas' | 'medicoes' | 'clientes' | 'gastos'>('pendentes');
+
 
   // Notas Fiscais (vinculação de NF do portal do governo)
   const [invoices, setInvoices] = useState<Invoice[]>([]);
