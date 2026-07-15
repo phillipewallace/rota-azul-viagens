@@ -209,7 +209,7 @@ async function upsertCustomer(c: any, executor: { query: (sql: string, params?: 
     c.cidade || null, c.estado || null,
     c.responsavelNome || null, c.responsavelCpf || null, c.tipoCliente || null,
   ];
-  await pool.query(`
+  await executor.query(`
     INSERT INTO customers (
       id, customer_name, address, cep, lat, lng,
       restrooms_qty, cleanings_qty, contact_name, contact_phone, notes,
@@ -229,7 +229,7 @@ async function upsertCustomer(c: any, executor: { query: (sql: string, params?: 
       tipo_cliente=EXCLUDED.tipo_cliente,
       updated_at=NOW()
   `, values);
-  const r = await pool.query(`SELECT ${CUSTOMER_SELECT} FROM customers WHERE id = $1`, [c.id]);
+  const r = await executor.query(`SELECT ${CUSTOMER_SELECT} FROM customers WHERE id = $1`, [c.id]);
   return r.rows[0];
 }
 
