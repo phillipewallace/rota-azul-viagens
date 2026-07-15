@@ -119,6 +119,23 @@ export const erpService = {
   // signed PDFs (histórico da aba Assinatura)
   listSignedPdfs: (companyId?: string) =>
     req<SignedPdf[]>('GET', `/signed-pdfs${companyId ? `?companyId=${companyId}` : ''}`),
+  listSignedPdfsPaged: (opts: { companyId?: string; search?: string } & PageParams = {}) => {
+    const q = new URLSearchParams();
+    if (opts.companyId) q.set('companyId', opts.companyId);
+    if (opts.search) q.set('search', opts.search);
+    appendPageParams(q, opts);
+    const s = q.toString();
+    return req<Paged<SignedPdf>>('GET', `/signed-pdfs${s ? '?' + s : ''}`);
+  },
+  signedPdfsKpis: (opts: { companyId?: string; search?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.companyId) q.set('companyId', opts.companyId);
+    if (opts.search) q.set('search', opts.search);
+    const s = q.toString();
+    return req<{ total: number; totalBytes: number; totalPages: number; empresasDistintas: number }>(
+      'GET', `/signed-pdfs/stats/kpis${s ? '?' + s : ''}`,
+    );
+  },
   deleteSignedPdf: (id: string) => req<{ ok: true }>('DELETE', `/signed-pdfs/${id}`),
 };
 
