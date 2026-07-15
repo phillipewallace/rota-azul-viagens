@@ -1114,7 +1114,7 @@ const ErpFinanceiro: React.FC = () => {
           sub={`${BRL(totals.aberto + totals.pendente)} a receber`} icon={AlertTriangle}
           accent="from-rose-500 to-orange-500" />
         <KPI label="Ticket médio" value={BRL(totals.ticket)}
-          sub={`${recibosFiltrados.length} recibos no filtro`} icon={ReceiptIcon}
+          sub={`${totalRecibos} recibos no filtro`} icon={ReceiptIcon}
           accent="from-sky-500 to-indigo-600" />
         <KPI label="Resultado do mês" value={BRL(totals.resultado)}
           sub={`recebido − ${BRL(gastosMes)} de gastos`}
