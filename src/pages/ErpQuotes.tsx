@@ -126,7 +126,7 @@ const ErpQuotes: React.FC = () => {
   // ---- Paginação server-side ----
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(24);   // múltiplo de 3 (colunas do grid)
-  const [total, setTotal] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   // ---- Debounce da busca (evita 1 req por tecla) ----
   const [searchDebounced, setSearchDebounced] = useState('');
@@ -165,7 +165,7 @@ const ErpQuotes: React.FC = () => {
         companies.length ? Promise.resolve(companies) : erpService.listCompanies(),
       ]);
       setList(pg.data);
-      setTotal(pg.total);
+      setTotalCount(pg.total);
       if (!companies.length) setCompanies(cs);
     } catch (e: any) { toast.error(e.message || 'Erro ao carregar'); }
     finally { setLoading(false); }
