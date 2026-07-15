@@ -1,101 +1,92 @@
-## Diagnóstico
+## Objetivo
 
-Fiz a auditoria ponta a ponta dos 3 campos do "Responsável pelo orçamento" (`responsavelNome`, `responsavelTelefone`, `responsavelEmail`).
+Separar dois fluxos hoje misturados:
 
-### Orçamento (Quote) — provavelmente **já funciona**
+- **Gerar recibo** → continua exclusivo para emitir recibos internos (com PDF do app).
+- **Marcar pago** → passa a ser **exclusivo para vincular uma Nota Fiscal já emitida no site do governo** (o cliente pagou por NF, não por recibo). Ao clicar, abre modal pedindo:
+  - **Número da NF** (texto obrigatório)
+  - **Série** (opcional)
+  - **Data de emissão** (default: hoje)
+  - **Valor** (default: valor da mensalidade; permite baixa parcial)
+  - **Forma de pagamento** (pix, boleto, transferência, etc.)
+  - **PDF da NF** (upload obrigatório)
+  - **Observações** (opcional)
 
-- **DB**: migration `migration-erp-responsavel-documento.sql` criou as 3 colunas em `erp_quotes` e `erp_contracts`. ✅
-- **Backend** (`backend/src/routes/erp-quotes.ts`): `QUOTE_SELECT` retorna `responsavelNome/Telefone/Email` tanto no GET `/` quanto no GET `/:id`. INSERT (POST), UPDATE (PUT) e convert (linha 319) salvam/copiam corretamente. ✅
-- **Front** (`src/pages/ErpQuotes.tsx`): form tem inputs (linhas 795–809), hidrata do backend (linhas 211–213 e 258–260), envia no payload (linhas 308–310). ✅
-- **PDF de orçamento** (`src/utils/quotePdf.ts` linhas 109–120): já imprime bloco **"Contato deste orçamento"** quando qualquer um dos 3 campos existe. ✅
-- **Chamada** `generateQuotePdf(q)` (ErpQuotes.tsx linhas 271 e 647): passa o objeto direto da lista, que inclui os campos.
+Ao confirmar: a NF é salva, o contrato deixa a lista de **Pendentes** naquela competência (mesmo comportamento de um recibo pago), e a NF aparece na nova aba **Notas Fiscais**.
 
-Se o usuário está vendo orçamentos **sem** o bloco no PDF, a causa mais provável é:
-1. **Orçamento antigo** criado *antes* da migration, com `NULL` nos 3 campos (o PDF só imprime o bloco se pelo menos 1 tiver valor).
-2. **Salvamento não persistiu** porque o `editing` foi enviado sem os campos preenchidos — precisa reabrir e checar se os inputs vêm preenchidos.
-3. O bloco existe, mas está numa posição em que passou despercebido (fica logo abaixo do endereço/contato do cliente, antes de "DADOS DA LOCAÇÃO").
+## Nova aba: Notas Fiscais
 
-**Ação**: confirmo isso rapidamente gerando um PDF de teste com um orçamento novo (com o responsável preenchido) e outro sem, para comparar.
+Adicionada dentro de `ErpFinanceiro` (mesmo estilo das outras abas — pendentes / recibos / etc.), com:
 
-### Ordem de Serviço (OS) — **definitivamente NÃO passa**
+- **KPIs**: total emitido no mês, quantidade, ticket médio, próximos 7 dias.
+- **Filtros**: busca (número, cliente, contrato), empresa emissora, período (emissão), forma de pagamento, status.
+- **Tabela**: nº NF, série, cliente, contrato, empresa, data emissão, valor, forma pagamento, status, ações.
+- **Ações por linha**:
+  - **Ver PDF** (abre em nova aba)
+  - **Baixar PDF**
+  - **Editar** (número/valor/forma/observações — troca PDF opcional)
+  - **Cancelar** (soft, com motivo — reabre o contrato como pendente)
+- **Ações em lote**: exportar CSV, cancelar.
 
-Aqui a corrente está quebrada em 3 lugares:
+## Backend
 
-1. **DB**: a OS (`erp_service_orders`) **não tem** as colunas `responsavel_*`. Só o orçamento tem. Como a OS é filha do orçamento (`quote_id`), o responsável precisa vir por JOIN.
-2. **Backend** (`backend/src/routes/erp-service-orders.ts`): nenhum SELECT (nem no `GET /`, nem no `GET /:id`, nem no listagem gerencial) faz JOIN com `erp_quotes` para trazer `responsavel_nome/telefone/email`.
-3. **PDF da OS** (`src/utils/serviceOrderPdf.ts`):
-   - Interface `ServiceOrderPdfInput` (linhas 15–35) **não declara** os campos.
-   - Renderização (linhas 84–98, bloco CLIENTE) só imprime `customer.contact_name` e `customer.contact_phone` do snapshot do **cliente** — não o responsável específico daquele pedido.
-4. **Chamadas**:
-   - `src/pages/ServiceOrders.tsx` linhas 140–168 e
-   - `src/components/erp/ErpServiceOrdersPanel.tsx` linhas 218–243
-   
-   Nenhuma monta os 3 campos ao chamar `generateServiceOrderPdf(...)`.
+**Nova tabela** `erp_invoices` (nota fiscal governamental vinculada a contrato/competência):
 
----
+```
+id UUID PK
+contract_id UUID FK → erp_contracts
+competencia CHAR(7)          -- YYYY-MM (unicidade: 1 NF ativa por contrato+competência)
+numero TEXT NOT NULL
+serie TEXT
+data_emissao DATE NOT NULL
+valor NUMERIC(12,2) NOT NULL
+forma_pagamento TEXT
+observacoes TEXT
+pdf_url TEXT NOT NULL         -- /uploads/invoices/<uuid>.pdf
+pdf_original_filename TEXT
+pdf_size_bytes BIGINT
+status TEXT DEFAULT 'ativa'   -- ativa | cancelada
+cancelado_em TIMESTAMPTZ
+motivo_cancelamento TEXT
+created_by TEXT
+created_at TIMESTAMPTZ
+```
 
-## Plano de correção
+Índices + `UNIQUE (contract_id, competencia) WHERE status='ativa'`.
 
-### Passo 1 — Confirmar o Orçamento em runtime (5 min, sem código)
-Antes de mexer, testar:
-- Criar/editar 1 orçamento, preencher os 3 campos de responsável, salvar.
-- Reabrir o orçamento — os 3 inputs devem vir preenchidos.
-- Baixar o PDF — o bloco **"Contato deste orçamento:"** deve aparecer entre os dados do cliente e "DADOS DA LOCAÇÃO".
+Migration em `database/migration-erp-notas-fiscais.sql` (idempotente + `GRANT` para o user `lipe`, seguindo padrão do projeto).
 
-Se **não aparecer** com um orçamento novo → há bug de persistência/hidratação e vou investigar/corrigir. Se aparecer → orçamento OK, seguir só com OS.
+**Nova rota** `backend/src/routes/erp-invoices.ts` registrada em `/api/erp/invoices`:
 
-### Passo 2 — Trazer responsável do orçamento até a OS (backend)
+- `GET /` — lista com filtros (contractId, competencia, from, to, status, formaPagamento, search).
+- `GET /pending-check?contractId=&competencia=` — usado pelo botão (sanity).
+- `POST /` — multipart (PDF + campos). Cria NF. Rejeita se já existir ativa para (contrato,competência) — igual ao fluxo de recibos.
+- `PATCH /:id` — edita metadados (não o PDF).
+- `POST /:id/replace-pdf` — multipart, substitui o PDF.
+- `POST /:id/cancel` — soft (motivo obrigatório), libera contrato para pendente.
+- `DELETE /:id` — admin/manager, hard delete apagando arquivo.
 
-`backend/src/routes/erp-service-orders.ts`:
+**Ajuste no `/receipts/pending`**: incluir na condição `NOT EXISTS` também nota fiscal ativa da mesma competência — assim contrato com NF vinculada some de Pendentes exatamente como quando tem recibo.
 
-- No `GET /:id` (busca de detalhe usada pelo download do PDF), adicionar `LEFT JOIN erp_quotes q ON q.id = o.quote_id` e selecionar:
-  ```sql
-  q.responsavel_nome     AS "responsavelNome",
-  q.responsavel_telefone AS "responsavelTelefone",
-  q.responsavel_email    AS "responsavelEmail"
-  ```
-- Opcional (bom pra tela): fazer o mesmo no `GET /` (lista), pra mostrar o responsável nos cards/tabela de OS futuramente. Fora de escopo agora se quiser minimizar.
+## Frontend
 
-Sem migration nova. Não crio coluna nova na OS — reaproveitamos o dado do orçamento vinculado (fonte única = orçamento).
+- `src/services/invoices.ts` — service com tipos + upload multipart.
+- Nova aba **"Notas Fiscais"** em `ErpFinanceiro.tsx` (entre "Sem validade" e "Medições").
+- Novo componente `src/components/erp/VincularNfDialog.tsx` (modal do Marcar pago).
+- **Botão "Marcar pago"** (individual, em Pendentes) passa a abrir `VincularNfDialog`. Ao sucesso, recarrega pendentes + notas.
+- **Ação em lote "Marcar pago"** (barra flutuante de recibos, linhas 2250-2256) permanece agindo sobre **recibos abertos** (fluxo antigo `togglePaid`) — separado do novo fluxo de NF, que é da aba Pendentes. Deixamos o rótulo mais claro: "Registrar pagamento" no lote de recibos.
+- **Ação em lote "Gerar selecionados"** (linha 1189) — mantém geração de recibo em lote (não mexe).
+- Tooltip do botão "Marcar pago" (linha 1262): atualizado para "Vincular Nota Fiscal (pagamento fora do sistema)".
 
-### Passo 3 — Aceitar os campos no PDF da OS
+## Detalhes técnicos
 
-`src/utils/serviceOrderPdf.ts`:
-
-- Adicionar na `ServiceOrderPdfInput`:
-  ```ts
-  responsavelNome?: string | null;
-  responsavelTelefone?: string | null;
-  responsavelEmail?: string | null;
-  ```
-- Dentro do bloco **CLIENTE** (após a linha `Responsável/Contato` do cliente, ~linha 98), adicionar um bloco pequeno destacado **"CONTATO DESTE PEDIDO"** somente se algum dos 3 vier preenchido:
-  ```
-  Responsável: <nome>   |   Tel.: <tel>   |   E-mail: <email>
-  ```
-  Formatação idêntica à do PDF de orçamento pra manter consistência visual.
-
-### Passo 4 — Passar os campos nas 2 chamadas do front
-
-- `src/pages/ServiceOrders.tsx` (`downloadOsPdf`, linhas 140–168): adicionar `responsavelNome: d.responsavelNome, responsavelTelefone: d.responsavelTelefone, responsavelEmail: d.responsavelEmail` no objeto passado.
-- `src/components/erp/ErpServiceOrdersPanel.tsx` (`downloadServiceOrderPdf`, linhas 218–243): mesma coisa.
-
-### Passo 5 — Verificação visual (obrigatória)
-- Gerar PDF de orçamento com e sem responsável — comparar.
-- Gerar PDF de OS de uma OS cujo orçamento tem responsável — conferir o bloco.
-- Gerar PDF de OS de OS antiga (orçamento sem responsável) — garantir que **não** aparece linha vazia.
-
----
+- Upload no padrão do `erp-signed-pdfs.ts` (multer diskStorage em `uploads/invoices/`), reaproveitando o mesmo estilo/whitelist de mimetype PDF.
+- Visualização usa `toAbsoluteUrl(pdf_url)` (mesmo utilitário do resto do módulo).
+- CSV usa `xlsx`/utilitário existente (`exportRecibosCsv` como referência).
+- Status do contrato "pago via NF" derivado da existência de NF ativa — sem alterar `erp_receipts`.
 
 ## Fora de escopo
 
-- Adicionar coluna `responsavel_*` diretamente em `erp_service_orders` (permitiria OS avulsa sem orçamento também ter responsável). Se quiser isso, vira migration + campo no form da OS. Falar comigo se preferir esse caminho.
-- Editar responsável direto na tela de OS (hoje edita só no orçamento).
-- Recibos/medições — não foram pedidos aqui.
-
----
-
-## Perguntas
-
-1. Confirmo primeiro o comportamento do orçamento em runtime (Passo 1), ou vai direto pra correção da OS assumindo que orçamento está OK?
-2. Quer também mostrar o responsável na **tabela/cards** de OS (não só no PDF)? Custa 1 SELECT a mais no `GET /`.
-3. Quer permitir editar o responsável direto na OS (nova coluna própria) ou mantém a fonte única no orçamento?
+- Não emitir NF-e (só vincular a NF já emitida no portal do governo).
+- Não integrar SEFAZ / consulta de chave.
+- Não alterar fluxo de "Gerar recibo" (recibo interno continua igual).
