@@ -304,14 +304,47 @@ const ErpFinanceiro: React.FC = () => {
   const loadRecibos = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await receiptsService.list(
-        filterFrom || filterTo || quick !== 'none' ? {} : { competencia }
-      );
+      const usaRange = !!(filterFrom || filterTo);
+      // Tab determina o recorte de validade:
+      // - 'sem-validade' → só recibos SV
+      // - 'emitidos' / 'pagos' → só recibos com validade
+      // - demais abas: sem restrição (não devem carregar recibos, mas mantém seguro)
+      const semValidadeParam: boolean | undefined =
+        activeTab === 'sem-validade' ? true
+        : (activeTab === 'emitidos' || activeTab === 'pagos') ? false
+        : undefined;
+      // Filtro de status server-side; na aba "Pagos" mantemos livre porque
+      // ela mostra tanto 'pago' quanto 'parcial' — dedup/ordenação ficam client-side.
+      const statusParam = activeTab === 'pagos'
+        ? undefined
+        : (filterStatus !== 'all' ? filterStatus : undefined);
+      const baseFilters = {
+        ...(usaRange ? { from: filterFrom || undefined, to: filterTo || undefined }
+                     : { competencia }),
+        status: statusParam,
+        companyId: filterCompanyId !== 'all' ? filterCompanyId : undefined,
+        semValidade: semValidadeParam,
+        dateBase,
+        search: debouncedSearch || undefined,
+      };
+      const [pg, k] = await Promise.all([
+        receiptsService.listPaged({ ...baseFilters, page, pageSize }),
+        receiptsService.kpis(baseFilters),
+      ]);
       if (!mountedRef.current) return;
-      setRecibos(r);
+      setRecibos(pg.data);
+      setTotalRecibos(pg.total);
+      setKpisRecibos(k);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setLoading(false); }
-  }, [competencia, filterFrom, filterTo, quick]);
+  }, [competencia, filterFrom, filterTo, filterStatus, filterCompanyId, dateBase,
+      debouncedSearch, page, pageSize, activeTab]);
+
+  // Reset da página quando qualquer filtro muda
+  useEffect(() => {
+    setPage(1);
+  }, [competencia, filterFrom, filterTo, filterStatus, filterCompanyId, dateBase,
+      debouncedSearch, pageSize, activeTab]);
 
   // Conveniência: recarrega tudo (usada pelo botão Atualizar e após ações).
   const load = useCallback(async () => {
@@ -327,6 +360,7 @@ const ErpFinanceiro: React.FC = () => {
     previousActiveTabRef.current = activeTab;
     if (activeTab === 'pendentes' && previous !== 'pendentes') void loadPendentes();
   }, [activeTab, loadPendentes]);
+
 
   // Carga das medições da competência
   const loadMedicoes = useCallback(async () => {
