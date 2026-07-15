@@ -1091,6 +1091,78 @@ const ErpFinanceiro: React.FC = () => {
     }
   };
 
+  /** Exporta CSV com **todos** os recibos que casam com os filtros atuais (não só a página). */
+  const [exportBusy, setExportBusy] = useState<null | 'csv' | 'zip'>(null);
+  const [exportProgress, setExportProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const exportAllFilteredCsv = async () => {
+    if (exportBusy) return;
+    setExportBusy('csv');
+    try {
+      const tid = toast.loading('Buscando todos os recibos do filtro…');
+      const all = await fetchAllFilteredRecibos();
+      toast.dismiss(tid);
+      if (!all) return;
+      if (all.length === 0) { toast.info('Nada para exportar.'); return; }
+      exportRecibosCsv(all);
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao exportar CSV');
+    } finally {
+      setExportBusy(null);
+    }
+  };
+
+  /** Exporta ZIP de PDFs com **todos** os recibos que casam com os filtros atuais. */
+  const exportAllFilteredZip = async () => {
+    if (exportBusy) return;
+    setExportBusy('zip');
+    setExportProgress(null);
+    try {
+      const tid = toast.loading('Buscando todos os recibos do filtro…');
+      const all = await fetchAllFilteredRecibos(2000);
+      toast.dismiss(tid);
+      if (!all) return;
+      const filtrados = all.filter(r => r.status !== 'cancelado');
+      if (filtrados.length === 0) { toast.info('Nenhum recibo para exportar.'); return; }
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      const comValidade = zip.folder('com-validade');
+      const semValidade = zip.folder('sem-validade');
+      setExportProgress({ done: 0, total: filtrados.length });
+      for (let i = 0; i < filtrados.length; i++) {
+        const r = filtrados[i];
+        try {
+          const res = await generateReceiptPdf(r, { returnBlob: true });
+          if (res && 'blob' in res) {
+            const folder = r.semValidade ? semValidade : comValidade;
+            (folder || zip).file(res.filename, res.blob);
+          }
+        } catch (err) {
+          console.error('Falha ao gerar PDF do recibo', r.numero, err);
+        }
+        setExportProgress({ done: i + 1, total: filtrados.length });
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recibos-filtro-${todayISO()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`${filtrados.length} recibo(s) exportados em ZIP`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Falha ao gerar ZIP');
+    } finally {
+      setExportBusy(null);
+      setExportProgress(null);
+    }
+  };
+
+
+
 
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
