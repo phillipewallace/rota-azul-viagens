@@ -357,7 +357,7 @@ const VehicleCardModal: React.FC<{ vehicle: ErpVehicle; onClose: () => void }> =
                         {c.referenceDate && (
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {new Date(c.referenceDate).toLocaleDateString('pt-BR')}
+                            {formatDateBR(c.referenceDate)}
                           </span>
                         )}
                         {c.amount != null && (
