@@ -303,35 +303,38 @@ const ErpFinanceiro: React.FC = () => {
     }
   }, [competencia]);
 
+  /**
+   * Filtros server-side aplicados atualmente à listagem de recibos.
+   * Reaproveitado por `loadRecibos`, `kpis` e pelas exportações
+   * "de todo o dataset filtrado" (CSV/ZIP).
+   */
+  const recibosBaseFilters = useMemo(() => {
+    const usaRange = !!(filterFrom || filterTo);
+    const semValidadeParam: boolean | undefined =
+      activeTab === 'sem-validade' ? true
+      : (activeTab === 'emitidos' || activeTab === 'pagos') ? false
+      : undefined;
+    const statusParam = activeTab === 'pagos'
+      ? undefined
+      : (filterStatus !== 'all' ? filterStatus : undefined);
+    return {
+      ...(usaRange ? { from: filterFrom || undefined, to: filterTo || undefined }
+                   : { competencia }),
+      status: statusParam,
+      companyId: filterCompanyId !== 'all' ? filterCompanyId : undefined,
+      semValidade: semValidadeParam,
+      dateBase,
+      search: debouncedSearch || undefined,
+    } as const;
+  }, [competencia, filterFrom, filterTo, filterStatus, filterCompanyId,
+      dateBase, debouncedSearch, activeTab]);
+
   const loadRecibos = useCallback(async () => {
     setLoading(true);
     try {
-      const usaRange = !!(filterFrom || filterTo);
-      // Tab determina o recorte de validade:
-      // - 'sem-validade' → só recibos SV
-      // - 'emitidos' / 'pagos' → só recibos com validade
-      // - demais abas: sem restrição (não devem carregar recibos, mas mantém seguro)
-      const semValidadeParam: boolean | undefined =
-        activeTab === 'sem-validade' ? true
-        : (activeTab === 'emitidos' || activeTab === 'pagos') ? false
-        : undefined;
-      // Filtro de status server-side; na aba "Pagos" mantemos livre porque
-      // ela mostra tanto 'pago' quanto 'parcial' — dedup/ordenação ficam client-side.
-      const statusParam = activeTab === 'pagos'
-        ? undefined
-        : (filterStatus !== 'all' ? filterStatus : undefined);
-      const baseFilters = {
-        ...(usaRange ? { from: filterFrom || undefined, to: filterTo || undefined }
-                     : { competencia }),
-        status: statusParam,
-        companyId: filterCompanyId !== 'all' ? filterCompanyId : undefined,
-        semValidade: semValidadeParam,
-        dateBase,
-        search: debouncedSearch || undefined,
-      };
       const [pg, k] = await Promise.all([
-        receiptsService.listPaged({ ...baseFilters, page, pageSize }),
-        receiptsService.kpis(baseFilters),
+        receiptsService.listPaged({ ...recibosBaseFilters, page, pageSize }),
+        receiptsService.kpis(recibosBaseFilters),
       ]);
       if (!mountedRef.current) return;
       setRecibos(pg.data);
@@ -339,8 +342,30 @@ const ErpFinanceiro: React.FC = () => {
       setKpisRecibos(k);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setLoading(false); }
-  }, [competencia, filterFrom, filterTo, filterStatus, filterCompanyId, dateBase,
-      debouncedSearch, page, pageSize, activeTab]);
+  }, [recibosBaseFilters, page, pageSize]);
+
+  /**
+   * Busca TODOS os recibos que casam com os filtros server-side atuais,
+   * paginando em blocos de 200. Usado pelos botões "Exportar CSV/ZIP (filtro)".
+   * Aborta e devolve `null` se o total exceder `hardLimit` (proteção).
+   */
+  const fetchAllFilteredRecibos = useCallback(async (
+    hardLimit = 5000,
+  ): Promise<Receipt[] | null> => {
+    const PAGE = 200;
+    const first = await receiptsService.listPaged({ ...recibosBaseFilters, page: 1, pageSize: PAGE });
+    if (first.total > hardLimit) {
+      toast.error(`Muitos recibos (${first.total}). Refine os filtros — limite ${hardLimit}.`);
+      return null;
+    }
+    const all: Receipt[] = [...first.data];
+    const totalPages = Math.max(1, Math.ceil(first.total / PAGE));
+    for (let p = 2; p <= totalPages; p++) {
+      const pg = await receiptsService.listPaged({ ...recibosBaseFilters, page: p, pageSize: PAGE });
+      all.push(...pg.data);
+    }
+    return all;
+  }, [recibosBaseFilters]);
 
   // Reset da página quando qualquer filtro muda
   useEffect(() => {
@@ -1066,6 +1091,78 @@ const ErpFinanceiro: React.FC = () => {
     }
   };
 
+  /** Exporta CSV com **todos** os recibos que casam com os filtros atuais (não só a página). */
+  const [exportBusy, setExportBusy] = useState<null | 'csv' | 'zip'>(null);
+  const [exportProgress, setExportProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const exportAllFilteredCsv = async () => {
+    if (exportBusy) return;
+    setExportBusy('csv');
+    try {
+      const tid = toast.loading('Buscando todos os recibos do filtro…');
+      const all = await fetchAllFilteredRecibos();
+      toast.dismiss(tid);
+      if (!all) return;
+      if (all.length === 0) { toast.info('Nada para exportar.'); return; }
+      exportRecibosCsv(all);
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao exportar CSV');
+    } finally {
+      setExportBusy(null);
+    }
+  };
+
+  /** Exporta ZIP de PDFs com **todos** os recibos que casam com os filtros atuais. */
+  const exportAllFilteredZip = async () => {
+    if (exportBusy) return;
+    setExportBusy('zip');
+    setExportProgress(null);
+    try {
+      const tid = toast.loading('Buscando todos os recibos do filtro…');
+      const all = await fetchAllFilteredRecibos(2000);
+      toast.dismiss(tid);
+      if (!all) return;
+      const filtrados = all.filter(r => r.status !== 'cancelado');
+      if (filtrados.length === 0) { toast.info('Nenhum recibo para exportar.'); return; }
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      const comValidade = zip.folder('com-validade');
+      const semValidade = zip.folder('sem-validade');
+      setExportProgress({ done: 0, total: filtrados.length });
+      for (let i = 0; i < filtrados.length; i++) {
+        const r = filtrados[i];
+        try {
+          const res = await generateReceiptPdf(r, { returnBlob: true });
+          if (res && 'blob' in res) {
+            const folder = r.semValidade ? semValidade : comValidade;
+            (folder || zip).file(res.filename, res.blob);
+          }
+        } catch (err) {
+          console.error('Falha ao gerar PDF do recibo', r.numero, err);
+        }
+        setExportProgress({ done: i + 1, total: filtrados.length });
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recibos-filtro-${todayISO()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`${filtrados.length} recibo(s) exportados em ZIP`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Falha ao gerar ZIP');
+    } finally {
+      setExportBusy(null);
+      setExportProgress(null);
+    }
+  };
+
+
+
 
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-[1400px] mx-auto space-y-6">
@@ -1689,11 +1786,32 @@ const ErpFinanceiro: React.FC = () => {
                 <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar</Button>
                 <Button
                   variant="outline" size="sm"
-                  onClick={() => exportRecibosCsv(recibosFiltrados)}
+                  onClick={exportAllFilteredCsv}
+                  disabled={exportBusy !== null}
                   className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800/60 dark:text-emerald-400 dark:hover:bg-emerald-950/40 transition-colors duration-200"
-                  title="Exportar recibos filtrados para CSV (Excel)"
+                  title="Exportar CSV de TODOS os recibos que casam com os filtros atuais (dataset completo, não só a página)"
                 >
-                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Exportar CSV
+                  {exportBusy === 'csv'
+                    ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    : <FileSpreadsheet className="h-3.5 w-3.5 mr-1" />}
+                  Exportar CSV (filtro)
+                </Button>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={exportAllFilteredZip}
+                  disabled={exportBusy !== null}
+                  className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/40 transition-colors duration-200"
+                  title="Baixar ZIP com PDFs de TODOS os recibos do filtro atual (não só a página). Pode demorar para volumes grandes."
+                >
+                  {exportBusy === 'zip'
+                    ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    : <Download className="h-3.5 w-3.5 mr-1" />}
+                  Exportar ZIP (filtro)
+                  {exportBusy === 'zip' && exportProgress && (
+                    <span className="ml-1 tabular-nums text-[11px] opacity-80">
+                      {exportProgress.done}/{exportProgress.total}
+                    </span>
+                  )}
                 </Button>
                 <Button
                   variant="outline" size="sm"
@@ -1709,11 +1827,12 @@ const ErpFinanceiro: React.FC = () => {
                     }
                     setZipOpen(true);
                   }}
-                  className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/40 transition-colors duration-200"
-                  title="Baixar todos os recibos de um período em um arquivo ZIP"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors duration-200"
+                  title="Baixar ZIP escolhendo um intervalo específico de datas (diálogo dedicado)"
                 >
-                  <Download className="h-3.5 w-3.5 mr-1" /> Exportar ZIP
+                  <CalendarDays className="h-3.5 w-3.5 mr-1" /> ZIP por período…
                 </Button>
+
 
 
               </div>
