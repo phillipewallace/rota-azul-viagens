@@ -78,8 +78,13 @@ const toQuery = (params?: Record<string, unknown>): string => {
 export const quotesService = {
   list: (params?: { status?: string; customerId?: string }) =>
     req<Quote[]>('GET', `/erp/quotes${toQuery(params)}`),
-  /** Variante paginada — retorna envelope `{ data, total, page, pageSize }`. */
-  listPaged: (params?: { status?: string; customerId?: string } & PageParams) => {
+  /** Variante paginada — envelope `{ data, total, page, pageSize }` com filtros server-side. */
+  listPaged: (params?: {
+    status?: string; customerId?: string;
+    modalidade?: 'diaria' | 'mensal';
+    companyId?: string;
+    search?: string;
+  } & PageParams) => {
     const q = new URLSearchParams();
     Object.entries(params || {}).forEach(([k, v]) => {
       if (k === 'page' || k === 'pageSize') return;
@@ -88,6 +93,11 @@ export const quotesService = {
     appendPageParams(q, params);
     return req<Paged<Quote>>('GET', `/erp/quotes?${q.toString()}`);
   },
+  /** KPIs agregados no servidor (evita puxar todos os orçamentos para o front). */
+  stats: () => req<{
+    rascunhos: number; enviados: number;
+    aprovadosMes: number; valorAprovadosMes: number; ticketMedio: number;
+  }>('GET', `/erp/quotes/stats/kpis`),
   get: (id: string) => req<Quote>('GET', `/erp/quotes/${id}`),
   create: (data: Partial<Quote>) => req<{ id: string; numero: string }>('POST', '/erp/quotes', data),
   update: (id: string, data: Partial<Quote>) => req<{ ok: true }>('PUT', `/erp/quotes/${id}`, data),

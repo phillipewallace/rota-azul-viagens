@@ -53,11 +53,20 @@ async function loadItems(quoteId: string) {
 
 router.get('/', async (req, res) => {
   try {
-    const { status, customerId } = req.query as any;
+    const { status, customerId, modalidade, companyId, search } = req.query as any;
     const conds: string[] = [];
     const params: any[] = [];
-    if (status) { params.push(status); conds.push(`q.status = $${params.length}`); }
-    if (customerId) { params.push(customerId); conds.push(`q.customer_id = $${params.length}`); }
+    if (status)      { params.push(status);       conds.push(`q.status = $${params.length}`); }
+    if (customerId)  { params.push(customerId);   conds.push(`q.customer_id = $${params.length}`); }
+    if (modalidade)  { params.push(modalidade);   conds.push(`q.modalidade = $${params.length}`); }
+    if (companyId)   { params.push(companyId);    conds.push(`q.company_id = $${params.length}`); }
+    if (search) {
+      const s = `%${String(search).toLowerCase()}%`;
+      params.push(s);
+      conds.push(`(LOWER(q.numero) LIKE $${params.length}
+                OR LOWER(COALESCE(cu.customer_name,'')) LIKE $${params.length}
+                OR LOWER(COALESCE(c.razao_social,'')) LIKE $${params.length})`);
+    }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const from = `FROM erp_quotes q
          LEFT JOIN erp_companies c ON c.id = q.company_id
@@ -79,6 +88,40 @@ router.get('/', async (req, res) => {
     sendError(res, e);
   }
 });
+
+/**
+ * KPIs de orçamentos — evita carregar toda a lista só para computar totais
+ * quando o front usa paginação server-side.
+ *
+ * Retorna:
+ *   - rascunhos:         total com status='rascunho'
+ *   - enviados:          total com status='enviado'
+ *   - aprovadosMes:      total com status='aprovado' no mês corrente (updated_at)
+ *   - valorAprovadosMes: soma total dos aprovados no mês
+ *   - ticketMedio:       média de total entre 'aprovado' e 'convertido'
+ */
+router.get('/stats/kpis', async (_req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status='rascunho')::int AS rascunhos,
+        COUNT(*) FILTER (WHERE status='enviado')::int  AS enviados,
+        COUNT(*) FILTER (WHERE status='aprovado'
+                          AND to_char(updated_at,'YYYY-MM') = to_char(NOW(),'YYYY-MM'))::int
+                                                       AS "aprovadosMes",
+        COALESCE(SUM(total) FILTER (WHERE status='aprovado'
+                          AND to_char(updated_at,'YYYY-MM') = to_char(NOW(),'YYYY-MM')),0)::float
+                                                       AS "valorAprovadosMes",
+        COALESCE(AVG(total) FILTER (WHERE status IN ('aprovado','convertido')),0)::float
+                                                       AS "ticketMedio"
+      FROM erp_quotes
+    `);
+    res.json(r.rows[0]);
+  } catch (e: any) {
+    sendError(res, e);
+  }
+});
+
 
 router.get('/:id', async (req, res) => {
   try {

@@ -31,6 +31,7 @@ import { formatDateBR, parseLocalDate } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
 import { BRL } from '@/utils/currency';
+import { PaginationBar } from '@/components/PaginationBar';
 
 /** Dias até uma data ISO (positivo = futuro). */
 const daysBetween = (from: Date, iso?: string | null): number | null => {
@@ -122,54 +123,66 @@ const ErpQuotes: React.FC = () => {
   const [filterCompany, setFilterCompany] = useState<string>('all');
   const [filterExpiring, setFilterExpiring] = useState(false);
 
+  // ---- Paginação server-side ----
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(24);   // múltiplo de 3 (colunas do grid)
+  const [totalCount, setTotalCount] = useState(0);
+
+  // ---- Debounce da busca (evita 1 req por tecla) ----
+  const [searchDebounced, setSearchDebounced] = useState('');
+  useEffect(() => {
+    const id = setTimeout(() => setSearchDebounced(search.trim()), 350);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  // Reseta para 1 ao mudar qualquer filtro server-side
+  useEffect(() => { setPage(1); }, [
+    filterStatus, filterModalidade, filterCompany, searchDebounced, pageSize,
+  ]);
+
+  // ---- KPIs vindos do servidor (agregados, não dependem da página atual) ----
+  const [kpis, setKpis] = useState({
+    rascunhos: 0, enviados: 0, aprovadosMes: 0,
+    valorAprovadosMes: 0, ticketMedio: 0,
+  });
+  const loadKpis = async () => {
+    try { setKpis(await quotesService.stats()); }
+    catch { /* silencioso — KPIs não são bloqueantes */ }
+  };
+
+  // ---- Carregamento paginado ----
   const load = async () => {
     try {
       setLoading(true);
-      const [qs, cs] = await Promise.all([quotesService.list(), erpService.listCompanies()]);
-      setList(qs); setCompanies(cs);
+      const [pg, cs] = await Promise.all([
+        quotesService.listPaged({
+          page, pageSize,
+          status:      filterStatus !== 'all'     ? filterStatus     : undefined,
+          modalidade:  filterModalidade !== 'all' ? filterModalidade : undefined,
+          companyId:   filterCompany !== 'all'    ? filterCompany    : undefined,
+          search:      searchDebounced || undefined,
+        }),
+        companies.length ? Promise.resolve(companies) : erpService.listCompanies(),
+      ]);
+      setList(pg.data);
+      setTotalCount(pg.total);
+      if (!companies.length) setCompanies(cs);
     } catch (e: any) { toast.error(e.message || 'Erro ao carregar'); }
     finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ },
+    [page, pageSize, filterStatus, filterModalidade, filterCompany, searchDebounced]);
+  useEffect(() => { loadKpis(); }, []);
 
-  // ---- KPIs ----
-  const kpis = useMemo(() => {
-    const now = new Date();
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const rascunhos = list.filter(q => q.status === 'rascunho');
-    const enviados  = list.filter(q => q.status === 'enviado');
-    const aprovadosMes = list.filter(q => q.status === 'aprovado' && (q.updatedAt || '').startsWith(ym));
-    const consideraTicket = list.filter(q => q.status === 'aprovado' || q.status === 'convertido');
-    const ticketMedio = consideraTicket.length
-      ? consideraTicket.reduce((s, q) => s + Number(q.total || 0), 0) / consideraTicket.length
-      : 0;
-    return {
-      rascunhos: rascunhos.length,
-      enviados: enviados.length,
-      aprovadosMes: aprovadosMes.length,
-      valorAprovadosMes: aprovadosMes.reduce((s, q) => s + Number(q.total || 0), 0),
-      ticketMedio,
-    };
-  }, [list]);
-
+  // Filtro "Vencendo (7d)" permanece client-side sobre a página corrente —
+  // depende de cálculo de data por linha; empurrar ao servidor exige nova SQL.
   const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase();
+    if (!filterExpiring) return list;
     return list.filter(q => {
-      if (filterStatus !== 'all' && q.status !== filterStatus) return false;
-      if (filterModalidade !== 'all' && q.modalidade !== filterModalidade) return false;
-      if (filterCompany !== 'all' && q.companyId !== filterCompany) return false;
-      if (filterExpiring) {
-        const d = daysUntilExpire(q.dataEmissao, q.validadeDias);
-        if (!(q.status === 'enviado' && d !== null && d <= 7)) return false;
-      }
-      if (s && !(
-        (q.numero || '').toLowerCase().includes(s) ||
-        (q.customerName || '').toLowerCase().includes(s) ||
-        (q.companyRazaoSocial || '').toLowerCase().includes(s)
-      )) return false;
-      return true;
+      const d = daysUntilExpire(q.dataEmissao, q.validadeDias);
+      return q.status === 'enviado' && d !== null && d <= 7;
     });
-  }, [list, search, filterStatus, filterModalidade, filterCompany, filterExpiring]);
+  }, [list, filterExpiring]);
 
   const activeFiltersCount =
     (filterStatus !== 'all' ? 1 : 0) +
@@ -541,7 +554,9 @@ const ErpQuotes: React.FC = () => {
               </Button>
             )}
             <div className="ml-auto text-xs text-muted-foreground tabular-nums">
-              {filtered.length} de {list.length}
+              {filterExpiring
+                ? <>{filtered.length} vencendo · {totalCount} no total</>
+                : <>{list.length} nesta página · {totalCount} no total</>}
             </div>
           </CardContent>
         </Card>
@@ -669,6 +684,13 @@ const ErpQuotes: React.FC = () => {
             })}
           </div>
         )}
+
+        {/* Paginação server-side (aparece só quando há mais de 1 página) */}
+        <PaginationBar
+          page={page} pageSize={pageSize} total={totalCount}
+          onPageChange={setPage} onPageSizeChange={setPageSize}
+          pageSizeOptions={[12, 24, 48, 96]}
+        />
       </div>
 
       {/* Editor Modal */}
