@@ -272,7 +272,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
  *   0 < valorPago < valor       → 'parcial'
  *   valorPago == 0 ou null      → 'aberto'
  */
-router.patch('/:id/pago', async (req, res) => {
+router.patch('/:id/pago', requireRole(...FIN_ROLES), async (req: any, res) => {
   try {
     const { pago, formaPagamento, dataPagamento, valorPago, status: statusIn } = req.body || {};
     const cur = await pool.query('SELECT valor, status FROM erp_receipts WHERE id=$1', [req.params.id]);
@@ -300,6 +300,7 @@ router.patch('/:id/pago', async (req, res) => {
 
     const finalPagoBool = finalStatus === 'pago';
     const finalDataPag  = (finalStatus === 'aberto') ? null : (dataPagamento || new Date().toISOString().slice(0, 10));
+    const actor = req.user?.username || req.user?.name || null;
 
     await pool.query(
       `UPDATE erp_receipts
@@ -307,7 +308,9 @@ router.patch('/:id/pago', async (req, res) => {
               pago             = $3,
               valor_pago       = $4,
               forma_pagamento  = COALESCE($5, forma_pagamento),
-              data_pagamento   = $6
+              data_pagamento   = $6,
+              updated_by       = $7,
+              updated_at       = NOW()
         WHERE id = $1`,
       [
         req.params.id,
@@ -316,11 +319,13 @@ router.patch('/:id/pago', async (req, res) => {
         finalValorPago,
         formaPagamento || null,
         finalDataPag,
+        actor,
       ]
     );
     res.json({ ok: true, status: finalStatus, valorPago: finalValorPago });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
+
 
 // POST /:id/cancel — marca recibo como cancelado preservando histórico
 router.post('/:id/cancel', async (req, res) => {
