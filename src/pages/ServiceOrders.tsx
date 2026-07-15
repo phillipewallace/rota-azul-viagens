@@ -661,23 +661,15 @@ const ServiceOrders: React.FC = () => {
             })}
           </div>
         )}
-        {!loading && hasMore && (
-          <div className="flex flex-col items-center gap-2 pt-2">
-            <p className="text-xs text-muted-foreground tabular-nums">
-              Exibindo <span className="font-medium text-foreground">{visible.length}</span> de{' '}
-              <span className="font-medium text-foreground">{filtered.length}</span> OS
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
-              className="transition-all duration-200 hover:shadow-sm"
-            >
-              <ChevronDown className="h-4 w-4 mr-1.5" />
-              Carregar mais {Math.min(PAGE_SIZE, filtered.length - visibleCount)}
-            </Button>
-          </div>
-        )}
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[24, 48, 96, 200]}
+        />
+
       </div>
 
       {/* Financeiro */}
