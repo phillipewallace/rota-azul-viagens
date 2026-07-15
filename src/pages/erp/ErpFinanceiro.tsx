@@ -184,7 +184,20 @@ const ErpFinanceiro: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
   const [batchWorking, setBatchWorking] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'medicoes' | 'clientes' | 'gastos'>('pendentes');
+  const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'notas' | 'medicoes' | 'clientes' | 'gastos'>('pendentes');
+
+  // Notas Fiscais (vinculação de NF do portal do governo)
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [nfDialogTarget, setNfDialogTarget] = useState<PendingReceipt | null>(null);
+  const [nfSearch, setNfSearch] = useState('');
+  const [nfStatus, setNfStatus] = useState<'all' | InvoiceStatus>('all');
+  const [nfForma, setNfForma] = useState<'all' | InvoiceFormaPagamento>('all');
+  const [nfCompanyId, setNfCompanyId] = useState<string>('all');
+  const [nfFrom, setNfFrom] = useState('');
+  const [nfTo, setNfTo] = useState('');
+  const [nfCancelTarget, setNfCancelTarget] = useState<Invoice | null>(null);
+  const [nfCancelMotivo, setNfCancelMotivo] = useState('');
 
   // Medições (aba nova) — proposta de faturamento (pré-recibo)
   const [medicoes, setMedicoes] = useState<import('@/services/medicoes').Medicao[]>([]);
