@@ -320,19 +320,26 @@ const ErpFinanceiro: React.FC = () => {
   }, [competencia]);
   useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
 
-  // Carga das Notas Fiscais (competência atual)
+  // Carga das Notas Fiscais.
+  // Empurra filtros server-side (status/forma/empresa) para reduzir payload.
+  // A busca textual (nfSearch) permanece client-side para UX de digitação.
   const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
     try {
-      const r = await invoicesService.list(
-        nfFrom || nfTo ? { from: nfFrom || undefined, to: nfTo || undefined }
-                       : { competencia },
-      );
+      const usaRange = !!(nfFrom || nfTo);
+      const r = await invoicesService.list({
+        ...(usaRange ? { from: nfFrom || undefined, to: nfTo || undefined }
+                     : { competencia }),
+        status: nfStatus !== 'all' ? nfStatus : undefined,
+        formaPagamento: nfForma !== 'all' ? nfForma : undefined,
+        companyId: nfCompanyId !== 'all' ? nfCompanyId : undefined,
+      });
       if (mountedRef.current) setInvoices(r);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setInvoicesLoading(false); }
-  }, [competencia, nfFrom, nfTo]);
+  }, [competencia, nfFrom, nfTo, nfStatus, nfForma, nfCompanyId]);
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
+
 
   // Total do mês anterior (para delta no KPI)
   useEffect(() => {
