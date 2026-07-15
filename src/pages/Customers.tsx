@@ -1,19 +1,18 @@
 /**
- * Aba Clientes — orquestrador. Toda a UI pesada está em componentes
- * dedicados sob src/components/customers/. Esta página apenas:
- *  - busca/lista clientes (useCustomers)
- *  - aplica filtros locais
- *  - decide o fluxo de salvar (com modal de duplicata)
- *  - faz commit imediato em criar/editar/remover (sem botão global)
+ * Aba Clientes — orquestrador com paginação server-side.
+ *
+ * Mudanças:
+ *  - useCustomersPaged (server-side pagination + busca + filtros + KPIs)
+ *  - CRUD individual (POST/PATCH/DELETE), sem mais bulk save
+ *  - checagem de duplicata via lookup no servidor antes de salvar
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle, ArrowLeft, Filter, Loader2, Plus, RefreshCcw, Search, Users, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -21,18 +20,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
-import { Customer, useCustomers } from '@/hooks/useCustomers';
+import { Customer } from '@/hooks/useCustomers';
+import { useCustomersPaged, CustomerFilter } from '@/hooks/useCustomersPaged';
 import { useCustomerSanCounts } from '@/hooks/useCustomerSanCounts';
 import { onlyDigits } from '@/utils/brazilianDocs';
-import { findDuplicateByDocument, getDuplicateInfo } from '@/utils/customerHelpers';
 import { CustomerCard } from '@/components/customers/CustomerCard';
 import { CustomerEditDialog } from '@/components/customers/CustomerEditDialog';
 import { CustomerHistoryDialog } from '@/components/customers/CustomerHistoryDialog';
 import { CustomerDuplicateDialog } from '@/components/customers/CustomerDuplicateDialog';
+import { PaginationBar } from '@/components/PaginationBar';
+import { API_BASE_URL } from '@/services/config';
 
-type FilterMode = 'all' | 'withSan' | 'noCoords' | 'pf' | 'pj';
-
-const FILTER_OPTIONS: { value: FilterMode; label: string }[] = [
+const FILTER_OPTIONS: { value: CustomerFilter; label: string }[] = [
   { value: 'all',      label: 'Todos' },
   { value: 'pj',       label: 'Pessoa Jurídica' },
   { value: 'pf',       label: 'Pessoa Física' },
@@ -40,62 +39,56 @@ const FILTER_OPTIONS: { value: FilterMode; label: string }[] = [
   { value: 'noCoords', label: 'Sem coordenadas' },
 ];
 
+/** Lookup no servidor: busca duplicata por documento (ignorando um id). */
+async function lookupDuplicateByDocument(document: string, excludeId?: string): Promise<Customer | null> {
+  const doc = onlyDigits(document);
+  if (!doc) return null;
+  const t = localStorage.getItem('auth_token');
+  const r = await fetch(`${API_BASE_URL}/customers?search=${encodeURIComponent(doc)}&page=1&pageSize=25`, {
+    headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  const rows: Customer[] = j.data || [];
+  return rows.find(x => x.id !== excludeId && onlyDigits(x.document || '') === doc) || null;
+}
+
 const Customers: React.FC = () => {
-  // ---------- estado de UI ----------
+  // ---------- estado de filtros (com debounce na busca) ----------
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [filterMode, setFilterMode] = useState<CustomerFilter>('all');
   const [onlyDuplicates, setOnlyDuplicates] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  // debounce 350ms
+  const debounceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => { setSearch(searchInput); setPage(1); }, 350);
+    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
+  }, [searchInput]);
+
+  useEffect(() => { setPage(1); }, [filterMode, onlyDuplicates, pageSize]);
 
   // ---------- estado de fluxo ----------
   const [editing, setEditing] = useState<Customer | null>(null);
   const [isNewDraft, setIsNewDraft] = useState(false);
   const [saving, setSaving] = useState(false);
-
   const [historyFor, setHistoryFor] = useState<Customer | null>(null);
-
   const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState(false);
-
   const [duplicatePrompt, setDuplicatePrompt] = useState<{ existing: Customer; attempted: Customer } | null>(null);
 
   // ---------- dados ----------
-  const { customers, loading, error, addCustomer, updateCustomer, deleteCustomer, saveCustomers, refetch } = useCustomers({
-    pollEnabled: !editing && !historyFor && !confirmDelete && !duplicatePrompt,
-  });
-  const counts = useCustomerSanCounts(customers.length);
+  const {
+    items, total, kpis, loading, error, refetch,
+    createCustomer, patchCustomer, removeCustomer,
+  } = useCustomersPaged({ search, filter: filterMode, onlyDuplicates, page, pageSize });
+
+  const counts = useCustomerSanCounts(items.length);
   const sanCount = (c: Customer) => counts[(c.customerName || '').toLowerCase()] || 0;
-
-  const duplicateInfo = useMemo(() => getDuplicateInfo(customers), [customers]);
-
-  // ---------- filtro derivado ----------
-  const filtered = useMemo(() => {
-    const s = search.toLowerCase().trim();
-    const sDigits = onlyDigits(search);
-    return customers.filter(c => {
-      const docDigits = onlyDigits(c.document || '');
-      const phoneDigits = onlyDigits(c.contactPhone || '');
-      const cepDigits = onlyDigits(c.cep || '');
-      const matchSearch = !s ||
-        (c.customerName || '').toLowerCase().includes(s) ||
-        (c.address || '').toLowerCase().includes(s) ||
-        (c.cidade || '').toLowerCase().includes(s) ||
-        (c.bairro || '').toLowerCase().includes(s) ||
-        (c.email || '').toLowerCase().includes(s) ||
-        (c.contactName || '').toLowerCase().includes(s) ||
-        (sDigits.length > 0 && (
-          docDigits.includes(sDigits) ||
-          phoneDigits.includes(sDigits) ||
-          cepDigits.includes(sDigits)
-        ));
-      if (!matchSearch) return false;
-      if (onlyDuplicates && !duplicateInfo.dupIds.has(c.id)) return false;
-      if (filterMode === 'withSan') return sanCount(c) > 0;
-      if (filterMode === 'noCoords') return !c.lat || !c.lng;
-      if (filterMode === 'pf') return c.personType === 'PF';
-      if (filterMode === 'pj') return (c.personType || 'PJ') === 'PJ';
-      return true;
-    });
-  }, [customers, search, filterMode, counts, onlyDuplicates, duplicateInfo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- handlers ----------
   const openNew = () => {
@@ -106,31 +99,29 @@ const Customers: React.FC = () => {
       personType: 'PJ', document: '',
     });
   };
-
   const closeEditor = () => { setEditing(null); setIsNewDraft(false); };
 
   const persistCustomer = async (c: Customer, force = false) => {
-    if (!force) {
-      const dup = findDuplicateByDocument(c, customers);
-      if (dup) {
-        setDuplicatePrompt({ existing: dup, attempted: c });
-        return;
-      }
-    }
     setSaving(true);
     try {
-      let nextList: Customer[];
-      if (isNewDraft) {
-        nextList = [...customers, c];
-        addCustomer(c);
-      } else {
-        nextList = customers.map(x => x.id === c.id ? { ...x, ...c } : x);
-        (Object.keys(c) as (keyof Customer)[]).forEach(k => updateCustomer(c.id, k, c[k]));
+      if (!force && c.document) {
+        const dup = await lookupDuplicateByDocument(c.document, c.id);
+        if (dup) {
+          setDuplicatePrompt({ existing: dup, attempted: c });
+          setSaving(false);
+          return;
+        }
       }
-      await saveCustomers(nextList);
-      toast.success(isNewDraft ? 'Cliente cadastrado!' : 'Cliente atualizado!');
+      if (isNewDraft) {
+        await createCustomer(c);
+        toast.success('Cliente cadastrado!');
+      } else {
+        await patchCustomer(c);
+        toast.success('Cliente atualizado!');
+      }
       setDuplicatePrompt(null);
       closeEditor();
+      await refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao salvar cliente');
     } finally {
@@ -143,32 +134,21 @@ const Customers: React.FC = () => {
     const target = confirmDelete;
     setDeleting(true);
     try {
-      const nextList = customers.filter(x => x.id !== target.id);
-      deleteCustomer(target.id);
-      await saveCustomers(nextList);
+      await removeCustomer(target.id);
       toast.success(`"${target.customerName || 'Cliente'}" removido.`);
       setConfirmDelete(null);
+      await refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao remover cliente');
-      await refetch();
     } finally {
       setDeleting(false);
     }
   };
 
-  // ---------- render ----------
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <Loader2 className="h-7 w-7 animate-spin text-primary" />
-          <span className="text-sm">Carregando clientes…</span>
-        </div>
-      </div>
-    );
-  }
-
   const hasActiveFilters = !!search || filterMode !== 'all' || onlyDuplicates;
+
+  // ---------- render ----------
+  const initialLoading = loading && items.length === 0 && !error;
 
   return (
     <div className="min-h-screen bg-surface-muted">
@@ -177,12 +157,9 @@ const Customers: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <Button
-              variant="ghost"
-              size="icon"
-              asChild
+              variant="ghost" size="icon" asChild
               className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-              title="Voltar"
-              aria-label="Voltar ao início"
+              title="Voltar" aria-label="Voltar ao início"
             >
               <Link to="/"><ArrowLeft className="h-4 w-4" /></Link>
             </Button>
@@ -191,27 +168,22 @@ const Customers: React.FC = () => {
             </div>
             <div className="min-w-0">
               <h1 className="text-base md:text-lg font-semibold tracking-tight leading-none">Clientes</h1>
-              <p className="text-[11px] text-muted-foreground mt-1 leading-none">
-                {customers.length} {customers.length === 1 ? 'cadastro' : 'cadastros'}
+              <p className="text-[11px] text-muted-foreground mt-1 leading-none tabular-nums">
+                {kpis.total} {kpis.total === 1 ? 'cadastro' : 'cadastros'}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={refetch}
+              variant="outline" size="sm" onClick={refetch}
               className="hidden sm:inline-flex h-9 gap-1.5 text-xs font-medium"
+              disabled={loading}
             >
-              <RefreshCcw className="h-3.5 w-3.5" />
+              <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
               Recarregar
             </Button>
-            <Button
-              size="sm"
-              onClick={openNew}
-              className="h-9 gap-1.5 text-xs font-medium shadow-sm"
-            >
+            <Button size="sm" onClick={openNew} className="h-9 gap-1.5 text-xs font-medium shadow-sm">
               <Plus className="h-4 w-4" />
               Novo cliente
             </Button>
@@ -220,15 +192,21 @@ const Customers: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-5">
+        {/* KPIs compactos */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiTile label="Total" value={kpis.total} />
+          <KpiTile label="Pessoa Jurídica" value={kpis.pj} />
+          <KpiTile label="Pessoa Física" value={kpis.pf} />
+          <KpiTile label="Sem coordenadas" value={kpis.semCoord} accent={kpis.semCoord > 0 ? 'warn' : undefined} />
+        </div>
+
         {error && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 text-destructive text-sm px-4 py-3">
             <div className="flex items-center gap-2 min-w-0">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span className="truncate">Falha ao carregar clientes: {error}</span>
             </div>
-            <Button size="sm" variant="outline" onClick={refetch} className="shrink-0">
-              Tentar novamente
-            </Button>
+            <Button size="sm" variant="outline" onClick={refetch} className="shrink-0">Tentar novamente</Button>
           </div>
         )}
 
@@ -240,14 +218,13 @@ const Customers: React.FC = () => {
               <Input
                 className="pl-9 pr-9 h-10 bg-background border-border/80 focus-visible:ring-1 focus-visible:ring-ring"
                 placeholder="Buscar por nome, documento, endereço, telefone…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
                 aria-label="Buscar clientes"
               />
-              {search && (
+              {searchInput && (
                 <button
-                  type="button"
-                  onClick={() => setSearch('')}
+                  type="button" onClick={() => setSearchInput('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                   aria-label="Limpar busca"
                 >
@@ -262,14 +239,14 @@ const Customers: React.FC = () => {
                 <select
                   className="h-10 pl-8 pr-8 rounded-md border border-border/80 bg-background text-sm appearance-none cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
                   value={filterMode}
-                  onChange={e => setFilterMode(e.target.value as FilterMode)}
+                  onChange={e => setFilterMode(e.target.value as CustomerFilter)}
                   aria-label="Filtrar"
                 >
                   {FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
 
-              {duplicateInfo.dupIds.size > 0 && (
+              {kpis.duplicados > 0 && (
                 <button
                   type="button"
                   onClick={() => setOnlyDuplicates(v => !v)}
@@ -282,7 +259,7 @@ const Customers: React.FC = () => {
                   title="Mostrar apenas duplicados"
                 >
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  {duplicateInfo.dupIds.size} duplicado{duplicateInfo.dupIds.size > 1 ? 's' : ''}
+                  {kpis.duplicados} duplicado{kpis.duplicados > 1 ? 's' : ''}
                 </button>
               )}
             </div>
@@ -291,12 +268,12 @@ const Customers: React.FC = () => {
           {hasActiveFilters && (
             <div className="px-4 pb-3 -mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
-                Exibindo <strong className="text-foreground tabular-nums">{filtered.length}</strong> de{' '}
-                <span className="tabular-nums">{customers.length}</span>
+                Exibindo <strong className="text-foreground tabular-nums">{total}</strong>{' '}
+                resultado{total === 1 ? '' : 's'}
               </span>
               <button
                 type="button"
-                onClick={() => { setSearch(''); setFilterMode('all'); setOnlyDuplicates(false); }}
+                onClick={() => { setSearchInput(''); setFilterMode('all'); setOnlyDuplicates(false); }}
                 className="text-primary hover:underline font-medium"
               >
                 Limpar filtros
@@ -306,7 +283,11 @@ const Customers: React.FC = () => {
         </Card>
 
         {/* Grid */}
-        {filtered.length === 0 ? (
+        {initialLoading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : items.length === 0 ? (
           <Card className="border-dashed border-border/70 bg-background/60">
             <div className="px-6 py-16 text-center">
               <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -328,20 +309,27 @@ const Customers: React.FC = () => {
             </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map(c => (
-              <CustomerCard
-                key={c.id}
-                customer={c}
-                sanCount={sanCount(c)}
-                isDuplicate={duplicateInfo.dupIds.has(c.id)}
-                duplicateReason={duplicateInfo.dupReason.get(c.id)}
-                onEdit={() => { setIsNewDraft(false); setEditing(c); }}
-                onHistory={setHistoryFor}
-                onDelete={setConfirmDelete}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {items.map(c => (
+                <CustomerCard
+                  key={c.id}
+                  customer={c}
+                  sanCount={sanCount(c)}
+                  isDuplicate={!!c.isDuplicate}
+                  duplicateReason={c.isDuplicate ? 'Duplicado' : undefined}
+                  onEdit={() => { setIsNewDraft(false); setEditing(c); }}
+                  onHistory={setHistoryFor}
+                  onDelete={setConfirmDelete}
+                />
+              ))}
+            </div>
+            <PaginationBar
+              page={page} pageSize={pageSize} total={total}
+              onPageChange={setPage} onPageSizeChange={setPageSize}
+              alwaysShow
+            />
+          </>
         )}
 
         <p className="text-[11px] text-muted-foreground text-center pt-2">
@@ -350,12 +338,8 @@ const Customers: React.FC = () => {
       </main>
 
       <CustomerEditDialog
-        open={!!editing}
-        initial={editing}
-        isNew={isNewDraft}
-        saving={saving}
-        onClose={closeEditor}
-        onSave={c => persistCustomer(c, false)}
+        open={!!editing} initial={editing} isNew={isNewDraft} saving={saving}
+        onClose={closeEditor} onSave={c => persistCustomer(c, false)}
       />
 
       <CustomerHistoryDialog customer={historyFor} onClose={() => setHistoryFor(null)} />
@@ -406,5 +390,15 @@ const Customers: React.FC = () => {
     </div>
   );
 };
+
+const KpiTile: React.FC<{ label: string; value: number; accent?: 'warn' }> = ({ label, value, accent }) => (
+  <Card className={[
+    'p-3 border-border/70',
+    accent === 'warn' ? 'bg-warning-soft/40 border-warning/30' : 'bg-background',
+  ].join(' ')}>
+    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+    <div className="text-xl font-semibold tabular-nums mt-0.5">{value}</div>
+  </Card>
+);
 
 export default Customers;
