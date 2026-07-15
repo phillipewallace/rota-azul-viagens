@@ -1293,9 +1293,15 @@ const ErpFinanceiro: React.FC = () => {
                               title="Ver contrato" aria-label="Ver contrato">
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => gerar(p, { semPdf: true })}
-                              disabled={working === p.contractId} title="Apenas marcar pago, sem baixar PDF">
-                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Marcar pago
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setNfDialogTarget(p)}
+                              disabled={working === p.contractId}
+                              title="Vincular Nota Fiscal emitida no portal do governo"
+                              className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1" /> Vincular NF
                             </Button>
                             <GerarReciboPopover
                               pending={p}
