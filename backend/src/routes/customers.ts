@@ -345,7 +345,7 @@ router.put('/', async (req: Request, res: Response) => {
     }
 
     for (const c of customers) {
-      await upsertCustomer(c, true);
+      await upsertCustomer(c, client);
     }
     await client.query('COMMIT');
     const result = await pool.query(`SELECT ${CUSTOMER_SELECT} FROM customers ORDER BY customer_name ASC`);
