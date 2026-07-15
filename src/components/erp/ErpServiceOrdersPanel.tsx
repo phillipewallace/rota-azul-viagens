@@ -380,14 +380,9 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
                       🧽 {os.limpezasSemanais} limpeza(s) por semana
                     </div>
                   )}
-                  {isEvento && os.dataRecolhimento && (
+                  {os.dataRecolhimento && (
                     <div className="text-[11px] text-muted-foreground">
                       🎯 Recolhimento previsto: {fmtDate(os.dataRecolhimento)}
-                    </div>
-                  )}
-                  {!isEvento && os.modalidade === 'diaria' && os.dataFimPrevista && (
-                    <div className="text-[11px] text-muted-foreground">
-                      Recolhimento previsto: {fmtDate(os.dataFimPrevista)}
                     </div>
                   )}
 
