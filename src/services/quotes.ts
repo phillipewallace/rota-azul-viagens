@@ -139,6 +139,9 @@ export interface ServiceOrder {
   emAtraso?: boolean;
   sanitariosAlocados?: number;
   sanitariosEntregues?: number;
+  convertedContractId?: string | null;
+  convertedContractNumero?: string | null;
+  convertedAt?: string | null;
 }
 
 export const serviceOrdersService = {
