@@ -452,7 +452,7 @@ const ServiceOrders: React.FC = () => {
           <div className="flex items-center gap-3">
             <ClipboardList className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-bold">Ordens de Serviço</h1>
-            <Badge variant="secondary">{list.length}</Badge>
+            <Badge variant="secondary">{counts.todas}</Badge>
             {counts.atrasadas > 0 && (
               <Badge className="bg-red-600 text-white gap-1 animate-pulse">
                 <AlertTriangle className="h-3 w-3" /> {counts.atrasadas} em atraso
