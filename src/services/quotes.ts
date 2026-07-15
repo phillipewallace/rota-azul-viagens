@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './config';
+import { appendPageParams, type Paged, type PageParams } from '@/lib/pagination';
 
 const authHeaders = () => {
   const t = localStorage.getItem('auth_token');
@@ -77,6 +78,16 @@ const toQuery = (params?: Record<string, unknown>): string => {
 export const quotesService = {
   list: (params?: { status?: string; customerId?: string }) =>
     req<Quote[]>('GET', `/erp/quotes${toQuery(params)}`),
+  /** Variante paginada — retorna envelope `{ data, total, page, pageSize }`. */
+  listPaged: (params?: { status?: string; customerId?: string } & PageParams) => {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (k === 'page' || k === 'pageSize') return;
+      if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+    });
+    appendPageParams(q, params);
+    return req<Paged<Quote>>('GET', `/erp/quotes?${q.toString()}`);
+  },
   get: (id: string) => req<Quote>('GET', `/erp/quotes/${id}`),
   create: (data: Partial<Quote>) => req<{ id: string; numero: string }>('POST', '/erp/quotes', data),
   update: (id: string, data: Partial<Quote>) => req<{ ok: true }>('PUT', `/erp/quotes/${id}`, data),
@@ -129,6 +140,16 @@ export const serviceOrdersService = {
       }, {})
     ).toString();
     return req<ServiceOrder[]>('GET', `/erp/service-orders${q ? '?' + q : ''}`);
+  },
+  /** Variante paginada — retorna envelope `{ data, total, page, pageSize }`. */
+  listPaged: (params?: { status?: string; overdue?: boolean } & PageParams) => {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (k === 'page' || k === 'pageSize') return;
+      if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+    });
+    appendPageParams(q, params);
+    return req<Paged<ServiceOrder>>('GET', `/erp/service-orders?${q.toString()}`);
   },
   get: (id: string) => req<ServiceOrder & { sanitarios: any[]; items: any[]; companySnapshot: any; customer_snapshot?: any; quote_id?: string }>('GET', `/erp/service-orders/${id}`),
   create: (data: any) => req<{ id: string; numero: string }>('POST', '/erp/service-orders', data),
