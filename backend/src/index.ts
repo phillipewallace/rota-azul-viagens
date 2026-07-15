@@ -153,8 +153,19 @@ app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
 
 
-// Servir uploads (fotos)
+// Servir uploads.
+// Pastas sensíveis (NFs, docs assinados) EXIGEM auth — evita que qualquer um
+// com a URL baixe uma nota fiscal (CNPJ, valores, cliente).
+import { requireAuth } from './middleware/requireAuth';
+const SENSITIVE_UPLOAD_PREFIXES = ['/invoices/', '/signed/', '/receipts/'];
+app.use('/uploads', (req, res, next) => {
+  if (SENSITIVE_UPLOAD_PREFIXES.some(p => req.path.startsWith(p))) {
+    return (requireAuth as any)(req, res, next);
+  }
+  next();
+});
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
+
 
 console.log('✅ [SERVER] Todas as rotas registradas com sucesso');
 
