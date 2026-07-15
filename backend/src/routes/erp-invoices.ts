@@ -7,6 +7,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import fsp from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
@@ -14,8 +15,18 @@ import { requireAuth, requireRole } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
+// Papéis autorizados a mutar dados financeiros (NF).
+const FIN_ROLES = ['admin', 'manager'] as const;
+
 const invoicesDir = path.join(__dirname, '../../uploads/invoices');
+// Garante o diretório na inicialização (síncrono só aqui — não em request path).
 if (!fs.existsSync(invoicesDir)) fs.mkdirSync(invoicesDir, { recursive: true });
+
+// Remove arquivo sem lançar (helper reutilizável, async).
+const safeUnlink = async (filename?: string | null) => {
+  if (!filename) return;
+  try { await fsp.unlink(path.join(invoicesDir, filename)); } catch {}
+};
 
 const storage = multer.diskStorage({
   destination: (_req: any, _file: any, cb: any) => cb(null, invoicesDir),
@@ -52,6 +63,7 @@ const SELECT = `
   i.motivo_cancelamento AS "motivoCancelamento",
   i.created_by AS "createdBy",
   i.created_at AS "createdAt",
+  i.updated_at AS "updatedAt",
   c.numero AS "contractNumero",
   c.company_id AS "companyId",
   emp.razao_social AS "companyRazaoSocial", emp.cnpj AS "companyCnpj",
@@ -119,10 +131,11 @@ router.get('/:id', async (req: any, res: any) => {
 });
 
 // ---------- CREATE (multipart) ------------------------------------------
-router.post('/', (req: any, res: any) => {
+router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
   upload.single('file')(req, res, async (err: any) => {
     if (err) return res.status(400).json({ error: err.message || 'Erro no upload' });
     const file = req.file;
+    let keepFile = false;                       // libera o cleanup no finally
     try {
       const {
         contractId, competencia, numero, serie, dataEmissao, valor,
@@ -146,8 +159,6 @@ router.post('/', (req: any, res: any) => {
         [contractId, comp],
       );
       if (dup.rows[0]) {
-        // Remove PDF órfão que acabamos de subir.
-        try { fs.unlinkSync(path.join(invoicesDir, file.filename)); } catch {}
         return res.status(409).json({
           error: `Já existe uma NF ativa (${dup.rows[0].numero}) nessa competência para este contrato.`,
         });
@@ -170,18 +181,19 @@ router.post('/', (req: any, res: any) => {
           req.user?.username || req.user?.name || null,
         ],
       );
+      keepFile = true;
       res.json({ ok: true, id: r.rows[0].id });
     } catch (e: any) {
-      // Tenta limpar arquivo se algo falhou depois do upload.
-      if (file) { try { fs.unlinkSync(path.join(invoicesDir, file.filename)); } catch {} }
       console.error('[erp-invoices POST]', e);
       res.status(500).json({ error: e.message });
+    } finally {
+      if (file && !keepFile) await safeUnlink(file.filename);
     }
   });
 });
 
 // ---------- UPDATE metadata ---------------------------------------------
-router.patch('/:id', async (req: any, res: any) => {
+router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
   try {
     const body = req.body || {};
     const { numero, dataEmissao, valor, formaPagamento } = body;
@@ -191,10 +203,37 @@ router.patch('/:id', async (req: any, res: any) => {
     const obsProvided   = Object.prototype.hasOwnProperty.call(body, 'observacoes');
     const formaProvided = Object.prototype.hasOwnProperty.call(body, 'formaPagamento');
 
-    const cur = await pool.query('SELECT status FROM erp_invoices WHERE id=$1', [req.params.id]);
+    const cur = await pool.query(
+      'SELECT status, contract_id, competencia FROM erp_invoices WHERE id=$1',
+      [req.params.id],
+    );
     if (!cur.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
     if (cur.rows[0].status === 'cancelada') {
       return res.status(409).json({ error: 'NF cancelada — reative para editar (contate um administrador).' });
+    }
+
+    // Se dataEmissao mudou de mês, recalcula competência e revalida duplicidade
+    // (o índice único parcial só protege dentro do mesmo mês).
+    let newComp: string | null = null;
+    if (dataEmissao) {
+      const comp = String(dataEmissao).slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(comp)) {
+        return res.status(400).json({ error: 'Data de emissão inválida' });
+      }
+      if (comp !== cur.rows[0].competencia) {
+        const dup = await pool.query(
+          `SELECT id, numero FROM erp_invoices
+            WHERE contract_id = $1 AND competencia = $2
+              AND status = 'ativa' AND id <> $3 LIMIT 1`,
+          [cur.rows[0].contract_id, comp, req.params.id],
+        );
+        if (dup.rows[0]) {
+          return res.status(409).json({
+            error: `Já existe uma NF ativa (${dup.rows[0].numero}) na competência ${comp} para este contrato.`,
+          });
+        }
+        newComp = comp;
+      }
     }
 
     const norm = (v: any) => {
@@ -208,6 +247,7 @@ router.patch('/:id', async (req: any, res: any) => {
           SET numero = COALESCE($2, numero),
               serie  = CASE WHEN $3::boolean THEN $4 ELSE serie END,
               data_emissao = COALESCE($5, data_emissao),
+              competencia  = COALESCE($11, competencia),
               valor  = COALESCE($6, valor),
               forma_pagamento = CASE WHEN $7::boolean THEN $8 ELSE forma_pagamento END,
               observacoes     = CASE WHEN $9::boolean THEN $10 ELSE observacoes END,
@@ -219,7 +259,8 @@ router.patch('/:id', async (req: any, res: any) => {
        dataEmissao || null,
        valor === undefined || valor === null ? null : Number(valor),
        formaProvided, formaProvided ? norm(formaPagamento) : null,
-       obsProvided, obsProvided ? norm(body.observacoes) : null],
+       obsProvided, obsProvided ? norm(body.observacoes) : null,
+       newComp],
     );
 
     res.json({ ok: true });
@@ -227,43 +268,54 @@ router.patch('/:id', async (req: any, res: any) => {
 });
 
 // ---------- REPLACE PDF -------------------------------------------------
-router.post('/:id/replace-pdf', (req: any, res: any) => {
+router.post('/:id/replace-pdf', requireRole(...FIN_ROLES), (req: any, res: any) => {
   upload.single('file')(req, res, async (err: any) => {
     if (err) return res.status(400).json({ error: err.message || 'Erro no upload' });
     const file = req.file;
+    let keepFile = false;
+    let oldStored: string | null = null;
     try {
       if (!file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       const cur = await pool.query(
-        'SELECT pdf_stored_filename FROM erp_invoices WHERE id=$1',
+        'SELECT pdf_stored_filename, updated_at FROM erp_invoices WHERE id=$1',
         [req.params.id],
       );
-      if (!cur.rows[0]) {
-        try { fs.unlinkSync(path.join(invoicesDir, file.filename)); } catch {}
-        return res.status(404).json({ error: 'Nota fiscal não encontrada' });
-      }
+      if (!cur.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
+
+      // Lock otimista: só atualiza se ninguém trocou o PDF entre o SELECT e o UPDATE.
+      // Evita que uploads concorrentes apaguem o PDF "vencedor" na race.
       const url = `/uploads/invoices/${file.filename}`;
-      await pool.query(
+      const upd = await pool.query(
         `UPDATE erp_invoices
             SET pdf_url = $2,
                 pdf_original_filename = $3,
                 pdf_stored_filename   = $4,
                 pdf_size_bytes        = $5,
                 updated_at            = NOW()
-          WHERE id = $1`,
-        [req.params.id, url, file.originalname, file.filename, file.size || null],
+          WHERE id = $1 AND updated_at = $6
+          RETURNING id`,
+        [req.params.id, url, file.originalname, file.filename, file.size || null,
+         cur.rows[0].updated_at],
       );
-      const old = cur.rows[0].pdf_stored_filename;
-      if (old) { try { fs.unlinkSync(path.join(invoicesDir, old)); } catch {} }
+      if (upd.rowCount === 0) {
+        return res.status(409).json({
+          error: 'Outra troca de PDF ocorreu ao mesmo tempo. Recarregue e tente novamente.',
+        });
+      }
+      keepFile = true;
+      oldStored = cur.rows[0].pdf_stored_filename || null;
       res.json({ ok: true, pdfUrl: url });
     } catch (e: any) {
-      if (file) { try { fs.unlinkSync(path.join(invoicesDir, file.filename)); } catch {} }
       res.status(500).json({ error: e.message });
+    } finally {
+      if (file && !keepFile) await safeUnlink(file.filename);
+      if (keepFile && oldStored) await safeUnlink(oldStored);
     }
   });
 });
 
 // ---------- CANCEL (soft) -----------------------------------------------
-router.post('/:id/cancel', async (req: any, res: any) => {
+router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res: any) => {
   try {
     const { motivo } = req.body || {};
     if (!motivo || !String(motivo).trim()) {
@@ -295,8 +347,7 @@ router.delete('/:id', requireRole('admin', 'manager'), async (req: any, res: any
       [req.params.id],
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
-    const stored = r.rows[0].pdf_stored_filename;
-    if (stored) { try { fs.unlinkSync(path.join(invoicesDir, stored)); } catch {} }
+    await safeUnlink(r.rows[0].pdf_stored_filename);
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
