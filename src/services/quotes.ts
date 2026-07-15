@@ -185,6 +185,15 @@ export const serviceOrdersService = {
   deliver: (id: string, body: { sanitarioNumeros: string[]; address?: string; notes?: string }) =>
     req<{ ok: true; delivered: string[] }>('POST', `/erp/service-orders/${id}/deliver`, body),
   remove: (id: string) => req<{ ok: true }>('DELETE', `/erp/service-orders/${id}`),
+  convertToContract: (id: string, body?: {
+    diaVencimento?: number;
+    renovacaoAutomatica?: boolean;
+    cno?: string;
+    dataFim?: string | null;
+    observacoes?: string;
+    descricao?: string;
+  }) => req<{ ok: true; contractId: string; contractNumero: string }>(
+    'POST', `/erp/service-orders/${id}/convert-to-contract`, body || {}),
   overdueCount: () => req<{ overdue: number }>('GET', `/erp/service-orders/overdue/count`),
   financial: (params?: { from?: string; to?: string; status?: string; tipoLocacao?: string }) => {
     const q = new URLSearchParams(
