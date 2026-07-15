@@ -3441,7 +3441,16 @@ function GastosPanel() {
               ]}
             />
           </div>
+          <div className="flex-1 min-w-[200px]">
+            <Label className="text-xs">Buscar</Label>
+            <Input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Descrição, fornecedor, NF…" className="h-9" />
+          </div>
           <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={exportBusy} onClick={exportAllCsv}>
+              {exportBusy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+              Exportar CSV (filtro)
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setCatsOpen(true)}>
               <Tag className="h-4 w-4 mr-1" /> Categorias
             </Button>
