@@ -464,29 +464,24 @@ const ErpFinanceiro: React.FC = () => {
   }, [recibos, filterStatus, filterCompanyId, filterFrom, filterTo, quick, search, dateBase, companies, today]);
 
   const totals = useMemo(() => {
-    const recebido = recibosFiltrados
-      .filter(r => r.status === 'pago' || r.status === 'parcial')
-      .reduce((a, r) => a + Number(r.valorPago ?? (r.status === 'pago' ? r.valor : 0) ?? 0), 0);
-    const aberto = recibosFiltrados
-      .filter(r => r.status === 'aberto' || r.status === 'parcial')
-      .reduce((a, r) => a + Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0)), 0);
-    const vencidosArr = recibosFiltrados.filter(r =>
-      (r.status === 'aberto' || r.status === 'parcial') &&
-      r.dataVencimento && r.dataVencimento < today);
-    const vencidos = vencidosArr.reduce(
-      (a, r) => a + Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0)), 0);
+    // Prefere KPIs agregados no servidor (corretos sobre TODO o dataset filtrado,
+    // não apenas a página atual). Se ainda não carregou, cai para 0.
+    const recebido = kpisRecibos?.recebido ?? 0;
+    const aberto   = kpisRecibos?.aberto ?? 0;
+    const vencidos = kpisRecibos?.vencido ?? 0;
+    const vencidosCount = kpisRecibos?.qtdVencidos ?? 0;
     const pendente = pendentes.reduce((a, p) => a + Number(p.valorMensal || 0), 0);
     const previsto = recebido + aberto + pendente;
     const inadimp  = previsto > 0 ? (aberto + pendente) / previsto * 100 : 0;
-    const ativos   = recibosFiltrados.filter(r => r.status !== 'cancelado');
-    const ticket   = ativos.length > 0
-      ? ativos.reduce((a, r) => a + Number(r.valor || 0), 0) / ativos.length : 0;
+    const ativosCount = kpisRecibos ? Math.max(0, kpisRecibos.total - kpisRecibos.qtdCancelados) : 0;
+    const ticket = ativosCount > 0 ? (kpisRecibos!.totalAtivos / ativosCount) : 0;
     return {
       recebido, aberto, pendente, total: previsto, inadimp, ticket,
-      vencidos, vencidosCount: vencidosArr.length,
+      vencidos, vencidosCount,
       resultado: recebido - gastosMes,
     };
-  }, [recibosFiltrados, pendentes, gastosMes, today]);
+  }, [kpisRecibos, pendentes, gastosMes]);
+
 
   // Ranking por cliente (usa recibos filtrados; ignora cancelados)
   const perCustomer = useMemo(() => {
