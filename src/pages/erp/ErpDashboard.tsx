@@ -542,7 +542,7 @@ const ErpDashboard: React.FC = () => {
                                 <Badge className="bg-warning/15 text-warning hover:bg-warning/20 border-transparent">Amanhã</Badge>
                               ) : (
                                 <span className="text-xs text-muted-foreground">
-                                  {new Date(u.dataEntrega).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                  {(parseLocalDate(u.dataEntrega) ?? new Date()).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </span>
                               )}
                             </td>
