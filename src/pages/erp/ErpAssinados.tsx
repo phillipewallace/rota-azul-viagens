@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { erpService, type ErpCompany, type SignedPdf } from '@/services/erp';
-import { toAbsoluteUrl } from '@/utils/absoluteUrl';
+import { toAuthedUrl } from '@/utils/absoluteUrl';
 import { confirmDialog } from '@/lib/confirm';
 import { Files, Download, ExternalLink, Trash2, Search, RefreshCw, FileText } from 'lucide-react';
 
