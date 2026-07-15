@@ -31,6 +31,7 @@ import { formatDateBR, parseLocalDate } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
 import { BRL } from '@/utils/currency';
+import { PaginationBar } from '@/components/PaginationBar';
 
 /** Dias até uma data ISO (positivo = futuro). */
 const daysBetween = (from: Date, iso?: string | null): number | null => {
