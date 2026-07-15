@@ -3,6 +3,7 @@
  * de Sanitários para facilitar a entrega/baixa dos sanitários reservados.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +48,34 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
   const [deliver, setDeliver] = useState<DeliverState | null>(null);
   const [closing, setClosing] = useState<CloseState | null>(null);
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+
+  const sendToContracts = async (os: ServiceOrder) => {
+    if (os.convertedContractId) {
+      toast.info(`OS ${os.numero} já vinculada ao contrato ${os.convertedContractNumero || ''}`);
+      navigate(`/erp/contratos?search=${encodeURIComponent(os.convertedContractNumero || '')}`);
+      return;
+    }
+    if (!os.customerId || !os.companyId) {
+      toast.error('OS precisa ter cliente e empresa emissora para gerar contrato');
+      return;
+    }
+    if (!(await confirmDialog({
+      description: `Criar contrato a partir da OS ${os.numero}? Ele aparecerá na aba Contratos para revisão/edição manual.`,
+    }))) return;
+    try {
+      const r = await serviceOrdersService.convertToContract(os.id);
+      toast.success(`Contrato ${r.contractNumero} criado`, {
+        action: { label: 'Abrir', onClick: () => navigate(`/erp/contratos?search=${encodeURIComponent(r.contractNumero)}`) },
+      });
+      await load();
+      onChanged?.();
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (msg.includes('já foi convertida')) { toast.info(msg); await load(); }
+      else toast.error(msg || 'Erro ao converter em contrato');
+    }
+  };
   const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
 
   const load = async () => {
@@ -377,10 +406,18 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
                     </Button>
                     <Button size="sm" variant="default" className="flex-1 bg-indigo-600 hover:bg-indigo-700"
                             onClick={() => setContractTarget(os)}>
-                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato (PDF)
                     </Button>
                   </div>
                   <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline"
+                            className={`flex-1 ${os.convertedContractId ? 'text-emerald-700 border-emerald-300 hover:bg-emerald-50' : 'text-indigo-700 border-indigo-300 hover:bg-indigo-50'}`}
+                            onClick={() => sendToContracts(os)}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" />
+                      {os.convertedContractId
+                        ? `Ver contrato ${os.convertedContractNumero || ''}`.trim()
+                        : 'Enviar para Contratos'}
+                    </Button>
                     <Button size="sm" variant="ghost" className="flex-1 text-indigo-700 hover:bg-indigo-50"
                             onClick={() => downloadQuotePdf(os)}>
                       <FileDown className="h-3.5 w-3.5 mr-1" /> PDF Orçamento

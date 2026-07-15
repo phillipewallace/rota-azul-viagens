@@ -3,7 +3,7 @@
  * fechamento devolve sanitários, exportação financeira e histórico de movimentação.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ClipboardList, AlertTriangle, CheckCircle2, RefreshCcw, Trash2, Loader2, Search,
   FileDown, History, X, ChevronDown, ChevronRight, MapPin, Calendar, User, Building2, Package,
@@ -223,6 +223,40 @@ const ServiceOrders: React.FC = () => {
       }
     } catch (e: any) { toast.error(e.message); }
     finally { setPdfBusy(null); }
+  };
+
+  const navigate = useNavigate();
+  const sendToContracts = async (o: ServiceOrder) => {
+    // OS já convertida → apenas navega para a aba Contratos filtrando pelo número.
+    if (o.convertedContractId) {
+      toast.info(`OS ${o.numero} já vinculada ao contrato ${o.convertedContractNumero || ''}`);
+      navigate(`/erp/contratos?search=${encodeURIComponent(o.convertedContractNumero || '')}`);
+      return;
+    }
+    if (!o.customerId || !o.companyId) {
+      toast.error('OS precisa ter cliente e empresa emissora para gerar contrato');
+      return;
+    }
+    if (!(await confirmDialog({
+      description: `Criar contrato a partir da OS ${o.numero}? Ele aparecerá na aba Contratos para revisão/edição manual.`,
+    }))) return;
+    setPdfBusy(o.id);
+    try {
+      const r = await serviceOrdersService.convertToContract(o.id);
+      toast.success(`Contrato ${r.contractNumero} criado com sucesso`, {
+        action: { label: 'Abrir', onClick: () => navigate(`/erp/contratos?search=${encodeURIComponent(r.contractNumero)}`) },
+      });
+      await load();
+    } catch (e: any) {
+      // 409 → contrato já existente: navega para ele.
+      const msg = String(e?.message || '');
+      if (msg.includes('já foi convertida')) {
+        toast.info(msg);
+        await load();
+      } else {
+        toast.error(msg || 'Erro ao converter em contrato');
+      }
+    } finally { setPdfBusy(null); }
   };
 
 
@@ -642,7 +676,17 @@ const ServiceOrders: React.FC = () => {
                     </Button>
                     <Button size="sm" variant="default" className="flex-1 min-w-[110px] bg-indigo-600 hover:bg-indigo-700"
                             onClick={() => setContractTarget(o)} disabled={pdfBusy === o.id}>
-                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato (PDF)
+                    </Button>
+                  </div>
+                  <div className="flex gap-1 pt-1">
+                    <Button size="sm" variant="outline"
+                            className={`flex-1 min-w-[140px] ${o.convertedContractId ? 'text-emerald-700 border-emerald-300 hover:bg-emerald-50' : 'text-indigo-700 border-indigo-300 hover:bg-indigo-50'}`}
+                            onClick={() => sendToContracts(o)} disabled={pdfBusy === o.id}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" />
+                      {o.convertedContractId
+                        ? `Ver contrato ${o.convertedContractNumero || ''}`.trim()
+                        : 'Enviar para Contratos'}
                     </Button>
                   </div>
                   <div className="flex gap-1 pt-1">

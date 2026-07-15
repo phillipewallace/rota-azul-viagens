@@ -72,8 +72,12 @@ const ErpContracts: React.FC = () => {
   const [filterTipo, setFilterTipo] = useState<'all' | 'locacao' | 'evento' | 'obra'>('all');
   const [filterCompany, setFilterCompany] = useState<string>('all');
   const [filterVencendo, setFilterVencendo] = useState<boolean>(false);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Pré-preenche a busca via ?search= (usado ao navegar da OS → Contratos).
+  const [search, setSearch] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('search') || '';
+  });
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<Contract | null>(null);
   const [openForm, setOpenForm] = useState(false);
