@@ -87,6 +87,20 @@ export const invoicesService = {
     appendPageParams(q, p);
     return reqJson<Paged<Invoice>>('GET', `/erp/invoices?${q.toString()}`);
   },
+  /**
+   * KPIs agregados no servidor (respeitam filtros; independem da página).
+   */
+  kpis: (p?: InvoiceListParams) => {
+    const q = new URLSearchParams();
+    if (p) Object.entries(p).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+    });
+    const s = q.toString();
+    return reqJson<{
+      total: number; qtdAtivas: number; qtdCanceladas: number;
+      totalAtivo: number; ticketMedio: number;
+    }>('GET', `/erp/invoices/stats/kpis${s ? '?' + s : ''}`);
+  },
   get: (id: string) => reqJson<Invoice>('GET', `/erp/invoices/${id}`),
   create: (data: {
     file: File;
