@@ -37,15 +37,39 @@ const competenciaAtual = () => {
 
 router.get('/', async (req, res) => {
   try {
-    const { contractId, competencia, pago, from, to } = req.query as any;
+    const {
+      contractId, competencia, pago, from, to,
+      status, companyId, search, semValidade,
+      dateBase, vencidoAte, venceAte,
+    } = req.query as Record<string, string | undefined>;
     const conds: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     if (contractId) { params.push(contractId); conds.push(`r.contract_id = $${params.length}`); }
     if (competencia) { params.push(competencia); conds.push(`r.competencia = $${params.length}`); }
     if (pago === 'true')  conds.push(`r.pago = TRUE`);
     if (pago === 'false') conds.push(`r.pago = FALSE`);
-    if (from) { params.push(from); conds.push(`r.data_emissao >= $${params.length}`); }
-    if (to)   { params.push(to);   conds.push(`r.data_emissao <= $${params.length}`); }
+    if (status) { params.push(status); conds.push(`r.status = $${params.length}`); }
+    if (companyId) { params.push(companyId); conds.push(`c.company_id = $${params.length}`); }
+    if (semValidade === 'true')  conds.push(`COALESCE(r.sem_validade, FALSE) = TRUE`);
+    if (semValidade === 'false') conds.push(`COALESCE(r.sem_validade, FALSE) = FALSE`);
+    // dateBase = 'vencimento' aplica from/to em data_vencimento; default = data_emissao
+    const dateCol = dateBase === 'vencimento' ? 'r.data_vencimento' : 'r.data_emissao';
+    if (from) { params.push(from); conds.push(`${dateCol} >= $${params.length}`); }
+    if (to)   { params.push(to);   conds.push(`${dateCol} <= $${params.length}`); }
+    // Filtros de vencimento (independentes do dateBase)
+    if (vencidoAte) {
+      params.push(vencidoAte);
+      conds.push(`r.status IN ('aberto','parcial') AND r.data_vencimento IS NOT NULL AND r.data_vencimento < $${params.length}`);
+    }
+    if (venceAte) {
+      params.push(venceAte);
+      conds.push(`r.status IN ('aberto','parcial') AND r.data_vencimento IS NOT NULL AND r.data_vencimento <= $${params.length}`);
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      const n = params.length;
+      conds.push(`(r.numero ILIKE $${n} OR COALESCE(r.numero_display,'') ILIKE $${n} OR c.numero ILIKE $${n} OR cu.customer_name ILIKE $${n} OR emp.razao_social ILIKE $${n})`);
+    }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const fromSql = `FROM erp_receipts r
          JOIN erp_contracts c ON c.id = r.contract_id
@@ -65,6 +89,62 @@ router.get('/', async (req, res) => {
     res.json(rowsQ.rows);
   } catch (e: any) { sendError(res, e); }
 });
+
+// KPIs de recibos — respeitam os mesmos filtros server-side (exceto paginação).
+// Retorna totais corretos sobre o conjunto FILTRADO (não apenas a página atual).
+router.get('/stats/kpis', async (req, res) => {
+  try {
+    const {
+      contractId, competencia, status, companyId, search, semValidade,
+      dateBase, from, to,
+    } = req.query as Record<string, string | undefined>;
+    const conds: string[] = [];
+    const params: unknown[] = [];
+    if (contractId) { params.push(contractId); conds.push(`r.contract_id = $${params.length}`); }
+    if (competencia) { params.push(competencia); conds.push(`r.competencia = $${params.length}`); }
+    if (status) { params.push(status); conds.push(`r.status = $${params.length}`); }
+    if (companyId) { params.push(companyId); conds.push(`c.company_id = $${params.length}`); }
+    if (semValidade === 'true')  conds.push(`COALESCE(r.sem_validade, FALSE) = TRUE`);
+    if (semValidade === 'false') conds.push(`COALESCE(r.sem_validade, FALSE) = FALSE`);
+    const dateCol = dateBase === 'vencimento' ? 'r.data_vencimento' : 'r.data_emissao';
+    if (from) { params.push(from); conds.push(`${dateCol} >= $${params.length}`); }
+    if (to)   { params.push(to);   conds.push(`${dateCol} <= $${params.length}`); }
+    if (search) {
+      params.push(`%${search}%`);
+      const n = params.length;
+      conds.push(`(r.numero ILIKE $${n} OR COALESCE(r.numero_display,'') ILIKE $${n} OR c.numero ILIKE $${n} OR cu.customer_name ILIKE $${n} OR emp.razao_social ILIKE $${n})`);
+    }
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const q = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE r.status='pago')::int AS "qtdPagos",
+        COUNT(*) FILTER (WHERE r.status='aberto')::int AS "qtdAbertos",
+        COUNT(*) FILTER (WHERE r.status='parcial')::int AS "qtdParciais",
+        COUNT(*) FILTER (WHERE r.status='cancelado')::int AS "qtdCancelados",
+        COUNT(*) FILTER (WHERE r.status IN ('aberto','parcial')
+                          AND r.data_vencimento IS NOT NULL
+                          AND r.data_vencimento < CURRENT_DATE)::int AS "qtdVencidos",
+        COALESCE(SUM(CASE WHEN r.status IN ('pago','parcial')
+                           THEN COALESCE(r.valor_pago, r.valor, 0) ELSE 0 END), 0)::float AS "recebido",
+        COALESCE(SUM(CASE WHEN r.status = 'aberto' THEN r.valor ELSE 0 END), 0)::float AS "aberto",
+        COALESCE(SUM(CASE WHEN r.status IN ('aberto','parcial')
+                           AND r.data_vencimento IS NOT NULL
+                           AND r.data_vencimento < CURRENT_DATE
+                           THEN (r.valor - COALESCE(r.valor_pago, 0)) ELSE 0 END), 0)::float AS "vencido",
+        COALESCE(SUM(CASE WHEN r.status <> 'cancelado' THEN r.valor ELSE 0 END), 0)::float AS "totalAtivos"
+      FROM erp_receipts r
+      JOIN erp_contracts c ON c.id = r.contract_id
+      LEFT JOIN erp_companies emp ON emp.id = c.company_id
+      LEFT JOIN customers cu ON cu.id = c.customer_id
+      ${where}`, params);
+    res.json(q.rows[0] || {
+      total: 0, qtdPagos: 0, qtdAbertos: 0, qtdParciais: 0, qtdCancelados: 0, qtdVencidos: 0,
+      recebido: 0, aberto: 0, vencido: 0, totalAtivos: 0,
+    });
+  } catch (e: any) { sendError(res, e); }
+});
+
 
 
 // Pendentes: contratos ativos que ainda não têm recibo na competência informada (default = mês atual)

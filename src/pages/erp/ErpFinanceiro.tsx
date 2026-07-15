@@ -65,6 +65,8 @@ import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
 import { BRL } from '@/utils/currency';
+import PaginationBar from '@/components/PaginationBar';
+
 const D = (s?: string) => s ? formatDateBR(s) : '—';
 
 const compAtual = () => {
@@ -171,6 +173,17 @@ const ErpFinanceiro: React.FC = () => {
   const [pendentesLoading, setPendentesLoading] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
 
+  // Paginação server-side dos recibos
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalRecibos, setTotalRecibos] = useState(0);
+  // KPIs agregados no servidor (respeitam filtros; independe da página)
+  const [kpisRecibos, setKpisRecibos] = useState<{
+    total: number; qtdPagos: number; qtdAbertos: number; qtdParciais: number;
+    qtdCancelados: number; qtdVencidos: number;
+    recebido: number; aberto: number; vencido: number; totalAtivos: number;
+  } | null>(null);
+
   // filtros
   const [filterStatus, setFilterStatus] = useState<'all' | 'pago' | 'aberto' | 'parcial' | 'cancelado'>('all');
   const [filterCompanyId, setFilterCompanyId] = useState<string>('all');
@@ -179,12 +192,20 @@ const ErpFinanceiro: React.FC = () => {
   const [dateBase, setDateBase] = useState<DateBase>('emissao');
   const [quick, setQuick] = useState<QuickFilter>('none');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce da busca (350ms) — usado no filtro server-side E no client-side.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // seleção lote (pendentes) e (recibos)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
   const [batchWorking, setBatchWorking] = useState(false);
   const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'notas' | 'medicoes' | 'clientes' | 'gastos'>('pendentes');
+
 
   // Notas Fiscais (vinculação de NF do portal do governo)
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -285,14 +306,47 @@ const ErpFinanceiro: React.FC = () => {
   const loadRecibos = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await receiptsService.list(
-        filterFrom || filterTo || quick !== 'none' ? {} : { competencia }
-      );
+      const usaRange = !!(filterFrom || filterTo);
+      // Tab determina o recorte de validade:
+      // - 'sem-validade' → só recibos SV
+      // - 'emitidos' / 'pagos' → só recibos com validade
+      // - demais abas: sem restrição (não devem carregar recibos, mas mantém seguro)
+      const semValidadeParam: boolean | undefined =
+        activeTab === 'sem-validade' ? true
+        : (activeTab === 'emitidos' || activeTab === 'pagos') ? false
+        : undefined;
+      // Filtro de status server-side; na aba "Pagos" mantemos livre porque
+      // ela mostra tanto 'pago' quanto 'parcial' — dedup/ordenação ficam client-side.
+      const statusParam = activeTab === 'pagos'
+        ? undefined
+        : (filterStatus !== 'all' ? filterStatus : undefined);
+      const baseFilters = {
+        ...(usaRange ? { from: filterFrom || undefined, to: filterTo || undefined }
+                     : { competencia }),
+        status: statusParam,
+        companyId: filterCompanyId !== 'all' ? filterCompanyId : undefined,
+        semValidade: semValidadeParam,
+        dateBase,
+        search: debouncedSearch || undefined,
+      };
+      const [pg, k] = await Promise.all([
+        receiptsService.listPaged({ ...baseFilters, page, pageSize }),
+        receiptsService.kpis(baseFilters),
+      ]);
       if (!mountedRef.current) return;
-      setRecibos(r);
+      setRecibos(pg.data);
+      setTotalRecibos(pg.total);
+      setKpisRecibos(k);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setLoading(false); }
-  }, [competencia, filterFrom, filterTo, quick]);
+  }, [competencia, filterFrom, filterTo, filterStatus, filterCompanyId, dateBase,
+      debouncedSearch, page, pageSize, activeTab]);
+
+  // Reset da página quando qualquer filtro muda
+  useEffect(() => {
+    setPage(1);
+  }, [competencia, filterFrom, filterTo, filterStatus, filterCompanyId, dateBase,
+      debouncedSearch, pageSize, activeTab]);
 
   // Conveniência: recarrega tudo (usada pelo botão Atualizar e após ações).
   const load = useCallback(async () => {
@@ -308,6 +362,7 @@ const ErpFinanceiro: React.FC = () => {
     previousActiveTabRef.current = activeTab;
     if (activeTab === 'pendentes' && previous !== 'pendentes') void loadPendentes();
   }, [activeTab, loadPendentes]);
+
 
   // Carga das medições da competência
   const loadMedicoes = useCallback(async () => {
@@ -411,29 +466,24 @@ const ErpFinanceiro: React.FC = () => {
   }, [recibos, filterStatus, filterCompanyId, filterFrom, filterTo, quick, search, dateBase, companies, today]);
 
   const totals = useMemo(() => {
-    const recebido = recibosFiltrados
-      .filter(r => r.status === 'pago' || r.status === 'parcial')
-      .reduce((a, r) => a + Number(r.valorPago ?? (r.status === 'pago' ? r.valor : 0) ?? 0), 0);
-    const aberto = recibosFiltrados
-      .filter(r => r.status === 'aberto' || r.status === 'parcial')
-      .reduce((a, r) => a + Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0)), 0);
-    const vencidosArr = recibosFiltrados.filter(r =>
-      (r.status === 'aberto' || r.status === 'parcial') &&
-      r.dataVencimento && r.dataVencimento < today);
-    const vencidos = vencidosArr.reduce(
-      (a, r) => a + Math.max(0, Number(r.valor || 0) - Number(r.valorPago || 0)), 0);
+    // Prefere KPIs agregados no servidor (corretos sobre TODO o dataset filtrado,
+    // não apenas a página atual). Se ainda não carregou, cai para 0.
+    const recebido = kpisRecibos?.recebido ?? 0;
+    const aberto   = kpisRecibos?.aberto ?? 0;
+    const vencidos = kpisRecibos?.vencido ?? 0;
+    const vencidosCount = kpisRecibos?.qtdVencidos ?? 0;
     const pendente = pendentes.reduce((a, p) => a + Number(p.valorMensal || 0), 0);
     const previsto = recebido + aberto + pendente;
     const inadimp  = previsto > 0 ? (aberto + pendente) / previsto * 100 : 0;
-    const ativos   = recibosFiltrados.filter(r => r.status !== 'cancelado');
-    const ticket   = ativos.length > 0
-      ? ativos.reduce((a, r) => a + Number(r.valor || 0), 0) / ativos.length : 0;
+    const ativosCount = kpisRecibos ? Math.max(0, kpisRecibos.total - kpisRecibos.qtdCancelados) : 0;
+    const ticket = ativosCount > 0 ? (kpisRecibos!.totalAtivos / ativosCount) : 0;
     return {
       recebido, aberto, pendente, total: previsto, inadimp, ticket,
-      vencidos, vencidosCount: vencidosArr.length,
+      vencidos, vencidosCount,
       resultado: recebido - gastosMes,
     };
-  }, [recibosFiltrados, pendentes, gastosMes, today]);
+  }, [kpisRecibos, pendentes, gastosMes]);
+
 
   // Ranking por cliente (usa recibos filtrados; ignora cancelados)
   const perCustomer = useMemo(() => {
@@ -1066,7 +1116,7 @@ const ErpFinanceiro: React.FC = () => {
           sub={`${BRL(totals.aberto + totals.pendente)} a receber`} icon={AlertTriangle}
           accent="from-rose-500 to-orange-500" />
         <KPI label="Ticket médio" value={BRL(totals.ticket)}
-          sub={`${recibosFiltrados.length} recibos no filtro`} icon={ReceiptIcon}
+          sub={`${totalRecibos} recibos no filtro`} icon={ReceiptIcon}
           accent="from-sky-500 to-indigo-600" />
         <KPI label="Resultado do mês" value={BRL(totals.resultado)}
           sub={`recebido − ${BRL(gastosMes)} de gastos`}
@@ -1088,11 +1138,12 @@ const ErpFinanceiro: React.FC = () => {
             Pagos do mês <Badge variant="outline" className="ml-2">{pagosDoMes.length}</Badge>
           </TabsTrigger>
           <TabsTrigger value="emitidos">
-            Recibos <Badge variant="outline" className="ml-2">{recibosFiltrados.length}</Badge>
+            Recibos <Badge variant="outline" className="ml-2">{activeTab === 'emitidos' ? totalRecibos : recibosFiltrados.length}</Badge>
           </TabsTrigger>
           <TabsTrigger value="sem-validade">
-            Sem validade <Badge variant="outline" className="ml-2">{recibosSemValidade.length}</Badge>
+            Sem validade <Badge variant="outline" className="ml-2">{activeTab === 'sem-validade' ? totalRecibos : recibosSemValidade.length}</Badge>
           </TabsTrigger>
+
           <TabsTrigger value="notas">
             Notas Fiscais <Badge variant="outline" className="ml-2">{invoices.length}</Badge>
           </TabsTrigger>
@@ -1834,9 +1885,17 @@ const ErpFinanceiro: React.FC = () => {
                   </TableBody>
                 </Table>
               </div>
+              <div className="px-4 pb-3">
+                <PaginationBar
+                  page={page} pageSize={pageSize} total={totalRecibos}
+                  onPageChange={setPage} onPageSizeChange={setPageSize}
+                  pageSizeOptions={[25, 50, 100, 200]}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="sem-validade">
           <Card>
@@ -1946,9 +2005,17 @@ const ErpFinanceiro: React.FC = () => {
                   </TableBody>
                 </Table>
               </div>
+              <div className="px-4 pb-3">
+                <PaginationBar
+                  page={page} pageSize={pageSize} total={totalRecibos}
+                  onPageChange={setPage} onPageSizeChange={setPageSize}
+                  pageSizeOptions={[25, 50, 100, 200]}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="clientes">
           <Card>
