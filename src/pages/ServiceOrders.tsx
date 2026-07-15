@@ -24,7 +24,7 @@ import { formatDateBR } from '@/utils/dateFormat';
 import { calcVencimentoBoleto, describeFormaPagamento } from '@/utils/fixedObservations';
 
 import { confirmDialog } from '@/lib/confirm';
-const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { BRL } from '@/utils/currency';
 const D = (s?: string) => formatDateBR(s);
 const DT = (s?: string) => {
   if (!s) return '—';

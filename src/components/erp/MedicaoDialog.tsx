@@ -27,7 +27,7 @@ import { medicoesService, type Medicao, type MedicaoItem } from '@/services/medi
 import { erpService, type ErpCompany } from '@/services/erp';
 import { formatDateBR } from '@/utils/dateFormat';
 
-const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { BRL } from '@/utils/currency';
 
 interface Props {
   open: boolean;

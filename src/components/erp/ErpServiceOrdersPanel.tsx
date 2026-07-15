@@ -25,7 +25,7 @@ import SanitarioMultiCombobox from './SanitarioMultiCombobox';
 import { formatDateBR } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
-const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { BRL } from '@/utils/currency';
 const fmtDate = (d?: string | null) => d ? formatDateBR(d) : '—';
 
 interface DeliverState {

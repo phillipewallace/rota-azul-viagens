@@ -14,7 +14,7 @@ import { medicoesService, type Medicao } from '@/services/medicoes';
 import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
-const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { BRL } from '@/utils/currency';
 
 interface Props {
   medicaoId: string | null;

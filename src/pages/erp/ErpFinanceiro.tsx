@@ -64,7 +64,7 @@ import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
 import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
-const BRL = (n: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+import { BRL } from '@/utils/currency';
 const D = (s?: string) => s ? formatDateBR(s) : '—';
 
 const compAtual = () => {
