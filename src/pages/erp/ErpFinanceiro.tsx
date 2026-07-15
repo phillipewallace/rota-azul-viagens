@@ -212,11 +212,24 @@ const ErpFinanceiro: React.FC = () => {
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [nfDialogTarget, setNfDialogTarget] = useState<PendingReceipt | null>(null);
   const [nfSearch, setNfSearch] = useState('');
+  const [debouncedNfSearch, setDebouncedNfSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedNfSearch(nfSearch.trim()), 350);
+    return () => clearTimeout(t);
+  }, [nfSearch]);
   const [nfStatus, setNfStatus] = useState<'all' | InvoiceStatus>('all');
   const [nfForma, setNfForma] = useState<'all' | InvoiceFormaPagamento>('all');
   const [nfCompanyId, setNfCompanyId] = useState<string>('all');
   const [nfFrom, setNfFrom] = useState('');
   const [nfTo, setNfTo] = useState('');
+  const [nfPage, setNfPage] = useState(1);
+  const [nfPageSize, setNfPageSize] = useState(50);
+  const [nfTotal, setNfTotal] = useState(0);
+  const [nfKpis, setNfKpis] = useState<{
+    total: number; qtdAtivas: number; qtdCanceladas: number;
+    totalAtivo: number; ticketMedio: number;
+  } | null>(null);
+  const [nfExportBusy, setNfExportBusy] = useState(false);
   const [nfCancelTarget, setNfCancelTarget] = useState<Invoice | null>(null);
   const [nfCancelMotivo, setNfCancelMotivo] = useState('');
 
