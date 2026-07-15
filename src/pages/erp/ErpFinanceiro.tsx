@@ -2024,13 +2024,22 @@ const ErpFinanceiro: React.FC = () => {
                 const ativas = invoices.filter(i => i.status === 'ativa');
                 const total = ativas.reduce((s, i) => s + Number(i.valor || 0), 0);
                 const ticket = ativas.length ? total / ativas.length : 0;
-                const doMes = ativas.filter(i => (i.dataEmissao || '').slice(0, 7) === competencia);
+                // Quando o usuário aplica intervalo de emissão (nfFrom/nfTo),
+                // as NFs carregadas já refletem o período — usamos todas as
+                // ativas. Caso contrário, filtramos pela competência do topo.
+                const usaRange = Boolean(nfFrom || nfTo);
+                const doPeriodo = usaRange
+                  ? ativas
+                  : ativas.filter(i => (i.dataEmissao || '').slice(0, 7) === competencia);
+                const periodoLabel = usaRange ? 'NFs no período' : 'NFs no mês';
+                const totalLabel = usaRange ? 'Total no período' : 'Total emitido';
                 const kpis = [
-                  { label: 'NFs no mês', value: String(doMes.length), icon: FileText },
-                  { label: 'Total emitido', value: BRL(doMes.reduce((s, i) => s + Number(i.valor || 0), 0)), icon: DollarSign },
+                  { label: periodoLabel, value: String(doPeriodo.length), icon: FileText },
+                  { label: totalLabel, value: BRL(doPeriodo.reduce((s, i) => s + Number(i.valor || 0), 0)), icon: DollarSign },
                   { label: 'Ticket médio', value: BRL(ticket), icon: ReceiptIcon },
                   { label: 'Total geral', value: String(ativas.length), icon: CheckCircle2 },
                 ];
+
                 return (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {kpis.map((k) => {

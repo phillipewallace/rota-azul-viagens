@@ -183,30 +183,45 @@ router.post('/', (req: any, res: any) => {
 // ---------- UPDATE metadata ---------------------------------------------
 router.patch('/:id', async (req: any, res: any) => {
   try {
-    const { numero, serie, dataEmissao, valor, formaPagamento, observacoes } = req.body || {};
+    const body = req.body || {};
+    const { numero, dataEmissao, valor, formaPagamento } = body;
+    // Campos opcionais: usamos `in body` para distinguir "não informado"
+    // (mantém valor atual) de "string vazia" (limpa a coluna).
+    const serieProvided = Object.prototype.hasOwnProperty.call(body, 'serie');
+    const obsProvided   = Object.prototype.hasOwnProperty.call(body, 'observacoes');
+    const formaProvided = Object.prototype.hasOwnProperty.call(body, 'formaPagamento');
+
     const cur = await pool.query('SELECT status FROM erp_invoices WHERE id=$1', [req.params.id]);
     if (!cur.rows[0]) return res.status(404).json({ error: 'Nota fiscal não encontrada' });
     if (cur.rows[0].status === 'cancelada') {
       return res.status(409).json({ error: 'NF cancelada — reative para editar (contate um administrador).' });
     }
+
+    const norm = (v: any) => {
+      if (v === undefined || v === null) return null;
+      const s = String(v).trim();
+      return s.length ? s : null;
+    };
+
     await pool.query(
       `UPDATE erp_invoices
           SET numero = COALESCE($2, numero),
-              serie  = COALESCE($3, serie),
-              data_emissao = COALESCE($4, data_emissao),
-              valor  = COALESCE($5, valor),
-              forma_pagamento = COALESCE($6, forma_pagamento),
-              observacoes     = COALESCE($7, observacoes),
+              serie  = CASE WHEN $3::boolean THEN $4 ELSE serie END,
+              data_emissao = COALESCE($5, data_emissao),
+              valor  = COALESCE($6, valor),
+              forma_pagamento = CASE WHEN $7::boolean THEN $8 ELSE forma_pagamento END,
+              observacoes     = CASE WHEN $9::boolean THEN $10 ELSE observacoes END,
               updated_at = NOW()
         WHERE id = $1`,
       [req.params.id,
        numero ? String(numero).trim() : null,
-       serie ?? null,
+       serieProvided, serieProvided ? norm(body.serie) : null,
        dataEmissao || null,
        valor === undefined || valor === null ? null : Number(valor),
-       formaPagamento ?? null,
-       observacoes ?? null],
+       formaProvided, formaProvided ? norm(formaPagamento) : null,
+       obsProvided, obsProvided ? norm(body.observacoes) : null],
     );
+
     res.json({ ok: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
