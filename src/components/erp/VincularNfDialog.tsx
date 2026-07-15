@@ -146,9 +146,10 @@ export const VincularNfDialog: React.FC<Props> = ({
                   type="file"
                   accept="application/pdf,.pdf"
                   className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
                 />
               </label>
+
               {file && (
                 <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3" />
