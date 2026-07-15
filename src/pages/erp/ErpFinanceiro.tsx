@@ -2117,20 +2117,16 @@ const ErpFinanceiro: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {(() => {
+                      // Filtros status/forma/empresa/período são aplicados no servidor
+                      // (ver loadInvoices). Aqui só refinamos a busca textual.
                       const term = nfSearch.trim().toLowerCase();
-                      const empresaAlvo = nfCompanyId !== 'all'
-                        ? (companies.find(c => c.id === nfCompanyId)?.razaoSocial || '').toLowerCase()
-                        : '';
-                      const filtradas = invoices.filter(i => {
-                        if (nfStatus !== 'all' && i.status !== nfStatus) return false;
-                        if (nfForma  !== 'all' && i.formaPagamento !== nfForma) return false;
-                        if (empresaAlvo && !(i.companyRazaoSocial || '').toLowerCase().includes(empresaAlvo)) return false;
-                        if (term) {
-                          const hay = `${i.numero} ${i.serie || ''} ${i.customerName || ''} ${i.contractNumero || ''} ${i.companyRazaoSocial || ''}`.toLowerCase();
-                          if (!hay.includes(term)) return false;
-                        }
-                        return true;
-                      });
+                      const filtradas = term
+                        ? invoices.filter(i => {
+                            const hay = `${i.numero} ${i.serie || ''} ${i.customerName || ''} ${i.contractNumero || ''} ${i.companyRazaoSocial || ''}`.toLowerCase();
+                            return hay.includes(term);
+                          })
+                        : invoices;
+
                       if (invoicesLoading) {
                         return (<TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando notas fiscais…</TableCell></TableRow>);
                       }
