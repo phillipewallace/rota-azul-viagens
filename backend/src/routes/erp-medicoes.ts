@@ -1,4 +1,5 @@
 import { sendError } from '../utils/apiError';
+import { parsePagination, sendPaginated } from '../utils/pagination';
 /**
  * ERP · Medições — proposta de faturamento (pré-recibo).
  * CRUD + numeração sequencial (MED-YYYY-NNNN). Sem fluxo de pagamento:
@@ -56,17 +57,23 @@ router.get('/', async (req, res) => {
     if (clienteDoc)  { params.push(clienteDoc);  conds.push(`m.cliente_documento = $${params.length}`); }
     if (customerId)  { params.push(customerId);  conds.push(`m.customer_id = $${params.length}`); }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const r = await pool.query(
-      `SELECT ${SEL},
-              (SELECT COUNT(*) FROM erp_medicao_itens i WHERE i.medicao_id = m.id)::int AS "itensCount"
-         FROM erp_medicoes m
+    const from = `FROM erp_medicoes m
          LEFT JOIN erp_companies emp ON emp.id = m.company_id
          LEFT JOIN customers cu ON cu.id = m.customer_id
-         ${where}
-         ORDER BY m.created_at DESC LIMIT 5000`,
-      params,
+         ${where}`;
+    const pg = parsePagination(req, params.length);
+    const rowsQ = await pool.query(
+      `SELECT ${SEL},
+              (SELECT COUNT(*) FROM erp_medicao_itens i WHERE i.medicao_id = m.id)::int AS "itensCount"
+         ${from}
+         ORDER BY m.created_at DESC ${pg.sql}`,
+      [...params, ...pg.params],
     );
-    res.json(r.rows);
+    if (pg.paginated) {
+      const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${from}`, params);
+      return sendPaginated(res, rowsQ.rows, totalQ.rows[0].c, pg);
+    }
+    res.json(rowsQ.rows);
   } catch (e: any) { sendError(res, e); }
 });
 

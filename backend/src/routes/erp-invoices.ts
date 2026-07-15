@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
 import { sendError } from '../utils/apiError';
+import { parsePagination, sendPaginated } from '../utils/pagination';
 
 // Valida "YYYY-MM-DD" como data real (rejeita mês 13, dia 32, etc.).
 function isValidISODate(s: any): boolean {
@@ -112,18 +113,23 @@ router.get('/', async (req: any, res: any) => {
     }
 
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const r = await pool.query(
-      `SELECT ${SELECT}
-         FROM erp_invoices i
+    const from = `FROM erp_invoices i
          JOIN erp_contracts c ON c.id = i.contract_id
          LEFT JOIN erp_companies emp ON emp.id = c.company_id
          LEFT JOIN customers cu ON cu.id = c.customer_id
-         ${where}
+         ${where}`;
+    const pg = parsePagination(req, params.length);
+    const rowsQ = await pool.query(
+      `SELECT ${SELECT} ${from}
         ORDER BY i.data_emissao DESC, i.created_at DESC
-        LIMIT 5000`,
-      params,
+        ${pg.sql}`,
+      [...params, ...pg.params],
     );
-    res.json(r.rows);
+    if (pg.paginated) {
+      const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${from}`, params);
+      return sendPaginated(res, rowsQ.rows, totalQ.rows[0].c, pg);
+    }
+    res.json(rowsQ.rows);
   } catch (e: any) {
     return sendError(res, e, '[erp-invoices GET]');
   }
