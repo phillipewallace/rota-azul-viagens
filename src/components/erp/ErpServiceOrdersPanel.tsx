@@ -66,8 +66,10 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
   const [deliver, setDeliver] = useState<DeliverState | null>(null);
   const [closing, setClosing] = useState<CloseState | null>(null);
   const [missing, setMissing] = useState<MissingState | null>(null);
+  const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+
 
   const runConvert = async (
     os: ServiceOrder,
