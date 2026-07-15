@@ -373,12 +373,14 @@ router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res: any)
           SET status = 'cancelada',
               cancelado_em = NOW(),
               motivo_cancelamento = $2,
+              cancelado_por = $3,
+              updated_by = $3,
               updated_at = NOW()
         WHERE id = $1`,
-      [req.params.id, String(motivo).trim()],
+      [req.params.id, String(motivo).trim(), actor(req)],
     );
     res.json({ ok: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { return sendError(res, e, '[erp-invoices cancel]'); }
 });
 
 // ---------- DELETE (admin/manager) --------------------------------------
