@@ -101,7 +101,7 @@ router.get('/pending', async (req, res) => {
 
 
 // Gera (ou regera) recibo da competência. Se já existir, atualiza valor e marca regerado.
-router.post('/generate', async (req, res) => {
+router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   const {
     contractId, competencia: comp, valor, pago = true, regerar = false,
     periodoInicio, periodoFim, semValidade = false,
