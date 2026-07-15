@@ -611,6 +611,76 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
           if (os) await downloadContractPdf(os, dataVencimento, preview, format);
         }}
       />
+
+      {/* Modal para preencher dados que faltam antes de gerar o contrato */}
+      <Dialog open={!!missing} onOpenChange={(o) => !o && setMissing(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Complete os dados do contrato · OS {missing?.os.numero}</DialogTitle>
+            <DialogDescription>
+              Alguns campos essenciais não estão preenchidos na OS. Informe abaixo para gerar o contrato.
+              Os campos já preenchidos vieram automaticamente do orçamento/OS.
+            </DialogDescription>
+          </DialogHeader>
+          {missing && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Responsável (nome) {missing.need.responsavelNome && <span className="text-red-600">*</span>}
+                  </label>
+                  <Input value={missing.responsavelNome}
+                         onChange={e => setMissing({ ...missing, responsavelNome: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Telefone {missing.need.responsavelTelefone && <span className="text-red-600">*</span>}
+                  </label>
+                  <Input value={missing.responsavelTelefone}
+                         onChange={e => setMissing({ ...missing, responsavelTelefone: e.target.value })}
+                         placeholder="(00) 00000-0000" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">E-mail do responsável (opcional)</label>
+                <Input type="email" value={missing.responsavelEmail}
+                       onChange={e => setMissing({ ...missing, responsavelEmail: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">
+                  Endereço de entrega {missing.need.enderecoEntrega && <span className="text-red-600">*</span>}
+                </label>
+                <Textarea rows={2} value={missing.enderecoEntrega}
+                          onChange={e => setMissing({ ...missing, enderecoEntrega: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Data de entrega {missing.need.dataEntrega && <span className="text-red-600">*</span>}
+                  </label>
+                  <Input type="date" value={missing.dataEntrega}
+                         onChange={e => setMissing({ ...missing, dataEntrega: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Valor total (R$) {missing.need.valorTotal && <span className="text-red-600">*</span>}
+                  </label>
+                  <Input type="number" step="0.01" min="0" value={missing.valorTotal}
+                         onChange={e => setMissing({ ...missing, valorTotal: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setMissing(null)}>Cancelar</Button>
+            <Button onClick={submitMissing} disabled={busy} className="bg-indigo-600 hover:bg-indigo-700">
+              {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileSignature className="h-4 w-4 mr-1" />}
+              Gerar contrato
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
