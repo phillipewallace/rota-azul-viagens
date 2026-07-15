@@ -1786,11 +1786,32 @@ const ErpFinanceiro: React.FC = () => {
                 <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar</Button>
                 <Button
                   variant="outline" size="sm"
-                  onClick={() => exportRecibosCsv(recibosFiltrados)}
+                  onClick={exportAllFilteredCsv}
+                  disabled={exportBusy !== null}
                   className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800/60 dark:text-emerald-400 dark:hover:bg-emerald-950/40 transition-colors duration-200"
-                  title="Exportar recibos filtrados para CSV (Excel)"
+                  title="Exportar CSV de TODOS os recibos que casam com os filtros atuais (dataset completo, não só a página)"
                 >
-                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Exportar CSV
+                  {exportBusy === 'csv'
+                    ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    : <FileSpreadsheet className="h-3.5 w-3.5 mr-1" />}
+                  Exportar CSV (filtro)
+                </Button>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={exportAllFilteredZip}
+                  disabled={exportBusy !== null}
+                  className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/40 transition-colors duration-200"
+                  title="Baixar ZIP com PDFs de TODOS os recibos do filtro atual (não só a página). Pode demorar para volumes grandes."
+                >
+                  {exportBusy === 'zip'
+                    ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    : <Download className="h-3.5 w-3.5 mr-1" />}
+                  Exportar ZIP (filtro)
+                  {exportBusy === 'zip' && exportProgress && (
+                    <span className="ml-1 tabular-nums text-[11px] opacity-80">
+                      {exportProgress.done}/{exportProgress.total}
+                    </span>
+                  )}
                 </Button>
                 <Button
                   variant="outline" size="sm"
@@ -1806,11 +1827,12 @@ const ErpFinanceiro: React.FC = () => {
                     }
                     setZipOpen(true);
                   }}
-                  className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/40 transition-colors duration-200"
-                  title="Baixar todos os recibos de um período em um arquivo ZIP"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors duration-200"
+                  title="Baixar ZIP escolhendo um intervalo específico de datas (diálogo dedicado)"
                 >
-                  <Download className="h-3.5 w-3.5 mr-1" /> Exportar ZIP
+                  <CalendarDays className="h-3.5 w-3.5 mr-1" /> ZIP por período…
                 </Button>
+
 
 
               </div>
