@@ -37,16 +37,26 @@ const upload = multer({
   },
 });
 
+function buildSignedWhere(q: any, startIdx = 1): { where: string; params: any[] } {
+  const params: any[] = [];
+  const conds: string[] = [];
+  let i = startIdx;
+  if (q.companyId) { params.push(q.companyId); conds.push(`s.company_id = $${i++}`); }
+  if (q.search) {
+    const term = `%${String(q.search).toLowerCase()}%`;
+    params.push(term);
+    conds.push(`(LOWER(s.original_filename) LIKE $${i} OR LOWER(COALESCE(c.razao_social,'')) LIKE $${i})`);
+    i++;
+  }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  return { where, params };
+}
+
 router.get('/', async (req: any, res: any) => {
   try {
-    const { companyId } = req.query;
-    const params: any[] = [];
-    let where = '';
-    if (companyId) {
-      params.push(companyId);
-      where = `WHERE s.company_id = $1`;
-    }
-    const r = await pool.query(
+    const { where, params } = buildSignedWhere(req.query);
+    const pg = parsePagination(req, params.length);
+    const rowsQ = await pool.query(
       `SELECT s.id,
               s.company_id      AS "companyId",
               c.razao_social    AS "companyName",
@@ -61,14 +71,42 @@ router.get('/', async (req: any, res: any) => {
          FROM erp_signed_pdfs s
          LEFT JOIN erp_companies c ON c.id = s.company_id
          ${where}
-        ORDER BY s.created_at DESC`,
-      params,
+        ORDER BY s.created_at DESC
+        ${pg.sql}`,
+      [...params, ...pg.params],
     );
-    res.json(r.rows);
+    if (pg.paginated) {
+      const totalQ = await pool.query(
+        `SELECT COUNT(*)::int AS c
+           FROM erp_signed_pdfs s
+           LEFT JOIN erp_companies c ON c.id = s.company_id
+           ${where}`,
+        params,
+      );
+      return sendPaginated(res, rowsQ.rows, totalQ.rows[0].c, pg);
+    }
+    res.json(rowsQ.rows);
   } catch (e: any) {
     console.error('[erp-signed-pdfs GET]', e);
     sendError(res, e);
   }
+});
+
+router.get('/stats/kpis', async (req: any, res: any) => {
+  try {
+    const { where, params } = buildSignedWhere(req.query);
+    const q = await pool.query(
+      `SELECT COUNT(*)::int AS total,
+              COALESCE(SUM(s.size_bytes),0)::bigint AS "totalBytes",
+              COALESCE(SUM(s.pages),0)::int AS "totalPages",
+              COUNT(DISTINCT s.company_id)::int AS "empresasDistintas"
+         FROM erp_signed_pdfs s
+         LEFT JOIN erp_companies c ON c.id = s.company_id
+         ${where}`,
+      params,
+    );
+    res.json(q.rows[0] || { total: 0, totalBytes: 0, totalPages: 0, empresasDistintas: 0 });
+  } catch (e: any) { sendError(res, e); }
 });
 
 router.post('/', (req: any, res: any) => {
