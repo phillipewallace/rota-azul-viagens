@@ -66,6 +66,7 @@ import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
 import { BRL } from '@/utils/currency';
 import PaginationBar from '@/components/PaginationBar';
+import { downloadCsv } from '@/utils/exporters';
 
 const D = (s?: string) => s ? formatDateBR(s) : '—';
 
@@ -212,11 +213,24 @@ const ErpFinanceiro: React.FC = () => {
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [nfDialogTarget, setNfDialogTarget] = useState<PendingReceipt | null>(null);
   const [nfSearch, setNfSearch] = useState('');
+  const [debouncedNfSearch, setDebouncedNfSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedNfSearch(nfSearch.trim()), 350);
+    return () => clearTimeout(t);
+  }, [nfSearch]);
   const [nfStatus, setNfStatus] = useState<'all' | InvoiceStatus>('all');
   const [nfForma, setNfForma] = useState<'all' | InvoiceFormaPagamento>('all');
   const [nfCompanyId, setNfCompanyId] = useState<string>('all');
   const [nfFrom, setNfFrom] = useState('');
   const [nfTo, setNfTo] = useState('');
+  const [nfPage, setNfPage] = useState(1);
+  const [nfPageSize, setNfPageSize] = useState(50);
+  const [nfTotal, setNfTotal] = useState(0);
+  const [nfKpis, setNfKpis] = useState<{
+    total: number; qtdAtivas: number; qtdCanceladas: number;
+    totalAtivo: number; ticketMedio: number;
+  } | null>(null);
+  const [nfExportBusy, setNfExportBusy] = useState(false);
   const [nfCancelTarget, setNfCancelTarget] = useState<Invoice | null>(null);
   const [nfCancelMotivo, setNfCancelMotivo] = useState('');
 
@@ -400,25 +414,74 @@ const ErpFinanceiro: React.FC = () => {
   }, [competencia]);
   useEffect(() => { loadMedicoes(); }, [loadMedicoes]);
 
-  // Carga das Notas Fiscais.
-  // Empurra filtros server-side (status/forma/empresa) para reduzir payload.
-  // A busca textual (nfSearch) permanece client-side para UX de digitação.
+  // Filtros server-side das Notas Fiscais (sem paginação).
+  const nfBaseFilters = useMemo(() => {
+    const usaRange = !!(nfFrom || nfTo);
+    return {
+      ...(usaRange ? { from: nfFrom || undefined, to: nfTo || undefined }
+                   : { competencia }),
+      status:         nfStatus !== 'all' ? nfStatus : undefined,
+      formaPagamento: nfForma !== 'all' ? nfForma : undefined,
+      companyId:      nfCompanyId !== 'all' ? nfCompanyId : undefined,
+      search:         debouncedNfSearch || undefined,
+    } as const;
+  }, [competencia, nfFrom, nfTo, nfStatus, nfForma, nfCompanyId, debouncedNfSearch]);
+
   const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
     try {
-      const usaRange = !!(nfFrom || nfTo);
-      const r = await invoicesService.list({
-        ...(usaRange ? { from: nfFrom || undefined, to: nfTo || undefined }
-                     : { competencia }),
-        status: nfStatus !== 'all' ? nfStatus : undefined,
-        formaPagamento: nfForma !== 'all' ? nfForma : undefined,
-        companyId: nfCompanyId !== 'all' ? nfCompanyId : undefined,
-      });
-      if (mountedRef.current) setInvoices(r);
+      const [pg, k] = await Promise.all([
+        invoicesService.listPaged({ ...nfBaseFilters, page: nfPage, pageSize: nfPageSize }),
+        invoicesService.kpis(nfBaseFilters),
+      ]);
+      if (!mountedRef.current) return;
+      setInvoices(pg.data);
+      setNfTotal(pg.total);
+      setNfKpis(k);
     } catch (e: any) { if (mountedRef.current) toast.error(e.message); }
     finally { if (mountedRef.current) setInvoicesLoading(false); }
-  }, [competencia, nfFrom, nfTo, nfStatus, nfForma, nfCompanyId]);
+  }, [nfBaseFilters, nfPage, nfPageSize]);
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
+
+  // Reset da página das NFs quando qualquer filtro muda.
+  useEffect(() => { setNfPage(1); }, [nfBaseFilters, nfPageSize]);
+
+  /** Baixa TODAS as NFs do filtro atual (paginando em blocos de 200). */
+  const fetchAllFilteredInvoices = useCallback(async (hardLimit = 5000): Promise<Invoice[] | null> => {
+    const PAGE = 200;
+    const first = await invoicesService.listPaged({ ...nfBaseFilters, page: 1, pageSize: PAGE });
+    if (first.total > hardLimit) {
+      toast.error(`Muitas notas fiscais (${first.total}). Refine os filtros — limite ${hardLimit}.`);
+      return null;
+    }
+    const all: Invoice[] = [...first.data];
+    const totalPages = Math.max(1, Math.ceil(first.total / PAGE));
+    for (let p = 2; p <= totalPages; p++) {
+      const pg = await invoicesService.listPaged({ ...nfBaseFilters, page: p, pageSize: PAGE });
+      all.push(...pg.data);
+    }
+    return all;
+  }, [nfBaseFilters]);
+
+  const exportAllFilteredNfCsv = useCallback(async () => {
+    setNfExportBusy(true);
+    try {
+      const all = await fetchAllFilteredInvoices();
+      if (!all) return;
+      const headers = ['Número','Série','Cliente','Contrato','Empresa','Emissão','Competência','Forma pgto.','Valor','Status'];
+      const rows = all.map(i => [
+        i.numero, i.serie || '', i.customerName || '', i.contractNumero || '',
+        i.companyRazaoSocial || '', i.dataEmissao, i.competencia,
+        i.formaPagamento ? INVOICE_FORMA_LABEL[i.formaPagamento] : '',
+        Number(i.valor).toFixed(2).replace('.', ','), i.status,
+      ]);
+      downloadCsv(`notas-fiscais-${competencia}`, headers, rows);
+      toast.success(`CSV exportado (${all.length} NFs).`);
+    } catch (e: any) { toast.error(e.message || 'Falha ao exportar CSV.'); }
+    finally { setNfExportBusy(false); }
+  }, [fetchAllFilteredInvoices, competencia]);
+
+
 
 
   // Total do mês anterior (para delta no KPI)
@@ -1242,7 +1305,7 @@ const ErpFinanceiro: React.FC = () => {
           </TabsTrigger>
 
           <TabsTrigger value="notas">
-            Notas Fiscais <Badge variant="outline" className="ml-2">{invoices.length}</Badge>
+            Notas Fiscais <Badge variant="outline" className="ml-2">{nfTotal}</Badge>
           </TabsTrigger>
           <TabsTrigger value="medicoes">
             Medições <Badge variant="outline" className="ml-2">{medicoes.length}</Badge>
@@ -2212,27 +2275,15 @@ const ErpFinanceiro: React.FC = () => {
         <TabsContent value="notas">
           <Card>
             <CardContent className="p-4 space-y-4">
-              {/* KPIs */}
+              {/* KPIs — agregados no servidor (respeitam filtros, independem da página) */}
               {(() => {
-                const ativas = invoices.filter(i => i.status === 'ativa');
-                const total = ativas.reduce((s, i) => s + Number(i.valor || 0), 0);
-                const ticket = ativas.length ? total / ativas.length : 0;
-                // Quando o usuário aplica intervalo de emissão (nfFrom/nfTo),
-                // as NFs carregadas já refletem o período — usamos todas as
-                // ativas. Caso contrário, filtramos pela competência do topo.
-                const usaRange = Boolean(nfFrom || nfTo);
-                const doPeriodo = usaRange
-                  ? ativas
-                  : ativas.filter(i => (i.dataEmissao || '').slice(0, 7) === competencia);
-                const periodoLabel = usaRange ? 'NFs no período' : 'NFs no mês';
-                const totalLabel = usaRange ? 'Total no período' : 'Total emitido';
+                const k = nfKpis;
                 const kpis = [
-                  { label: periodoLabel, value: String(doPeriodo.length), icon: FileText },
-                  { label: totalLabel, value: BRL(doPeriodo.reduce((s, i) => s + Number(i.valor || 0), 0)), icon: DollarSign },
-                  { label: 'Ticket médio', value: BRL(ticket), icon: ReceiptIcon },
-                  { label: 'NFs ativas no período', value: String(ativas.length), icon: CheckCircle2 },
+                  { label: 'NFs no período',     value: String(k?.qtdAtivas ?? 0), icon: FileText },
+                  { label: 'Total emitido',      value: BRL(k?.totalAtivo ?? 0),   icon: DollarSign },
+                  { label: 'Ticket médio',       value: BRL(k?.ticketMedio ?? 0),  icon: ReceiptIcon },
+                  { label: 'Canceladas',         value: String(k?.qtdCanceladas ?? 0), icon: XCircle },
                 ];
-
                 return (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {kpis.map((k) => {
@@ -2285,6 +2336,16 @@ const ErpFinanceiro: React.FC = () => {
                 </div>
               </div>
 
+              {/* Ação: exportar dataset filtrado inteiro */}
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" disabled={nfExportBusy} onClick={exportAllFilteredNfCsv}>
+                  {nfExportBusy
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                    : <Download className="h-3.5 w-3.5 mr-1" />}
+                  Exportar CSV (filtro)
+                </Button>
+              </div>
+
               {/* Tabela */}
               <div className="overflow-auto rounded-md border border-border/60">
                 <Table>
@@ -2302,74 +2363,67 @@ const ErpFinanceiro: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(() => {
-                      // Filtros status/forma/empresa/período são aplicados no servidor
-                      // (ver loadInvoices). Aqui só refinamos a busca textual.
-                      const term = nfSearch.trim().toLowerCase();
-                      const filtradas = term
-                        ? invoices.filter(i => {
-                            const hay = `${i.numero} ${i.serie || ''} ${i.customerName || ''} ${i.contractNumero || ''} ${i.companyRazaoSocial || ''}`.toLowerCase();
-                            return hay.includes(term);
-                          })
-                        : invoices;
+                    {invoicesLoading ? (
+                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando notas fiscais…</TableCell></TableRow>
+                    ) : invoices.length === 0 ? (
+                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhuma nota fiscal encontrada.</TableCell></TableRow>
+                    ) : invoices.map(i => (
+                      <TableRow key={i.id} className={i.status === 'cancelada' ? 'opacity-60' : ''}>
+                        <TableCell className="font-mono text-xs">
+                          {i.numero}{i.serie ? <span className="text-muted-foreground"> · {i.serie}</span> : null}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">{i.customerName || '—'}</TableCell>
+                        <TableCell className="font-mono text-xs">{i.contractNumero || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{i.companyRazaoSocial || '—'}</TableCell>
+                        <TableCell className="text-xs tabular-nums">{D(i.dataEmissao)}</TableCell>
+                        <TableCell className="text-xs">{i.formaPagamento ? INVOICE_FORMA_LABEL[i.formaPagamento] : '—'}</TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">{BRL(Number(i.valor))}</TableCell>
+                        <TableCell>
+                          {i.status === 'ativa'
+                            ? <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border">Ativa</Badge>
+                            : <Badge className="bg-rose-100 text-rose-700 border-rose-200 border">Cancelada</Badge>}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap space-x-1">
+                          <Button
+                            size="sm" variant="ghost"
+                            onClick={() => window.open(toAuthedUrl(i.pdfUrl), '_blank', 'noopener,noreferrer')}
+                            title="Ver PDF">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost" asChild title="Baixar PDF">
+                            <a href={toAuthedUrl(i.pdfUrl)}
+                              rel="noopener noreferrer"
+                              download={i.pdfOriginalFilename || `nf-${i.numero}.pdf`}>
+                              <Download className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
 
-                      if (invoicesLoading) {
-                        return (<TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando notas fiscais…</TableCell></TableRow>);
-                      }
-                      if (filtradas.length === 0) {
-                        return (<TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhuma nota fiscal encontrada.</TableCell></TableRow>);
-                      }
-                      return filtradas.map(i => (
-                        <TableRow key={i.id} className={i.status === 'cancelada' ? 'opacity-60' : ''}>
-                          <TableCell className="font-mono text-xs">
-                            {i.numero}{i.serie ? <span className="text-muted-foreground"> · {i.serie}</span> : null}
-                          </TableCell>
-                          <TableCell className="max-w-[200px] truncate">{i.customerName || '—'}</TableCell>
-                          <TableCell className="font-mono text-xs">{i.contractNumero || '—'}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{i.companyRazaoSocial || '—'}</TableCell>
-                          <TableCell className="text-xs tabular-nums">{D(i.dataEmissao)}</TableCell>
-                          <TableCell className="text-xs">{i.formaPagamento ? INVOICE_FORMA_LABEL[i.formaPagamento] : '—'}</TableCell>
-                          <TableCell className="text-right font-semibold tabular-nums">{BRL(Number(i.valor))}</TableCell>
-                          <TableCell>
-                            {i.status === 'ativa'
-                              ? <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border">Ativa</Badge>
-                              : <Badge className="bg-rose-100 text-rose-700 border-rose-200 border">Cancelada</Badge>}
-                          </TableCell>
-                          <TableCell className="text-right whitespace-nowrap space-x-1">
+                          {i.status === 'ativa' && (
                             <Button
                               size="sm" variant="ghost"
-                              onClick={() => window.open(toAuthedUrl(i.pdfUrl), '_blank', 'noopener,noreferrer')}
-                              title="Ver PDF">
-                              <Eye className="h-3.5 w-3.5" />
+                              onClick={() => { setNfCancelTarget(i); setNfCancelMotivo(''); }}
+                              title="Cancelar NF"
+                              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700">
+                              <XCircle className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              size="sm" variant="ghost" asChild title="Baixar PDF">
-                              <a href={toAuthedUrl(i.pdfUrl)}
-                                rel="noopener noreferrer"
-                                download={i.pdfOriginalFilename || `nf-${i.numero}.pdf`}>
-                                <Download className="h-3.5 w-3.5" />
-                              </a>
-                            </Button>
-
-                            {i.status === 'ativa' && (
-                              <Button
-                                size="sm" variant="ghost"
-                                onClick={() => { setNfCancelTarget(i); setNfCancelMotivo(''); }}
-                                title="Cancelar NF"
-                                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700">
-                                <XCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ));
-                    })()}
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
+
+              <PaginationBar
+                page={nfPage} pageSize={nfPageSize} total={nfTotal}
+                onPageChange={setNfPage} onPageSizeChange={setNfPageSize}
+                pageSizeOptions={[25, 50, 100, 200]}
+              />
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="medicoes">
           {(() => {
