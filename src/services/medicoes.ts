@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './config';
+import { appendPageParams, type Paged, type PageParams } from '@/lib/pagination';
 
 const headers = () => {
   const t = localStorage.getItem('auth_token');
@@ -79,15 +80,13 @@ export const medicoesService = {
     return req<Medicao[]>('GET', `/erp/medicoes${s ? '?' + s : ''}`);
   },
   /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
-  listPaged: (params?: { competencia?: string; clienteDoc?: string; customerId?: string } & import('@/lib/pagination').PageParams) => {
+  listPaged: (params?: { competencia?: string; clienteDoc?: string; customerId?: string } & PageParams) => {
     const q = new URLSearchParams();
     if (params?.competencia) q.set('competencia', params.competencia);
     if (params?.clienteDoc)  q.set('clienteDoc', params.clienteDoc);
     if (params?.customerId)  q.set('customerId', params.customerId);
-    import('@/lib/pagination').then(); // no-op para clareza; a chamada real está abaixo
-    const { appendPageParams } = require('@/lib/pagination');
     appendPageParams(q, params);
-    return req<import('@/lib/pagination').Paged<Medicao>>('GET', `/erp/medicoes?${q.toString()}`);
+    return req<Paged<Medicao>>('GET', `/erp/medicoes?${q.toString()}`);
   },
   get: (id: string) => req<Medicao>('GET', `/erp/medicoes/${id}`),
   preview: (contractIds: string[], competencia?: string) =>
