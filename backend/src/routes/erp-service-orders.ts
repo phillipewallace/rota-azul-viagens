@@ -613,7 +613,7 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
     const osQ = await client.query(
       `SELECT o.*,
               cu.customer_name, cu.document AS customer_document, cu.address AS customer_address,
-              cu.email AS customer_email, cu.phone AS customer_phone,
+              cu.email AS customer_email, cu.contact_phone AS customer_phone,
               c.razao_social, c.cnpj, c.inscricao_estadual,
               c.endereco AS company_endereco, c.cidade AS company_cidade, c.estado AS company_estado,
               c.telefone AS company_telefone, c.email AS company_email
