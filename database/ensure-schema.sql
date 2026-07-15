@@ -204,10 +204,26 @@ ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS restrooms_qty INTEGER;
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS cleanings_qty INTEGER;
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS contact_name TEXT;
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS contact_phone TEXT;
-UPDATE public.customers
-   SET customer_name = COALESCE(customer_name, name),
-       contact_phone = COALESCE(contact_phone, phone)
- WHERE customer_name IS NULL OR contact_phone IS NULL;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='customers' AND column_name='name') THEN
+    EXECUTE 'UPDATE public.customers SET customer_name = COALESCE(customer_name, name) WHERE customer_name IS NULL';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='customers' AND column_name='phone') THEN
+    EXECUTE 'UPDATE public.customers SET contact_phone = COALESCE(contact_phone, phone) WHERE contact_phone IS NULL';
+  END IF;
+END $$;
+-- Torna 'name' opcional caso ainda exista como NOT NULL em instalações antigas
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='customers'
+                AND column_name='name' AND is_nullable='NO') THEN
+    EXECUTE 'ALTER TABLE public.customers ALTER COLUMN name DROP NOT NULL';
+  END IF;
+END $$;
 
 -- ============================== MAINTENANCE =================================
 CREATE TABLE IF NOT EXISTS public.maintenance_records (
