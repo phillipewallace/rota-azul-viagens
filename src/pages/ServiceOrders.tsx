@@ -42,14 +42,25 @@ const tipoLabel = (t?: string) =>
 
 const ServiceOrders: React.FC = () => {
   const [list, setList] = useState<ServiceOrder[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(48);
+  const [counts, setCounts] = useState({ todas: 0, abertas: 0, atrasadas: 0, fechadas: 0 });
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'todas' | 'abertas' | 'atrasadas' | 'fechadas'>('todas');
   const [tipoFilter, setTipoFilter] = useState<string>('');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [expanded, setExpanded] = useState<Record<string, any>>({});
   const [loadingDetail, setLoadingDetail] = useState<Record<string, boolean>>({});
   const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+
+  // Debounce da busca (evita hit no server a cada tecla)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const toggleExpand = async (o: ServiceOrder) => {
     if (expanded[o.id]) {
@@ -78,55 +89,49 @@ const ServiceOrders: React.FC = () => {
   const [histType, setHistType] = useState('');
   const [histSan, setHistSan] = useState('');
 
+  // Params server-side derivados da aba
+  const serverParams = useMemo(() => {
+    const p: { status?: string; overdue?: boolean; tipoLocacao?: string; search?: string } = {};
+    if (tab === 'abertas') p.status = 'aberta';
+    if (tab === 'fechadas') p.status = 'fechada';
+    if (tab === 'atrasadas') p.overdue = true;
+    if (tipoFilter) p.tipoLocacao = tipoFilter;
+    if (debouncedSearch) p.search = debouncedSearch;
+    return p;
+  }, [tab, tipoFilter, debouncedSearch]);
+
   const load = async () => {
     try {
       setLoading(true);
-      const data = await serviceOrdersService.list();
-      setList(data);
+      const [pg, c] = await Promise.all([
+        serviceOrdersService.listPaged({ ...serverParams, page, pageSize }),
+        serviceOrdersService.counts({ tipoLocacao: tipoFilter || undefined, search: debouncedSearch || undefined }),
+      ]);
+      setList(pg.data);
+      setTotal(pg.total);
+      setCounts(c);
     } catch (e: any) { toast.error(e.message); }
     finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [serverParams, page, pageSize]);
+  // Reset para página 1 quando filtros mudam
+  useEffect(() => { setPage(1); }, [tab, tipoFilter, debouncedSearch, pageSize]);
 
   // Notificação de atraso ao carregar
   useEffect(() => {
-    if (!loading && list.length) {
-      const overdue = list.filter(x => x.emAtraso).length;
-      if (overdue > 0) {
-        toast.warning(`${overdue} diária(s) em atraso para recolhimento`, {
-          duration: 6000,
-          action: { label: 'Ver', onClick: () => setTab('atrasadas') },
-        });
-      }
+    if (!loading && counts.atrasadas > 0 && tab === 'todas') {
+      toast.warning(`${counts.atrasadas} diária(s) em atraso para recolhimento`, {
+        duration: 6000,
+        action: { label: 'Ver', onClick: () => setTab('atrasadas') },
+      });
     }
-  }, [loading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counts.atrasadas]);
 
-  const filtered = useMemo(() => {
-    let l = list;
-    if (tab === 'abertas') l = l.filter(x => x.status === 'aberta' && !x.emAtraso);
-    if (tab === 'atrasadas') l = l.filter(x => x.emAtraso);
-    if (tab === 'fechadas') l = l.filter(x => x.status === 'fechada');
-    if (tipoFilter) l = l.filter(x => (x as any).tipoLocacao === tipoFilter);
-    if (search) {
-      const s = search.toLowerCase();
-      l = l.filter(x => x.numero?.toLowerCase().includes(s) || x.customerName?.toLowerCase().includes(s));
-    }
-    return l;
-  }, [list, tab, tipoFilter, search]);
+  // "filtered" agora é apenas a página vinda do server
+  const filtered = list;
+  const visible = list;
 
-  // Render incremental — evita travar com centenas de cards (cada um tem painel expansível pesado)
-  const PAGE_SIZE = 60;
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [tab, tipoFilter, search]);
-  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
-  const hasMore = filtered.length > visibleCount;
-
-  const counts = useMemo(() => ({
-    todas: list.length,
-    abertas: list.filter(x => x.status === 'aberta' && !x.emAtraso).length,
-    atrasadas: list.filter(x => x.emAtraso).length,
-    fechadas: list.filter(x => x.status === 'fechada').length,
-  }), [list]);
 
   const close = async (o: ServiceOrder) => {
     if (!(await confirmDialog({ description: `Fechar OS ${o.numero} e devolver ${o.sanitariosAlocados || 0} sanitário(s) ao estoque?`, destructive: true }))) return;
