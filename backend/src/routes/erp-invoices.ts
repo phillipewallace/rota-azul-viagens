@@ -11,6 +11,22 @@ import fsp from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
+import { sendError } from '../utils/apiError';
+
+// Valida "YYYY-MM-DD" como data real (rejeita mês 13, dia 32, etc.).
+function isValidISODate(s: any): boolean {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+// Valida número financeiro: finito, >= 0.
+function parseMoney(v: any): number | null {
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : NaN as any;
+}
+const actor = (req: any) => req.user?.username || req.user?.name || null;
 
 const router = Router();
 router.use(requireAuth);
