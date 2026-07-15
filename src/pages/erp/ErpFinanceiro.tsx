@@ -3552,6 +3552,12 @@ function GastosPanel() {
         </CardContent>
       </Card>
 
+      <PaginationBar
+        page={page} pageSize={pageSize} total={total}
+        onPageChange={setPage} onPageSizeChange={setPageSize}
+        pageSizeOptions={[25, 50, 100, 200]}
+      />
+
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditingId(null); setForm(emptyForm()); } }}>
         <DialogContent>
           <DialogHeader>
