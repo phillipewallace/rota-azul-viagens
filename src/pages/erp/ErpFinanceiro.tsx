@@ -57,7 +57,7 @@ import { VincularNfDialog } from '@/components/erp/VincularNfDialog';
 import { medicoesService, type Medicao } from '@/services/medicoes';
 import { MedicaoDialog } from '@/components/erp/MedicaoDialog';
 import { MedicaoViewDialog } from '@/components/erp/MedicaoViewDialog';
-import { toAbsoluteUrl } from '@/utils/absoluteUrl';
+import { toAbsoluteUrl, toAuthedUrl } from '@/utils/absoluteUrl';
 import { generateReceiptPdf, generateUnifiedReceiptPdf } from '@/utils/receiptPdf';
 import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
