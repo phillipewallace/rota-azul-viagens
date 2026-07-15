@@ -16,6 +16,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
+import PaginationBar from '@/components/PaginationBar';
+
 import { downloadCsv, downloadPdf } from '@/utils/exporters';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { generateServiceOrderPdf } from '@/utils/serviceOrderPdf';
