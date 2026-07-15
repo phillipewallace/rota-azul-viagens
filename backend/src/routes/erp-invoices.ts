@@ -160,6 +160,13 @@ router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
       if (!contractId)   return res.status(400).json({ error: 'contractId obrigatório' });
       if (!numero)       return res.status(400).json({ error: 'Número da NF obrigatório' });
       if (!dataEmissao)  return res.status(400).json({ error: 'Data de emissão obrigatória' });
+      if (!isValidISODate(dataEmissao)) {
+        return res.status(400).json({ error: 'Data de emissão inválida (use YYYY-MM-DD).' });
+      }
+      const valorNum = parseMoney(valor);
+      if (valorNum === null || Number.isNaN(valorNum)) {
+        return res.status(400).json({ error: 'Valor da NF inválido (deve ser um número ≥ 0).' });
+      }
 
       // Deriva competência do dataEmissao quando não informada.
       const comp = competencia || String(dataEmissao).slice(0, 7);
@@ -190,17 +197,16 @@ router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
          RETURNING id`,
         [
           contractId, comp, String(numero).trim(), serie || null,
-          dataEmissao, Number(valor || 0),
+          dataEmissao, valorNum,
           formaPagamento || null, observacoes || null,
           url, file.originalname, file.filename, file.size || null,
-          req.user?.username || req.user?.name || null,
+          actor(req),
         ],
       );
       keepFile = true;
       res.json({ ok: true, id: r.rows[0].id });
     } catch (e: any) {
-      console.error('[erp-invoices POST]', e);
-      res.status(500).json({ error: e.message });
+      return sendError(res, e, '[erp-invoices POST]');
     } finally {
       if (file && !keepFile) await safeUnlink(file.filename);
     }
