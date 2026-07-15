@@ -2457,7 +2457,7 @@ const ErpFinanceiro: React.FC = () => {
 
       {/* Cancelar NF */}
       <Dialog open={!!nfCancelTarget} onOpenChange={(o) => { if (!o) { setNfCancelTarget(null); setNfCancelMotivo(''); } }}>
-        <DialogContent>
+        <DialogContent className="max-w-md w-[calc(100vw-2rem)]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-rose-600" /> Cancelar Nota Fiscal
@@ -2469,14 +2469,22 @@ const ErpFinanceiro: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label className="text-xs">Motivo</Label>
+            <Label className="text-xs" htmlFor="nf-cancel-motivo">Motivo *</Label>
             <Textarea
+              id="nf-cancel-motivo"
+              autoFocus
               value={nfCancelMotivo}
               onChange={(e) => setNfCancelMotivo(e.target.value)}
               placeholder="Ex.: NF emitida com dados errados, cliente pediu reemissão…"
               className="min-h-[90px]"
+              aria-invalid={!nfCancelMotivo.trim()}
+              aria-describedby="nf-cancel-motivo-help"
             />
+            <p id="nf-cancel-motivo-help" className="text-[11px] text-muted-foreground">
+              O motivo fica registrado no histórico para auditoria.
+            </p>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => { setNfCancelTarget(null); setNfCancelMotivo(''); }}>
               Voltar
