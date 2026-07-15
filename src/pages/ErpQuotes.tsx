@@ -554,7 +554,9 @@ const ErpQuotes: React.FC = () => {
               </Button>
             )}
             <div className="ml-auto text-xs text-muted-foreground tabular-nums">
-              {filtered.length} de {list.length}
+              {filterExpiring
+                ? <>{filtered.length} vencendo · {totalCount} no total</>
+                : <>{list.length} nesta página · {totalCount} no total</>}
             </div>
           </CardContent>
         </Card>
