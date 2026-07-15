@@ -36,12 +36,23 @@ const SELECT = `
 
 router.get('/', async (req, res) => {
   try {
-    const { ativo, customerId } = req.query as any;
+    const { ativo, customerId, tipoContrato, companyId, search, vencendo } =
+      req.query as Record<string, string | undefined>;
     const conds: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     if (ativo === 'true')  conds.push(`c.ativo = TRUE`);
     if (ativo === 'false') conds.push(`c.ativo = FALSE`);
     if (customerId) { params.push(customerId); conds.push(`c.customer_id = $${params.length}`); }
+    if (tipoContrato) { params.push(tipoContrato); conds.push(`COALESCE(c.tipo_contrato,'locacao') = $${params.length}`); }
+    if (companyId) { params.push(companyId); conds.push(`c.company_id = $${params.length}`); }
+    if (vencendo === 'true') {
+      conds.push(`c.ativo = TRUE AND c.data_fim IS NOT NULL AND c.data_fim BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'`);
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      const n = params.length;
+      conds.push(`(c.numero ILIKE $${n} OR cu.customer_name ILIKE $${n} OR emp.razao_social ILIKE $${n} OR c.descricao ILIKE $${n})`);
+    }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const from = `FROM erp_contracts c
          LEFT JOIN erp_companies emp ON emp.id = c.company_id
@@ -61,6 +72,24 @@ router.get('/', async (req, res) => {
     res.json(rowsQ.rows);
   } catch (e: any) { sendError(res, e); }
 });
+
+// KPIs agregados server-side (ativos, MRR, vencendo 30d, encerrados no mês)
+router.get('/stats/kpis', async (_req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE ativo)::int AS ativos,
+        COALESCE(SUM(valor_mensal) FILTER (WHERE ativo), 0)::float AS mrr,
+        COUNT(*) FILTER (WHERE ativo AND data_fim IS NOT NULL
+                          AND data_fim BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days')::int AS vencendo,
+        COUNT(*) FILTER (WHERE NOT ativo
+                          AND encerrado_em IS NOT NULL
+                          AND date_trunc('month', encerrado_em) = date_trunc('month', CURRENT_DATE))::int AS "encerradosMes"
+      FROM erp_contracts`);
+    res.json(r.rows[0] || { ativos: 0, mrr: 0, vencendo: 0, encerradosMes: 0 });
+  } catch (e: any) { sendError(res, e); }
+});
+
 
 router.get('/:id', async (req, res) => {
   try {
