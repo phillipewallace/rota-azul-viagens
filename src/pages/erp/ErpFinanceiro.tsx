@@ -1086,6 +1086,9 @@ const ErpFinanceiro: React.FC = () => {
           <TabsTrigger value="sem-validade">
             Sem validade <Badge variant="outline" className="ml-2">{recibosSemValidade.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="notas">
+            Notas Fiscais <Badge variant="outline" className="ml-2">{invoices.length}</Badge>
+          </TabsTrigger>
           <TabsTrigger value="medicoes">
             Medições <Badge variant="outline" className="ml-2">{medicoes.length}</Badge>
           </TabsTrigger>
