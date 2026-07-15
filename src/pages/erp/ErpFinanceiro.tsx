@@ -2013,6 +2013,161 @@ const ErpFinanceiro: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+        {/* ================== Notas Fiscais ================== */}
+        <TabsContent value="notas">
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              {/* KPIs */}
+              {(() => {
+                const ativas = invoices.filter(i => i.status === 'ativa');
+                const total = ativas.reduce((s, i) => s + Number(i.valor || 0), 0);
+                const ticket = ativas.length ? total / ativas.length : 0;
+                const doMes = ativas.filter(i => (i.dataEmissao || '').slice(0, 7) === competencia);
+                const kpis = [
+                  { label: 'NFs no mês', value: String(doMes.length), icon: FileText },
+                  { label: 'Total emitido', value: BRL(doMes.reduce((s, i) => s + Number(i.valor || 0), 0)), icon: DollarSign },
+                  { label: 'Ticket médio', value: BRL(ticket), icon: ReceiptIcon },
+                  { label: 'Total geral', value: String(ativas.length), icon: CheckCircle2 },
+                ];
+                return (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {kpis.map((k) => {
+                      const Icon = k.icon;
+                      return (
+                        <div key={k.label}
+                          className="rounded-lg border border-border/60 bg-gradient-to-br from-indigo-50/60 to-white dark:from-indigo-950/30 dark:to-slate-950 p-3">
+                          <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                            <Icon className="h-3 w-3" /> {k.label}
+                          </div>
+                          <div className="text-lg font-bold mt-1 tabular-nums">{k.value}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Filtros */}
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+                <div className="md:col-span-2 relative">
+                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={nfSearch} onChange={(e) => setNfSearch(e.target.value)}
+                    placeholder="Buscar por nº NF, cliente, contrato..."
+                    className="h-9 pl-8"
+                  />
+                </div>
+                <select value={nfStatus} onChange={(e) => setNfStatus(e.target.value as any)}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+                  <option value="all">Todos os status</option>
+                  <option value="ativa">Ativas</option>
+                  <option value="cancelada">Canceladas</option>
+                </select>
+                <select value={nfForma} onChange={(e) => setNfForma(e.target.value as any)}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+                  <option value="all">Toda forma pgto.</option>
+                  {Object.entries(INVOICE_FORMA_LABEL).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+                <select value={nfCompanyId} onChange={(e) => setNfCompanyId(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+                  <option value="all">Todas as empresas</option>
+                  {companies.map(c => (<option key={c.id} value={c.id}>{c.razaoSocial}</option>))}
+                </select>
+                <div className="flex gap-1">
+                  <Input type="date" value={nfFrom} onChange={(e) => setNfFrom(e.target.value)} className="h-9" title="Emissão de" />
+                  <Input type="date" value={nfTo}   onChange={(e) => setNfTo(e.target.value)}   className="h-9" title="Emissão até" />
+                </div>
+              </div>
+
+              {/* Tabela */}
+              <div className="overflow-auto rounded-md border border-border/60">
+                <Table>
+                  <TableHeader className="bg-muted/40">
+                    <TableRow>
+                      <TableHead>Nº NF</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Contrato</TableHead>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Emissão</TableHead>
+                      <TableHead>Forma pgto.</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(() => {
+                      const term = nfSearch.trim().toLowerCase();
+                      const empresaAlvo = nfCompanyId !== 'all'
+                        ? (companies.find(c => c.id === nfCompanyId)?.razaoSocial || '').toLowerCase()
+                        : '';
+                      const filtradas = invoices.filter(i => {
+                        if (nfStatus !== 'all' && i.status !== nfStatus) return false;
+                        if (nfForma  !== 'all' && i.formaPagamento !== nfForma) return false;
+                        if (empresaAlvo && !(i.companyRazaoSocial || '').toLowerCase().includes(empresaAlvo)) return false;
+                        if (term) {
+                          const hay = `${i.numero} ${i.serie || ''} ${i.customerName || ''} ${i.contractNumero || ''} ${i.companyRazaoSocial || ''}`.toLowerCase();
+                          if (!hay.includes(term)) return false;
+                        }
+                        return true;
+                      });
+                      if (invoicesLoading) {
+                        return (<TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Carregando notas fiscais…</TableCell></TableRow>);
+                      }
+                      if (filtradas.length === 0) {
+                        return (<TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhuma nota fiscal encontrada.</TableCell></TableRow>);
+                      }
+                      return filtradas.map(i => (
+                        <TableRow key={i.id} className={i.status === 'cancelada' ? 'opacity-60' : ''}>
+                          <TableCell className="font-mono text-xs">
+                            {i.numero}{i.serie ? <span className="text-muted-foreground"> · {i.serie}</span> : null}
+                          </TableCell>
+                          <TableCell className="max-w-[200px] truncate">{i.customerName || '—'}</TableCell>
+                          <TableCell className="font-mono text-xs">{i.contractNumero || '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{i.companyRazaoSocial || '—'}</TableCell>
+                          <TableCell className="text-xs tabular-nums">{D(i.dataEmissao)}</TableCell>
+                          <TableCell className="text-xs">{i.formaPagamento ? INVOICE_FORMA_LABEL[i.formaPagamento] : '—'}</TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">{BRL(Number(i.valor))}</TableCell>
+                          <TableCell>
+                            {i.status === 'ativa'
+                              ? <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border">Ativa</Badge>
+                              : <Badge className="bg-rose-100 text-rose-700 border-rose-200 border">Cancelada</Badge>}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap space-x-1">
+                            <Button
+                              size="sm" variant="ghost"
+                              onClick={() => window.open(toAbsoluteUrl(i.pdfUrl), '_blank', 'noopener')}
+                              title="Ver PDF">
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost" asChild title="Baixar PDF">
+                              <a href={toAbsoluteUrl(i.pdfUrl)}
+                                download={i.pdfOriginalFilename || `nf-${i.numero}.pdf`}>
+                                <Download className="h-3.5 w-3.5" />
+                              </a>
+                            </Button>
+                            {i.status === 'ativa' && (
+                              <Button
+                                size="sm" variant="ghost"
+                                onClick={() => { setNfCancelTarget(i); setNfCancelMotivo(''); }}
+                                title="Cancelar NF"
+                                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700">
+                                <XCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ));
+                    })()}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="medicoes">
