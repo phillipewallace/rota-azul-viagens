@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './config';
+import { appendPageParams, type Paged, type PageParams } from '@/lib/pagination';
 
 const headers = () => {
   const t = localStorage.getItem('auth_token');
@@ -75,6 +76,14 @@ export const contractsService = {
     if (params?.customerId) q.set('customerId', params.customerId);
     const s = q.toString();
     return req<Contract[]>('GET', `/erp/contracts${s ? '?' + s : ''}`);
+  },
+  /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
+  listPaged: (params?: { ativo?: boolean; customerId?: string } & PageParams) => {
+    const q = new URLSearchParams();
+    if (params?.ativo !== undefined) q.set('ativo', String(params.ativo));
+    if (params?.customerId) q.set('customerId', params.customerId);
+    appendPageParams(q, params);
+    return req<Paged<Contract>>('GET', `/erp/contracts?${q.toString()}`);
   },
   get: (id: string) => req<Contract>('GET', `/erp/contracts/${id}`),
   create: (data: Partial<Contract>) => req<{ id: string; numero: string }>('POST', '/erp/contracts', data),
