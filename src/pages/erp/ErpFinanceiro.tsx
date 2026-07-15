@@ -65,6 +65,8 @@ import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
 import { BRL } from '@/utils/currency';
+import PaginationBar from '@/components/PaginationBar';
+
 const D = (s?: string) => s ? formatDateBR(s) : '—';
 
 const compAtual = () => {
