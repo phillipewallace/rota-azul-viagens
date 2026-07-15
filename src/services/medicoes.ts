@@ -78,6 +78,17 @@ export const medicoesService = {
     const s = q.toString();
     return req<Medicao[]>('GET', `/erp/medicoes${s ? '?' + s : ''}`);
   },
+  /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
+  listPaged: (params?: { competencia?: string; clienteDoc?: string; customerId?: string } & import('@/lib/pagination').PageParams) => {
+    const q = new URLSearchParams();
+    if (params?.competencia) q.set('competencia', params.competencia);
+    if (params?.clienteDoc)  q.set('clienteDoc', params.clienteDoc);
+    if (params?.customerId)  q.set('customerId', params.customerId);
+    import('@/lib/pagination').then(); // no-op para clareza; a chamada real está abaixo
+    const { appendPageParams } = require('@/lib/pagination');
+    appendPageParams(q, params);
+    return req<import('@/lib/pagination').Paged<Medicao>>('GET', `/erp/medicoes?${q.toString()}`);
+  },
   get: (id: string) => req<Medicao>('GET', `/erp/medicoes/${id}`),
   preview: (contractIds: string[], competencia?: string) =>
     req<{ competencia?: string; contracts: MedicaoPreviewContract[] }>('POST', '/erp/medicoes/preview', { contractIds, competencia }),
