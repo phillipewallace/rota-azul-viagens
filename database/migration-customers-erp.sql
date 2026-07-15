@@ -5,10 +5,18 @@
 
 -- ---------- 1. Expansão da tabela customers ----------
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS person_type TEXT DEFAULT 'PJ';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_name TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS document TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS ie TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS im TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS cep TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS restrooms_qty INTEGER;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS cleanings_qty INTEGER;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS contact_name TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS numero TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS complemento TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS bairro TEXT;
@@ -17,6 +25,11 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS estado TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS responsavel_nome TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS responsavel_cpf TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS tipo_cliente TEXT;
+
+UPDATE customers
+   SET customer_name = COALESCE(customer_name, name),
+       contact_phone = COALESCE(contact_phone, phone)
+ WHERE customer_name IS NULL OR contact_phone IS NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_document_unique
   ON customers (document) WHERE document IS NOT NULL AND document <> '';

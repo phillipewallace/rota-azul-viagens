@@ -194,6 +194,20 @@ CREATE TABLE IF NOT EXISTS public.customers (
 );
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+-- Compatibilidade ERP: a UI/backend usam customer_name/contact_phone, enquanto
+-- instalações antigas podem ter nascido com name/phone.
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS customer_name TEXT;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS cep TEXT;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS restrooms_qty INTEGER;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS cleanings_qty INTEGER;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS contact_name TEXT;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS contact_phone TEXT;
+UPDATE public.customers
+   SET customer_name = COALESCE(customer_name, name),
+       contact_phone = COALESCE(contact_phone, phone)
+ WHERE customer_name IS NULL OR contact_phone IS NULL;
 
 -- ============================== MAINTENANCE =================================
 CREATE TABLE IF NOT EXISTS public.maintenance_records (
