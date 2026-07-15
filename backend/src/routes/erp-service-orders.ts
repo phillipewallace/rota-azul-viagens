@@ -46,6 +46,9 @@ router.get('/', async (req, res) => {
              o.forma_pagamento AS "formaPagamento",
              COALESCE(o.qtd_reservada,0) AS "qtdReservada",
              o.created_at AS "createdAt",
+             o.converted_contract_id AS "convertedContractId",
+             o.converted_at AS "convertedAt",
+             ctr.numero AS "convertedContractNumero",
              cu.customer_name AS "customerName", cu.address AS "customerAddress",
              cu.lat AS "customerLat", cu.lng AS "customerLng",
              c.razao_social AS "companyRazaoSocial",
@@ -56,7 +59,11 @@ router.get('/', async (req, res) => {
              COALESCE((SELECT COUNT(*) FROM erp_os_sanitarios s
                         JOIN sanitarios sa ON sa.id=s.sanitario_id
                         WHERE s.os_id=o.id AND s.devolvido_em IS NULL AND sa.status='em_cliente'),0)::int AS "sanitariosEntregues"
-        ${fromSql}
+        FROM erp_service_orders o
+        LEFT JOIN customers cu ON cu.id = o.customer_id
+        LEFT JOIN erp_companies c ON c.id = o.company_id
+        LEFT JOIN erp_contracts ctr ON ctr.id = o.converted_contract_id
+        ${where}
         ORDER BY o.created_at DESC ${pg.sql}`, [...params, ...pg.params]);
     if (pg.paginated) {
       const totalQ = await pool.query(`SELECT COUNT(*)::int AS c ${fromSql}`, params);
