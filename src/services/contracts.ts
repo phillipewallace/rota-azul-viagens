@@ -159,6 +159,17 @@ export const receiptsService = {
     const s = q.toString();
     return req<Receipt[]>('GET', `/erp/receipts${s ? '?' + s : ''}`);
   },
+  /** Variante paginada — envelope `{ data, total, page, pageSize }`. */
+  listPaged: (params?: { contractId?: string; competencia?: string; pago?: boolean; from?: string; to?: string } & PageParams) => {
+    const q = new URLSearchParams();
+    if (params?.contractId) q.set('contractId', params.contractId);
+    if (params?.competencia) q.set('competencia', params.competencia);
+    if (params?.pago !== undefined) q.set('pago', String(params.pago));
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    appendPageParams(q, params);
+    return req<Paged<Receipt>>('GET', `/erp/receipts?${q.toString()}`);
+  },
 
   pending: (competencia?: string) =>
     req<{ competencia: string; pendentes: PendingReceipt[] }>(
