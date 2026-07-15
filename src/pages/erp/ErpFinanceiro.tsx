@@ -2152,17 +2152,19 @@ const ErpFinanceiro: React.FC = () => {
                           <TableCell className="text-right whitespace-nowrap space-x-1">
                             <Button
                               size="sm" variant="ghost"
-                              onClick={() => window.open(toAbsoluteUrl(i.pdfUrl), '_blank', 'noopener')}
+                              onClick={() => window.open(toAuthedUrl(i.pdfUrl), '_blank', 'noopener,noreferrer')}
                               title="Ver PDF">
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               size="sm" variant="ghost" asChild title="Baixar PDF">
-                              <a href={toAbsoluteUrl(i.pdfUrl)}
+                              <a href={toAuthedUrl(i.pdfUrl)}
+                                rel="noopener noreferrer"
                                 download={i.pdfOriginalFilename || `nf-${i.numero}.pdf`}>
                                 <Download className="h-3.5 w-3.5" />
                               </a>
                             </Button>
+
                             {i.status === 'ativa' && (
                               <Button
                                 size="sm" variant="ghost"
