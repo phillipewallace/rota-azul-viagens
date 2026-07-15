@@ -359,7 +359,7 @@ router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res) => {
 // POST /:id/reopen — reverte um recibo CANCELADO ao estado "não faturado",
 // removendo-o para que a competência volte à lista de pendentes.
 // Uso típico: clique acidental no cancelar. Só funciona para status='cancelado'.
-router.post('/:id/reopen', async (req, res) => {
+router.post('/:id/reopen', requireRole(...FIN_ROLES), async (req, res) => {
   try {
     const cur = await pool.query('SELECT status FROM erp_receipts WHERE id=$1', [req.params.id]);
     if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
