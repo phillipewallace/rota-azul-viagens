@@ -377,10 +377,18 @@ export default function ErpServiceOrdersPanel({ onChanged, refreshKey }: { onCha
                     </Button>
                     <Button size="sm" variant="default" className="flex-1 bg-indigo-600 hover:bg-indigo-700"
                             onClick={() => setContractTarget(os)}>
-                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato
+                      <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato (PDF)
                     </Button>
                   </div>
                   <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline"
+                            className={`flex-1 ${os.convertedContractId ? 'text-emerald-700 border-emerald-300 hover:bg-emerald-50' : 'text-indigo-700 border-indigo-300 hover:bg-indigo-50'}`}
+                            onClick={() => sendToContracts(os)}>
+                      <FileSignature className="h-3.5 w-3.5 mr-1" />
+                      {os.convertedContractId
+                        ? `Ver contrato ${os.convertedContractNumero || ''}`.trim()
+                        : 'Enviar para Contratos'}
+                    </Button>
                     <Button size="sm" variant="ghost" className="flex-1 text-indigo-700 hover:bg-indigo-50"
                             onClick={() => downloadQuotePdf(os)}>
                       <FileDown className="h-3.5 w-3.5 mr-1" /> PDF Orçamento
