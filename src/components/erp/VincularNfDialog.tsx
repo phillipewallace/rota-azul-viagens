@@ -187,9 +187,11 @@ export const VincularNfDialog: React.FC<Props> = ({
           </div>
 
           <div>
-            <Label className="text-xs">Forma de pagamento</Label>
+            <Label className="text-xs">Forma de pagamento *</Label>
             <Select value={formaPagamento} onValueChange={(v) => setFormaPagamento(v as InvoiceFormaPagamento)}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9" aria-invalid={!formaPagamento}>
+                <SelectValue placeholder="Selecione a forma de pagamento" />
+              </SelectTrigger>
               <SelectContent>
                 {Object.entries(INVOICE_FORMA_LABEL).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
@@ -197,6 +199,7 @@ export const VincularNfDialog: React.FC<Props> = ({
               </SelectContent>
             </Select>
           </div>
+
 
           <div>
             <Label className="text-xs">Observações</Label>
