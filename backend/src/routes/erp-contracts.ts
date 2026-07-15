@@ -219,9 +219,10 @@ router.put('/:id', async (req, res) => {
 
 
 router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
+  const client = await pool.connect();
   try {
     // [#26 baixo] Bloqueia exclusão de contrato com recibos associados.
-    const dep = await pool.query(
+    const dep = await client.query(
       `SELECT COUNT(*)::int AS n FROM erp_receipts WHERE contract_id=$1`,
       [req.params.id]
     );
@@ -230,10 +231,22 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
         error: `Contrato possui ${dep.rows[0].n} recibo(s) emitido(s). Encerre o contrato em vez de excluí-lo.`,
       });
     }
-    const r = await pool.query('DELETE FROM erp_contracts WHERE id=$1 RETURNING id', [req.params.id]);
-    if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
+    await client.query('BEGIN');
+    // Reseta vínculo na OS de origem (se houver) para permitir re-geração do contrato.
+    await client.query(
+      `UPDATE erp_service_orders
+          SET converted_contract_id = NULL, converted_at = NULL, updated_at = NOW()
+        WHERE converted_contract_id = $1`,
+      [req.params.id]
+    );
+    const r = await client.query('DELETE FROM erp_contracts WHERE id=$1 RETURNING id', [req.params.id]);
+    if (!r.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'não encontrado' }); }
+    await client.query('COMMIT');
     res.json({ ok: true });
-  } catch (e: any) { sendError(res, e); }
+  } catch (e: any) {
+    await client.query('ROLLBACK').catch(() => {});
+    sendError(res, e);
+  } finally { client.release(); }
 });
 
 
