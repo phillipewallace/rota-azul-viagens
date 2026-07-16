@@ -510,7 +510,7 @@ const ErpContracts: React.FC = () => {
                       <TableCell className="hidden md:table-cell text-xs">
                         <div className="text-foreground">{D(vigencia.inicio)}</div>
                         <div className="text-muted-foreground flex items-center gap-1.5">
-                          <span>até {D(vigencia.fim)}</span>
+                          <span>até {vigencia.fim ? D(vigencia.fim) : '---'}</span>
                           {venc}
                         </div>
                       </TableCell>
