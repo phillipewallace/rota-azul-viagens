@@ -275,7 +275,8 @@ const ErpContracts: React.FC = () => {
   // ---- Sub-render: badge de vencimento -------------------------------------
   const vencimentoBadge = (c: Contract) => {
     if (!c.ativo) return null;
-    const d = daysUntil(c.dataFim);
+    const { fim } = getContractVigencia(c);
+    const d = daysUntil(fim);
     if (d === null) return null;
     if (d < 0) {
       return (
@@ -472,6 +473,7 @@ const ErpContracts: React.FC = () => {
                   </TableCell></TableRow>
                 )}
                 {!loading && filtered.map(c => {
+                  const vigencia = getContractVigencia(c);
                   const venc = vencimentoBadge(c);
                   const tipo = (c.tipoContrato || 'locacao') as string;
                   return (
@@ -507,9 +509,9 @@ const ErpContracts: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-xs">
-                        <div className="text-foreground">{D(c.dataInicio)}</div>
+                        <div className="text-foreground">{D(vigencia.inicio)}</div>
                         <div className="text-muted-foreground flex items-center gap-1.5">
-                          <span>até {D(c.dataFim)}</span>
+                          <span>até {D(vigencia.fim)}</span>
                           {venc}
                         </div>
                       </TableCell>
