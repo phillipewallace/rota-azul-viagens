@@ -47,6 +47,25 @@ type Customer = { id: string; customerName: string; document?: string };
 import { BRL } from '@/utils/currency';
 const D = (s?: string | null) => s ? formatDateBR(s) : '—';
 
+const isoDate = (s?: string | null) => (s ? String(s).slice(0, 10) : '');
+const isBeforeIso = (a?: string | null, b?: string | null) => {
+  const da = isoDate(a);
+  const db = isoDate(b);
+  return !!da && !!db && da < db;
+};
+
+const getContractVigencia = (c: Contract) => {
+  const isEvento = c.tipoContrato === 'evento';
+  const inicio = isEvento ? (c.dataEvento || c.dataInicio) : c.dataInicio;
+  let fim = isEvento ? (c.dataRecolhimento || c.dataFim) : c.dataFim;
+
+  // Contratos de evento antigos podem ter herdado data_fim_prevista errada da OS.
+  // Se o fim ficou antes da entrega e não há recolhimento salvo, exibe a vigência no próprio dia.
+  if (isEvento && isBeforeIso(fim, inicio)) fim = c.dataRecolhimento || inicio;
+
+  return { inicio, fim };
+};
+
 /** Dias até uma data (positivo = futuro, negativo = passado). Null se não houver data. */
 const daysUntil = (iso?: string | null): number | null => {
   if (!iso) return null;
