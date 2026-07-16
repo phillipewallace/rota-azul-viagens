@@ -57,11 +57,10 @@ const isBeforeIso = (a?: string | null, b?: string | null) => {
 const getContractVigencia = (c: Contract) => {
   const isEvento = c.tipoContrato === 'evento';
   const inicio = isEvento ? (c.dataEvento || c.dataInicio) : c.dataInicio;
-  let fim = isEvento ? (c.dataRecolhimento || c.dataFim) : c.dataFim;
-
-  // Contratos de evento antigos podem ter herdado data_fim_prevista errada da OS.
-  // Se o fim ficou antes da entrega e não há recolhimento salvo, exibe a vigência no próprio dia.
-  if (isEvento && isBeforeIso(fim, inicio)) fim = c.dataRecolhimento || inicio;
+  // Para eventos, só usa data de recolhimento explícita — sem fallback para
+  // data_fim_prevista (que costuma vir errada da OS). Sem recolhimento => "---".
+  let fim: string | null | undefined = isEvento ? c.dataRecolhimento : c.dataFim;
+  if (isEvento && isBeforeIso(fim, inicio)) fim = null;
 
   return { inicio, fim };
 };
@@ -511,7 +510,7 @@ const ErpContracts: React.FC = () => {
                       <TableCell className="hidden md:table-cell text-xs">
                         <div className="text-foreground">{D(vigencia.inicio)}</div>
                         <div className="text-muted-foreground flex items-center gap-1.5">
-                          <span>até {D(vigencia.fim)}</span>
+                          <span>até {vigencia.fim ? D(vigencia.fim) : '---'}</span>
                           {venc}
                         </div>
                       </TableCell>
