@@ -38,6 +38,12 @@ const fmtDateBr = (d?: string | Date | null) => {
   return dt.toLocaleDateString('pt-BR');
 };
 
+const isDateBefore = (a?: string | Date | null, b?: string | Date | null) => {
+  const da = parseLocal(a);
+  const db = parseLocal(b);
+  return !!da && !!db && da.getTime() < db.getTime();
+};
+
 function maskDoc(doc?: string) {
   if (!doc) return '';
   const d = doc.replace(/\D/g, '');
@@ -184,6 +190,14 @@ function buildContext(src: ContractSource): Record<string, string> {
   const valorUnit = qtdSan > 0 ? valorRecorrente / qtdSan : valorRecorrente;
   const limp = src.limpezasSemanais ?? (src.modalidade === 'mensal' ? 1 : 0);
 
+  const dataEntregaContrato = src.dataEntrega || src.dataInicio;
+  let dataRecolhimentoContrato = src.dataRecolhimento || src.dataFimPrevista;
+  if (src.tipoContrato === 'evento' && dataEntregaContrato) {
+    if (!dataRecolhimentoContrato || isDateBefore(dataRecolhimentoContrato, dataEntregaContrato)) {
+      dataRecolhimentoContrato = dataEntregaContrato;
+    }
+  }
+
   return {
     'empresa.razao_social': String(company.razao_social || src.companyRazaoSocial || '____________'),
     'empresa.cnpj': docLocadora,
@@ -200,8 +214,8 @@ function buildContext(src: ContractSource): Record<string, string> {
     'contrato.numero': src.numero || '',
     'contrato.data_emissao': fmtDateBr(src.dataEmissao || src.dataInicio),
     'contrato.data_emissao_extenso': fmtDateLong(src.dataEmissao || src.dataInicio),
-    'contrato.data_entrega': fmtDateBr(src.dataEntrega || src.dataInicio),
-    'contrato.data_recolhimento': fmtDateBr(src.dataRecolhimento || src.dataFimPrevista),
+    'contrato.data_entrega': fmtDateBr(dataEntregaContrato),
+    'contrato.data_recolhimento': fmtDateBr(dataRecolhimentoContrato),
     'contrato.hora_entrega': src.horaEntrega || '____',
     'contrato.local': src.localEvento || src.enderecoEntrega || enderecoCliente || '____________',
     'contrato.objeto_descricao': objetoDesc,

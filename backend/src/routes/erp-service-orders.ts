@@ -719,9 +719,10 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
       : `Gerado automaticamente a partir da OS ${os.numero}`;
     const descricao = body.descricao ? String(body.descricao).trim() : descricaoBase;
     const observacoes = body.observacoes != null ? String(body.observacoes) : (os.observacoes || null);
-    // Vigência: fim = data_recolhimento (quando definida) → data_fim_prevista → override.
-    // Para eventos no mesmo dia, entrega/recolhimento coincidem e a vigência fica correta.
-    const dataFim = body.dataFim || os.data_recolhimento || os.data_fim_prevista || null;
+    // Vigência: em evento, fim = recolhimento; se não houver, fica no dia da entrega.
+    // Não usa data_fim_prevista da OS para evento, pois ela pode vir da validade operacional do orçamento.
+    const dataRecolhimentoFinal = body.dataRecolhimento || os.data_recolhimento || (isEvento ? dataEntregaFinal : null);
+    const dataFim = body.dataFim || dataRecolhimentoFinal || os.data_fim_prevista || null;
 
     // Numeração via helper.
     const numQ = await client.query(`SELECT erp_next_doc_number('CTR') AS num`);
@@ -749,7 +750,7 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
         [numero, os.company_id, os.customer_id, os.id, descricao,
          tipoContrato, dataInicio, dataFim,
          isEvento ? dataEntregaFinal : null,
-         os.data_recolhimento || null,
+         dataRecolhimentoFinal,
          os.local_evento || null,
          os.hora_entrega || null,
          valorTotalEvento,
