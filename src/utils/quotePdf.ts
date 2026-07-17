@@ -17,7 +17,7 @@ function maskDoc(doc?: string) {
   return doc;
 }
 
-export async function generateQuotePdf(quote: Quote) {
+async function buildQuotePdfDoc(quote: Quote): Promise<jsPDF> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
@@ -251,5 +251,15 @@ export async function generateQuotePdf(quote: Quote) {
     W / 2, doc.internal.pageSize.getHeight() - 6, { align: 'center' }
   );
 
+  return doc;
+}
+
+export async function generateQuotePdf(quote: Quote): Promise<void> {
+  const doc = await buildQuotePdfDoc(quote);
   doc.save(`Orcamento-${quote.numero}.pdf`);
+}
+
+export async function generateQuotePdfBlob(quote: Quote): Promise<Blob> {
+  const doc = await buildQuotePdfDoc(quote);
+  return doc.output('blob');
 }

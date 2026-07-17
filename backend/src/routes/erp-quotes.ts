@@ -1,11 +1,32 @@
 import { sendError } from '../utils/apiError';
 import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
 
 const router = Router();
 router.use(requireAuth);
+
+// Upload de PDF do orçamento — usado ao compartilhar por WhatsApp/e-mail
+// (o wa.me exige URL pública, então salvamos em uploads/quotes/, público).
+const quotesPdfDir = path.join(__dirname, '../../uploads/quotes');
+if (!fs.existsSync(quotesPdfDir)) fs.mkdirSync(quotesPdfDir, { recursive: true });
+const quotePdfUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req: any, _file: any, cb: any) => cb(null, quotesPdfDir),
+    filename: (req: any, _file: any, cb: any) => cb(null, `${req.params.id}.pdf`),
+  }),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req: any, file: any, cb: any) => {
+    if (!/pdf/i.test(file.mimetype) && !/\.pdf$/i.test(file.originalname)) {
+      return cb(new Error('Somente PDF é aceito'));
+    }
+    cb(null, true);
+  },
+});
 
 const QUOTE_SELECT = `
   q.id, q.numero, q.company_id AS "companyId", q.customer_id AS "customerId",
@@ -393,6 +414,27 @@ router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) =
     console.error('[erp-quotes duplicate]', e);
     sendError(res, e);
   } finally { client.release(); }
+});
+
+// Upload do PDF do orçamento (para gerar link público de compartilhamento).
+router.post('/:id/upload-pdf', (req: any, res: any) => {
+  quotePdfUpload.single('file')(req, res, async (err: any) => {
+    if (err) return res.status(400).json({ error: err.message || 'Erro no upload' });
+    try {
+      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      const exists = await pool.query('SELECT 1 FROM erp_quotes WHERE id = $1', [req.params.id]);
+      if (!exists.rowCount) return res.status(404).json({ error: 'Orçamento não encontrado' });
+      const fileUrl = `/uploads/quotes/${req.file.filename}`;
+      await pool.query(
+        `UPDATE erp_quotes SET pdf_gerado_em = NOW() WHERE id = $1`,
+        [req.params.id],
+      ).catch(() => {});
+      res.json({ ok: true, fileUrl, sizeBytes: req.file.size });
+    } catch (e: any) {
+      console.error('[erp-quotes upload-pdf]', e);
+      sendError(res, e);
+    }
+  });
 });
 
 export default router;

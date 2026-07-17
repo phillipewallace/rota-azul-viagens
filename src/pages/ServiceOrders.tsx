@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ClipboardList, AlertTriangle, CheckCircle2, RefreshCcw, Trash2, Loader2, Search,
-  FileDown, History, X, ChevronDown, ChevronRight, MapPin, Calendar, User, Building2, Package,
+  FileDown, History, X, MapPin, Calendar, User, Building2, Package,
   FileSignature, FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -51,8 +51,10 @@ const ServiceOrders: React.FC = () => {
   const [tipoFilter, setTipoFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, any>>({});
-  const [loadingDetail, setLoadingDetail] = useState<Record<string, boolean>>({});
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOs, setDetailOs] = useState<ServiceOrder | null>(null);
+  const [detailData, setDetailData] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
 
@@ -62,17 +64,16 @@ const ServiceOrders: React.FC = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  const toggleExpand = async (o: ServiceOrder) => {
-    if (expanded[o.id]) {
-      setExpanded(prev => { const c = { ...prev }; delete c[o.id]; return c; });
-      return;
-    }
-    setLoadingDetail(prev => ({ ...prev, [o.id]: true }));
+  const openDetail = async (o: ServiceOrder) => {
+    setDetailOs(o);
+    setDetailData(null);
+    setDetailOpen(true);
+    setDetailLoading(true);
     try {
       const det = await serviceOrdersService.get(o.id);
-      setExpanded(prev => ({ ...prev, [o.id]: det }));
+      setDetailData(det);
     } catch (e: any) { toast.error(e.message); }
-    finally { setLoadingDetail(prev => { const c = { ...prev }; delete c[o.id]; return c; }); }
+    finally { setDetailLoading(false); }
   };
 
   // Financeiro modal
@@ -543,18 +544,17 @@ const ServiceOrders: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {visible.map(o => {
-              const det = expanded[o.id];
-              const isOpen = !!det;
               return (
-              <Card key={o.id} className={`hover:shadow-md transition-shadow ${o.emAtraso ? 'border-red-300 bg-red-50/40' : ''}`}>
+              <Card
+                key={o.id}
+                onClick={() => openDetail(o)}
+                className={`hover:shadow-md hover:border-primary/40 transition-all cursor-pointer ${o.emAtraso ? 'border-red-300 bg-red-50/40' : ''}`}
+              >
                 <CardContent className="p-4 space-y-2">
-                  <button onClick={() => toggleExpand(o)} className="w-full flex items-start justify-between gap-2 text-left">
-                    <div className="min-w-0 flex items-start gap-1">
-                      {isOpen ? <ChevronDown className="h-4 w-4 mt-0.5 shrink-0" /> : <ChevronRight className="h-4 w-4 mt-0.5 shrink-0" />}
-                      <div className="min-w-0">
-                        <div className="font-mono font-bold text-sm">{o.numero}</div>
-                        <div className="text-sm font-semibold truncate">{o.customerName || '—'}</div>
-                      </div>
+                  <div className="w-full flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-mono font-bold text-sm">{o.numero}</div>
+                      <div className="text-sm font-semibold truncate">{o.customerName || '—'}</div>
                     </div>
                     {o.emAtraso ? (
                       <Badge className="bg-red-600 text-white gap-1"><AlertTriangle className="h-3 w-3" />Atrasada</Badge>
@@ -563,7 +563,7 @@ const ServiceOrders: React.FC = () => {
                         {o.status}
                       </Badge>
                     )}
-                  </button>
+                  </div>
                   <div className="text-xs text-muted-foreground space-y-0.5">
                     <div>{o.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'} · {BRL(o.valorTotal)}</div>
                     <div>Tipo: {tipoLabel((o as any).tipoLocacao)}</div>
@@ -572,104 +572,10 @@ const ServiceOrders: React.FC = () => {
                       {o.dataRecolhimento && <> · Fim previsto: {D(o.dataRecolhimento)}</>}
                     </div>
                     <div>Sanitários alocados: <strong>{o.sanitariosAlocados || 0}</strong></div>
+                    <div className="text-[10px] italic text-primary/70">Clique no card para ver detalhes</div>
                   </div>
 
-                  {loadingDetail[o.id] && (
-                    <div className="flex items-center justify-center py-3 text-xs text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" /> Carregando detalhes…
-                    </div>
-                  )}
-
-                  {isOpen && det && (
-                    <div className="mt-2 pt-2 border-t space-y-2 text-xs">
-                      <div className="grid grid-cols-1 gap-1.5">
-                        <div className="flex items-start gap-1.5">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-                          <div><strong>Empresa:</strong> {o.companyRazaoSocial || det.companySnapshot?.razao_social || '—'}</div>
-                        </div>
-                        <div className="flex items-start gap-1.5">
-                          <User className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-                          <div>
-                            <strong>Cliente:</strong> {o.customerName || '—'}
-                            {det.customer_snapshot?.contact_phone && <> · Contato: {det.customer_snapshot.contact_phone}</>}
-                            {det.customer_snapshot?.contact_name && <> · {det.customer_snapshot.contact_name}</>}
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-1.5">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-                          <div><strong>Endereço:</strong> {det.endereco_entrega || o.customerAddress || '—'}</div>
-                        </div>
-                        <div className="flex items-start gap-1.5">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-                          <div>
-                            <strong>Entrega:</strong> {D(det.data_entrega || o.dataEntrega)}
-                            {(det.data_recolhimento || o.dataRecolhimento) && <> · <strong>Recolhimento:</strong> {D(det.data_recolhimento || o.dataRecolhimento)}</>}
-                            {det.data_fechamento && <> · <strong>Fechada em:</strong> {D(det.data_fechamento)}</>}
-                          </div>
-                        </div>
-                        {o.modalidade === 'mensal' && (det.limpezas_semanais ?? o.limpezasSemanais) != null && (det.tipo_locacao || o.tipoLocacao) !== 'evento' && (
-                          <div>🧽 <strong>Limpezas/semana:</strong> {det.limpezas_semanais ?? o.limpezasSemanais}</div>
-                        )}
-                        {(det.forma_pagamento || (o as any).formaPagamento) && (
-                          <div className="bg-indigo-50 border border-indigo-200 rounded p-2 text-indigo-900">
-                            💳 <strong>Pagamento:</strong> {describeFormaPagamento(det.forma_pagamento || (o as any).formaPagamento, det.data_entrega || o.dataEntrega)}
-                          </div>
-                        )}
-                        {det.observacoes && (
-                          <div className="bg-muted/30 rounded p-2">
-                            <strong>Observações:</strong> {det.observacoes}
-                          </div>
-                        )}
-                      </div>
-
-                      {Array.isArray(det.items) && det.items.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-1 font-semibold mt-1 mb-1">
-                            <Package className="h-3.5 w-3.5" /> Itens
-                          </div>
-                          <table className="w-full border rounded overflow-hidden">
-                            <thead className="bg-gray-100">
-                              <tr>
-                                <th className="text-left p-1">Produto</th>
-                                <th className="text-right p-1">Qtd</th>
-                                <th className="text-right p-1">Valor un.</th>
-                                <th className="text-right p-1">Total</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {det.items.map((it: any, i: number) => (
-                                <tr key={i} className="border-t">
-                                  <td className="p-1">{[it.produto, it.descricao].filter(Boolean).join(' — ')}</td>
-                                  <td className="p-1 text-right">{Number(it.quantidade || 0)}</td>
-                                  <td className="p-1 text-right">{BRL(Number(it.valorUnitario || it.valor_unitario || 0))}</td>
-                                  <td className="p-1 text-right tabular-nums">{BRL(Number(it.valorTotal || it.valor_total || (Number(it.quantidade) || 0) * Number(it.valorUnitario || it.valor_unitario || 0)))}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {Array.isArray(det.sanitarios) && det.sanitarios.length > 0 && (
-                        <div>
-                          <div className="font-semibold mt-1 mb-1">Sanitários vinculados</div>
-                          <div className="flex flex-wrap gap-1">
-                            {det.sanitarios.map((s: any, i: number) => (
-                              <Badge key={i} variant={s.devolvido_em || s.devolvidoEm ? 'outline' : 'default'} className="text-[10px] font-mono">
-                                {s.numero}{(s.devolvido_em || s.devolvidoEm) ? ' ✓' : ''}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="text-[11px] text-muted-foreground pt-1">
-                        Frete: {BRL(Number(det.frete || 0))} · Total: <strong>{BRL(Number(det.valor_total || o.valorTotal || 0))}</strong>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-1 pt-2 border-t flex-wrap">
+                  <div className="flex gap-1 pt-2 border-t flex-wrap" onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" variant="default" className="flex-1 min-w-[110px] bg-green-700 hover:bg-green-800"
                             onClick={() => downloadOsPdf(o)} disabled={pdfBusy === o.id}>
                       {pdfBusy === o.id
@@ -682,7 +588,7 @@ const ServiceOrders: React.FC = () => {
                       <FileSignature className="h-3.5 w-3.5 mr-1" /> Gerar Contrato (PDF)
                     </Button>
                   </div>
-                  <div className="flex gap-1 pt-1">
+                  <div className="flex gap-1 pt-1" onClick={(e) => e.stopPropagation()}>
                     <Button size="sm" variant="outline"
                             className={`flex-1 min-w-[140px] ${o.convertedContractId ? 'text-emerald-700 border-emerald-300 hover:bg-emerald-50' : 'text-indigo-700 border-indigo-300 hover:bg-indigo-50'}`}
                             onClick={() => sendToContracts(o)} disabled={pdfBusy === o.id}>
@@ -692,7 +598,7 @@ const ServiceOrders: React.FC = () => {
                         : 'Enviar para Contratos'}
                     </Button>
                   </div>
-                  <div className="flex gap-1 pt-1">
+                  <div className="flex gap-1 pt-1" onClick={(e) => e.stopPropagation()}>
                     {o.status === 'aberta' && (
                       <Button size="sm" variant="outline" className="flex-1 text-green-700 hover:bg-green-50" onClick={() => close(o)}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Fechar e devolver
@@ -875,6 +781,129 @@ const ServiceOrders: React.FC = () => {
           if (o) await downloadContract(o, dataVencimento, preview, format);
         }}
       />
+
+      {/* Detalhes da OS — modal */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              OS <span className="font-mono">{detailOs?.numero}</span>
+              {detailOs && (detailOs.emAtraso
+                ? <Badge className="bg-red-600 text-white gap-1 ml-2"><AlertTriangle className="h-3 w-3" />Atrasada</Badge>
+                : <Badge className={`ml-2 ${detailOs.status === 'fechada' ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}`}>{detailOs.status}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {detailLoading && (
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando detalhes…
+            </div>
+          )}
+
+          {!detailLoading && detailOs && detailData && (() => {
+            const o = detailOs;
+            const det = detailData;
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="flex items-start gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div><strong>Empresa:</strong> {o.companyRazaoSocial || det.companySnapshot?.razao_social || '—'}</div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <User className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <strong>Cliente:</strong> {o.customerName || '—'}
+                      {det.customer_snapshot?.contact_phone && <> · {det.customer_snapshot.contact_phone}</>}
+                      {det.customer_snapshot?.contact_name && <> · {det.customer_snapshot.contact_name}</>}
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 md:col-span-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div><strong>Endereço:</strong> {det.endereco_entrega || o.customerAddress || '—'}</div>
+                  </div>
+                  <div className="flex items-start gap-2 md:col-span-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <strong>Entrega:</strong> {D(det.data_entrega || o.dataEntrega)}
+                      {(det.data_recolhimento || o.dataRecolhimento) && <> · <strong>Recolhimento:</strong> {D(det.data_recolhimento || o.dataRecolhimento)}</>}
+                      {det.data_fechamento && <> · <strong>Fechada em:</strong> {D(det.data_fechamento)}</>}
+                    </div>
+                  </div>
+                  <div>
+                    <strong>Modalidade:</strong> {o.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'}
+                  </div>
+                  <div>
+                    <strong>Tipo:</strong> {tipoLabel((o as any).tipoLocacao)}
+                  </div>
+                  {o.modalidade === 'mensal' && (det.limpezas_semanais ?? o.limpezasSemanais) != null && (det.tipo_locacao || o.tipoLocacao) !== 'evento' && (
+                    <div>🧽 <strong>Limpezas/semana:</strong> {det.limpezas_semanais ?? o.limpezasSemanais}</div>
+                  )}
+                </div>
+
+                {(det.forma_pagamento || (o as any).formaPagamento) && (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded p-2 text-indigo-900 text-xs">
+                    💳 <strong>Pagamento:</strong> {describeFormaPagamento(det.forma_pagamento || (o as any).formaPagamento, det.data_entrega || o.dataEntrega)}
+                  </div>
+                )}
+                {det.observacoes && (
+                  <div className="bg-muted/30 rounded p-2 text-xs">
+                    <strong>Observações:</strong> {det.observacoes}
+                  </div>
+                )}
+
+                {Array.isArray(det.items) && det.items.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1 font-semibold mt-1 mb-1">
+                      <Package className="h-4 w-4" /> Itens
+                    </div>
+                    <table className="w-full border rounded overflow-hidden text-xs">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="text-left p-1.5">Produto</th>
+                          <th className="text-right p-1.5">Qtd</th>
+                          <th className="text-right p-1.5">Valor un.</th>
+                          <th className="text-right p-1.5">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {det.items.map((it: any, i: number) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-1.5">{[it.produto, it.descricao].filter(Boolean).join(' — ')}</td>
+                            <td className="p-1.5 text-right">{Number(it.quantidade || 0)}</td>
+                            <td className="p-1.5 text-right">{BRL(Number(it.valorUnitario || it.valor_unitario || 0))}</td>
+                            <td className="p-1.5 text-right tabular-nums">{BRL(Number(it.valorTotal || it.valor_total || (Number(it.quantidade) || 0) * Number(it.valorUnitario || it.valor_unitario || 0)))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {Array.isArray(det.sanitarios) && det.sanitarios.length > 0 && (
+                  <div>
+                    <div className="font-semibold mt-1 mb-1">Sanitários vinculados ({det.sanitarios.length})</div>
+                    <div className="flex flex-wrap gap-1">
+                      {det.sanitarios.map((s: any, i: number) => (
+                        <Badge key={i} variant={s.devolvido_em || s.devolvidoEm ? 'outline' : 'default'} className="text-[11px] font-mono">
+                          {s.numero}{(s.devolvido_em || s.devolvidoEm) ? ' ✓' : ''}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t pt-2 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Frete: {BRL(Number(det.frete || 0))}</span>
+                  <span className="text-base"><strong>Total: {BRL(Number(det.valor_total || o.valorTotal || 0))}</strong></span>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
