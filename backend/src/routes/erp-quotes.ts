@@ -416,4 +416,25 @@ router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) =
   } finally { client.release(); }
 });
 
+// Upload do PDF do orçamento (para gerar link público de compartilhamento).
+router.post('/:id/upload-pdf', (req: any, res: any) => {
+  quotePdfUpload.single('file')(req, res, async (err: any) => {
+    if (err) return res.status(400).json({ error: err.message || 'Erro no upload' });
+    try {
+      if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+      const exists = await pool.query('SELECT 1 FROM erp_quotes WHERE id = $1', [req.params.id]);
+      if (!exists.rowCount) return res.status(404).json({ error: 'Orçamento não encontrado' });
+      const fileUrl = `/uploads/quotes/${req.file.filename}`;
+      await pool.query(
+        `UPDATE erp_quotes SET pdf_gerado_em = NOW() WHERE id = $1`,
+        [req.params.id],
+      ).catch(() => {});
+      res.json({ ok: true, fileUrl, sizeBytes: req.file.size });
+    } catch (e: any) {
+      console.error('[erp-quotes upload-pdf]', e);
+      sendError(res, e);
+    }
+  });
+});
+
 export default router;
