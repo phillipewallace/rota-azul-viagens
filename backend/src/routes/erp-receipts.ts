@@ -155,7 +155,12 @@ router.get('/pending', async (req, res) => {
     // fixo, que excluía contratos iniciados em 29/30/31).
     const r = await pool.query(
       `SELECT c.id AS "contractId", c.numero AS "contractNumero",
-              c.valor_mensal AS "valorMensal", c.dia_vencimento AS "diaVencimento",
+              COALESCE(
+                CASE WHEN c.tipo_contrato = 'evento' THEN c.valor_total_evento ELSE c.valor_mensal END,
+                0
+              )::numeric AS "valorMensal",
+              c.tipo_contrato AS "tipoContrato",
+              c.dia_vencimento AS "diaVencimento",
               c.data_inicio AS "dataInicio",
               c.renovacao_automatica AS "renovacaoAutomatica",
               c.company_id AS "companyId", c.customer_id AS "customerId",
