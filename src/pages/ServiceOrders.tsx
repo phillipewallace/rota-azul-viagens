@@ -51,8 +51,10 @@ const ServiceOrders: React.FC = () => {
   const [tipoFilter, setTipoFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, any>>({});
-  const [loadingDetail, setLoadingDetail] = useState<Record<string, boolean>>({});
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOs, setDetailOs] = useState<ServiceOrder | null>(null);
+  const [detailData, setDetailData] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [contractTarget, setContractTarget] = useState<ServiceOrder | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
 
@@ -62,17 +64,16 @@ const ServiceOrders: React.FC = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  const toggleExpand = async (o: ServiceOrder) => {
-    if (expanded[o.id]) {
-      setExpanded(prev => { const c = { ...prev }; delete c[o.id]; return c; });
-      return;
-    }
-    setLoadingDetail(prev => ({ ...prev, [o.id]: true }));
+  const openDetail = async (o: ServiceOrder) => {
+    setDetailOs(o);
+    setDetailData(null);
+    setDetailOpen(true);
+    setDetailLoading(true);
     try {
       const det = await serviceOrdersService.get(o.id);
-      setExpanded(prev => ({ ...prev, [o.id]: det }));
+      setDetailData(det);
     } catch (e: any) { toast.error(e.message); }
-    finally { setLoadingDetail(prev => { const c = { ...prev }; delete c[o.id]; return c; }); }
+    finally { setDetailLoading(false); }
   };
 
   // Financeiro modal
