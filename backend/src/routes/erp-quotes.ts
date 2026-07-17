@@ -1,11 +1,32 @@
 import { sendError } from '../utils/apiError';
 import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
 
 const router = Router();
 router.use(requireAuth);
+
+// Upload de PDF do orçamento — usado ao compartilhar por WhatsApp/e-mail
+// (o wa.me exige URL pública, então salvamos em uploads/quotes/, público).
+const quotesPdfDir = path.join(__dirname, '../../uploads/quotes');
+if (!fs.existsSync(quotesPdfDir)) fs.mkdirSync(quotesPdfDir, { recursive: true });
+const quotePdfUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req: any, _file: any, cb: any) => cb(null, quotesPdfDir),
+    filename: (req: any, _file: any, cb: any) => cb(null, `${req.params.id}.pdf`),
+  }),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req: any, file: any, cb: any) => {
+    if (!/pdf/i.test(file.mimetype) && !/\.pdf$/i.test(file.originalname)) {
+      return cb(new Error('Somente PDF é aceito'));
+    }
+    cb(null, true);
+  },
+});
 
 const QUOTE_SELECT = `
   q.id, q.numero, q.company_id AS "companyId", q.customer_id AS "customerId",
