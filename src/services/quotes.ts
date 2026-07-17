@@ -107,6 +107,21 @@ export const quotesService = {
       'POST', `/erp/quotes/${id}/convert-to-os`, body || {}),
   duplicate: (id: string) =>
     req<{ id: string; numero: string }>('POST', `/erp/quotes/${id}/duplicate`),
+  uploadPdf: async (id: string, blob: Blob): Promise<{ ok: true; fileUrl: string; sizeBytes: number }> => {
+    const fd = new FormData();
+    fd.append('file', blob, `Orcamento-${id}.pdf`);
+    const t = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_BASE_URL}/erp/quotes/${id}/upload-pdf`, {
+      method: 'POST',
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: fd,
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(e.error || 'Falha ao enviar PDF');
+    }
+    return res.json();
+  },
 };
 
 
