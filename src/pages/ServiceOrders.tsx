@@ -781,6 +781,129 @@ const ServiceOrders: React.FC = () => {
           if (o) await downloadContract(o, dataVencimento, preview, format);
         }}
       />
+
+      {/* Detalhes da OS — modal */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              OS <span className="font-mono">{detailOs?.numero}</span>
+              {detailOs && (detailOs.emAtraso
+                ? <Badge className="bg-red-600 text-white gap-1 ml-2"><AlertTriangle className="h-3 w-3" />Atrasada</Badge>
+                : <Badge className={`ml-2 ${detailOs.status === 'fechada' ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}`}>{detailOs.status}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {detailLoading && (
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando detalhes…
+            </div>
+          )}
+
+          {!detailLoading && detailOs && detailData && (() => {
+            const o = detailOs;
+            const det = detailData;
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="flex items-start gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div><strong>Empresa:</strong> {o.companyRazaoSocial || det.companySnapshot?.razao_social || '—'}</div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <User className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <strong>Cliente:</strong> {o.customerName || '—'}
+                      {det.customer_snapshot?.contact_phone && <> · {det.customer_snapshot.contact_phone}</>}
+                      {det.customer_snapshot?.contact_name && <> · {det.customer_snapshot.contact_name}</>}
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 md:col-span-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div><strong>Endereço:</strong> {det.endereco_entrega || o.customerAddress || '—'}</div>
+                  </div>
+                  <div className="flex items-start gap-2 md:col-span-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <strong>Entrega:</strong> {D(det.data_entrega || o.dataEntrega)}
+                      {(det.data_recolhimento || o.dataRecolhimento) && <> · <strong>Recolhimento:</strong> {D(det.data_recolhimento || o.dataRecolhimento)}</>}
+                      {det.data_fechamento && <> · <strong>Fechada em:</strong> {D(det.data_fechamento)}</>}
+                    </div>
+                  </div>
+                  <div>
+                    <strong>Modalidade:</strong> {o.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'}
+                  </div>
+                  <div>
+                    <strong>Tipo:</strong> {tipoLabel((o as any).tipoLocacao)}
+                  </div>
+                  {o.modalidade === 'mensal' && (det.limpezas_semanais ?? o.limpezasSemanais) != null && (det.tipo_locacao || o.tipoLocacao) !== 'evento' && (
+                    <div>🧽 <strong>Limpezas/semana:</strong> {det.limpezas_semanais ?? o.limpezasSemanais}</div>
+                  )}
+                </div>
+
+                {(det.forma_pagamento || (o as any).formaPagamento) && (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded p-2 text-indigo-900 text-xs">
+                    💳 <strong>Pagamento:</strong> {describeFormaPagamento(det.forma_pagamento || (o as any).formaPagamento, det.data_entrega || o.dataEntrega)}
+                  </div>
+                )}
+                {det.observacoes && (
+                  <div className="bg-muted/30 rounded p-2 text-xs">
+                    <strong>Observações:</strong> {det.observacoes}
+                  </div>
+                )}
+
+                {Array.isArray(det.items) && det.items.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1 font-semibold mt-1 mb-1">
+                      <Package className="h-4 w-4" /> Itens
+                    </div>
+                    <table className="w-full border rounded overflow-hidden text-xs">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="text-left p-1.5">Produto</th>
+                          <th className="text-right p-1.5">Qtd</th>
+                          <th className="text-right p-1.5">Valor un.</th>
+                          <th className="text-right p-1.5">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {det.items.map((it: any, i: number) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-1.5">{[it.produto, it.descricao].filter(Boolean).join(' — ')}</td>
+                            <td className="p-1.5 text-right">{Number(it.quantidade || 0)}</td>
+                            <td className="p-1.5 text-right">{BRL(Number(it.valorUnitario || it.valor_unitario || 0))}</td>
+                            <td className="p-1.5 text-right tabular-nums">{BRL(Number(it.valorTotal || it.valor_total || (Number(it.quantidade) || 0) * Number(it.valorUnitario || it.valor_unitario || 0)))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {Array.isArray(det.sanitarios) && det.sanitarios.length > 0 && (
+                  <div>
+                    <div className="font-semibold mt-1 mb-1">Sanitários vinculados ({det.sanitarios.length})</div>
+                    <div className="flex flex-wrap gap-1">
+                      {det.sanitarios.map((s: any, i: number) => (
+                        <Badge key={i} variant={s.devolvido_em || s.devolvidoEm ? 'outline' : 'default'} className="text-[11px] font-mono">
+                          {s.numero}{(s.devolvido_em || s.devolvidoEm) ? ' ✓' : ''}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t pt-2 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Frete: {BRL(Number(det.frete || 0))}</span>
+                  <span className="text-base"><strong>Total: {BRL(Number(det.valor_total || o.valorTotal || 0))}</strong></span>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
