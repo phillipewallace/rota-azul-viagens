@@ -381,6 +381,55 @@ const ErpQuotes: React.FC = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  /** Gera o PDF, envia ao servidor e retorna a URL pública absoluta. */
+  const uploadQuotePdf = async (q: Quote): Promise<string> => {
+    const blob = await generateQuotePdfBlob(q);
+    const { fileUrl } = await quotesService.uploadPdf(q.id, blob);
+    const origin = API_BASE_URL.replace(/\/api\/?$/, '');
+    return `${origin}${fileUrl}`;
+  };
+
+  const shareViaWhatsApp = async (q: Quote) => {
+    const phone = (q.responsavelTelefone || '').replace(/\D/g, '');
+    if (!phone) {
+      toast.error('Cadastre o telefone do responsável para enviar por WhatsApp.');
+      return;
+    }
+    const waNumber = phone.length <= 11 ? `55${phone}` : phone;
+    const t = toast.loading('Gerando e enviando PDF...');
+    try {
+      const url = await uploadQuotePdf(q);
+      const nome = q.responsavelNome ? `, ${q.responsavelNome}` : '';
+      const empresa = q.companyRazaoSocial ? ` da ${q.companyRazaoSocial}` : '';
+      const msg = `Olá${nome}! Segue o orçamento ${q.numero}${empresa}:\n${url}`;
+      window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+      toast.success('WhatsApp aberto', { id: t });
+    } catch (e: any) {
+      toast.error(e.message || 'Falha ao enviar', { id: t });
+    }
+  };
+
+  const shareViaEmail = async (q: Quote) => {
+    const email = (q.responsavelEmail || '').trim();
+    if (!email) {
+      toast.error('Cadastre o e-mail do responsável para enviar por e-mail.');
+      return;
+    }
+    const t = toast.loading('Gerando e enviando PDF...');
+    try {
+      const url = await uploadQuotePdf(q);
+      const nome = q.responsavelNome ? `, ${q.responsavelNome}` : '';
+      const subject = `Orçamento ${q.numero}${q.companyRazaoSocial ? ' - ' + q.companyRazaoSocial : ''}`;
+      const body = `Olá${nome},\n\nSegue o orçamento ${q.numero} em anexo:\n${url}\n\nAtenciosamente.`;
+      window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      toast.success('E-mail preparado', { id: t });
+    } catch (e: any) {
+      toast.error(e.message || 'Falha ao enviar', { id: t });
+    }
+  };
+
+
+
   // Badge de validade — só faz sentido em 'enviado' (aguardando resposta).
   const validadeBadge = (q: Quote) => {
     if (q.status !== 'enviado') return null;
