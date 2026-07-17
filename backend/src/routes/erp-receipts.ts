@@ -155,7 +155,12 @@ router.get('/pending', async (req, res) => {
     // fixo, que excluía contratos iniciados em 29/30/31).
     const r = await pool.query(
       `SELECT c.id AS "contractId", c.numero AS "contractNumero",
-              c.valor_mensal AS "valorMensal", c.dia_vencimento AS "diaVencimento",
+              COALESCE(
+                CASE WHEN c.tipo_contrato = 'evento' THEN c.valor_total_evento ELSE c.valor_mensal END,
+                0
+              )::numeric AS "valorMensal",
+              c.tipo_contrato AS "tipoContrato",
+              c.dia_vencimento AS "diaVencimento",
               c.data_inicio AS "dataInicio",
               c.renovacao_automatica AS "renovacaoAutomatica",
               c.company_id AS "companyId", c.customer_id AS "customerId",
@@ -258,7 +263,10 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       freteAplicado = (isPrimeiro && freteCt > 0) ? freteCt : 0;
     }
 
-    const baseValor = Number(valor ?? ct.valor_mensal ?? 0);
+    const valorPadraoContrato = ct.tipo_contrato === 'evento'
+      ? (ct.valor_total_evento ?? 0)
+      : (ct.valor_mensal ?? 0);
+    const baseValor = Number(valor ?? valorPadraoContrato ?? 0);
     if (!Number.isFinite(baseValor) || baseValor < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Valor do recibo inválido (número ≥ 0).' });
