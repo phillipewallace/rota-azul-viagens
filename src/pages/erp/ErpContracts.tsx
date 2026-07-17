@@ -515,8 +515,17 @@ const ErpContracts: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="font-semibold tabular-nums">{BRL(Number(c.valorMensal))}</div>
-                        <div className="text-[11px] text-muted-foreground">venc. dia {c.diaVencimento}</div>
+                        {c.tipoContrato === 'evento' ? (
+                          <>
+                            <div className="font-semibold tabular-nums">{BRL(Number(c.valorTotalEvento || 0))}</div>
+                            <div className="text-[11px] text-muted-foreground">valor do evento</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-semibold tabular-nums">{BRL(Number(c.valorMensal))}</div>
+                            <div className="text-[11px] text-muted-foreground">venc. dia {c.diaVencimento}</div>
+                          </>
+                        )}
                       </TableCell>
                       <TableCell>
                         {c.ativo
