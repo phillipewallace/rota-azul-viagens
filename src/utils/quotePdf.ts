@@ -17,7 +17,7 @@ function maskDoc(doc?: string) {
   return doc;
 }
 
-export async function generateQuotePdf(quote: Quote) {
+async function buildQuotePdfDoc(quote: Quote): Promise<jsPDF> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const M = 14;
