@@ -85,10 +85,10 @@ const DUP_CTE = `
   WITH dup_ids AS (
     SELECT id FROM (
       SELECT id,
-             COUNT(*) OVER (PARTITION BY regexp_replace(coalesce(document,''), '\\D', '', 'g'))
-               FILTER (WHERE coalesce(document,'') <> '') AS doc_cnt,
-             COUNT(*) OVER (PARTITION BY lower(coalesce(customer_name,'')))
-               FILTER (WHERE coalesce(document,'') = '' AND coalesce(customer_name,'') <> '') AS name_cnt
+             COUNT(*) FILTER (WHERE coalesce(document,'') <> '')
+               OVER (PARTITION BY regexp_replace(coalesce(document,''), '\\D', '', 'g')) AS doc_cnt,
+             COUNT(*) FILTER (WHERE coalesce(document,'') = '' AND coalesce(customer_name,'') <> '')
+               OVER (PARTITION BY lower(coalesce(customer_name,''))) AS name_cnt
         FROM customers
     ) x WHERE doc_cnt > 1 OR name_cnt > 1
   )
