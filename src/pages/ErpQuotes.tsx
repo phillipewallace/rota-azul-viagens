@@ -7,7 +7,7 @@ import {
   Plus, FileText, Trash2, Search, Loader2, Save, Download,
   CheckCircle2, RefreshCcw, FileDown, AlertCircle, Copy,
   AlertTriangle, TrendingUp, Send, ClipboardCheck, X, Clock,
-  MoreHorizontal, Pencil, XCircle,
+  MoreHorizontal, Pencil, XCircle, MessageCircle, Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
