@@ -139,9 +139,6 @@ export async function generateReceiptPdf(
   doc.text('VALOR RECEBIDO', M + 6, 62);
   doc.setTextColor(...PRIMARY); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
   doc.text(BRL(valor), M + 6, 71);
-  // (selo "PAGO" removido por preferência do cliente)
-
-
   // ---------- Cliente ----------
   let y = 84;
   doc.setTextColor(...PRIMARY);
@@ -456,9 +453,6 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   doc.text('VALOR TOTAL RECEBIDO', M + 6, 62);
   doc.setTextColor(...PRIMARY); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
   doc.text(BRL(input.total), M + 6, 71);
-  // (selo "PAGO" removido por preferência do cliente)
-
-
   // ---------- Cliente (sem seção "LOCAL DE PRESTAÇÃO") ----------
   let y = 84;
   doc.setTextColor(...PRIMARY);
