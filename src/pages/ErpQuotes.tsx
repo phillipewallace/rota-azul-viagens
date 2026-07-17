@@ -714,6 +714,20 @@ const ErpQuotes: React.FC = () => {
                       <IconAction label="Baixar PDF" onClick={() => generateQuotePdf(q)}>
                         <FileDown className="h-3.5 w-3.5" />
                       </IconAction>
+                      <IconAction
+                        label={q.responsavelTelefone ? `Enviar por WhatsApp (${q.responsavelTelefone})` : 'Cadastre o telefone do responsável'}
+                        tone="success"
+                        onClick={() => shareViaWhatsApp(q)}
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                      </IconAction>
+                      <IconAction
+                        label={q.responsavelEmail ? `Enviar por e-mail (${q.responsavelEmail})` : 'Cadastre o e-mail do responsável'}
+                        tone="brand"
+                        onClick={() => shareViaEmail(q)}
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                      </IconAction>
                       <IconAction label="Duplicar" onClick={() => duplicateQuote(q)}>
                         <Copy className="h-3.5 w-3.5" />
                       </IconAction>
