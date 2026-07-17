@@ -251,5 +251,15 @@ async function buildQuotePdfDoc(quote: Quote): Promise<jsPDF> {
     W / 2, doc.internal.pageSize.getHeight() - 6, { align: 'center' }
   );
 
+  return doc;
+}
+
+export async function generateQuotePdf(quote: Quote): Promise<void> {
+  const doc = await buildQuotePdfDoc(quote);
   doc.save(`Orcamento-${quote.numero}.pdf`);
+}
+
+export async function generateQuotePdfBlob(quote: Quote): Promise<Blob> {
+  const doc = await buildQuotePdfDoc(quote);
+  return doc.output('blob');
 }
