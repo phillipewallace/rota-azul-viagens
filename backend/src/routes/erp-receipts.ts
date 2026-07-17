@@ -263,7 +263,10 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       freteAplicado = (isPrimeiro && freteCt > 0) ? freteCt : 0;
     }
 
-    const baseValor = Number(valor ?? ct.valor_mensal ?? 0);
+    const valorPadraoContrato = ct.tipo_contrato === 'evento'
+      ? (ct.valor_total_evento ?? 0)
+      : (ct.valor_mensal ?? 0);
+    const baseValor = Number(valor ?? valorPadraoContrato ?? 0);
     if (!Number.isFinite(baseValor) || baseValor < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Valor do recibo inválido (número ≥ 0).' });
