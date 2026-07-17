@@ -3000,7 +3000,7 @@ const ErpFinanceiro: React.FC = () => {
 // ========================= status badge =========================
 const StatusBadge: React.FC<{ r: Receipt }> = ({ r }) => {
   if (r.status === 'cancelado') return <Badge variant="outline" className="text-slate-500 border-slate-300">Cancelado</Badge>;
-  if (r.status === 'pago')      return <Badge className="bg-emerald-600 hover:bg-emerald-700">Pago</Badge>;
+  if (r.status === 'pago')      return null;
   if (r.status === 'parcial')   return <Badge className="bg-amber-500 hover:bg-amber-600">Parcial</Badge>;
   return <Badge variant="secondary">Em aberto</Badge>;
 };
