@@ -555,10 +555,13 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
 
   // Quitação
   doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-  const txt =
-    `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(input.total)} ` +
-    `referente à locação de bens móveis (${input.items.length} contrato(s)) no período ${compLabel}, ` +
-    `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
+  const txt = input.semValidade
+    ? `Documento de controle interno referente à locação de bens móveis (${input.items.length} contrato(s)) ` +
+      `para ${cu.name || co.razaoSocial || ''}, no valor total de ${BRL(input.total)}, período ${compLabel}. ` +
+      `Este documento NÃO possui validade fiscal nem constitui quitação.`
+    : `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(input.total)} ` +
+      `referente à locação de bens móveis (${input.items.length} contrato(s)) no período ${compLabel}, ` +
+      `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
   const wrap = doc.splitTextToSize(txt, W - 2 * M);
   doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
 
