@@ -762,7 +762,7 @@ const ErpFinanceiro: React.FC = () => {
             contractId: p.contractId,
           });
           const r = list.find(x => x.id === out.id);
-          if (r) await generateReceiptPdf(r);
+          if (r) await generateReceiptPdf(receiptForPdf(r));
         } catch { /* PDF best-effort */ }
       }
       await load();
@@ -1013,7 +1013,7 @@ const ErpFinanceiro: React.FC = () => {
         });
         return;
       }
-      await generateReceiptPdf(r);
+      await generateReceiptPdf(receiptForPdf(r));
     } catch (e: any) { toast.error(e.message); }
   };
 
@@ -1213,7 +1213,7 @@ const ErpFinanceiro: React.FC = () => {
       for (let i = 0; i < filtrados.length; i++) {
         const r = filtrados[i];
         try {
-          const res = await generateReceiptPdf(r, { returnBlob: true });
+          const res = await generateReceiptPdf(receiptForPdf(r), { returnBlob: true });
           if (res && 'blob' in res) {
             const folder = r.semValidade ? semValidade : comValidade;
             (folder || zip).file(res.filename, res.blob);
@@ -1284,7 +1284,7 @@ const ErpFinanceiro: React.FC = () => {
       for (let i = 0; i < filtrados.length; i++) {
         const r = filtrados[i];
         try {
-          const res = await generateReceiptPdf(r, { returnBlob: true });
+          const res = await generateReceiptPdf(receiptForPdf(r), { returnBlob: true });
           if (res && 'blob' in res) {
             const folder = r.semValidade ? semValidade : comValidade;
             (folder || zip).file(res.filename, res.blob);
