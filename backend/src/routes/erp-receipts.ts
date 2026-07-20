@@ -224,6 +224,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
               emp.telefone AS company_telefone, emp.email AS company_email,
               emp.logo_url AS company_logo_url, emp.logo_dataurl AS company_logo_dataurl,
               emp.assinatura_url AS company_assinatura_url,
+              emp.financeiro_contato AS company_financeiro_contato,
               emp.inscricao_estadual AS company_ie,
               cu.customer_name, cu.document AS customer_document, cu.address AS customer_address,
               cu.numero AS customer_numero, cu.bairro AS customer_bairro,
@@ -297,6 +298,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
         inscricaoEstadual: ct.company_ie,
         logoUrl: ct.company_logo_url, logoDataUrl: ct.company_logo_dataurl,
         assinaturaUrl: ct.company_assinatura_url,
+        financeiroContato: ct.company_financeiro_contato,
       },
       customer: {
         name: ct.customer_name, document: ct.customer_document,
