@@ -103,7 +103,14 @@ export async function generateReceiptPdf(
     for (const w of wEnd) { doc.text(w, textX, lineY); lineY += 4.5; }
   }
   const cont = [co.telefone, co.email].filter(Boolean).join('  ·  ');
-  if (cont) doc.text(cont, textX, lineY, { maxWidth: textMaxW });
+  if (cont) { doc.text(cont, textX, lineY, { maxWidth: textMaxW }); lineY += 4.5; }
+  if (co.financeiroContato) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+    doc.text('Financeiro: ', textX, lineY);
+    const labelW = doc.getTextWidth('Financeiro: ');
+    doc.setFont('helvetica', 'normal');
+    doc.text(String(co.financeiroContato), textX + labelW, lineY, { maxWidth: textMaxW - labelW });
+  }
 
   // Caixa Nº/data à direita
   doc.setFillColor(255, 255, 255);
@@ -424,7 +431,14 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
     for (const w of wEnd) { doc.text(w, textX, lineY); lineY += 4.5; }
   }
   const cont = [co.telefone, co.email].filter(Boolean).join('  ·  ');
-  if (cont) doc.text(cont, textX, lineY, { maxWidth: textMaxW });
+  if (cont) { doc.text(cont, textX, lineY, { maxWidth: textMaxW }); lineY += 4.5; }
+  if (co.financeiroContato) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+    doc.text('Financeiro: ', textX, lineY);
+    const labelW = doc.getTextWidth('Financeiro: ');
+    doc.setFont('helvetica', 'normal');
+    doc.text(String(co.financeiroContato), textX + labelW, lineY, { maxWidth: textMaxW - labelW });
+  }
 
   // Caixa Nº/data
   doc.setFillColor(255, 255, 255);

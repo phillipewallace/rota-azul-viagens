@@ -6,7 +6,7 @@ import { requireAuth } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
-const DOCS = ['ORC', 'OS', 'CTR', 'REC'];
+const DOCS = ['ORC', 'OS', 'CTR', 'REC', 'REC_SV'];
 
 router.get('/', async (_req, res) => {
   try {
@@ -18,7 +18,7 @@ router.get('/', async (_req, res) => {
     // garante todos os docs no retorno
     const map = new Map(r.rows.map((x: any) => [x.doc, x]));
     const rows = DOCS.map((d) => map.get(d) || {
-      doc: d, startNumber: 0, includeYear: d === 'ORC' || d === 'OS', padding: 4, prefix: d,
+      doc: d, startNumber: 0, includeYear: d === 'ORC' || d === 'OS', padding: 4, prefix: d === 'REC_SV' ? null : d,
     });
     res.json(rows);
   } catch (e: any) { sendError(res, e); }

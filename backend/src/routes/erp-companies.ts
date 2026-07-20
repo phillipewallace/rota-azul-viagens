@@ -15,6 +15,7 @@ router.get('/', async (_req, res) => {
              cnpj, inscricao_estadual AS "inscricaoEstadual",
              endereco, cidade, estado, cep, telefone, email, logo_url AS "logoUrl",
              assinatura_url AS "assinaturaUrl",
+             financeiro_contato AS "financeiroContato",
              ativo, created_at AS "createdAt"
         FROM erp_companies
        ORDER BY created_at ASC`);
@@ -50,17 +51,21 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'CNPJ inválido' });
     }
     // [#4 crítico] insert condicional dentro de transação — evita race no limite de empresas.
+    const finContato = c.financeiroContato != null
+      ? String(c.financeiroContato).trim().slice(0, 500) || null
+      : null;
     const r = await pool.query(
       `INSERT INTO erp_companies
         (razao_social, nome_fantasia, cnpj, inscricao_estadual,
-         endereco, cidade, estado, cep, telefone, email, logo_url, assinatura_url, ativo)
-       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13,TRUE)
+         endereco, cidade, estado, cep, telefone, email, logo_url, assinatura_url,
+         financeiro_contato, ativo)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,COALESCE($14,TRUE)
         WHERE (SELECT COUNT(*) FROM erp_companies) < ${MAX_COMPANIES}
        RETURNING *`,
       [c.razaoSocial, c.nomeFantasia || null, cnpjDigits,
        c.inscricaoEstadual || null, c.endereco || null, c.cidade || null,
        c.estado || null, c.cep || null, c.telefone || null, c.email || null,
-       c.logoUrl || null, c.assinaturaUrl || null, c.ativo]
+       c.logoUrl || null, c.assinaturaUrl || null, finContato, c.ativo]
     );
     if (!r.rows[0]) {
       return res.status(400).json({ error: `Limite de ${MAX_COMPANIES} empresas atingido` });
@@ -79,6 +84,9 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const c = req.body || {};
+    const finContato = c.financeiroContato != null
+      ? String(c.financeiroContato).trim().slice(0, 500) || null
+      : null;
     const r = await pool.query(
       `UPDATE erp_companies SET
          razao_social = COALESCE($2, razao_social),
@@ -88,14 +96,15 @@ router.put('/:id', async (req, res) => {
          endereco = $6, cidade = $7, estado = $8, cep = $9,
          telefone = $10, email = $11, logo_url = $12,
          assinatura_url = $13,
-         ativo = COALESCE($14, ativo),
+         financeiro_contato = $14,
+         ativo = COALESCE($15, ativo),
          updated_at = NOW()
        WHERE id = $1 RETURNING *`,
       [req.params.id, c.razaoSocial, c.nomeFantasia || null,
        c.cnpj ? String(c.cnpj).replace(/\D/g, '') : null,
        c.inscricaoEstadual || null, c.endereco || null, c.cidade || null,
        c.estado || null, c.cep || null, c.telefone || null, c.email || null,
-       c.logoUrl || null, c.assinaturaUrl || null, c.ativo]
+       c.logoUrl || null, c.assinaturaUrl || null, finContato, c.ativo]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     res.json(r.rows[0]);
