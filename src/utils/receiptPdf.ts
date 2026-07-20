@@ -251,10 +251,13 @@ export async function generateReceiptPdf(
 
   // ---------- Frase de quitação ----------
   doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-  const txt =
-    `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(valor)} ` +
-    `referente à locação de bens móveis referente ao período ${competenciaLabel}, ` +
-    `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
+  const txt = rec.semValidade
+    ? `Documento de controle interno referente à locação de bens móveis para ${cu.name || co.razaoSocial || ''}, ` +
+      `no valor de ${BRL(valor)}, referente ao período ${competenciaLabel}. ` +
+      `Este documento NÃO possui validade fiscal nem constitui quitação.`
+    : `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(valor)} ` +
+      `referente à locação de bens móveis referente ao período ${competenciaLabel}, ` +
+      `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
   const wrap = doc.splitTextToSize(txt, W - 2 * M);
   doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
 
