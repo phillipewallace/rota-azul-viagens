@@ -190,6 +190,7 @@ export interface ErpCompany {
   email?: string;
   logoUrl?: string;
   assinaturaUrl?: string;
+  financeiroContato?: string;
   ativo: boolean;
   createdAt?: string;
 }
