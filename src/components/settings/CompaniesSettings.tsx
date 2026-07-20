@@ -286,6 +286,10 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
             )}
           </div>
         </div>
+        <Field label="Contato do Financeiro (nome / telefone / e-mail — aparece no recibo)"
+          value={local.financeiroContato || ''}
+          onChange={(v) => setLocal({ ...local, financeiroContato: v.slice(0, 500) })}
+          className="md:col-span-2" />
         <SignatureField
           value={local.assinaturaUrl || ''}
           onChange={(v) => setLocal({ ...local, assinaturaUrl: v })}
@@ -341,7 +345,8 @@ function SignatureField({ value, onChange }: { value: string; onChange: (v: stri
 // Numeração de documentos
 // ============================
 const DOC_LABELS: Record<string, string> = {
-  ORC: 'Orçamentos', OS: 'Ordens de Serviço', CTR: 'Contratos', REC: 'Recibos',
+  ORC: 'Orçamentos', OS: 'Ordens de Serviço', CTR: 'Contratos',
+  REC: 'Recibos', REC_SV: 'Recibos sem validade jurídica',
 };
 
 function DocNumberingSettings() {
