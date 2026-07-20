@@ -1009,6 +1009,7 @@ const ErpFinanceiro: React.FC = () => {
           customer: first.customer || { name: r.customerName },
           items,
           total,
+          semValidade: !!r.semValidade,
         });
         return;
       }
