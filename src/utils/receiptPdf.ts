@@ -359,6 +359,7 @@ export interface UnifiedReceiptInput {
   customer: any;
   items: UnifiedReceiptItem[];
   total: number;
+  semValidade?: boolean;
 }
 
 export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
