@@ -454,7 +454,7 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   doc.setFillColor(...PRIMARY);
   doc.rect(M, 56, 1.5, 18, 'F');
   doc.setTextColor(100, 110, 130); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-  doc.text('VALOR TOTAL RECEBIDO', M + 6, 62);
+  doc.text(input.semValidade ? 'VALOR TOTAL' : 'VALOR TOTAL RECEBIDO', M + 6, 62);
   doc.setTextColor(...PRIMARY); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
   doc.text(BRL(input.total), M + 6, 71);
   // ---------- Cliente (sem seção "LOCAL DE PRESTAÇÃO") ----------
