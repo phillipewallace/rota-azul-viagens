@@ -70,6 +70,16 @@ import { downloadCsv } from '@/utils/exporters';
 
 const D = (s?: string) => s ? formatDateBR(s) : '—';
 
+// PDF não deve exibir carimbo/selo de pagamento. Para evitar que qualquer
+// lógica visual antiga baseada em `pago/status` volte a desenhar o círculo
+// verde "PAGO", o recibo é sanitizado apenas na hora de gerar o PDF.
+const receiptForPdf = (r: Receipt): Receipt => ({
+  ...r,
+  pago: false,
+  status: r.status === 'cancelado' ? 'cancelado' : 'aberto',
+  valorPago: null,
+});
+
 const compAtual = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -719,7 +729,7 @@ const ErpFinanceiro: React.FC = () => {
       try {
         const list = await receiptsService.list({ competencia, contractId });
         const r = list.find(x => x.id === out.id);
-        if (r) await generateReceiptPdf(r);
+        if (r) await generateReceiptPdf(receiptForPdf(r));
       } catch { /* PDF best-effort */ }
     }
     if (!opts?.silent) toast.success(`Recibo ${out.numero} gerado`);
@@ -1781,7 +1791,7 @@ const ErpFinanceiro: React.FC = () => {
                                 <Button
                                   size="sm" variant="ghost"
                                   className="h-8 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring/50"
-                                  onClick={() => generateReceiptPdf(r)}
+                                  onClick={() => generateReceiptPdf(receiptForPdf(r))}
                                   aria-label="Baixar PDF do recibo"
                                 >
                                   <Download className="h-3.5 w-3.5" />
@@ -1858,7 +1868,7 @@ const ErpFinanceiro: React.FC = () => {
                             <Button
                               size="sm" variant="ghost"
                               className="h-8 transition-colors duration-200"
-                              onClick={() => generateReceiptPdf(r)}
+                              onClick={() => generateReceiptPdf(receiptForPdf(r))}
                               aria-label="Baixar PDF do recibo"
                             >
                               <Download className="h-3.5 w-3.5" />
