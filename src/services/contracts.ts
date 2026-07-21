@@ -15,16 +15,29 @@ async function req<T>(method: string, path: string, body?: any): Promise<T> {
 }
 
 // ===== Doc settings (numeração)
+export type DocKey = 'ORC' | 'OS' | 'CTR' | 'REC' | 'REC_SV';
 export interface DocSetting {
-  doc: 'ORC' | 'OS' | 'CTR' | 'REC';
+  doc: DocKey;
   startNumber: number;
   includeYear: boolean;
   padding: number;
-  prefix?: string;
+  prefix?: string | null;
+}
+export interface CompanyDocSetting extends DocSetting {
+  hasOverride: boolean;
 }
 export const docSettingsService = {
   list: () => req<DocSetting[]>('GET', '/erp/doc-settings'),
-  update: (doc: string, data: Partial<DocSetting>) => req<{ ok: true }>('PUT', `/erp/doc-settings/${doc}`, data),
+  update: (doc: string, data: Partial<DocSetting>) =>
+    req<{ ok: true }>('PUT', `/erp/doc-settings/${doc}`, data),
+
+  // Numeração por empresa (override opcional; sem override cai no global)
+  listByCompany: (companyId: string) =>
+    req<CompanyDocSetting[]>('GET', `/erp/doc-settings/company/${companyId}`),
+  updateByCompany: (companyId: string, doc: string, data: Partial<DocSetting>) =>
+    req<{ ok: true }>('PUT', `/erp/doc-settings/company/${companyId}/${doc}`, data),
+  resetByCompany: (companyId: string, doc: string) =>
+    req<{ ok: true }>('DELETE', `/erp/doc-settings/company/${companyId}/${doc}`),
 };
 
 // ===== Contratos
