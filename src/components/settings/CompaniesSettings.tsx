@@ -311,14 +311,21 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
 function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<CompanyDocSetting[] | null>(null);
+  const [counters, setCounters] = useState<Record<string, { ultimo: number; ano: number }>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingDoc, setSavingDoc] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true); setError(null);
-    try { setItems(await docSettingsService.listByCompany(companyId)); }
-    catch (e: any) { setError(e.message || 'Erro ao carregar'); }
+    try {
+      const [its, cts] = await Promise.all([
+        docSettingsService.listByCompany(companyId),
+        docSettingsService.getCountersByCompany(companyId),
+      ]);
+      setItems(its);
+      setCounters(Object.fromEntries(cts.map((c) => [c.doc, { ultimo: c.ultimo, ano: c.ano }])));
+    } catch (e: any) { setError(e.message || 'Erro ao carregar'); }
     finally { setLoading(false); }
   };
 
@@ -347,6 +354,19 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
     finally { setSavingDoc(null); }
   };
 
+  const setCounter = async (doc: string, proximo: number) => {
+    if (!Number.isFinite(proximo) || proximo < 1) {
+      toast.error('Informe um número ≥ 1'); return;
+    }
+    setSavingDoc(doc);
+    try {
+      const r = await docSettingsService.setCounterByCompany(companyId, doc, proximo);
+      toast.success(`Próxima ${DOC_LABELS[doc]} desta empresa: ${r.proximo}${r.ano ? ` (${r.ano})` : ''}`);
+      await load();
+    } catch (e: any) { toast.error(e.message || 'Erro ao atualizar contador'); }
+    finally { setSavingDoc(null); }
+  };
+
   return (
     <div className="border-t pt-3">
       <button type="button" onClick={() => setOpen((o) => !o)}
@@ -354,7 +374,7 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
         <Hash className="h-4 w-4" /> Numeração de documentos desta empresa {open ? '▾' : '▸'}
       </button>
       <p className="text-[11px] text-muted-foreground mt-1">
-        Opcional. Se não configurar, esta empresa usa a numeração global acima.
+        Opcional. Cada empresa mantém seu próprio contador. Sem configuração, usa a numeração global acima.
       </p>
 
       {open && (
@@ -378,8 +398,9 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
               {items.map((it) => (
                 <CompanyDocRow
                   key={it.doc} item={it}
+                  counter={counters[it.doc]}
                   saving={savingDoc === it.doc}
-                  onSave={save} onReset={reset}
+                  onSave={save} onReset={reset} onSetCounter={setCounter}
                 />
               ))}
             </div>
@@ -389,6 +410,7 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
     </div>
   );
 }
+
 
 function CompanyDocRow({ item, saving, onSave, onReset }: {
   item: CompanyDocSetting; saving: boolean;
