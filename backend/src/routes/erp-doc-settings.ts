@@ -185,9 +185,6 @@ router.put('/company/:companyId/:doc/counter', async (req, res) => {
     if (!DOCS.includes(doc)) return res.status(400).json({ error: 'doc inválido' });
     const proximo = Number(req.body?.proximo);
     if (!Number.isFinite(proximo) || proximo < 1 || proximo > 9_999_999) {
-      return { } as any;
-    }
-    if (!Number.isFinite(proximo) || proximo < 1 || proximo > 9_999_999) {
       return res.status(400).json({ error: 'proximo inválido (1 a 9.999.999)' });
     }
     const exists = await pool.query('SELECT 1 FROM erp_companies WHERE id=$1', [companyId]);
