@@ -206,13 +206,33 @@ router.put('/company/:companyId/:doc/counter', async (req, res) => {
 
     // ultimo = proximo - 1 (a próxima emissão retornará proximo)
     const ultimo = Math.floor(proximo) - 1;
-    await pool.query(
-      `INSERT INTO erp_doc_counters(company_id, doc, ano, ultimo)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (company_id, doc, ano) WHERE company_id IS NOT NULL
-       DO UPDATE SET ultimo = EXCLUDED.ultimo`,
+    // UPDATE-then-INSERT: evita depender de inferência de índice parcial no ON CONFLICT
+    // (o índice único é parcial: WHERE company_id IS NOT NULL) e elimina 409 espúrio.
+    const upd = await pool.query(
+      `UPDATE erp_doc_counters
+          SET ultimo = $4
+        WHERE company_id = $1 AND doc = $2 AND ano = $3`,
       [companyId, doc, ano, ultimo]
     );
+    if (upd.rowCount === 0) {
+      try {
+        await pool.query(
+          `INSERT INTO erp_doc_counters(company_id, doc, ano, ultimo)
+           VALUES ($1,$2,$3,$4)`,
+          [companyId, doc, ano, ultimo]
+        );
+      } catch (err: any) {
+        // corrida: alguém inseriu entre UPDATE e INSERT — refaz o UPDATE.
+        if (err?.code === '23505') {
+          await pool.query(
+            `UPDATE erp_doc_counters
+                SET ultimo = $4
+              WHERE company_id = $1 AND doc = $2 AND ano = $3`,
+            [companyId, doc, ano, ultimo]
+          );
+        } else { throw err; }
+      }
+    }
     res.json({ ok: true, ano, ultimo, proximo: ultimo + 1 });
   } catch (e: any) { sendError(res, e); }
 });
