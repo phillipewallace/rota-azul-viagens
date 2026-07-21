@@ -311,14 +311,21 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
 function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<CompanyDocSetting[] | null>(null);
+  const [counters, setCounters] = useState<Record<string, { ultimo: number; ano: number }>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingDoc, setSavingDoc] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true); setError(null);
-    try { setItems(await docSettingsService.listByCompany(companyId)); }
-    catch (e: any) { setError(e.message || 'Erro ao carregar'); }
+    try {
+      const [its, cts] = await Promise.all([
+        docSettingsService.listByCompany(companyId),
+        docSettingsService.getCountersByCompany(companyId),
+      ]);
+      setItems(its);
+      setCounters(Object.fromEntries(cts.map((c) => [c.doc, { ultimo: c.ultimo, ano: c.ano }])));
+    } catch (e: any) { setError(e.message || 'Erro ao carregar'); }
     finally { setLoading(false); }
   };
 
@@ -347,6 +354,19 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
     finally { setSavingDoc(null); }
   };
 
+  const setCounter = async (doc: string, proximo: number) => {
+    if (!Number.isFinite(proximo) || proximo < 1) {
+      toast.error('Informe um número ≥ 1'); return;
+    }
+    setSavingDoc(doc);
+    try {
+      const r = await docSettingsService.setCounterByCompany(companyId, doc, proximo);
+      toast.success(`Próxima ${DOC_LABELS[doc]} desta empresa: ${r.proximo}${r.ano ? ` (${r.ano})` : ''}`);
+      await load();
+    } catch (e: any) { toast.error(e.message || 'Erro ao atualizar contador'); }
+    finally { setSavingDoc(null); }
+  };
+
   return (
     <div className="border-t pt-3">
       <button type="button" onClick={() => setOpen((o) => !o)}
@@ -354,7 +374,7 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
         <Hash className="h-4 w-4" /> Numeração de documentos desta empresa {open ? '▾' : '▸'}
       </button>
       <p className="text-[11px] text-muted-foreground mt-1">
-        Opcional. Se não configurar, esta empresa usa a numeração global acima.
+        Opcional. Cada empresa mantém seu próprio contador. Sem configuração, usa a numeração global acima.
       </p>
 
       {open && (
@@ -378,8 +398,9 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
               {items.map((it) => (
                 <CompanyDocRow
                   key={it.doc} item={it}
+                  counter={counters[it.doc]}
                   saving={savingDoc === it.doc}
-                  onSave={save} onReset={reset}
+                  onSave={save} onReset={reset} onSetCounter={setCounter}
                 />
               ))}
             </div>
@@ -390,17 +411,22 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
   );
 }
 
-function CompanyDocRow({ item, saving, onSave, onReset }: {
+
+function CompanyDocRow({ item, counter, saving, onSave, onReset, onSetCounter }: {
   item: CompanyDocSetting; saving: boolean;
+  counter?: { ultimo: number; ano: number };
   onSave: (it: CompanyDocSetting) => void;
   onReset: (doc: string) => void;
+  onSetCounter: (doc: string, proximo: number) => void;
 }) {
   const [local, setLocal] = useState<CompanyDocSetting>(item);
+  const [proximo, setProximo] = useState<string>('');
   useEffect(() => setLocal(item), [item]);
+  useEffect(() => { setProximo(counter ? String((counter.ultimo || 0) + 1) : ''); }, [counter?.ultimo, counter?.ano]);
   const dirty = JSON.stringify(local) !== JSON.stringify(item);
 
-  const startN = Number(local.startNumber) || 0;
   const pad = Math.min(10, Math.max(1, Number(local.padding) || 4));
+  const startN = Number(local.startNumber) || 0;
   const preview = local.includeYear
     ? `${local.prefix || local.doc}-${new Date().getFullYear()}-${String(startN + 1).padStart(pad, '0')}`
     : String(startN + 1).padStart(pad, '0');
@@ -409,6 +435,10 @@ function CompanyDocRow({ item, saving, onSave, onReset }: {
   const validPad = pad === Number(local.padding);
   const validStart = startN >= 0 && startN <= 9_999_999 && startN === Number(local.startNumber);
   const canSave = dirty && !saving && validPrefix && validPad && validStart;
+
+  const proximoN = Number(proximo);
+  const validProximo = Number.isFinite(proximoN) && proximoN >= 1 && proximoN <= 9_999_999;
+  const proximoDirty = counter ? proximoN !== (counter.ultimo || 0) + 1 : !!proximo;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end border rounded p-2 bg-slate-50/50">
@@ -455,6 +485,29 @@ function CompanyDocRow({ item, saving, onSave, onReset }: {
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
           </Button>
         </div>
+      </div>
+
+      {/* Contador atual: retomar de onde parou */}
+      <div className="md:col-span-7 flex flex-wrap items-end gap-2 border-t pt-2 mt-1">
+        <div className="flex-1 min-w-[180px]">
+          <Label className="text-xs">
+            Próximo Nº a emitir {counter?.ano ? <span className="text-slate-400">({counter.ano})</span> : null}
+          </Label>
+          <Input type="number" min={1} value={proximo}
+            onChange={(e) => setProximo(e.target.value)}
+            placeholder={counter ? String((counter.ultimo || 0) + 1) : '1'} />
+          {!validProximo && proximo !== '' && (
+            <div className="text-[10px] text-red-600 mt-0.5">informe entre 1 e 9.999.999</div>
+          )}
+        </div>
+        <div className="text-[11px] text-slate-500 flex-1 min-w-[180px]">
+          Último emitido nesta empresa: <span className="font-mono">{counter?.ultimo ?? 0}</span>.
+          Use para <b>retomar</b> a numeração de onde parou (ex.: 128) — a próxima emissão sairá com esse número.
+        </div>
+        <Button size="sm" variant="outline" disabled={saving || !validProximo || !proximoDirty}
+          onClick={() => onSetCounter(item.doc, proximoN)} className="h-8 px-3 text-xs">
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Aplicar próximo Nº'}
+        </Button>
       </div>
     </div>
   );

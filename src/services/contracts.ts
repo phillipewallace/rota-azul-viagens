@@ -38,6 +38,14 @@ export const docSettingsService = {
     req<{ ok: true }>('PUT', `/erp/doc-settings/company/${companyId}/${doc}`, data),
   resetByCompany: (companyId: string, doc: string) =>
     req<{ ok: true }>('DELETE', `/erp/doc-settings/company/${companyId}/${doc}`),
+
+  // Contador atual (por empresa/doc/ano)
+  getCountersByCompany: (companyId: string, ano?: number) =>
+    req<Array<{ doc: DocKey; ano: number; ultimo: number; includeYear: boolean }>>(
+      'GET', `/erp/doc-settings/company/${companyId}/counters${ano ? `?ano=${ano}` : ''}`),
+  setCounterByCompany: (companyId: string, doc: string, proximo: number, ano?: number) =>
+    req<{ ok: true; ano: number; ultimo: number; proximo: number }>(
+      'PUT', `/erp/doc-settings/company/${companyId}/${doc}/counter`, { proximo, ano }),
 };
 
 // ===== Contratos
