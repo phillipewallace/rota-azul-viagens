@@ -338,7 +338,10 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     // e são exibidos como "0001". Prefixamos internamente com "SV-" apenas
     // para preservar a UNIQUE(numero) sem contaminar o PDF/UI.
     const docKey = semValidade ? 'REC_SV' : 'REC';
-    const numRes = await client.query(`SELECT erp_next_doc_number($1) AS num`, [docKey]);
+    const numRes = await client.query(
+      `SELECT erp_next_doc_number($1, $2::uuid) AS num`,
+      [docKey, ct.company_id || null]
+    );
     const rawNum = numRes.rows[0].num as string;
     const numeroDisplay = semValidade ? rawNum : null;
     const numero = semValidade ? `SV-${rawNum}` : rawNum;

@@ -111,7 +111,10 @@ router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const numRes = await client.query(`SELECT erp_next_doc_number('CTR') AS num`);
+    const numRes = await client.query(
+      `SELECT erp_next_doc_number('CTR', $1::uuid) AS num`,
+      [c.companyId || null]
+    );
     const numero = numRes.rows[0].num;
 
     let companySnap: any = null, customerSnap: any = null;
