@@ -96,7 +96,7 @@ export default function CompaniesSettings() {
 
   return (
     <div className="space-y-6">
-      <DocNumberingSettings />
+
 
       <Card>
         <CardHeader>
@@ -374,8 +374,9 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
         <Hash className="h-4 w-4" /> Numeração de documentos desta empresa {open ? '▾' : '▸'}
       </button>
       <p className="text-[11px] text-muted-foreground mt-1">
-        Opcional. Cada empresa mantém seu próprio contador. Sem configuração, usa a numeração global acima.
+        Cada empresa mantém seu próprio contador por documento.
       </p>
+
 
       {open && (
         <div className="mt-3">
