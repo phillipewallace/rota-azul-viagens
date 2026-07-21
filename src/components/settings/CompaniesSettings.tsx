@@ -96,7 +96,7 @@ export default function CompaniesSettings() {
 
   return (
     <div className="space-y-6">
-      <DocNumberingSettings />
+
 
       <Card>
         <CardHeader>
