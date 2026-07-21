@@ -412,17 +412,21 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
 }
 
 
-function CompanyDocRow({ item, saving, onSave, onReset }: {
+function CompanyDocRow({ item, counter, saving, onSave, onReset, onSetCounter }: {
   item: CompanyDocSetting; saving: boolean;
+  counter?: { ultimo: number; ano: number };
   onSave: (it: CompanyDocSetting) => void;
   onReset: (doc: string) => void;
+  onSetCounter: (doc: string, proximo: number) => void;
 }) {
   const [local, setLocal] = useState<CompanyDocSetting>(item);
+  const [proximo, setProximo] = useState<string>('');
   useEffect(() => setLocal(item), [item]);
+  useEffect(() => { setProximo(counter ? String((counter.ultimo || 0) + 1) : ''); }, [counter?.ultimo, counter?.ano]);
   const dirty = JSON.stringify(local) !== JSON.stringify(item);
 
-  const startN = Number(local.startNumber) || 0;
   const pad = Math.min(10, Math.max(1, Number(local.padding) || 4));
+  const startN = Number(local.startNumber) || 0;
   const preview = local.includeYear
     ? `${local.prefix || local.doc}-${new Date().getFullYear()}-${String(startN + 1).padStart(pad, '0')}`
     : String(startN + 1).padStart(pad, '0');
@@ -431,6 +435,10 @@ function CompanyDocRow({ item, saving, onSave, onReset }: {
   const validPad = pad === Number(local.padding);
   const validStart = startN >= 0 && startN <= 9_999_999 && startN === Number(local.startNumber);
   const canSave = dirty && !saving && validPrefix && validPad && validStart;
+
+  const proximoN = Number(proximo);
+  const validProximo = Number.isFinite(proximoN) && proximoN >= 1 && proximoN <= 9_999_999;
+  const proximoDirty = counter ? proximoN !== (counter.ultimo || 0) + 1 : !!proximo;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end border rounded p-2 bg-slate-50/50">
@@ -477,6 +485,29 @@ function CompanyDocRow({ item, saving, onSave, onReset }: {
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
           </Button>
         </div>
+      </div>
+
+      {/* Contador atual: retomar de onde parou */}
+      <div className="md:col-span-7 flex flex-wrap items-end gap-2 border-t pt-2 mt-1">
+        <div className="flex-1 min-w-[180px]">
+          <Label className="text-xs">
+            Próximo Nº a emitir {counter?.ano ? <span className="text-slate-400">({counter.ano})</span> : null}
+          </Label>
+          <Input type="number" min={1} value={proximo}
+            onChange={(e) => setProximo(e.target.value)}
+            placeholder={counter ? String((counter.ultimo || 0) + 1) : '1'} />
+          {!validProximo && proximo !== '' && (
+            <div className="text-[10px] text-red-600 mt-0.5">informe entre 1 e 9.999.999</div>
+          )}
+        </div>
+        <div className="text-[11px] text-slate-500 flex-1 min-w-[180px]">
+          Último emitido nesta empresa: <span className="font-mono">{counter?.ultimo ?? 0}</span>.
+          Use para <b>retomar</b> a numeração de onde parou (ex.: 128) — a próxima emissão sairá com esse número.
+        </div>
+        <Button size="sm" variant="outline" disabled={saving || !validProximo || !proximoDirty}
+          onClick={() => onSetCounter(item.doc, proximoN)} className="h-8 px-3 text-xs">
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Aplicar próximo Nº'}
+        </Button>
       </div>
     </div>
   );
