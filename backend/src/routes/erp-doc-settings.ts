@@ -146,6 +146,80 @@ router.put('/company/:companyId/:doc', async (req, res) => {
   } catch (e: any) { sendError(res, e); }
 });
 
+// ---- Contador atual (ultimo emitido) por empresa/doc/ano ----
+// GET → devolve o "ultimo" e "proximo" do ano corrente por doc.
+router.get('/company/:companyId/counters', async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    if (!UUID_RE.test(companyId)) return res.status(400).json({ error: 'companyId inválido' });
+    const anoQ = Number(req.query.ano);
+    const settings = await pool.query(
+      `SELECT c.doc,
+              COALESCE(cs.include_year, gs.include_year, TRUE) AS include_year,
+              COALESCE(cs.padding, gs.padding, 4) AS padding,
+              COALESCE(cs.prefix, gs.prefix, c.doc) AS prefix
+         FROM (SELECT unnest($1::text[]) AS doc) c
+         LEFT JOIN erp_doc_settings gs ON gs.doc = c.doc
+         LEFT JOIN erp_doc_settings_company cs ON cs.doc = c.doc AND cs.company_id = $2`,
+      [DOCS, companyId]
+    );
+    const anoBase = Number.isFinite(anoQ) && anoQ > 0 ? Math.floor(anoQ) : new Date().getFullYear();
+    const out = await Promise.all(settings.rows.map(async (s: any) => {
+      const ano = s.include_year ? anoBase : 0;
+      const r = await pool.query(
+        `SELECT ultimo FROM erp_doc_counters
+          WHERE company_id = $1 AND doc = $2 AND ano = $3`,
+        [companyId, s.doc, ano]
+      );
+      return { doc: s.doc, ano, ultimo: r.rows[0]?.ultimo ?? 0, includeYear: !!s.include_year };
+    }));
+    res.json(out);
+  } catch (e: any) { sendError(res, e); }
+});
+
+// PUT → força o "próximo" número (ex.: retomar de onde parou).
+router.put('/company/:companyId/:doc/counter', async (req, res) => {
+  try {
+    const { companyId, doc } = req.params;
+    if (!UUID_RE.test(companyId)) return res.status(400).json({ error: 'companyId inválido' });
+    if (!DOCS.includes(doc)) return res.status(400).json({ error: 'doc inválido' });
+    const proximo = Number(req.body?.proximo);
+    if (!Number.isFinite(proximo) || proximo < 1 || proximo > 9_999_999) {
+      return { } as any;
+    }
+    if (!Number.isFinite(proximo) || proximo < 1 || proximo > 9_999_999) {
+      return res.status(400).json({ error: 'proximo inválido (1 a 9.999.999)' });
+    }
+    const exists = await pool.query('SELECT 1 FROM erp_companies WHERE id=$1', [companyId]);
+    if (!exists.rows[0]) return res.status(404).json({ error: 'empresa não encontrada' });
+
+    // Resolve include_year efetivo p/ decidir o "ano" do contador
+    const eff = await pool.query(
+      `SELECT COALESCE(cs.include_year, gs.include_year, TRUE) AS include_year
+         FROM (SELECT $1::text AS doc) c
+         LEFT JOIN erp_doc_settings gs ON gs.doc = c.doc
+         LEFT JOIN erp_doc_settings_company cs ON cs.doc = c.doc AND cs.company_id = $2`,
+      [doc, companyId]
+    );
+    const includeYear = !!eff.rows[0]?.include_year;
+    const anoBody = Number(req.body?.ano);
+    const ano = includeYear
+      ? (Number.isFinite(anoBody) && anoBody > 0 ? Math.floor(anoBody) : new Date().getFullYear())
+      : 0;
+
+    // ultimo = proximo - 1 (a próxima emissão retornará proximo)
+    const ultimo = Math.floor(proximo) - 1;
+    await pool.query(
+      `INSERT INTO erp_doc_counters(company_id, doc, ano, ultimo)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (company_id, doc, ano) WHERE company_id IS NOT NULL
+       DO UPDATE SET ultimo = EXCLUDED.ultimo`,
+      [companyId, doc, ano, ultimo]
+    );
+    res.json({ ok: true, ano, ultimo, proximo: ultimo + 1 });
+  } catch (e: any) { sendError(res, e); }
+});
+
 // Remove override → volta a usar o global
 router.delete('/company/:companyId/:doc', async (req, res) => {
   try {
