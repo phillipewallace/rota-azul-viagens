@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Building2, Plus, Trash2, Save, Upload, Hash, Loader2, ImageIcon, PenLine } from 'lucide-react';
 import { erpService, type ErpCompany, uploadSignedPdf } from '@/services/erp';
-import { docSettingsService, type DocSetting } from '@/services/contracts';
+import { docSettingsService, type DocSetting, type CompanyDocSetting } from '@/services/contracts';
 import { toAbsoluteUrl } from '@/utils/absoluteUrl';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -295,10 +295,166 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
           onChange={(v) => setLocal({ ...local, assinaturaUrl: v })}
         />
       </div>
+      <CompanyDocNumberingSection companyId={company.id} />
       <div className="flex justify-end">
         <Button size="sm" disabled={!dirty || saving} onClick={() => onSave(local)}>
           <Save className="h-4 w-4 mr-1" /> {saving ? 'Salvando…' : 'Salvar alterações'}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================
+// Numeração desta empresa (override opcional do global)
+// ============================
+function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<CompanyDocSetting[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savingDoc, setSavingDoc] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true); setError(null);
+    try { setItems(await docSettingsService.listByCompany(companyId)); }
+    catch (e: any) { setError(e.message || 'Erro ao carregar'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    if (open && items === null) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const save = async (it: CompanyDocSetting) => {
+    setSavingDoc(it.doc);
+    try {
+      await docSettingsService.updateByCompany(companyId, it.doc, it);
+      toast.success(`Numeração de ${DOC_LABELS[it.doc]} salva para esta empresa`);
+      await load();
+    } catch (e: any) { toast.error(e.message || 'Erro ao salvar'); }
+    finally { setSavingDoc(null); }
+  };
+
+  const reset = async (doc: string) => {
+    setSavingDoc(doc);
+    try {
+      await docSettingsService.resetByCompany(companyId, doc);
+      toast.success(`Voltou a usar a numeração global para ${DOC_LABELS[doc]}`);
+      await load();
+    } catch (e: any) { toast.error(e.message || 'Erro ao remover override'); }
+    finally { setSavingDoc(null); }
+  };
+
+  return (
+    <div className="border-t pt-3">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-900">
+        <Hash className="h-4 w-4" /> Numeração de documentos desta empresa {open ? '▾' : '▸'}
+      </button>
+      <p className="text-[11px] text-muted-foreground mt-1">
+        Opcional. Se não configurar, esta empresa usa a numeração global acima.
+      </p>
+
+      {open && (
+        <div className="mt-3">
+          {loading && (
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando…
+            </div>
+          )}
+          {!loading && error && (
+            <div className="text-sm text-red-600 flex items-center gap-2">
+              {error}
+              <Button size="sm" variant="outline" onClick={load}>Tentar de novo</Button>
+            </div>
+          )}
+          {!loading && !error && items && items.length === 0 && (
+            <div className="text-sm text-muted-foreground">Nenhum documento configurável.</div>
+          )}
+          {!loading && !error && items && items.length > 0 && (
+            <div className="space-y-2">
+              {items.map((it) => (
+                <CompanyDocRow
+                  key={it.doc} item={it}
+                  saving={savingDoc === it.doc}
+                  onSave={save} onReset={reset}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompanyDocRow({ item, saving, onSave, onReset }: {
+  item: CompanyDocSetting; saving: boolean;
+  onSave: (it: CompanyDocSetting) => void;
+  onReset: (doc: string) => void;
+}) {
+  const [local, setLocal] = useState<CompanyDocSetting>(item);
+  useEffect(() => setLocal(item), [item]);
+  const dirty = JSON.stringify(local) !== JSON.stringify(item);
+
+  const startN = Number(local.startNumber) || 0;
+  const pad = Math.min(10, Math.max(1, Number(local.padding) || 4));
+  const preview = local.includeYear
+    ? `${local.prefix || local.doc}-${new Date().getFullYear()}-${String(startN + 1).padStart(pad, '0')}`
+    : String(startN + 1).padStart(pad, '0');
+
+  const validPrefix = local.prefix == null || local.prefix === '' || /^[A-Za-z0-9_-]{1,10}$/.test(local.prefix);
+  const validPad = pad === Number(local.padding);
+  const validStart = startN >= 0 && startN <= 9_999_999 && startN === Number(local.startNumber);
+  const canSave = dirty && !saving && validPrefix && validPad && validStart;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end border rounded p-2 bg-slate-50/50">
+      <div className="md:col-span-2">
+        <Label className="text-xs">Documento</Label>
+        <div className="text-sm font-medium flex items-center gap-2">
+          {DOC_LABELS[item.doc] || item.doc}
+          {item.hasOverride
+            ? <Badge variant="secondary" className="text-[10px]">override</Badge>
+            : <Badge variant="outline" className="text-[10px]">usando global</Badge>}
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs">Último</Label>
+        <Input type="number" min={0} value={local.startNumber}
+          onChange={(e) => setLocal({ ...local, startNumber: Number(e.target.value) || 0 })} />
+      </div>
+      <div>
+        <Label className="text-xs">Dígitos</Label>
+        <Input type="number" min={1} max={10} value={local.padding}
+          onChange={(e) => setLocal({ ...local, padding: Number(e.target.value) || 4 })} />
+      </div>
+      <div>
+        <Label className="text-xs">Prefixo</Label>
+        <Input value={local.prefix || ''} placeholder={item.doc}
+          onChange={(e) => setLocal({ ...local, prefix: e.target.value })} />
+        {!validPrefix && <div className="text-[10px] text-red-600 mt-0.5">até 10 chars: A-Z 0-9 - _</div>}
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch checked={local.includeYear}
+          onCheckedChange={(v) => setLocal({ ...local, includeYear: v })} />
+        <span className="text-xs">Ano</span>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <div className="text-[10px] text-slate-500">próximo: <span className="font-mono">{preview}</span></div>
+        <div className="flex gap-1">
+          {item.hasOverride && (
+            <Button size="sm" variant="ghost" disabled={saving} onClick={() => onReset(item.doc)}
+              className="text-slate-600 h-7 px-2 text-xs">
+              Usar global
+            </Button>
+          )}
+          <Button size="sm" disabled={!canSave} onClick={() => onSave(local)} className="h-7 px-2">
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          </Button>
+        </div>
       </div>
     </div>
   );
