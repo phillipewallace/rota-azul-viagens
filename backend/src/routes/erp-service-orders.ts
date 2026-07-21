@@ -398,7 +398,10 @@ router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const numRes = await client.query(`SELECT erp_next_doc_number('OS') AS num`);
+    const numRes = await client.query(
+      `SELECT erp_next_doc_number('OS', $1::uuid) AS num`,
+      [c.companyId || null]
+    );
     const numero = numRes.rows[0].num;
     let snap: any = null;
     if (c.customerId) {
@@ -724,8 +727,11 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
     const dataRecolhimentoFinal = body.dataRecolhimento || os.data_recolhimento || (isEvento ? dataEntregaFinal : null);
     const dataFim = body.dataFim || dataRecolhimentoFinal || os.data_fim_prevista || null;
 
-    // Numeração via helper.
-    const numQ = await client.query(`SELECT erp_next_doc_number('CTR') AS num`);
+    // Numeração via helper (usa numeração da EMPRESA da OS quando configurada).
+    const numQ = await client.query(
+      `SELECT erp_next_doc_number('CTR', $1::uuid) AS num`,
+      [os.company_id || null]
+    );
     const numero = numQ.rows[0].num;
 
     let insId: string;

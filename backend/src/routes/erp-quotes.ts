@@ -168,7 +168,10 @@ router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const numRes = await client.query(`SELECT erp_next_doc_number('ORC') AS num`);
+    const numRes = await client.query(
+      `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
+      [c.companyId || null]
+    );
     const numero = numRes.rows[0].num;
     const { subtotal, total } = calcTotals(items, c.descontoPct, c.frete);
 
@@ -328,7 +331,10 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
       .filter((it: any) => isSanitarioItem(it.produto || '') || isSanitarioItem(it.descricao || ''))
       .reduce((acc: number, it: any) => acc + Math.ceil(Number(it.quantidade || 0)), 0);
 
-    const numRes = await client.query(`SELECT erp_next_doc_number('OS') AS num`);
+    const numRes = await client.query(
+      `SELECT erp_next_doc_number('OS', $1::uuid) AS num`,
+      [quote.company_id || null]
+    );
     const numero = numRes.rows[0].num;
 
     // [#3 crítico] sem interpolação de string — passa como parâmetro
@@ -378,7 +384,10 @@ router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) =
     const src = q.rows[0];
     const items = await loadItems(req.params.id);
 
-    const numRes = await client.query(`SELECT erp_next_doc_number('ORC') AS num`);
+    const numRes = await client.query(
+      `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
+      [src.company_id || null]
+    );
     const numero = numRes.rows[0].num;
 
     const ins = await client.query(
