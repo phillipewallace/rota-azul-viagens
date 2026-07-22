@@ -10,6 +10,18 @@ import { requireAuth, requireRole } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function requireCompanyId(value: any) {
+  const companyId = typeof value === 'string' ? value.trim() : '';
+  if (!UUID_RE.test(companyId)) {
+    const err: any = new Error('Empresa emissora obrigatória para numeração por empresa.');
+    err.status = 400;
+    throw err;
+  }
+  return companyId;
+}
+
 // Upload de PDF do orçamento — usado ao compartilhar por WhatsApp/e-mail
 // (o wa.me exige URL pública, então salvamos em uploads/quotes/, público).
 const quotesPdfDir = path.join(__dirname, '../../uploads/quotes');
@@ -167,18 +179,21 @@ router.post('/', async (req, res) => {
   const items = Array.isArray(c.items) ? c.items : [];
   const client = await pool.connect();
   try {
+    const companyId = requireCompanyId(c.companyId);
     await client.query('BEGIN');
     const numRes = await client.query(
       `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
-      [c.companyId || null]
+      [companyId]
     );
     const numero = numRes.rows[0].num;
     const { subtotal, total } = calcTotals(items, c.descontoPct, c.frete);
 
     let companySnap: any = null, customerSnap: any = null;
-    if (c.companyId) {
-      const cc = await client.query('SELECT * FROM erp_companies WHERE id=$1', [c.companyId]);
-      companySnap = cc.rows[0] || null;
+    const cc = await client.query('SELECT * FROM erp_companies WHERE id=$1', [companyId]);
+    companySnap = cc.rows[0] || null;
+    if (!companySnap) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
     }
     if (c.customerId) {
       const cu = await client.query('SELECT * FROM customers WHERE id=$1', [c.customerId]);
@@ -194,7 +209,7 @@ router.post('/', async (req, res) => {
           responsavel_nome, responsavel_telefone, responsavel_email)
        VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,CURRENT_DATE),$9,$10,$11,$12,$13,$14,$15,COALESCE($16,'rascunho'),$17,$18,$19,$20,$21,$22,$23,$24)
        RETURNING id`,
-      [numero, c.companyId || null, c.customerId || null, companySnap, customerSnap,
+      [numero, companyId, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, emptyToNull(c.dataEmissao), c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
        c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
@@ -321,6 +336,10 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
     const q = await client.query('SELECT * FROM erp_quotes WHERE id=$1', [req.params.id]);
     if (!q.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'não encontrado' }); }
     const quote = q.rows[0];
+    if (!quote.company_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Orçamento sem empresa emissora não pode gerar OS.' });
+    }
     const items = await loadItems(req.params.id);
 
     // [#9 alto] detecção de sanitário mais precisa — evita "sanitização"
@@ -333,7 +352,7 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
 
     const numRes = await client.query(
       `SELECT erp_next_doc_number('OS', $1::uuid) AS num`,
-      [quote.company_id || null]
+      [quote.company_id]
     );
     const numero = numRes.rows[0].num;
 
@@ -382,11 +401,15 @@ router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) =
     const q = await client.query('SELECT * FROM erp_quotes WHERE id=$1', [req.params.id]);
     if (!q.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'não encontrado' }); }
     const src = q.rows[0];
+    if (!src.company_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Orçamento sem empresa emissora não pode ser duplicado.' });
+    }
     const items = await loadItems(req.params.id);
 
     const numRes = await client.query(
       `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
-      [src.company_id || null]
+      [src.company_id]
     );
     const numero = numRes.rows[0].num;
 

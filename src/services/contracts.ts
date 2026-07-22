@@ -15,7 +15,7 @@ async function req<T>(method: string, path: string, body?: any): Promise<T> {
 }
 
 // ===== Doc settings (numeração)
-export type DocKey = 'ORC' | 'OS' | 'CTR' | 'REC' | 'REC_SV';
+export type DocKey = 'ORC' | 'OS' | 'CTR' | 'REC' | 'REC_SV' | 'MED';
 export interface DocSetting {
   doc: DocKey;
   startNumber: number;
@@ -31,7 +31,7 @@ export const docSettingsService = {
   update: (doc: string, data: Partial<DocSetting>) =>
     req<{ ok: true }>('PUT', `/erp/doc-settings/${doc}`, data),
 
-  // Numeração por empresa (override opcional; sem override cai no global)
+  // Numeração por empresa (sem contador global)
   listByCompany: (companyId: string) =>
     req<CompanyDocSetting[]>('GET', `/erp/doc-settings/company/${companyId}`),
   updateByCompany: (companyId: string, doc: string, data: Partial<DocSetting>) =>

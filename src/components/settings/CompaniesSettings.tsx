@@ -306,7 +306,7 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
 }
 
 // ============================
-// Numeração desta empresa (override opcional do global)
+// Numeração desta empresa
 // ============================
 function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState(false);
@@ -348,7 +348,7 @@ function CompanyDocNumberingSection({ companyId }: { companyId: string }) {
     setSavingDoc(doc);
     try {
       await docSettingsService.resetByCompany(companyId, doc);
-      toast.success(`Voltou a usar a numeração global para ${DOC_LABELS[doc]}`);
+      toast.success(`Voltou ao padrão de ${DOC_LABELS[doc]} nesta empresa`);
       await load();
     } catch (e: any) { toast.error(e.message || 'Erro ao remover override'); }
     finally { setSavingDoc(null); }
@@ -448,8 +448,8 @@ function CompanyDocRow({ item, counter, saving, onSave, onReset, onSetCounter }:
         <div className="text-sm font-medium flex items-center gap-2">
           {DOC_LABELS[item.doc] || item.doc}
           {item.hasOverride
-            ? <Badge variant="secondary" className="text-[10px]">override</Badge>
-            : <Badge variant="outline" className="text-[10px]">usando global</Badge>}
+            ? <Badge variant="secondary" className="text-[10px]">personalizada</Badge>
+            : <Badge variant="outline" className="text-[10px]">padrão</Badge>}
         </div>
       </div>
       <div>
@@ -479,7 +479,7 @@ function CompanyDocRow({ item, counter, saving, onSave, onReset, onSetCounter }:
           {item.hasOverride && (
             <Button size="sm" variant="ghost" disabled={saving} onClick={() => onReset(item.doc)}
               className="text-slate-600 h-7 px-2 text-xs">
-              Usar global
+              Usar padrão
             </Button>
           )}
           <Button size="sm" disabled={!canSave} onClick={() => onSave(local)} className="h-7 px-2">
@@ -556,7 +556,7 @@ function SignatureField({ value, onChange }: { value: string; onChange: (v: stri
 // ============================
 const DOC_LABELS: Record<string, string> = {
   ORC: 'Orçamentos', OS: 'Ordens de Serviço', CTR: 'Contratos',
-  REC: 'Recibos', REC_SV: 'Recibos sem validade jurídica',
+  REC: 'Recibos', REC_SV: 'Recibos sem validade jurídica', MED: 'Medições',
 };
 
 function DocNumberingSettings() {
