@@ -12,7 +12,7 @@ const FIN_ROLES = ['admin', 'manager'] as const;
 
 
 const SELECT = `
-  r.id, r.numero, r.contract_id AS "contractId", r.competencia,
+  r.id, r.numero, r.company_id AS "companyId", r.contract_id AS "contractId", r.competencia,
   r.periodo_inicio AS "periodoInicio", r.periodo_fim AS "periodoFim",
   r.data_emissao AS "dataEmissao", r.data_vencimento AS "dataVencimento",
   r.valor, r.pago, r.snapshot, r.pdf_gerado_em AS "pdfGeradoEm", r.created_at AS "createdAt",
@@ -237,6 +237,10 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     );
     if (!contractRes.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'contrato não encontrado' }); }
     const ct = contractRes.rows[0];
+    if (!ct.company_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Contrato sem empresa emissora não pode gerar recibo.' });
+    }
 
     const existing = await client.query(
       `SELECT id, numero, snapshot FROM erp_receipts WHERE contract_id=$1 AND competencia=$2`,
@@ -340,7 +344,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     const docKey = semValidade ? 'REC_SV' : 'REC';
     const numRes = await client.query(
       `SELECT erp_next_doc_number($1, $2::uuid) AS num`,
-      [docKey, ct.company_id || null]
+      [docKey, ct.company_id]
     );
     const rawNum = numRes.rows[0].num as string;
     const numeroDisplay = semValidade ? rawNum : null;
@@ -348,12 +352,12 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
 
     const ins = await client.query(
       `INSERT INTO erp_receipts
-         (numero, contract_id, competencia, data_emissao, data_vencimento,
+          (numero, company_id, contract_id, competencia, data_emissao, data_vencimento,
           valor, pago, snapshot, pdf_gerado_em, periodo_inicio, periodo_fim,
           sem_validade, numero_display)
-       VALUES ($1,$2,$3,CURRENT_DATE,$4,$5,$6,$7,NOW(),$8,$9,$10,$11)
+        VALUES ($1,$2,$3,$4,CURRENT_DATE,$5,$6,$7,$8,NOW(),$9,$10,$11,$12)
        RETURNING id, numero, numero_display AS "numeroDisplay"`,
-      [numero, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
+      [numero, ct.company_id, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
        periodoInicio || null, periodoFim || null, !!semValidade, numeroDisplay]
     );
 

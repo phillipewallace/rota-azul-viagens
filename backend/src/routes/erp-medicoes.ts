@@ -12,6 +12,8 @@ import { requireAuth } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const SEL = `
   m.id, m.numero,
   m.cliente_documento AS "clienteDocumento",
@@ -33,18 +35,14 @@ const SEL = `
   cu.document         AS "customerDocument"
 `;
 
-async function nextNumero(client: any): Promise<string> {
-  const y = new Date().getFullYear();
-  const prefix = `MED-${y}-`;
-  const r = await client.query(
-    `SELECT numero FROM erp_medicoes
-      WHERE numero LIKE $1
-      ORDER BY numero DESC LIMIT 1`,
-    [`${prefix}%`],
-  );
-  const last = r.rows[0]?.numero as string | undefined;
-  const n = last ? Number(last.slice(prefix.length)) + 1 : 1;
-  return `${prefix}${String(n).padStart(4, '0')}`;
+function requireCompanyId(value: any) {
+  const companyId = typeof value === 'string' ? value.trim() : '';
+  if (!UUID_RE.test(companyId)) {
+    const err: any = new Error('Empresa emissora obrigatória para numeração por empresa.');
+    err.status = 400;
+    throw err;
+  }
+  return companyId;
 }
 
 // Constrói WHERE reutilizável para GET / e /stats/kpis.
@@ -167,6 +165,7 @@ router.post('/', async (req, res) => {
     periodoInicio, periodoFim, desconto = 0, observacoes,
     items,
   } = req.body || {};
+  const validCompanyId = requireCompanyId(companyId);
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'items obrigatórios' });
   }
@@ -177,14 +176,16 @@ router.post('/', async (req, res) => {
     // snapshot empresa + cliente
     let snapCompany: any = null, snapCustomer: any = null;
     let clienteDoc: string | null = null, clienteNome: string | null = null;
-    if (companyId) {
-      const c = await client.query(
-        `SELECT razao_social AS "razaoSocial", cnpj, endereco, cidade, estado, cep,
-                telefone, email, inscricao_estadual AS "inscricaoEstadual",
-                logo_url AS "logoUrl", logo_dataurl AS "logoDataUrl",
-                assinatura_url AS "assinaturaUrl"
-           FROM erp_companies WHERE id = $1`, [companyId]);
-      snapCompany = c.rows[0] || null;
+    const c = await client.query(
+      `SELECT razao_social AS "razaoSocial", cnpj, endereco, cidade, estado, cep,
+              telefone, email, inscricao_estadual AS "inscricaoEstadual",
+              logo_url AS "logoUrl", logo_dataurl AS "logoDataUrl",
+              assinatura_url AS "assinaturaUrl"
+         FROM erp_companies WHERE id = $1`, [validCompanyId]);
+    snapCompany = c.rows[0] || null;
+    if (!snapCompany) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
     }
     if (customerId) {
       const cu = await client.query(
@@ -205,7 +206,11 @@ router.post('/', async (req, res) => {
     const subtotal = itemsCalc.reduce((s: number, it: any) => s + it.valorTotal, 0);
     const total    = Math.max(0, subtotal - Number(desconto || 0));
 
-    const numero = await nextNumero(client);
+    const numRes = await client.query(
+      `SELECT erp_next_doc_number('MED', $1::uuid) AS num`,
+      [validCompanyId],
+    );
+    const numero = numRes.rows[0].num;
     const ins = await client.query(
       `INSERT INTO erp_medicoes
          (numero, cliente_documento, cliente_nome, customer_id, company_id,
@@ -215,7 +220,7 @@ router.post('/', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
        RETURNING id, numero`,
       [
-        numero, clienteDoc, clienteNome, customerId || null, companyId || null,
+        numero, clienteDoc, clienteNome, customerId || null, validCompanyId,
         competencia || null, periodoInicio || null, periodoFim || null,
         subtotal, Number(desconto || 0), total, observacoes || null,
         { company: snapCompany, customer: snapCustomer },

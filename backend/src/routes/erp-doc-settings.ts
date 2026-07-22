@@ -6,7 +6,17 @@ import { requireAuth } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
-const DOCS = ['ORC', 'OS', 'CTR', 'REC', 'REC_SV'];
+const DOCS = ['ORC', 'OS', 'CTR', 'REC', 'REC_SV', 'MED'];
+
+function defaultDocSetting(doc: string) {
+  return {
+    doc,
+    startNumber: 0,
+    includeYear: doc === 'ORC' || doc === 'OS' || doc === 'MED',
+    padding: 4,
+    prefix: doc === 'REC_SV' ? null : doc,
+  };
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -74,41 +84,30 @@ router.put('/:doc', async (req, res) => {
 });
 
 // ============================================================
-// Numeração POR EMPRESA (override opcional)
+// Numeração POR EMPRESA
 // ============================================================
 
-// Lista config efetiva por empresa: se não houver override, devolve o valor
-// GLOBAL preenchido + hasOverride=false, para a UI já mostrar o que sai hoje.
+// Lista config efetiva por empresa: se não houver configuração própria,
+// usa defaults fixos do documento — sem fallback de numeração global.
 router.get('/company/:companyId', async (req, res) => {
   try {
     const { companyId } = req.params;
     if (!UUID_RE.test(companyId)) return res.status(400).json({ error: 'companyId inválido' });
 
-    const [globalQ, compQ] = await Promise.all([
-      pool.query(
-        `SELECT doc, start_number AS "startNumber", include_year AS "includeYear",
-                padding, prefix FROM erp_doc_settings`
-      ),
-      pool.query(
-        `SELECT doc, start_number AS "startNumber", include_year AS "includeYear",
-                padding, prefix, updated_at AS "updatedAt"
-           FROM erp_doc_settings_company WHERE company_id = $1`,
-        [companyId]
-      ),
-    ]);
-    const globalMap = new Map(globalQ.rows.map((x: any) => [x.doc, x]));
+    const compQ = await pool.query(
+      `SELECT doc, start_number AS "startNumber", include_year AS "includeYear",
+              padding, prefix, updated_at AS "updatedAt"
+         FROM erp_doc_settings_company WHERE company_id = $1`,
+      [companyId]
+    );
     const compMap = new Map(compQ.rows.map((x: any) => [x.doc, x]));
 
     const rows = DOCS.map((d) => {
-      const override = compMap.get(d);
-      const g = globalMap.get(d) || {
-        startNumber: 0, includeYear: d === 'ORC' || d === 'OS',
-        padding: 4, prefix: d === 'REC_SV' ? null : d,
-      };
-      const eff = override || g;
+      const custom = compMap.get(d);
+      const eff = custom || defaultDocSetting(d);
       return {
         doc: d,
-        hasOverride: !!override,
+        hasOverride: !!custom,
         startNumber: Number(eff.startNumber) || 0,
         includeYear: !!eff.includeYear,
         padding: Number(eff.padding) || 4,
@@ -155,12 +154,11 @@ router.get('/company/:companyId/counters', async (req, res) => {
     const anoQ = Number(req.query.ano);
     const settings = await pool.query(
       `SELECT c.doc,
-              COALESCE(cs.include_year, gs.include_year, TRUE) AS include_year,
-              COALESCE(cs.padding, gs.padding, 4) AS padding,
-              COALESCE(cs.prefix, gs.prefix, c.doc) AS prefix
+              COALESCE(cs.include_year, c.doc IN ('ORC','OS','MED')) AS include_year,
+              COALESCE(cs.padding, 4) AS padding,
+              COALESCE(cs.prefix, CASE WHEN c.doc = 'REC_SV' THEN NULL ELSE c.doc END) AS prefix
          FROM (SELECT unnest($1::text[]) AS doc) c
-         LEFT JOIN erp_doc_settings gs ON gs.doc = c.doc
-         LEFT JOIN erp_doc_settings_company cs ON cs.doc = c.doc AND cs.company_id = $2`,
+          LEFT JOIN erp_doc_settings_company cs ON cs.doc = c.doc AND cs.company_id = $2`,
       [DOCS, companyId]
     );
     const anoBase = Number.isFinite(anoQ) && anoQ > 0 ? Math.floor(anoQ) : new Date().getFullYear();
@@ -192,10 +190,9 @@ router.put('/company/:companyId/:doc/counter', async (req, res) => {
 
     // Resolve include_year efetivo p/ decidir o "ano" do contador
     const eff = await pool.query(
-      `SELECT COALESCE(cs.include_year, gs.include_year, TRUE) AS include_year
+      `SELECT COALESCE(cs.include_year, c.doc IN ('ORC','OS','MED')) AS include_year
          FROM (SELECT $1::text AS doc) c
-         LEFT JOIN erp_doc_settings gs ON gs.doc = c.doc
-         LEFT JOIN erp_doc_settings_company cs ON cs.doc = c.doc AND cs.company_id = $2`,
+          LEFT JOIN erp_doc_settings_company cs ON cs.doc = c.doc AND cs.company_id = $2`,
       [doc, companyId]
     );
     const includeYear = !!eff.rows[0]?.include_year;
@@ -237,7 +234,7 @@ router.put('/company/:companyId/:doc/counter', async (req, res) => {
   } catch (e: any) { sendError(res, e); }
 });
 
-// Remove override → volta a usar o global
+// Remove configuração personalizada → volta aos defaults por empresa/documento
 router.delete('/company/:companyId/:doc', async (req, res) => {
   try {
     const { companyId, doc } = req.params;

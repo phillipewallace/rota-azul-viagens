@@ -7,6 +7,18 @@ import { requireAuth, requireRole } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function requireCompanyId(value: any) {
+  const companyId = typeof value === 'string' ? value.trim() : '';
+  if (!UUID_RE.test(companyId)) {
+    const err: any = new Error('Empresa emissora obrigatória para numeração por empresa.');
+    err.status = 400;
+    throw err;
+  }
+  return companyId;
+}
+
 const SELECT = `
   c.id, c.numero, c.company_id AS "companyId", c.customer_id AS "customerId",
   c.os_id AS "osId", c.origem, c.descricao,
@@ -110,17 +122,20 @@ router.post('/', async (req, res) => {
   const c = req.body || {};
   const client = await pool.connect();
   try {
+    const companyId = requireCompanyId(c.companyId);
     await client.query('BEGIN');
     const numRes = await client.query(
       `SELECT erp_next_doc_number('CTR', $1::uuid) AS num`,
-      [c.companyId || null]
+      [companyId]
     );
     const numero = numRes.rows[0].num;
 
     let companySnap: any = null, customerSnap: any = null;
-    if (c.companyId) {
-      const cc = await client.query('SELECT * FROM erp_companies WHERE id=$1', [c.companyId]);
-      companySnap = cc.rows[0] || null;
+    const cc = await client.query('SELECT * FROM erp_companies WHERE id=$1', [companyId]);
+    companySnap = cc.rows[0] || null;
+    if (!companySnap) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
     }
     if (c.customerId) {
       const cu = await client.query('SELECT * FROM customers WHERE id=$1', [c.customerId]);
@@ -143,7 +158,7 @@ router.post('/', async (req, res) => {
                COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25,
                $26,$27,$28)
        RETURNING id, numero`,
-      [numero, c.companyId || null, c.customerId || null, c.osId || null,
+      [numero, companyId, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
        c.tipoContrato || null,
        c.dataInicio, c.dataFim || null,

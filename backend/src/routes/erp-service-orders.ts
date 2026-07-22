@@ -7,6 +7,18 @@ import { requireAuth, requireRole } from '../middleware/requireAuth';
 const router = Router();
 router.use(requireAuth);
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function requireCompanyId(value: any) {
+  const companyId = typeof value === 'string' ? value.trim() : '';
+  if (!UUID_RE.test(companyId)) {
+    const err: any = new Error('Empresa emissora obrigatória para numeração por empresa.');
+    err.status = 400;
+    throw err;
+  }
+  return companyId;
+}
+
 // Lista (com flag de atraso para diárias)
 router.get('/', async (req, res) => {
   try {
@@ -397,10 +409,16 @@ router.post('/', async (req, res) => {
   const c = req.body || {};
   const client = await pool.connect();
   try {
+    const companyId = requireCompanyId(c.companyId);
     await client.query('BEGIN');
+    const company = await client.query('SELECT 1 FROM erp_companies WHERE id=$1', [companyId]);
+    if (!company.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
+    }
     const numRes = await client.query(
       `SELECT erp_next_doc_number('OS', $1::uuid) AS num`,
-      [c.companyId || null]
+      [companyId]
     );
     const numero = numRes.rows[0].num;
     let snap: any = null;
@@ -414,7 +432,7 @@ router.post('/', async (req, res) => {
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
           forma_pagamento)
        VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,'aberta',$9,$10,$11) RETURNING id`,
-      [numero, c.companyId || null, c.customerId || null, snap,
+      [numero, companyId, c.customerId || null, snap,
        c.modalidade || 'diaria', c.tipoLocacao || null, c.dataInicio || null, c.dataFimPrevista || null,
        c.valorTotal || 0, c.observacoes || null, c.formaPagamento || null]
     );
@@ -727,10 +745,15 @@ router.post('/:id/convert-to-contract', async (req: any, res) => {
     const dataRecolhimentoFinal = body.dataRecolhimento || os.data_recolhimento || (isEvento ? dataEntregaFinal : null);
     const dataFim = body.dataFim || dataRecolhimentoFinal || os.data_fim_prevista || null;
 
-    // Numeração via helper (usa numeração da EMPRESA da OS quando configurada).
+    if (!os.company_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'OS sem empresa emissora não pode gerar contrato.' });
+    }
+
+    // Numeração via helper (usa numeração da EMPRESA da OS).
     const numQ = await client.query(
       `SELECT erp_next_doc_number('CTR', $1::uuid) AS num`,
-      [os.company_id || null]
+      [os.company_id]
     );
     const numero = numQ.rows[0].num;
 
