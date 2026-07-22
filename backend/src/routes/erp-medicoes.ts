@@ -165,7 +165,12 @@ router.post('/', async (req, res) => {
     periodoInicio, periodoFim, desconto = 0, observacoes,
     items,
   } = req.body || {};
-  const validCompanyId = requireCompanyId(companyId);
+  let validCompanyId: string;
+  try {
+    validCompanyId = requireCompanyId(companyId);
+  } catch (e: any) {
+    return res.status(e.status || 400).json({ error: e.message || 'Empresa emissora inválida.' });
+  }
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'items obrigatórios' });
   }
