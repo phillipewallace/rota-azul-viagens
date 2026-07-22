@@ -11,6 +11,27 @@
 ALTER TABLE erp_doc_counters ADD COLUMN IF NOT EXISTS company_id UUID
   REFERENCES erp_companies(id) ON DELETE CASCADE;
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+      FROM pg_constraint con
+      JOIN pg_class rel ON rel.oid = con.conrelid
+      JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+     WHERE nsp.nspname = 'public'
+       AND rel.relname = 'erp_doc_counters'
+       AND con.conname = 'erp_doc_counters_pkey'
+  ) THEN
+    ALTER TABLE erp_doc_counters DROP CONSTRAINT erp_doc_counters_pkey;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'erp_doc_counters_doc_ano_key'
+  ) THEN
+    ALTER TABLE erp_doc_counters DROP CONSTRAINT erp_doc_counters_doc_ano_key;
+  END IF;
+END $$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_global
   ON erp_doc_counters(doc, ano) WHERE company_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_by_company
