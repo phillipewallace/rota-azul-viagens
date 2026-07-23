@@ -55,18 +55,24 @@ router.post('/', async (req, res) => {
     const finContato = c.financeiroContato != null
       ? String(c.financeiroContato).trim().slice(0, 500) || null
       : null;
+    const sigla = c.sigla != null && String(c.sigla).trim() !== ''
+      ? String(c.sigla).trim().toUpperCase().slice(0, 6)
+      : null;
+    if (sigla && !/^[A-Z0-9_-]{1,6}$/.test(sigla)) {
+      return res.status(400).json({ error: 'Sigla inválida (até 6 caracteres, A-Z/0-9/-/_)' });
+    }
     const r = await pool.query(
       `INSERT INTO erp_companies
         (razao_social, nome_fantasia, cnpj, inscricao_estadual,
          endereco, cidade, estado, cep, telefone, email, logo_url, assinatura_url,
-         financeiro_contato, ativo)
-       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,COALESCE($14,TRUE)
+         financeiro_contato, sigla, ativo)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,COALESCE($15,TRUE)
         WHERE (SELECT COUNT(*) FROM erp_companies) < ${MAX_COMPANIES}
        RETURNING *`,
       [c.razaoSocial, c.nomeFantasia || null, cnpjDigits,
        c.inscricaoEstadual || null, c.endereco || null, c.cidade || null,
        c.estado || null, c.cep || null, c.telefone || null, c.email || null,
-       c.logoUrl || null, c.assinaturaUrl || null, finContato, c.ativo]
+       c.logoUrl || null, c.assinaturaUrl || null, finContato, sigla, c.ativo]
     );
     if (!r.rows[0]) {
       return res.status(400).json({ error: `Limite de ${MAX_COMPANIES} empresas atingido` });
