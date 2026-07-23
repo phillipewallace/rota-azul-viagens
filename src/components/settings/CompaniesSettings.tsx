@@ -258,6 +258,8 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
           onChange={(v) => setLocal({ ...local, razaoSocial: v })} />
         <Field label="Nome Fantasia" value={local.nomeFantasia || ''}
           onChange={(v) => setLocal({ ...local, nomeFantasia: v })} />
+        <Field label="Sigla (ex.: MIC, DSR — aparece na numeração)" value={local.sigla || ''}
+          onChange={(v) => setLocal({ ...local, sigla: v.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 6) })} />
         <Field label="CNPJ" value={formatCnpj(local.cnpj)}
           onChange={(v) => setLocal({ ...local, cnpj: v })} />
         <Field label="Inscrição Estadual" value={local.inscricaoEstadual || ''}
