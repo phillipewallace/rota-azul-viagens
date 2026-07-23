@@ -19,7 +19,7 @@ const MAX = 3;
 const empty: Partial<ErpCompany> = {
   razaoSocial: '', nomeFantasia: '', cnpj: '', inscricaoEstadual: '',
   endereco: '', cidade: '', estado: '', cep: '', telefone: '', email: '',
-  logoUrl: '',
+  logoUrl: '', sigla: '',
   ativo: true,
 };
 
@@ -135,6 +135,9 @@ export default function CompaniesSettings() {
                       onChange={(v) => setForm({ ...form, razaoSocial: v })} />
                     <Field label="Nome Fantasia" value={form.nomeFantasia || ''}
                       onChange={(v) => setForm({ ...form, nomeFantasia: v })} />
+                    <Field label="Sigla (ex.: MIC, DSR — aparece na numeração)"
+                      value={form.sigla || ''}
+                      onChange={(v) => setForm({ ...form, sigla: v.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 6) })} />
                     <Field label="CNPJ *" value={formatCnpj(form.cnpj || '')}
                       onChange={(v) => setForm({ ...form, cnpj: v })} />
                     <Field label="Inscrição Estadual" value={form.inscricaoEstadual || ''}
@@ -232,7 +235,10 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
         <div className="flex items-center gap-3">
           {local.logoUrl && <img src={toAbsoluteUrl(local.logoUrl)} alt="logo" className="h-12 w-12 object-contain border rounded bg-white" />}
           <div>
-            <div className="font-semibold">{company.razaoSocial}</div>
+            <div className="font-semibold flex items-center gap-2">
+              {company.razaoSocial}
+              {company.sigla && <Badge variant="outline" className="text-[10px]">{company.sigla}</Badge>}
+            </div>
             <div className="text-xs text-muted-foreground">{formatCnpj(company.cnpj)}</div>
           </div>
         </div>
@@ -252,6 +258,8 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
           onChange={(v) => setLocal({ ...local, razaoSocial: v })} />
         <Field label="Nome Fantasia" value={local.nomeFantasia || ''}
           onChange={(v) => setLocal({ ...local, nomeFantasia: v })} />
+        <Field label="Sigla (ex.: MIC, DSR — aparece na numeração)" value={local.sigla || ''}
+          onChange={(v) => setLocal({ ...local, sigla: v.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 6) })} />
         <Field label="CNPJ" value={formatCnpj(local.cnpj)}
           onChange={(v) => setLocal({ ...local, cnpj: v })} />
         <Field label="Inscrição Estadual" value={local.inscricaoEstadual || ''}
