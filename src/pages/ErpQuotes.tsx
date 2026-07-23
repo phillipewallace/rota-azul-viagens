@@ -782,7 +782,7 @@ const ErpQuotes: React.FC = () => {
                     searchPlaceholder="Buscar empresa..."
                     options={companies.map(c => ({
                       value: c.id,
-                      label: c.razaoSocial || '(sem razão)',
+                      label: c.sigla ? `${c.sigla} — ${c.razaoSocial || '(sem razão)'}` : (c.razaoSocial || '(sem razão)'),
                       hint: c.cnpj || undefined,
                     }))}
                     onValueChange={(v) => setEditing({ ...editing, companyId: v || undefined })}
