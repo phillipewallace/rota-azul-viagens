@@ -135,6 +135,9 @@ export default function CompaniesSettings() {
                       onChange={(v) => setForm({ ...form, razaoSocial: v })} />
                     <Field label="Nome Fantasia" value={form.nomeFantasia || ''}
                       onChange={(v) => setForm({ ...form, nomeFantasia: v })} />
+                    <Field label="Sigla (ex.: MIC, DSR — aparece na numeração)"
+                      value={form.sigla || ''}
+                      onChange={(v) => setForm({ ...form, sigla: v.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 6) })} />
                     <Field label="CNPJ *" value={formatCnpj(form.cnpj || '')}
                       onChange={(v) => setForm({ ...form, cnpj: v })} />
                     <Field label="Inscrição Estadual" value={form.inscricaoEstadual || ''}
