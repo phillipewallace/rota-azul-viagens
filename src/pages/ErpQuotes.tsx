@@ -208,9 +208,16 @@ const ErpQuotes: React.FC = () => {
     return Math.max(0, subtotal - desc + (Number(editing.frete) || 0));
   }, [subtotal, editing]);
 
-  const openNew = () => setEditing(emptyEditor());
+  // Recarrega lista de empresas para evitar cache stale (empresa recém-criada
+  // ou removida causando 404 "Empresa emissora não encontrada" ao salvar).
+  const refreshCompanies = async () => {
+    try { setCompanies(await erpService.listCompanies()); }
+    catch { /* silencioso — lista antiga permanece */ }
+  };
+  const openNew = () => { refreshCompanies(); setEditing(emptyEditor()); };
   const openEdit = async (id: string) => {
     try {
+      refreshCompanies();
       const q = await quotesService.get(id);
       setEditing({
         id: q.id, companyId: q.companyId, customerId: q.customerId,
