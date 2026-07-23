@@ -235,7 +235,10 @@ function CompanyRow({ company, saving, onSave, onDelete }: {
         <div className="flex items-center gap-3">
           {local.logoUrl && <img src={toAbsoluteUrl(local.logoUrl)} alt="logo" className="h-12 w-12 object-contain border rounded bg-white" />}
           <div>
-            <div className="font-semibold">{company.razaoSocial}</div>
+            <div className="font-semibold flex items-center gap-2">
+              {company.razaoSocial}
+              {company.sigla && <Badge variant="outline" className="text-[10px]">{company.sigla}</Badge>}
+            </div>
             <div className="text-xs text-muted-foreground">{formatCnpj(company.cnpj)}</div>
           </div>
         </div>
