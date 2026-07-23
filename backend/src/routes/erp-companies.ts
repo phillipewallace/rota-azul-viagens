@@ -94,6 +94,14 @@ router.put('/:id', async (req, res) => {
     const finContato = c.financeiroContato != null
       ? String(c.financeiroContato).trim().slice(0, 500) || null
       : null;
+    const sigla = c.sigla !== undefined
+      ? (c.sigla == null || String(c.sigla).trim() === ''
+          ? null
+          : String(c.sigla).trim().toUpperCase().slice(0, 6))
+      : undefined;
+    if (sigla && !/^[A-Z0-9_-]{1,6}$/.test(sigla)) {
+      return res.status(400).json({ error: 'Sigla inválida (até 6 caracteres, A-Z/0-9/-/_)' });
+    }
     const r = await pool.query(
       `UPDATE erp_companies SET
          razao_social = COALESCE($2, razao_social),
@@ -104,6 +112,7 @@ router.put('/:id', async (req, res) => {
          telefone = $10, email = $11, logo_url = $12,
          assinatura_url = $13,
          financeiro_contato = $14,
+         sigla = COALESCE($16, sigla),
          ativo = COALESCE($15, ativo),
          updated_at = NOW()
        WHERE id = $1 RETURNING *`,
@@ -111,7 +120,8 @@ router.put('/:id', async (req, res) => {
        c.cnpj ? String(c.cnpj).replace(/\D/g, '') : null,
        c.inscricaoEstadual || null, c.endereco || null, c.cidade || null,
        c.estado || null, c.cep || null, c.telefone || null, c.email || null,
-       c.logoUrl || null, c.assinaturaUrl || null, finContato, c.ativo]
+       c.logoUrl || null, c.assinaturaUrl || null, finContato, c.ativo,
+       sigla === undefined ? null : sigla]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     res.json(r.rows[0]);
