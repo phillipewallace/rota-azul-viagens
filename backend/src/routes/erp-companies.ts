@@ -16,6 +16,7 @@ router.get('/', async (_req, res) => {
              endereco, cidade, estado, cep, telefone, email, logo_url AS "logoUrl",
              assinatura_url AS "assinaturaUrl",
              financeiro_contato AS "financeiroContato",
+             sigla,
              ativo, created_at AS "createdAt"
         FROM erp_companies
        ORDER BY created_at ASC`);
