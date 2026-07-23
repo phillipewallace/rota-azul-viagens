@@ -19,7 +19,7 @@ const MAX = 3;
 const empty: Partial<ErpCompany> = {
   razaoSocial: '', nomeFantasia: '', cnpj: '', inscricaoEstadual: '',
   endereco: '', cidade: '', estado: '', cep: '', telefone: '', email: '',
-  logoUrl: '',
+  logoUrl: '', sigla: '',
   ativo: true,
 };
 
