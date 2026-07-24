@@ -144,13 +144,14 @@ function buildContext(src: ContractSource): Record<string, string> {
   const customer = src.customerSnapshot || {};
 
   const enderecoEmpresa = [
-    company.endereco, company.numero, company.bairro,
+    company.endereco, company.numero, company.complemento, company.bairro,
     [company.cidade, company.estado].filter(Boolean).join('/'),
     company.cep ? `CEP ${company.cep}` : null,
   ].filter(Boolean).join(', ');
 
   const enderecoCliente = [
-    customer.address || src.customerAddress, customer.numero, customer.bairro,
+    customer.address || src.customerAddress,
+    customer.numero, customer.complemento, customer.bairro,
     [customer.cidade, customer.estado].filter(Boolean).join('/'),
     customer.cep ? `CEP ${customer.cep}` : null,
   ].filter(Boolean).join(', ');

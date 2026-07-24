@@ -128,7 +128,7 @@ export async function generateServiceOrderPdf(os: ServiceOrderPdfInput) {
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
   const enderecoFinal = os.enderecoEntrega
     || os.customerAddress
-    || [customer.address, customer.numero, customer.bairro, customer.cidade, customer.estado].filter(Boolean).join(', ')
+    || [customer.address, customer.numero, customer.complemento, customer.bairro, customer.cidade, customer.estado, customer.cep ? `CEP ${customer.cep}` : null].filter(Boolean).join(', ')
     || '— ENDERECO NAO INFORMADO —';
   const endLines = doc.splitTextToSize(enderecoFinal, W - 2 * M);
   doc.text(endLines, M, y);
