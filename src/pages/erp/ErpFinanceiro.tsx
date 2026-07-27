@@ -2153,8 +2153,8 @@ const ErpFinanceiro: React.FC = () => {
                                     Re-gerar PDF
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => setEditVencDialog(r)} disabled={r.status === 'cancelado'}>
-                                    <CalendarDays className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                                    Editar vencimento
+                                    <Pencil className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                    Editar recibo
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   {r.status !== 'cancelado' && (
