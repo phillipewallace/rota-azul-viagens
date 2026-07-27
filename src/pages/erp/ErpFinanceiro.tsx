@@ -3388,6 +3388,66 @@ const CancelDialog: React.FC<{
   );
 };
 
+// ========================= EditVencimentoDialog =========================
+// Permite corrigir manualmente o vencimento de um recibo já emitido.
+const EditVencimentoDialog: React.FC<{
+  receipt: Receipt | null;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}> = ({ receipt, onClose, onSaved }) => {
+  const [venc, setVenc] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (receipt) setVenc((receipt.dataVencimento || '').slice(0, 10));
+  }, [receipt]);
+
+  const salvar = async () => {
+    if (!receipt) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(venc)) { toast.error('Data inválida'); return; }
+    setBusy(true);
+    try {
+      await receiptsService.setVencimento(receipt.id, venc);
+      toast.success('Vencimento atualizado');
+      await onSaved();
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao atualizar vencimento');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!receipt} onOpenChange={(o) => !o && !busy && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar vencimento</DialogTitle>
+          <DialogDescription>
+            Ajuste manual da data de vencimento do recibo <strong>{receipt?.numero}</strong>.
+            O PDF vai refletir a nova data ao regerar.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-2">
+          <Label htmlFor="edit-venc-input">Nova data de vencimento</Label>
+          <Input
+            id="edit-venc-input"
+            type="date"
+            value={venc}
+            onChange={(e) => setVenc(e.target.value)}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button>
+          <Button onClick={salvar} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ============================================================
 // Gastos
 // ============================================================
