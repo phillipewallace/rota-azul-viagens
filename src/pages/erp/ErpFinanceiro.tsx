@@ -748,13 +748,16 @@ const ErpFinanceiro: React.FC = () => {
   // passa a ser exibida como "DD/MM/YYYY - DD/MM/YYYY".
   const gerarPeriodo = async (
     p: PendingReceipt, periodoInicio: string, periodoFim: string,
-    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean }
+    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean; dataVencimento?: string }
   ) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
       toast.error('Datas inválidas'); return;
     }
     if (periodoFim < periodoInicio) {
       toast.error('A data final deve ser igual ou posterior à inicial'); return;
+    }
+    if (opts?.dataVencimento && !/^\d{4}-\d{2}-\d{2}$/.test(opts.dataVencimento)) {
+      toast.error('Data de vencimento inválida'); return;
     }
     setWorking(p.contractId);
     try {
@@ -765,6 +768,7 @@ const ErpFinanceiro: React.FC = () => {
         valor: Number(p.valorMensal),
         pago: opts?.marcarPago ?? true,
         semValidade: !!opts?.semValidade,
+        dataVencimento: opts?.dataVencimento,
       });
       if (opts?.baixarPdf !== false) {
         try {
