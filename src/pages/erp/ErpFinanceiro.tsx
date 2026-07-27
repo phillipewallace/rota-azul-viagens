@@ -3389,29 +3389,65 @@ const CancelDialog: React.FC<{
 };
 
 // ========================= EditVencimentoDialog =========================
-// Permite corrigir manualmente o vencimento de um recibo já emitido.
+// Permite corrigir manualmente informações de um recibo já emitido (valor,
+// datas de emissão/vencimento, período de competência e número exibido).
 const EditVencimentoDialog: React.FC<{
   receipt: Receipt | null;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }> = ({ receipt, onClose, onSaved }) => {
-  const [venc, setVenc] = useState('');
+  const [dataEmissao, setDataEmissao] = useState('');
+  const [dataVencimento, setDataVencimento] = useState('');
+  const [periodoInicio, setPeriodoInicio] = useState('');
+  const [periodoFim, setPeriodoFim] = useState('');
+  const [valor, setValor] = useState<string>('');
+  const [numeroDisplay, setNumeroDisplay] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (receipt) setVenc((receipt.dataVencimento || '').slice(0, 10));
+    if (!receipt) return;
+    setDataEmissao((receipt.dataEmissao || '').slice(0, 10));
+    setDataVencimento((receipt.dataVencimento || '').slice(0, 10));
+    setPeriodoInicio((receipt.periodoInicio || '').slice(0, 10));
+    setPeriodoFim((receipt.periodoFim || '').slice(0, 10));
+    setValor(String(Number(receipt.valor || 0)));
+    setNumeroDisplay(receipt.numeroDisplay || '');
   }, [receipt]);
 
   const salvar = async () => {
     if (!receipt) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(venc)) { toast.error('Data inválida'); return; }
+    const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+    if (!isDate(dataEmissao)) { toast.error('Data de emissão inválida'); return; }
+    if (dataVencimento && !isDate(dataVencimento)) { toast.error('Data de vencimento inválida'); return; }
+    if (periodoInicio && !isDate(periodoInicio)) { toast.error('Início do período inválido'); return; }
+    if (periodoFim && !isDate(periodoFim)) { toast.error('Fim do período inválido'); return; }
+    if (periodoInicio && periodoFim && periodoFim < periodoInicio) {
+      toast.error('Fim do período deve ser >= início'); return;
+    }
+    const v = Number(String(valor).replace(',', '.'));
+    if (!Number.isFinite(v) || v < 0) { toast.error('Valor inválido'); return; }
+
+    const patch: Parameters<typeof receiptsService.update>[1] = {
+      dataEmissao,
+      dataVencimento: dataVencimento || null,
+      periodoInicio: periodoInicio || null,
+      periodoFim: periodoFim || null,
+      valor: v,
+      numeroDisplay: numeroDisplay.trim() || null,
+    };
+    // Recalcula competência a partir do período/emissão para manter consistência.
+    const compBase = periodoInicio || dataEmissao;
+    if (compBase && /^\d{4}-\d{2}-\d{2}$/.test(compBase)) {
+      patch.competencia = compBase.slice(0, 7);
+    }
+
     setBusy(true);
     try {
-      await receiptsService.setVencimento(receipt.id, venc);
-      toast.success('Vencimento atualizado');
+      await receiptsService.update(receipt.id, patch);
+      toast.success('Recibo atualizado');
       await onSaved();
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao atualizar vencimento');
+      toast.error(e?.message || 'Falha ao atualizar recibo');
     } finally {
       setBusy(false);
     }
@@ -3419,28 +3455,56 @@ const EditVencimentoDialog: React.FC<{
 
   return (
     <Dialog open={!!receipt} onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Editar vencimento</DialogTitle>
+          <DialogTitle>Editar recibo</DialogTitle>
           <DialogDescription>
-            Ajuste manual da data de vencimento do recibo <strong>{receipt?.numero}</strong>.
-            O PDF vai refletir a nova data ao regerar.
+            Correções manuais no recibo <strong>{receipt?.numeroDisplay || receipt?.numero}</strong>.
+            O PDF refletirá as alterações ao regerar. Pagamento e status não são alterados aqui.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2 py-2">
-          <Label htmlFor="edit-venc-input">Nova data de vencimento</Label>
-          <Input
-            id="edit-venc-input"
-            type="date"
-            value={venc}
-            onChange={(e) => setVenc(e.target.value)}
-          />
+
+        <div className="grid gap-3 py-2 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor="edit-emissao">Data de emissão</Label>
+            <Input id="edit-emissao" type="date" value={dataEmissao} onChange={(e) => setDataEmissao(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="edit-venc">Data de vencimento</Label>
+            <Input id="edit-venc" type="date" value={dataVencimento} onChange={(e) => setDataVencimento(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="edit-pi">Início do período</Label>
+            <Input id="edit-pi" type="date" value={periodoInicio} onChange={(e) => setPeriodoInicio(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="edit-pf">Fim do período</Label>
+            <Input id="edit-pf" type="date" value={periodoFim} onChange={(e) => setPeriodoFim(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="edit-valor">Valor (R$)</Label>
+            <Input
+              id="edit-valor" type="number" min={0} step="0.01"
+              value={valor} onChange={(e) => setValor(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="edit-numdisp">Número exibido (opcional)</Label>
+            <Input
+              id="edit-numdisp"
+              value={numeroDisplay}
+              onChange={(e) => setNumeroDisplay(e.target.value)}
+              placeholder={receipt?.numero || ''}
+              maxLength={64}
+            />
+          </div>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button>
           <Button onClick={salvar} disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-            Salvar
+            Salvar alterações
           </Button>
         </DialogFooter>
       </DialogContent>
