@@ -3092,16 +3092,29 @@ const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
   competencia: string;
-  onConfirm: (semValidade: boolean) => void;
+  onConfirm: (semValidade: boolean, dataVencimento?: string) => void;
   children: React.ReactNode;
 }> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
   const [semValidade, setSemValidade] = useState(false);
+  const [overrideVenc, setOverrideVenc] = useState(false);
+  const [vencManual, setVencManual] = useState('');
+
+  // Vencimento padrão (mesma lógica do backend): dia do contrato no mês da competência.
+  const vencPadrao = useMemo(() => {
+    const [ano, mes] = competencia.split('-').map(Number);
+    if (!ano || !mes) return '';
+    const ultimo = new Date(ano, mes, 0).getDate();
+    const dia = Math.min(Math.max(1, Number(pending.diaVencimento || 10)), ultimo);
+    return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  }, [competencia, pending.diaVencimento]);
 
   useEffect(() => {
     if (!open) return;
     setSemValidade(false);
-  }, [open, pending.contractId]);
+    setOverrideVenc(false);
+    setVencManual(vencPadrao);
+  }, [open, pending.contractId, vencPadrao]);
 
   const periodo = computeCompetenciaPeriodo(pending.dataInicio, competencia);
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
@@ -3111,7 +3124,7 @@ const GerarReciboPopover: React.FC<{
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-[320px] p-0 overflow-hidden border-border/60 shadow-lg"
+        className="w-[340px] p-0 overflow-hidden border-border/60 shadow-lg"
       >
         {/* Header */}
         <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
@@ -3135,6 +3148,32 @@ const GerarReciboPopover: React.FC<{
                 <CalendarDays className="h-3 w-3" />
                 Contrato iniciado em <span className="font-medium text-foreground">{formatDateBR(dataInicioContrato)}</span> · 30 dias
               </div>
+            )}
+          </div>
+
+          {/* Vencimento (override manual opcional) */}
+          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-2">
+            <label htmlFor={`gr-ov-${pending.contractId}`} className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                id={`gr-ov-${pending.contractId}`}
+                checked={overrideVenc}
+                onCheckedChange={(v) => setOverrideVenc(!!v)}
+                className="mt-0.5"
+              />
+              <div className="text-[11px] leading-snug">
+                <div className="font-medium text-foreground">Definir vencimento manualmente</div>
+                <div className="text-muted-foreground">
+                  Padrão: <span className="tabular-nums font-medium text-foreground">{vencPadrao ? formatDateBR(vencPadrao) : '—'}</span> (dia {pending.diaVencimento} do contrato).
+                </div>
+              </div>
+            </label>
+            {overrideVenc && (
+              <Input
+                type="date"
+                value={vencManual}
+                onChange={(e) => setVencManual(e.target.value)}
+                className="h-8 text-sm"
+              />
             )}
           </div>
 
@@ -3174,8 +3213,12 @@ const GerarReciboPopover: React.FC<{
             </Button>
             <Button
               size="sm"
-              onClick={() => { onConfirm(semValidade); setOpen(false); }}
-              disabled={working}
+              onClick={() => {
+                const venc = overrideVenc && /^\d{4}-\d{2}-\d{2}$/.test(vencManual) ? vencManual : undefined;
+                onConfirm(semValidade, venc);
+                setOpen(false);
+              }}
+              disabled={working || (overrideVenc && !/^\d{4}-\d{2}-\d{2}$/.test(vencManual))}
               className={
                 'h-8 transition-colors duration-200 ' +
                 (semValidade
@@ -3192,6 +3235,7 @@ const GerarReciboPopover: React.FC<{
     </Popover>
   );
 };
+
 
 
 
