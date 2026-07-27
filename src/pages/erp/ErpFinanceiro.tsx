@@ -2964,6 +2964,12 @@ const ErpFinanceiro: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <EditVencimentoDialog
+        receipt={editVencDialog}
+        onClose={() => setEditVencDialog(null)}
+        onSaved={async () => { setEditVencDialog(null); await load(); }}
+      />
+
       {/* Exportar recibos por período em ZIP */}
       <Dialog open={zipOpen} onOpenChange={(o) => { if (!zipBusy) setZipOpen(o); }}>
         <DialogContent>
