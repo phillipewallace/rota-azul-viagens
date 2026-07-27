@@ -271,6 +271,17 @@ export const receiptsService = {
   /** Ajusta manualmente o vencimento de um recibo já emitido. */
   setVencimento: (id: string, dataVencimento: string | null) =>
     req<{ ok: true }>('PATCH', `/erp/receipts/${id}/vencimento`, { dataVencimento }),
+  /** Edição ampla de um recibo já emitido (correções manuais). */
+  update: (id: string, patch: {
+    dataEmissao?: string;
+    dataVencimento?: string | null;
+    periodoInicio?: string | null;
+    periodoFim?: string | null;
+    valor?: number;
+    numeroDisplay?: string | null;
+    competencia?: string;
+  }) =>
+    req<{ ok: true }>('PATCH', `/erp/receipts/${id}`, patch),
   remove: (id: string, force = false) =>
     req<{ ok: true }>('DELETE', `/erp/receipts/${id}${force ? '?force=1' : ''}`),
   cancel: (id: string, motivo: string) =>

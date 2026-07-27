@@ -401,6 +401,86 @@ router.patch('/:id/vencimento', requireRole(...FIN_ROLES), async (req, res) => {
   }
 });
 
+/**
+ * PATCH /:id
+ * Edição ampla de um recibo já emitido (correções manuais).
+ * Aceita qualquer subconjunto de:
+ *   { dataEmissao, dataVencimento, periodoInicio, periodoFim, valor, numeroDisplay, competencia }
+ * Datas em YYYY-MM-DD (ou null para limpar dataVencimento/numeroDisplay).
+ * Não altera pagamento/status — use os endpoints específicos.
+ */
+router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
+  const dateOrNull = (v: unknown, allowNull = false): string | null | undefined => {
+    if (v === undefined) return undefined;
+    if (v === null) return allowNull ? null : undefined;
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    return 'INVALID';
+  };
+  try {
+    const b = req.body || {};
+    const patch: Record<string, any> = {};
+
+    const de = dateOrNull(b.dataEmissao);
+    if (de === 'INVALID') return res.status(400).json({ error: 'dataEmissao inválida (YYYY-MM-DD)' });
+    if (de !== undefined) patch.data_emissao = de;
+
+    const dv = dateOrNull(b.dataVencimento, true);
+    if (dv === 'INVALID') return res.status(400).json({ error: 'dataVencimento inválida (YYYY-MM-DD ou null)' });
+    if (dv !== undefined) patch.data_vencimento = dv;
+
+    const pi = dateOrNull(b.periodoInicio, true);
+    if (pi === 'INVALID') return res.status(400).json({ error: 'periodoInicio inválido' });
+    if (pi !== undefined) patch.periodo_inicio = pi;
+
+    const pf = dateOrNull(b.periodoFim, true);
+    if (pf === 'INVALID') return res.status(400).json({ error: 'periodoFim inválido' });
+    if (pf !== undefined) patch.periodo_fim = pf;
+
+    if (b.valor !== undefined) {
+      const v = Number(b.valor);
+      if (!Number.isFinite(v) || v < 0) return res.status(400).json({ error: 'valor inválido' });
+      patch.valor = v;
+    }
+
+    if (b.numeroDisplay !== undefined) {
+      if (b.numeroDisplay === null || b.numeroDisplay === '') patch.numero_display = null;
+      else if (typeof b.numeroDisplay === 'string' && b.numeroDisplay.length <= 64) patch.numero_display = b.numeroDisplay;
+      else return res.status(400).json({ error: 'numeroDisplay inválido (max 64 chars)' });
+    }
+
+    if (b.competencia !== undefined) {
+      if (typeof b.competencia !== 'string' || !/^\d{4}-\d{2}$/.test(b.competencia)) {
+        return res.status(400).json({ error: 'competencia inválida (YYYY-MM)' });
+      }
+      patch.competencia = b.competencia;
+    }
+
+    if (patch.periodo_inicio && patch.periodo_fim && patch.periodo_fim < patch.periodo_inicio) {
+      return res.status(400).json({ error: 'periodoFim deve ser >= periodoInicio' });
+    }
+
+    const keys = Object.keys(patch);
+    if (keys.length === 0) return res.status(400).json({ error: 'Nada para atualizar' });
+
+    const cur = await pool.query('SELECT id, status FROM erp_receipts WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (cur.rows[0].status === 'cancelado') {
+      return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
+    }
+
+    const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const values = keys.map(k => patch[k]);
+    await pool.query(
+      `UPDATE erp_receipts SET ${sets}, updated_at=NOW() WHERE id=$1`,
+      [req.params.id, ...values],
+    );
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error('[erp-receipts patch]', e);
+    sendError(res, e);
+  }
+});
+
 
 /**
  * PATCH /:id/pago
