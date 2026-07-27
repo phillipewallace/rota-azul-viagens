@@ -2270,6 +2270,18 @@ const ErpFinanceiro: React.FC = () => {
                           <Button size="sm" variant="outline" onClick={() => baixar(r)} aria-label="Baixar PDF">
                             <Download className="h-3.5 w-3.5 mr-1" /> PDF
                           </Button>
+                          {(r.status === 'pago' || r.status === 'parcial') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setReabrirDialog(r)}
+                              aria-label="Reabrir recibo (marcar como pendente)"
+                              title="Reabrir — marcar como pendente"
+                              className="ml-1 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:border-amber-800/60 dark:text-amber-400 dark:hover:bg-amber-950/40 transition-colors duration-200"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Reabrir
+                            </Button>
+                          )}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button size="sm" variant="ghost" aria-label="Mais ações" disabled={working === r.id}>
@@ -2279,6 +2291,27 @@ const ErpFinanceiro: React.FC = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
+                              {r.status !== 'cancelado' && r.status !== 'pago' && (
+                                <DropdownMenuItem onClick={() => setPayDialog(r)}>
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+                                  Registrar pagamento
+                                </DropdownMenuItem>
+                              )}
+                              {(r.status === 'pago' || r.status === 'parcial') && (
+                                <DropdownMenuItem onClick={() => setReabrirDialog(r)}>
+                                  <RefreshCw className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                  Reabrir (marcar em aberto)
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => regerar(r)} disabled={r.status === 'cancelado'}>
+                                <RefreshCw className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                Re-gerar PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setEditVencDialog(r)} disabled={r.status === 'cancelado'}>
+                                <Pencil className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                Editar recibo
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               {r.status !== 'cancelado' && (
                                 <DropdownMenuItem
                                   onClick={() => setCancelDialog(r)}
