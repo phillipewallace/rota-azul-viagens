@@ -280,6 +280,7 @@ const ErpFinanceiro: React.FC = () => {
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Receipt | null>(null);
   const [reabrirDialog, setReabrirDialog] = useState<Receipt | null>(null);
+  const [editVencDialog, setEditVencDialog] = useState<Receipt | null>(null);
 
   // visualização de contrato (somente leitura) — acessível de qualquer linha
   const [viewContractId, setViewContractId] = useState<string | null>(null);
@@ -747,13 +748,16 @@ const ErpFinanceiro: React.FC = () => {
   // passa a ser exibida como "DD/MM/YYYY - DD/MM/YYYY".
   const gerarPeriodo = async (
     p: PendingReceipt, periodoInicio: string, periodoFim: string,
-    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean }
+    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean; dataVencimento?: string }
   ) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
       toast.error('Datas inválidas'); return;
     }
     if (periodoFim < periodoInicio) {
       toast.error('A data final deve ser igual ou posterior à inicial'); return;
+    }
+    if (opts?.dataVencimento && !/^\d{4}-\d{2}-\d{2}$/.test(opts.dataVencimento)) {
+      toast.error('Data de vencimento inválida'); return;
     }
     setWorking(p.contractId);
     try {
@@ -764,6 +768,7 @@ const ErpFinanceiro: React.FC = () => {
         valor: Number(p.valorMensal),
         pago: opts?.marcarPago ?? true,
         semValidade: !!opts?.semValidade,
+        dataVencimento: opts?.dataVencimento,
       });
       if (opts?.baixarPdf !== false) {
         try {
@@ -1636,9 +1641,9 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                              onConfirm={(semValidade) => {
+                              onConfirm={(semValidade, dataVencimento) => {
                                 const per = computeCompetenciaPeriodo(p.dataInicio, competencia);
-                                void gerarPeriodo(p, per.inicio, per.fim, { semValidade });
+                                void gerarPeriodo(p, per.inicio, per.fim, { semValidade, dataVencimento });
                               }}
                               competencia={competencia}
                             >
@@ -2146,6 +2151,10 @@ const ErpFinanceiro: React.FC = () => {
                                   <DropdownMenuItem onClick={() => regerar(r)} disabled={r.status === 'cancelado'}>
                                     <RefreshCw className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                                     Re-gerar PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setEditVencDialog(r)} disabled={r.status === 'cancelado'}>
+                                    <CalendarDays className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                                    Editar vencimento
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   {r.status !== 'cancelado' && (
@@ -2955,6 +2964,12 @@ const ErpFinanceiro: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <EditVencimentoDialog
+        receipt={editVencDialog}
+        onClose={() => setEditVencDialog(null)}
+        onSaved={async () => { setEditVencDialog(null); await load(); }}
+      />
+
       {/* Exportar recibos por período em ZIP */}
       <Dialog open={zipOpen} onOpenChange={(o) => { if (!zipBusy) setZipOpen(o); }}>
         <DialogContent>
@@ -3087,16 +3102,29 @@ const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
   competencia: string;
-  onConfirm: (semValidade: boolean) => void;
+  onConfirm: (semValidade: boolean, dataVencimento?: string) => void;
   children: React.ReactNode;
 }> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
   const [semValidade, setSemValidade] = useState(false);
+  const [overrideVenc, setOverrideVenc] = useState(false);
+  const [vencManual, setVencManual] = useState('');
+
+  // Vencimento padrão (mesma lógica do backend): dia do contrato no mês da competência.
+  const vencPadrao = useMemo(() => {
+    const [ano, mes] = competencia.split('-').map(Number);
+    if (!ano || !mes) return '';
+    const ultimo = new Date(ano, mes, 0).getDate();
+    const dia = Math.min(Math.max(1, Number(pending.diaVencimento || 10)), ultimo);
+    return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  }, [competencia, pending.diaVencimento]);
 
   useEffect(() => {
     if (!open) return;
     setSemValidade(false);
-  }, [open, pending.contractId]);
+    setOverrideVenc(false);
+    setVencManual(vencPadrao);
+  }, [open, pending.contractId, vencPadrao]);
 
   const periodo = computeCompetenciaPeriodo(pending.dataInicio, competencia);
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
@@ -3106,7 +3134,7 @@ const GerarReciboPopover: React.FC<{
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-[320px] p-0 overflow-hidden border-border/60 shadow-lg"
+        className="w-[340px] p-0 overflow-hidden border-border/60 shadow-lg"
       >
         {/* Header */}
         <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
@@ -3130,6 +3158,32 @@ const GerarReciboPopover: React.FC<{
                 <CalendarDays className="h-3 w-3" />
                 Contrato iniciado em <span className="font-medium text-foreground">{formatDateBR(dataInicioContrato)}</span> · 30 dias
               </div>
+            )}
+          </div>
+
+          {/* Vencimento (override manual opcional) */}
+          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-2">
+            <label htmlFor={`gr-ov-${pending.contractId}`} className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                id={`gr-ov-${pending.contractId}`}
+                checked={overrideVenc}
+                onCheckedChange={(v) => setOverrideVenc(!!v)}
+                className="mt-0.5"
+              />
+              <div className="text-[11px] leading-snug">
+                <div className="font-medium text-foreground">Definir vencimento manualmente</div>
+                <div className="text-muted-foreground">
+                  Padrão: <span className="tabular-nums font-medium text-foreground">{vencPadrao ? formatDateBR(vencPadrao) : '—'}</span> (dia {pending.diaVencimento} do contrato).
+                </div>
+              </div>
+            </label>
+            {overrideVenc && (
+              <Input
+                type="date"
+                value={vencManual}
+                onChange={(e) => setVencManual(e.target.value)}
+                className="h-8 text-sm"
+              />
             )}
           </div>
 
@@ -3169,8 +3223,12 @@ const GerarReciboPopover: React.FC<{
             </Button>
             <Button
               size="sm"
-              onClick={() => { onConfirm(semValidade); setOpen(false); }}
-              disabled={working}
+              onClick={() => {
+                const venc = overrideVenc && /^\d{4}-\d{2}-\d{2}$/.test(vencManual) ? vencManual : undefined;
+                onConfirm(semValidade, venc);
+                setOpen(false);
+              }}
+              disabled={working || (overrideVenc && !/^\d{4}-\d{2}-\d{2}$/.test(vencManual))}
               className={
                 'h-8 transition-colors duration-200 ' +
                 (semValidade
@@ -3187,6 +3245,7 @@ const GerarReciboPopover: React.FC<{
     </Popover>
   );
 };
+
 
 
 
@@ -3322,6 +3381,66 @@ const CancelDialog: React.FC<{
           <Button onClick={submit} disabled={saving} className="bg-rose-600 hover:bg-rose-700">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <XCircle className="h-4 w-4 mr-1" />}
             Cancelar recibo
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ========================= EditVencimentoDialog =========================
+// Permite corrigir manualmente o vencimento de um recibo já emitido.
+const EditVencimentoDialog: React.FC<{
+  receipt: Receipt | null;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}> = ({ receipt, onClose, onSaved }) => {
+  const [venc, setVenc] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (receipt) setVenc((receipt.dataVencimento || '').slice(0, 10));
+  }, [receipt]);
+
+  const salvar = async () => {
+    if (!receipt) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(venc)) { toast.error('Data inválida'); return; }
+    setBusy(true);
+    try {
+      await receiptsService.setVencimento(receipt.id, venc);
+      toast.success('Vencimento atualizado');
+      await onSaved();
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao atualizar vencimento');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!receipt} onOpenChange={(o) => !o && !busy && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar vencimento</DialogTitle>
+          <DialogDescription>
+            Ajuste manual da data de vencimento do recibo <strong>{receipt?.numero}</strong>.
+            O PDF vai refletir a nova data ao regerar.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-2">
+          <Label htmlFor="edit-venc-input">Nova data de vencimento</Label>
+          <Input
+            id="edit-venc-input"
+            type="date"
+            value={venc}
+            onChange={(e) => setVenc(e.target.value)}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button>
+          <Button onClick={salvar} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Salvar
           </Button>
         </DialogFooter>
       </DialogContent>

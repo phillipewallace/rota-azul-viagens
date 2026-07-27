@@ -197,6 +197,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   const {
     contractId, competencia: comp, valor, pago = true, regerar = false,
     periodoInicio, periodoFim, semValidade = false,
+    dataVencimento: dataVencimentoIn,
   } = req.body || {};
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
 
@@ -278,12 +279,15 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     }
     const valorFinal = baseValor + freteAplicado;
 
-    // Vencimento é definido pelo CONTRATO (dia_vencimento no mês da competência).
-    // O período informado no recibo é apenas exibição e não altera o vencimento.
+    // Vencimento é definido pelo CONTRATO (dia_vencimento no mês da competência),
+    // salvo quando o usuário informa `dataVencimento` manualmente (override).
     const [ano, mes] = competencia.split('-').map(Number);
     const ultimoDia = new Date(ano, mes, 0).getDate();
     const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
-    const dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const dataVencCalc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const dataVenc = (typeof dataVencimentoIn === 'string' && isISO(dataVencimentoIn))
+      ? dataVencimentoIn
+      : dataVencCalc;
 
 
     const snapshot = {
@@ -369,6 +373,34 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     sendError(res, e);
   } finally { client.release(); }
 });
+
+/**
+ * PATCH /:id/vencimento
+ * Ajuste manual da data de vencimento de um recibo já emitido.
+ * Body: { dataVencimento: 'YYYY-MM-DD' | null }
+ */
+router.patch('/:id/vencimento', requireRole(...FIN_ROLES), async (req, res) => {
+  try {
+    const { dataVencimento } = req.body || {};
+    if (dataVencimento !== null && !(typeof dataVencimento === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dataVencimento))) {
+      return res.status(400).json({ error: 'dataVencimento deve estar em YYYY-MM-DD ou null' });
+    }
+    const cur = await pool.query('SELECT id, status FROM erp_receipts WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (cur.rows[0].status === 'cancelado') {
+      return res.status(409).json({ error: 'Recibo cancelado — não pode ter vencimento alterado.' });
+    }
+    await pool.query(
+      `UPDATE erp_receipts SET data_vencimento=$2, updated_at=NOW() WHERE id=$1`,
+      [req.params.id, dataVencimento],
+    );
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error('[erp-receipts patch vencimento]', e);
+    sendError(res, e);
+  }
+});
+
 
 /**
  * PATCH /:id/pago
