@@ -375,6 +375,34 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
 });
 
 /**
+ * PATCH /:id/vencimento
+ * Ajuste manual da data de vencimento de um recibo já emitido.
+ * Body: { dataVencimento: 'YYYY-MM-DD' | null }
+ */
+router.patch('/:id/vencimento', requireRole(...FIN_ROLES), async (req, res) => {
+  try {
+    const { dataVencimento } = req.body || {};
+    if (dataVencimento !== null && !(typeof dataVencimento === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dataVencimento))) {
+      return res.status(400).json({ error: 'dataVencimento deve estar em YYYY-MM-DD ou null' });
+    }
+    const cur = await pool.query('SELECT id, status FROM erp_receipts WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (cur.rows[0].status === 'cancelado') {
+      return res.status(409).json({ error: 'Recibo cancelado — não pode ter vencimento alterado.' });
+    }
+    await pool.query(
+      `UPDATE erp_receipts SET data_vencimento=$2, updated_at=NOW() WHERE id=$1`,
+      [req.params.id, dataVencimento],
+    );
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error('[erp-receipts patch vencimento]', e);
+    sendError(res, e);
+  }
+});
+
+
+/**
  * PATCH /:id/pago
  * Atualiza status de pagamento. Aceita:
  *  - { pago: boolean }                            (compat antigo)
