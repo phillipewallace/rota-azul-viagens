@@ -280,6 +280,7 @@ const ErpFinanceiro: React.FC = () => {
   const [payDialog, setPayDialog] = useState<Receipt | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Receipt | null>(null);
   const [reabrirDialog, setReabrirDialog] = useState<Receipt | null>(null);
+  const [editVencDialog, setEditVencDialog] = useState<Receipt | null>(null);
 
   // visualização de contrato (somente leitura) — acessível de qualquer linha
   const [viewContractId, setViewContractId] = useState<string | null>(null);
