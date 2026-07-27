@@ -279,12 +279,15 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     }
     const valorFinal = baseValor + freteAplicado;
 
-    // Vencimento é definido pelo CONTRATO (dia_vencimento no mês da competência).
-    // O período informado no recibo é apenas exibição e não altera o vencimento.
+    // Vencimento é definido pelo CONTRATO (dia_vencimento no mês da competência),
+    // salvo quando o usuário informa `dataVencimento` manualmente (override).
     const [ano, mes] = competencia.split('-').map(Number);
     const ultimoDia = new Date(ano, mes, 0).getDate();
     const dia = Math.min(Math.max(1, Number(ct.dia_vencimento || 10)), ultimoDia);
-    const dataVenc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const dataVencCalc = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    const dataVenc = (typeof dataVencimentoIn === 'string' && isISO(dataVencimentoIn))
+      ? dataVencimentoIn
+      : dataVencCalc;
 
 
     const snapshot = {
