@@ -197,6 +197,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   const {
     contractId, competencia: comp, valor, pago = true, regerar = false,
     periodoInicio, periodoFim, semValidade = false,
+    dataVencimento: dataVencimentoIn,
   } = req.body || {};
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
 
