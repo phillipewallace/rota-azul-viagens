@@ -49,9 +49,15 @@ export async function generateContractDoc(src: ContractSource) {
   const cidade = String(company.cidade || '____________');
   const emissao = src.dataEmissao || src.dataInicio || new Date().toISOString();
   const roleLabel = tipoTpl === 'evento' ? 'CONTRATANTE' : 'LOCATÁRIA';
-  const observacoes = src.observacoes?.trim()
-    ? `<h2>OBSERVAÇÕES COMPLEMENTARES</h2><p>${esc(src.observacoes).replace(/\n/g, '<br>')}</p>`
+  const obsTexto = sanitizeObservacoesDatas(
+    src.observacoes,
+    src.dataEntrega || src.dataInicio,
+    src.dataRecolhimento || src.dataFimPrevista,
+  );
+  const observacoes = obsTexto.trim()
+    ? `<h2>OBSERVAÇÕES COMPLEMENTARES</h2><p>${esc(obsTexto).replace(/\n/g, '<br>')}</p>`
     : '';
+
 
   // HTML Word-compatible: estilos inline via <style>, cabeçalho MSO,
   // meta charset e BOM UTF-8 no blob para preservar acentuação.
