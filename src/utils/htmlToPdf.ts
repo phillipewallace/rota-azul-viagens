@@ -26,16 +26,22 @@ interface Run { text: string; bold: boolean; italic: boolean; underline: boolean
 const isElement = (n: Node): n is HTMLElement => n.nodeType === 1;
 const isText    = (n: Node): n is Text        => n.nodeType === 3;
 
+// Sentinela de quebra de linha explícita (<br>). Não usamos '\n' porque
+// quebras de linha presentes no CÓDIGO HTML do template são apenas
+// espaços em branco (como no HTML real) e não devem quebrar a linha.
+const BR = '\u0001';
+
 function collectRuns(node: Node, parent: { b: boolean; i: boolean; u: boolean }): Run[] {
   const runs: Run[] = [];
   if (isText(node)) {
-    const txt = node.nodeValue ?? '';
+    // Normaliza qualquer whitespace do código-fonte (\n, \t, \r) para espaço.
+    const txt = (node.nodeValue ?? '').replace(/[\r\n\t]+/g, ' ');
     if (txt) runs.push({ text: txt, bold: parent.b, italic: parent.i, underline: parent.u });
     return runs;
   }
   if (!isElement(node)) return runs;
   const tag = node.tagName.toLowerCase();
-  if (tag === 'br') { runs.push({ text: '\n', bold: parent.b, italic: parent.i, underline: parent.u }); return runs; }
+  if (tag === 'br') { runs.push({ text: BR, bold: parent.b, italic: parent.i, underline: parent.u }); return runs; }
   const state = {
     b: parent.b || tag === 'strong' || tag === 'b',
     i: parent.i || tag === 'em'     || tag === 'i',
@@ -46,14 +52,14 @@ function collectRuns(node: Node, parent: { b: boolean; i: boolean; u: boolean })
 }
 
 function normalizeWhitespace(runs: Run[]): Run[] {
-  // Colapsa espaços em runs adjacentes, mas mantém quebra de linha explícita (\n).
+  // Colapsa espaços em runs adjacentes, mas mantém quebra de linha explícita (<br>).
   const out: Run[] = [];
   let pendingSpace = false;
   for (const r of runs) {
-    const parts = r.text.split(/(\n)/);
+    const parts = r.text.split(new RegExp(`(${BR})`));
     for (const p of parts) {
-      if (p === '\n') {
-        out.push({ ...r, text: '\n' });
+      if (p === BR) {
+        out.push({ ...r, text: BR });
         pendingSpace = false;
         continue;
       }
@@ -66,6 +72,7 @@ function normalizeWhitespace(runs: Run[]): Run[] {
   }
   return out;
 }
+
 
 function setFontFor(doc: jsPDF, run: Run, size: number) {
   const style = run.bold && run.italic ? 'bolditalic' : run.bold ? 'bold' : run.italic ? 'italic' : 'normal';
@@ -104,7 +111,7 @@ function renderInline(
   type Token = { text: string; run: Run; space: boolean };
   const tokens: Token[] = [];
   for (const r of runs) {
-    if (r.text === '\n') { tokens.push({ text: '\n', run: r, space: false }); continue; }
+    if (r.text === BR) { tokens.push({ text: BR, run: r, space: false }); continue; }
     const parts = r.text.split(/(\s+)/);
     for (const p of parts) {
       if (!p) continue;
@@ -120,7 +127,7 @@ function renderInline(
   let lineStart = true;
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i];
-    if (tok.text === '\n') {
+    if (tok.text === BR) {
       y += lineH;
       cursorX = x;
       lineStart = true;
