@@ -44,6 +44,37 @@ const isDateBefore = (a?: string | Date | null, b?: string | Date | null) => {
   return !!da && !!db && da.getTime() < db.getTime();
 };
 
+/**
+ * Corrige observações legadas/copiadas que dizem "à combinar" (ou "a definir")
+ * na linha de entrega/recolhimento quando a data já está preenchida no
+ * contrato. Sem isso o PDF mostrava "Data da entrega: Á combinar" mesmo com a
+ * data informada.
+ */
+export function sanitizeObservacoesDatas(
+  obs?: string | null,
+  dataEntrega?: string | Date | null,
+  dataRecolhimento?: string | Date | null,
+): string {
+  if (!obs) return '';
+  const vago = /(?:[aàáâ]\s*combinar|a\s*definir|a\s*confirmar)\.?/i;
+  const entregaBr = parseLocal(dataEntrega) ? fmtDateBr(dataEntrega) : '';
+  const recolhBr = parseLocal(dataRecolhimento) ? fmtDateBr(dataRecolhimento) : '';
+
+  return obs
+    .split('\n')
+    .map((line) => {
+      if (!vago.test(line)) return line;
+      const isRecolhimento = /recolhiment|retirad|devoluç/i.test(line);
+      const isEntrega = /entrega|instalaç|in[ií]cio/i.test(line);
+      if (isRecolhimento && recolhBr) return line.replace(vago, recolhBr);
+      if (isEntrega && entregaBr) return line.replace(vago, entregaBr);
+      return line;
+    })
+    .join('\n');
+}
+
+
+
 function maskDoc(doc?: string) {
   if (!doc) return '';
   const d = doc.replace(/\D/g, '');
@@ -241,7 +272,7 @@ function buildContext(src: ContractSource): Record<string, string> {
       return src.condicoesPagamento || '';
     })(),
     'contrato.limpezas_semanais': String(limp || 1),
-    'contrato.observacoes': src.observacoes || '',
+    'contrato.observacoes': sanitizeObservacoesDatas(src.observacoes, dataEntregaContrato, dataRecolhimentoContrato),
     'contrato.responsavel_nome': src.responsavelNome || '',
     'contrato.responsavel_telefone': src.responsavelTelefone || '',
     'contrato.responsavel_email': src.responsavelEmail || '',
@@ -391,7 +422,12 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
   y = renderCtx.y;
 
   // Observações complementares (texto livre digitado no contrato)
-  if (src.observacoes && src.observacoes.trim()) {
+  const obsTexto = sanitizeObservacoesDatas(
+    src.observacoes,
+    src.dataEntrega || src.dataInicio,
+    src.dataRecolhimento || src.dataFimPrevista,
+  );
+  if (obsTexto.trim()) {
     if (y + 30 > H - 22) y = newPage();
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     y += 3;
@@ -404,9 +440,11 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
         return ctxObs.y;
       },
     };
-    renderHtmlToPdf(ctxObs, `<p>${src.observacoes.replace(/\n/g, '<br>')}</p>`);
+    renderHtmlToPdf(ctxObs, `<p>${obsTexto.replace(/\n/g, '<br>')}</p>`);
     y = ctxObs.y;
   }
+
+
 
   // Local e data
   if (y + 60 > H - 22) y = newPage();
