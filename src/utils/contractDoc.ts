@@ -15,7 +15,9 @@ import {
   _fmtDateBr,
   _fmtDateLong,
   _maskDoc,
+  sanitizeObservacoesDatas,
   type ContractSource,
+
 } from './contractPdf';
 
 const esc = (s: string) =>
