@@ -295,11 +295,12 @@ const ErpQuotes: React.FC = () => {
     catch (e: any) { toast.error('Erro ao gerar PDF: ' + e.message); }
   };
 
-  const exportContract = async () => {
+  const exportContract = async (format: 'pdf' | 'docx' = 'pdf') => {
     const q = await save();
     if (!q) return;
     try {
-      generateContractPdf({
+      const src = {
+
         numero: q.numero,
         tipo: 'orcamento',
         tipoContrato: (() => {
@@ -332,10 +333,17 @@ const ErpQuotes: React.FC = () => {
         responsavelTelefone: (q as any).responsavelTelefone || null,
         responsavelEmail: (q as any).responsavelEmail || null,
         items: q.items,
-      });
-
-      toast.success('Contrato gerado');
+      } as any;
+      if (format === 'docx') {
+        const { generateContractDoc } = await import('@/utils/contractDoc');
+        await generateContractDoc(src);
+        toast.success('Contrato Word gerado');
+      } else {
+        await generateContractPdf(src);
+        toast.success('Contrato gerado');
+      }
     } catch (e: any) { toast.error('Erro ao gerar contrato: ' + e.message); }
+
   };
 
   const convertToOs = async () => {
@@ -1031,9 +1039,13 @@ const ErpQuotes: React.FC = () => {
             <Button variant="outline" onClick={exportPdf} disabled={saving}>
               <FileDown className="h-4 w-4 mr-1" />Salvar e gerar PDF
             </Button>
-            <Button variant="outline" onClick={exportContract} disabled={saving} className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+            <Button variant="outline" onClick={() => exportContract('pdf')} disabled={saving} className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
               <FileSignature className="h-4 w-4 mr-1" />Gerar contrato
             </Button>
+            <Button variant="outline" onClick={() => exportContract('docx')} disabled={saving} className="border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+              <FileSignature className="h-4 w-4 mr-1" />Contrato Word
+            </Button>
+
             <Button variant="outline" onClick={convertToOs} disabled={!editing?.id}>
               <CheckCircle2 className="h-4 w-4 mr-1" />Converter em OS
             </Button>
