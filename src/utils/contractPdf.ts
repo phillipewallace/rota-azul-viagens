@@ -422,7 +422,12 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
   y = renderCtx.y;
 
   // Observações complementares (texto livre digitado no contrato)
-  if (src.observacoes && src.observacoes.trim()) {
+  const obsTexto = sanitizeObservacoesDatas(
+    src.observacoes,
+    src.dataEntrega || src.dataInicio,
+    src.dataRecolhimento || src.dataFimPrevista,
+  );
+  if (obsTexto.trim()) {
     if (y + 30 > H - 22) y = newPage();
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     y += 3;
@@ -435,8 +440,10 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
         return ctxObs.y;
       },
     };
-    renderHtmlToPdf(ctxObs, `<p>${src.observacoes.replace(/\n/g, '<br>')}</p>`);
+    renderHtmlToPdf(ctxObs, `<p>${obsTexto.replace(/\n/g, '<br>')}</p>`);
     y = ctxObs.y;
+  }
+
   }
 
   // Local e data
