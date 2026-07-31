@@ -333,10 +333,17 @@ const ErpQuotes: React.FC = () => {
         responsavelTelefone: (q as any).responsavelTelefone || null,
         responsavelEmail: (q as any).responsavelEmail || null,
         items: q.items,
-      });
-
-      toast.success('Contrato gerado');
+      } as any;
+      if (format === 'docx') {
+        const { generateContractDoc } = await import('@/utils/contractDoc');
+        await generateContractDoc(src);
+        toast.success('Contrato Word gerado');
+      } else {
+        await generateContractPdf(src);
+        toast.success('Contrato gerado');
+      }
     } catch (e: any) { toast.error('Erro ao gerar contrato: ' + e.message); }
+
   };
 
   const convertToOs = async () => {
