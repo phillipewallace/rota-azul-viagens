@@ -111,7 +111,7 @@ function renderInline(
   type Token = { text: string; run: Run; space: boolean };
   const tokens: Token[] = [];
   for (const r of runs) {
-    if (r.text === '\n') { tokens.push({ text: '\n', run: r, space: false }); continue; }
+    if (r.text === BR) { tokens.push({ text: BR, run: r, space: false }); continue; }
     const parts = r.text.split(/(\s+)/);
     for (const p of parts) {
       if (!p) continue;
@@ -127,7 +127,7 @@ function renderInline(
   let lineStart = true;
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i];
-    if (tok.text === '\n') {
+    if (tok.text === BR) {
       y += lineH;
       cursorX = x;
       lineStart = true;
