@@ -627,12 +627,13 @@ const ErpContracts: React.FC = () => {
         contractLabel={vencTarget?.numero}
         formaPagamento="boleto"
         dataEntrega={vencTarget?.dataEvento || vencTarget?.dataInicio || null}
-        onConfirm={async ({ dataVencimento, preview }) => {
+        onConfirm={async ({ dataVencimento, preview, format }) => {
           if (vencTarget) {
-            await downloadContractPdf(vencTarget, { preview, dataVencimento });
+            await downloadContractPdf(vencTarget, { preview, dataVencimento, format });
             setVencTarget(null);
           }
         }}
+
       />
 
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
