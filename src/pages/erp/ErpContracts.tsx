@@ -253,7 +253,10 @@ const ErpContracts: React.FC = () => {
     };
   };
 
-  const downloadContractPdf = async (c: Contract, opts: { preview: boolean; dataVencimento?: string }) => {
+  const downloadContractPdf = async (
+    c: Contract,
+    opts: { preview: boolean; dataVencimento?: string; format?: 'pdf' | 'docx' },
+  ) => {
     try {
       const full = await contractsService.get(c.id);
       const src: any = buildPdfSource(full);
@@ -266,10 +269,17 @@ const ErpContracts: React.FC = () => {
         } catch { /* mantém fallback */ }
       }
       if (opts.dataVencimento) src.dataVencimento = opts.dataVencimento;
+      if (opts.format === 'docx') {
+        const { generateContractDoc } = await import('@/utils/contractDoc');
+        await generateContractDoc(src);
+        toast.success('Contrato Word gerado');
+        return;
+      }
       await generateContractPdf(src, { preview: opts.preview });
       if (!opts.preview) toast.success('Contrato gerado');
     } catch (e: any) { toast.error(e.message || 'Erro ao gerar contrato'); }
   };
+
 
   // ---- Sub-render: badge de vencimento -------------------------------------
   const vencimentoBadge = (c: Contract) => {
