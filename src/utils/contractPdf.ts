@@ -44,6 +44,37 @@ const isDateBefore = (a?: string | Date | null, b?: string | Date | null) => {
   return !!da && !!db && da.getTime() < db.getTime();
 };
 
+/**
+ * Corrige observações legadas/copiadas que dizem "à combinar" (ou "a definir")
+ * na linha de entrega/recolhimento quando a data já está preenchida no
+ * contrato. Sem isso o PDF mostrava "Data da entrega: Á combinar" mesmo com a
+ * data informada.
+ */
+export function sanitizeObservacoesDatas(
+  obs?: string | null,
+  dataEntrega?: string | Date | null,
+  dataRecolhimento?: string | Date | null,
+): string {
+  if (!obs) return '';
+  const vago = /(?:[aàáâ]\s*combinar|a\s*definir|a\s*confirmar)\.?/i;
+  const entregaBr = parseLocal(dataEntrega) ? fmtDateBr(dataEntrega) : '';
+  const recolhBr = parseLocal(dataRecolhimento) ? fmtDateBr(dataRecolhimento) : '';
+
+  return obs
+    .split('\n')
+    .map((line) => {
+      if (!vago.test(line)) return line;
+      const isRecolhimento = /recolhiment|retirad|devoluç/i.test(line);
+      const isEntrega = /entrega|instalaç|in[ií]cio/i.test(line);
+      if (isRecolhimento && recolhBr) return line.replace(vago, recolhBr);
+      if (isEntrega && entregaBr) return line.replace(vago, entregaBr);
+      return line;
+    })
+    .join('\n');
+}
+
+
+
 function maskDoc(doc?: string) {
   if (!doc) return '';
   const d = doc.replace(/\D/g, '');
