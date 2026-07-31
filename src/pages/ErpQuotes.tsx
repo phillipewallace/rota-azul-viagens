@@ -295,11 +295,12 @@ const ErpQuotes: React.FC = () => {
     catch (e: any) { toast.error('Erro ao gerar PDF: ' + e.message); }
   };
 
-  const exportContract = async () => {
+  const exportContract = async (format: 'pdf' | 'docx' = 'pdf') => {
     const q = await save();
     if (!q) return;
     try {
-      generateContractPdf({
+      const src = {
+
         numero: q.numero,
         tipo: 'orcamento',
         tipoContrato: (() => {
