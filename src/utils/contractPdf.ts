@@ -444,7 +444,7 @@ export async function generateContractPdf(src: ContractSource, opts: { preview?:
     y = ctxObs.y;
   }
 
-  }
+
 
   // Local e data
   if (y + 60 > H - 22) y = newPage();
