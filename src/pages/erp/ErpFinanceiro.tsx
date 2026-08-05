@@ -737,10 +737,20 @@ const ErpFinanceiro: React.FC = () => {
     return out;
   };
 
-  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean }) => {
+  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean; periodo?: { inicio: string; fim: string }; dataVencimento?: string; semValidade?: boolean }) => {
     setWorking(p.contractId);
-    try { await generateOne(p.contractId, Number(p.valorMensal), opts); await load(); }
-    catch (e: any) { toast.error(e.message); }
+    try {
+      if (opts?.periodo) {
+        await gerarPeriodo(p, opts.periodo.inicio, opts.periodo.fim, { 
+          baixarPdf: !opts.semPdf, 
+          dataVencimento: opts.dataVencimento, 
+          semValidade: opts.semValidade 
+        });
+      } else {
+        await generateOne(p.contractId, Number(p.valorMensal), opts);
+        await load();
+      }
+    } catch (e: any) { toast.error(e.message); }
     finally { setWorking(null); }
   };
 
@@ -1641,10 +1651,13 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                              onConfirm={(semValidade, dataVencimento) => {
-                                const per = computeCompetenciaPeriodo(p.dataInicio, competencia);
-                                void gerarPeriodo(p, per.inicio, per.fim, { semValidade, dataVencimento });
-                              }}
+                               onConfirm={(semValidade, dataVencimento, periodoOverride) => {
+                                 void gerar(p, { 
+                                   semValidade, 
+                                   dataVencimento, 
+                                   periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia) 
+                                 });
+                               }}
                               competencia={competencia}
                             >
                               <Button
@@ -3130,18 +3143,21 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
 // ========================= GerarReciboPopover =========================
 // Popover compacto: mostra o período que será calculado automaticamente
 // (data de início do contrato + 30 dias, dentro do mês da competência)
-// e permite marcar o recibo como "sem validade jurídica".
+// e permite definir manualmente o período e vencimento.
 const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
   competencia: string;
-  onConfirm: (semValidade: boolean, dataVencimento?: string) => void;
+  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }) => void;
   children: React.ReactNode;
 }> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
   const [semValidade, setSemValidade] = useState(false);
   const [overrideVenc, setOverrideVenc] = useState(false);
   const [vencManual, setVencManual] = useState('');
+  const [overridePeriodo, setOverridePeriodo] = useState(false);
+  const [perIniManual, setPerIniManual] = useState('');
+  const [perFimManual, setPerFimManual] = useState('');
 
   // Vencimento padrão (mesma lógica do backend): dia do contrato no mês da competência.
   const vencPadrao = useMemo(() => {
@@ -3152,14 +3168,19 @@ const GerarReciboPopover: React.FC<{
     return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
   }, [competencia, pending.diaVencimento]);
 
+  const periodoPadrao = useMemo(() => computeCompetenciaPeriodo(pending.dataInicio, competencia), [pending.dataInicio, competencia]);
+
   useEffect(() => {
     if (!open) return;
     setSemValidade(false);
     setOverrideVenc(false);
     setVencManual(vencPadrao);
-  }, [open, pending.contractId, vencPadrao]);
+    setOverridePeriodo(false);
+    setPerIniManual(periodoPadrao.inicio);
+    setPerFimManual(periodoPadrao.fim);
+  }, [open, pending.contractId, vencPadrao, periodoPadrao]);
 
-  const periodo = computeCompetenciaPeriodo(pending.dataInicio, competencia);
+  const periodo = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : periodoPadrao;
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
 
   return (
@@ -3173,23 +3194,59 @@ const GerarReciboPopover: React.FC<{
         <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
           <p className="text-sm font-semibold leading-tight tracking-tight">Gerar recibo</p>
           <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-            Período calculado automaticamente com base no contrato.
+            O período é calculado automaticamente, mas você pode editá-lo abaixo.
           </p>
         </div>
 
         <div className="p-4 space-y-3">
           {/* Preview do período */}
-          <div className="rounded-md px-3 py-2 border bg-muted/40 border-border/60 space-y-1">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Competência
-            </div>
-            <div className="text-sm font-semibold text-foreground tabular-nums">
-              {formatPeriodo(periodo.inicio, periodo.fim)}
-            </div>
-            {dataInicioContrato && (
-              <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <CalendarDays className="h-3 w-3" />
-                Contrato iniciado em <span className="font-medium text-foreground">{formatDateBR(dataInicioContrato)}</span> · 30 dias
+          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-2">
+            <label htmlFor={`gr-per-${pending.contractId}`} className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                id={`gr-per-${pending.contractId}`}
+                checked={overridePeriodo}
+                onCheckedChange={(v) => setOverridePeriodo(!!v)}
+                className="mt-0.5"
+              />
+              <div className="text-[11px] leading-snug">
+                <div className="font-medium text-foreground">Definir período manualmente</div>
+                <div className="text-muted-foreground">
+                  Padrão: <span className="tabular-nums font-medium text-foreground">{formatPeriodo(periodoPadrao.inicio, periodoPadrao.fim)}</span>
+                </div>
+              </div>
+            </label>
+            {overridePeriodo ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground uppercase">Início</Label>
+                  <Input
+                    type="date"
+                    value={perIniManual}
+                    onChange={(e) => setPerIniManual(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground uppercase">Fim</Label>
+                  <Input
+                    type="date"
+                    value={perFimManual}
+                    onChange={(e) => setPerFimManual(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-md px-2 py-1.5 border bg-muted/20 border-border/40 space-y-1">
+                <div className="text-sm font-semibold text-foreground tabular-nums">
+                  {formatPeriodo(periodoPadrao.inicio, periodoPadrao.fim)}
+                </div>
+                {dataInicioContrato && (
+                  <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-2.5 w-2.5" />
+                    Contrato iniciado em <span className="font-medium text-foreground">{formatDateBR(dataInicioContrato)}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -3239,7 +3296,7 @@ const GerarReciboPopover: React.FC<{
             <div className="text-[11px] leading-snug">
               <div className="font-medium text-foreground">Recibo sem validade jurídica</div>
               <div className="text-muted-foreground">
-                Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. O PDF não indica nada sobre isso.
+                Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. No próximo mês, este contrato volta para pendentes normalmente.
               </div>
             </div>
           </label>
@@ -3258,10 +3315,15 @@ const GerarReciboPopover: React.FC<{
               size="sm"
               onClick={() => {
                 const venc = overrideVenc && /^\d{4}-\d{2}-\d{2}$/.test(vencManual) ? vencManual : undefined;
-                onConfirm(semValidade, venc);
+                const per = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : undefined;
+                onConfirm(semValidade, venc, per);
                 setOpen(false);
               }}
-              disabled={working || (overrideVenc && !/^\d{4}-\d{2}-\d{2}$/.test(vencManual))}
+              disabled={
+                working || 
+                (overrideVenc && !/^\d{4}-\d{2}-\d{2}$/.test(vencManual)) ||
+                (overridePeriodo && (!/^\d{4}-\d{2}-\d{2}$/.test(perIniManual) || !/^\d{4}-\d{2}-\d{2}$/.test(perFimManual)))
+              }
               className={
                 'h-8 transition-colors duration-200 ' +
                 (semValidade
@@ -3270,7 +3332,7 @@ const GerarReciboPopover: React.FC<{
               }
             >
               {working ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-              {semValidade ? 'Gerar (sem validade)' : 'Gerar'}
+              {semValidade ? 'Gerar (Sem Validade)' : 'Gerar Recibo'}
             </Button>
           </div>
         </div>
