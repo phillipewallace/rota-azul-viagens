@@ -3130,7 +3130,7 @@ const ChartCard: React.FC<{ series: ReceiptsSummaryPoint[] }> = ({ series }) => 
 // ========================= GerarReciboPopover =========================
 // Popover compacto: mostra o período que será calculado automaticamente
 // (data de início do contrato + 30 dias, dentro do mês da competência)
-// e permite marcar o recibo como "sem validade jurídica".
+// e permite definir manualmente o período e vencimento.
 const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
@@ -3181,7 +3181,7 @@ const GerarReciboPopover: React.FC<{
         <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
           <p className="text-sm font-semibold leading-tight tracking-tight">Gerar recibo</p>
           <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-            Período calculado automaticamente com base no contrato.
+            O período é calculado automaticamente, mas você pode editá-lo abaixo.
           </p>
         </div>
 
@@ -3283,7 +3283,7 @@ const GerarReciboPopover: React.FC<{
             <div className="text-[11px] leading-snug">
               <div className="font-medium text-foreground">Recibo sem validade jurídica</div>
               <div className="text-muted-foreground">
-                Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. O PDF não indica nada sobre isso.
+                Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. No próximo mês, este contrato volta para pendentes normalmente.
               </div>
             </div>
           </label>
@@ -3319,7 +3319,7 @@ const GerarReciboPopover: React.FC<{
               }
             >
               {working ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-              {semValidade ? 'Gerar (sem validade)' : 'Gerar'}
+              {semValidade ? 'Gerar (Sem Validade)' : 'Gerar Recibo'}
             </Button>
           </div>
         </div>
