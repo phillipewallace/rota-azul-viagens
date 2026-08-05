@@ -737,10 +737,20 @@ const ErpFinanceiro: React.FC = () => {
     return out;
   };
 
-  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean }) => {
+  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean; periodo?: { inicio: string; fim: string }; dataVencimento?: string; semValidade?: boolean }) => {
     setWorking(p.contractId);
-    try { await generateOne(p.contractId, Number(p.valorMensal), opts); await load(); }
-    catch (e: any) { toast.error(e.message); }
+    try {
+      if (opts?.periodo) {
+        await gerarPeriodo(p, opts.periodo.inicio, opts.periodo.fim, { 
+          semPdf: opts.semPdf, 
+          dataVencimento: opts.dataVencimento, 
+          semValidade: opts.semValidade 
+        });
+      } else {
+        await generateOne(p.contractId, Number(p.valorMensal), opts);
+        await load();
+      }
+    } catch (e: any) { toast.error(e.message); }
     finally { setWorking(null); }
   };
 
@@ -1642,8 +1652,11 @@ const ErpFinanceiro: React.FC = () => {
                               pending={p}
                               working={working === p.contractId}
                                onConfirm={(semValidade, dataVencimento, periodoOverride) => {
-                                 const per = periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia);
-                                 void gerarPeriodo(p, per.inicio, per.fim, { semValidade, dataVencimento });
+                                 void gerar(p, { 
+                                   semValidade, 
+                                   dataVencimento, 
+                                   periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia) 
+                                 });
                                }}
                               competencia={competencia}
                             >
