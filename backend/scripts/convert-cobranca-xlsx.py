@@ -261,7 +261,10 @@ def extract_extras(*textos):
 
 
 def convert(path, prefix, label):
-    xl = pd.ExcelFile(path)
+    try:
+        xl = pd.ExcelFile(path, engine='calamine')
+    except Exception:
+        xl = pd.ExcelFile(path)
     grupos = {}
     ordem = []
     linhas_lidas = 0
@@ -272,6 +275,7 @@ def convert(path, prefix, label):
             continue
         ano_ref, mes_ref = per
         df = xl.parse(sheet)
+        df = df.dropna(how='all')
         cols = list(df.columns)
         c_emp = find_col(cols, 'EMPRESA')
         if not c_emp:
