@@ -742,7 +742,7 @@ const ErpFinanceiro: React.FC = () => {
     try {
       if (opts?.periodo) {
         await gerarPeriodo(p, opts.periodo.inicio, opts.periodo.fim, { 
-          semPdf: opts.semPdf, 
+          baixarPdf: !opts.semPdf, 
           dataVencimento: opts.dataVencimento, 
           semValidade: opts.semValidade 
         });
