@@ -36,6 +36,10 @@ const UPDATE_EXISTING = argv.includes('--update-existing');
 // foi cobrado no mês anterior também entra como ativo. Use --grace=0 para
 // exigir presença na última competência.
 const GRACE = parseInt((argv.find(a => a.startsWith('--grace=')) || '').split('=')[1] || '1', 10);
+// Confirmado pelo cliente: TODOS os contratos das duas planilhas estão ativos hoje.
+// Por padrão importamos tudo como ativo. Use --use-grace para voltar ao corte por
+// competência (ativo = cobrado nos últimos GRACE meses).
+const ALL_ACTIVE = !argv.includes('--use-grace');
 const ONLY = (argv.find(a => a.startsWith('--only=')) || '').split('=')[1] || null;
 const LIMIT = parseInt((argv.find(a => a.startsWith('--limit=')) || '').split('=')[1] || '0', 10);
 const DATA_DIR = path.join(__dirname, 'legacy-data');
