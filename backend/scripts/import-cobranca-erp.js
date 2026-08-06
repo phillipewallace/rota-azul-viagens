@@ -312,4 +312,16 @@ async function importSource(client, src, stats) {
   console.log(`  Contratos atualizados:    ${stats.contractsUpdated}`);
   console.log(`  Contratos já completos:   ${stats.contractsUpToDate}`);
   console.log(`  Erros:                    ${stats.errors.length}`);
+  if (stats.errors.length) {
+    const byMsg = new Map();
+    for (const e of stats.errors) {
+      const k = `${e.msg} ${e.det || ''}`.trim();
+      byMsg.set(k, (byMsg.get(k) || 0) + 1);
+    }
+    console.log('\n' + c.y('Erros agrupados:'));
+    for (const [msg, n] of [...byMsg.entries()].sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${n}x  ${msg}`);
+    }
+  }
 })();
+
