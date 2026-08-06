@@ -67,6 +67,9 @@ const c = {
 
 const isEmpty = v => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 const personType = doc => (doc && doc.length === 11 ? 'PF' : 'PJ');
+// Trunca strings para caber nas colunas VARCHAR(n) do schema.
+const cut = (v, n) => (typeof v === 'string' && v.length > n ? v.slice(0, n) : v);
+
 
 function lastDayOfCompetencia(comp) {
   if (!/^\d{4}-\d{2}$/.test(comp || '')) return null;
