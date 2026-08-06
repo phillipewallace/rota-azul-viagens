@@ -149,9 +149,9 @@ async function findOrCreateCustomer(client, r, stats) {
   return ins.rows[0].id;
 }
 
-async function importRow(client, src, r, ultimaCompGlobal, stats) {
+async function importRow(client, src, r, cutoffAtivo, stats) {
   const numero = r.numero;
-  const ativo = r.ultima_competencia === ultimaCompGlobal;
+  const ativo = r.ultima_competencia >= cutoffAtivo;
   const encerradoEm = ativo ? null : lastDayOfCompetencia(r.ultima_competencia);
   const ultimoHist = (r.historico || [])[r.historico.length - 1] || {};
   const dataInicio = r.data_entrega
@@ -239,11 +239,12 @@ async function importSource(client, src, stats) {
   console.log(c.dim(`  empresa emissora: ${comp.rows[0].razao_social}`));
 
   const ultimaCompGlobal = rows.reduce((m, r) => (r.ultima_competencia > m ? r.ultima_competencia : m), '');
-  console.log(c.dim(`  última competência da planilha: ${ultimaCompGlobal}`));
+  const cutoffAtivo = shiftCompetencia(ultimaCompGlobal, GRACE);
+  console.log(c.dim(`  última competência da planilha: ${ultimaCompGlobal} · ativo = cobrado em >= ${cutoffAtivo} (grace ${GRACE} mês/es)`));
 
   for (const r of rows) {
     try {
-      await importRow(client, src, r, ultimaCompGlobal, stats);
+      await importRow(client, src, r, cutoffAtivo, stats);
     } catch (e) {
       stats.errors.push({ numero: r.numero, msg: e.message });
       console.log(c.r(`  ✗ ${r.numero}: ${e.message}`));
