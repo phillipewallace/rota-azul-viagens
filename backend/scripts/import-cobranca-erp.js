@@ -244,7 +244,9 @@ async function importSource(client, src, stats) {
 
   const ultimaCompGlobal = rows.reduce((m, r) => (r.ultima_competencia > m ? r.ultima_competencia : m), '');
   const cutoffAtivo = shiftCompetencia(ultimaCompGlobal, GRACE);
-  console.log(c.dim(`  última competência da planilha: ${ultimaCompGlobal} · ativo = cobrado em >= ${cutoffAtivo} (grace ${GRACE} mês/es)`));
+  console.log(c.dim(ALL_ACTIVE
+    ? `  última competência da planilha: ${ultimaCompGlobal} · TODOS os contratos serão importados como ATIVOS (--use-grace para usar corte por competência)`
+    : `  última competência da planilha: ${ultimaCompGlobal} · ativo = cobrado em >= ${cutoffAtivo} (grace ${GRACE} mês/es)`));
 
   for (const r of rows) {
     try {
