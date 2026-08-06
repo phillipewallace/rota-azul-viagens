@@ -36,6 +36,10 @@ const UPDATE_EXISTING = argv.includes('--update-existing');
 // foi cobrado no mês anterior também entra como ativo. Use --grace=0 para
 // exigir presença na última competência.
 const GRACE = parseInt((argv.find(a => a.startsWith('--grace=')) || '').split('=')[1] || '1', 10);
+// Confirmado pelo cliente: TODOS os contratos das duas planilhas estão ativos hoje.
+// Por padrão importamos tudo como ativo. Use --use-grace para voltar ao corte por
+// competência (ativo = cobrado nos últimos GRACE meses).
+const ALL_ACTIVE = !argv.includes('--use-grace');
 const ONLY = (argv.find(a => a.startsWith('--only=')) || '').split('=')[1] || null;
 const LIMIT = parseInt((argv.find(a => a.startsWith('--limit=')) || '').split('=')[1] || '0', 10);
 const DATA_DIR = path.join(__dirname, 'legacy-data');
@@ -151,7 +155,7 @@ async function findOrCreateCustomer(client, r, stats) {
 
 async function importRow(client, src, r, cutoffAtivo, stats) {
   const numero = r.numero;
-  const ativo = r.ultima_competencia >= cutoffAtivo;
+  const ativo = ALL_ACTIVE || r.ultima_competencia >= cutoffAtivo;
   const encerradoEm = ativo ? null : lastDayOfCompetencia(r.ultima_competencia);
   const ultimoHist = (r.historico || [])[r.historico.length - 1] || {};
   const dataInicio = r.data_entrega
@@ -240,7 +244,9 @@ async function importSource(client, src, stats) {
 
   const ultimaCompGlobal = rows.reduce((m, r) => (r.ultima_competencia > m ? r.ultima_competencia : m), '');
   const cutoffAtivo = shiftCompetencia(ultimaCompGlobal, GRACE);
-  console.log(c.dim(`  última competência da planilha: ${ultimaCompGlobal} · ativo = cobrado em >= ${cutoffAtivo} (grace ${GRACE} mês/es)`));
+  console.log(c.dim(ALL_ACTIVE
+    ? `  última competência da planilha: ${ultimaCompGlobal} · TODOS os contratos serão importados como ATIVOS (--use-grace para usar corte por competência)`
+    : `  última competência da planilha: ${ultimaCompGlobal} · ativo = cobrado em >= ${cutoffAtivo} (grace ${GRACE} mês/es)`));
 
   for (const r of rows) {
     try {
