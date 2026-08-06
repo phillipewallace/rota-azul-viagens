@@ -257,14 +257,21 @@ async function importSource(client, src, stats) {
     : `  última competência da planilha: ${ultimaCompGlobal} · ativo = cobrado em >= ${cutoffAtivo} (grace ${GRACE} mês/es)`));
 
   for (const r of rows) {
+    // Cada linha em SAVEPOINT: um erro não aborta a transação inteira.
+    await client.query('SAVEPOINT row_sp');
     try {
       await importRow(client, src, r, cutoffAtivo, stats);
+      await client.query('RELEASE SAVEPOINT row_sp');
     } catch (e) {
-      stats.errors.push({ numero: r.numero, msg: e.message });
-      console.log(c.r(`  ✗ ${r.numero}: ${e.message}`));
+      await client.query('ROLLBACK TO SAVEPOINT row_sp').catch(() => {});
+      const det = [e.code && `code=${e.code}`, e.column && `col=${e.column}`,
+        e.constraint && `constraint=${e.constraint}`, e.detail].filter(Boolean).join(' ');
+      stats.errors.push({ numero: r.numero, msg: e.message, det });
+      console.log(c.r(`  ✗ ${r.numero}: ${e.message}`) + (det ? c.dim(`  (${det})`) : ''));
     }
   }
 }
+
 
 (async () => {
   console.log(c.b(`\n=== Importação COBRANÇA → ERP === modo: ${APPLY ? c.g('APPLY') : c.y('DRY-RUN')} ${UPDATE_EXISTING ? c.b('[UPDATE-EXISTING]') : c.dim('[skip-existing]')}`));
