@@ -194,8 +194,10 @@ fi
 # ─── 5.2b) Importação das planilhas de COBRANÇA (MICBAN + DSR) ───────────────
 # Idempotente: usa os JSONs já versionados em backend/scripts/legacy-data.
 # Se os XLSX de cobrança estiverem presentes e mais novos que os JSONs, regenera.
-# Marker por versão — apague o marker pra reimportar/enriquecer.
-COB_MARKER="${PROJECT_DIR}/backend/scripts/.imported-cobranca-erp-v1"
+# Marker v2: força uma retomada única após corrigir datas pandas "NaT" que
+# causaram importação parcial na v1. Contratos já gravados são reaproveitados.
+COB_MARKER_V1="${PROJECT_DIR}/backend/scripts/.imported-cobranca-erp-v1"
+COB_MARKER="${PROJECT_DIR}/backend/scripts/.imported-cobranca-erp-v2"
 COB_IMPORT="${PROJECT_DIR}/backend/scripts/import-cobranca-erp.js"
 COB_CONVERT="${PROJECT_DIR}/backend/scripts/convert-cobranca-xlsx.py"
 COB_MIC_XLSX="${LEGACY_DIR}/COBRANCA_MICBAN.xlsx"
@@ -235,6 +237,7 @@ if [[ -f "$COB_IMPORT" && ! -f "$COB_MARKER" ]]; then
     log "  → Aplicando de verdade:"
     if (cd "${PROJECT_DIR}/backend" && node scripts/import-cobranca-erp.js --apply --update-existing); then
       date -u +"%Y-%m-%dT%H:%M:%SZ" > "$COB_MARKER"
+      rm -f "$COB_MARKER_V1"
       ok "Cobrança importada (marker: $COB_MARKER)"
     else
       warn "Importação da cobrança falhou — sem marker, tentará novamente no próximo deploy"

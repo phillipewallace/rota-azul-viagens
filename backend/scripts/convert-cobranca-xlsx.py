@@ -169,12 +169,13 @@ def parse_periodo(raw, ano_ref, mes_ref):
 
 
 def parse_data(v):
-    if v is None or (isinstance(v, float) and pd.isna(v)):
+    if v is None or pd.isna(v):
         return None
-    if isinstance(v, (pd.Timestamp,)):
-        return v.date().isoformat()
     try:
-        return pd.to_datetime(v, dayfirst=True).date().isoformat()
+        parsed = pd.to_datetime(v, dayfirst=True)
+        if pd.isna(parsed):
+            return None
+        return parsed.date().isoformat()
     except Exception:
         return None
 

@@ -70,6 +70,16 @@ const personType = doc => (doc && doc.length === 11 ? 'PF' : 'PJ');
 // Trunca strings para caber nas colunas VARCHAR(n) do schema.
 const cut = (v, n) => (typeof v === 'string' && v.length > n ? v.slice(0, n) : v);
 
+// JSONs gerados pelo pandas podem conter "NaT" em campos de data vazios.
+// Nunca envia valores inválidos ao PostgreSQL; datas ausentes viram null.
+function validIsoDate(v) {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const [year, month, day] = v.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
+  return v;
+}
+
 
 function lastDayOfCompetencia(comp) {
   if (!/^\d{4}-\d{2}$/.test(comp || '')) return null;
@@ -162,11 +172,11 @@ async function importRow(client, src, r, cutoffAtivo, stats) {
   const ativo = ALL_ACTIVE || r.ultima_competencia >= cutoffAtivo;
   const encerradoEm = ativo ? null : lastDayOfCompetencia(r.ultima_competencia);
   const ultimoHist = (r.historico || [])[r.historico.length - 1] || {};
-  const dataInicio = r.data_entrega
-    || ultimoHist.periodo_inicio
+  const dataInicio = validIsoDate(r.data_entrega)
+    || validIsoDate(ultimoHist.periodo_inicio)
     || firstDayOfCompetencia(r.primeira_competencia)
     || new Date().toISOString().slice(0, 10);
-  const dataFim = r.data_retirada || (ativo ? null : encerradoEm);
+  const dataFim = validIsoDate(r.data_retirada) || (ativo ? null : encerradoEm);
   const observacoes = buildObservacoes(r);
 
   const existing = await client.query(
@@ -322,6 +332,8 @@ async function importSource(client, src, stats) {
     for (const [msg, n] of [...byMsg.entries()].sort((a, b) => b[1] - a[1])) {
       console.log(`  ${n}x  ${msg}`);
     }
+    // Evita que o deploy grave o marker de conclusão quando houve importação parcial.
+    process.exitCode = 1;
   }
 })();
 
