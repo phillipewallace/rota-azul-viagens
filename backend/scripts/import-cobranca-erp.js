@@ -75,6 +75,14 @@ function firstDayOfCompetencia(comp) {
   return `${comp}-01`;
 }
 
+// Subtrai `n` meses de uma competência 'YYYY-MM'.
+function shiftCompetencia(comp, n) {
+  if (!/^\d{4}-\d{2}$/.test(comp || '')) return comp;
+  const [y, m] = comp.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 - n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 function buildObservacoes(r) {
   const parts = [];
   if (r.qtd) parts.push(`Qtde: ${r.qtd}`);
