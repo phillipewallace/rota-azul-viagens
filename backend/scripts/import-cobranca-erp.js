@@ -31,6 +31,11 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const argv = process.argv.slice(2);
 const APPLY = argv.includes('--apply');
 const UPDATE_EXISTING = argv.includes('--update-existing');
+// Meses de tolerância para considerar um contrato ATIVO. A planilha do mês
+// corrente costuma estar incompleta no início do mês, então por padrão quem
+// foi cobrado no mês anterior também entra como ativo. Use --grace=0 para
+// exigir presença na última competência.
+const GRACE = parseInt((argv.find(a => a.startsWith('--grace=')) || '').split('=')[1] || '1', 10);
 const ONLY = (argv.find(a => a.startsWith('--only=')) || '').split('=')[1] || null;
 const LIMIT = parseInt((argv.find(a => a.startsWith('--limit=')) || '').split('=')[1] || '0', 10);
 const DATA_DIR = path.join(__dirname, 'legacy-data');
