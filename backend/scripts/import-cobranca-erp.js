@@ -67,6 +67,9 @@ const c = {
 
 const isEmpty = v => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 const personType = doc => (doc && doc.length === 11 ? 'PF' : 'PJ');
+// Trunca strings para caber nas colunas VARCHAR(n) do schema.
+const cut = (v, n) => (typeof v === 'string' && v.length > n ? v.slice(0, n) : v);
+
 
 function lastDayOfCompetencia(comp) {
   if (!/^\d{4}-\d{2}$/.test(comp || '')) return null;
@@ -131,8 +134,8 @@ async function findOrCreateCustomer(client, r, stats) {
     const vals = [];
     const push = (col, val) => { vals.push(val); sets.push(`${col} = $${vals.length}`); };
     if (isEmpty(found.address) && r.endereco_cliente) push('address', r.endereco_cliente);
-    if (isEmpty(found.contact_phone) && r.responsavel_telefone) push('contact_phone', r.responsavel_telefone);
-    if (isEmpty(found.email) && r.responsavel_email) push('email', r.responsavel_email);
+    if (isEmpty(found.contact_phone) && r.responsavel_telefone) push('contact_phone', cut(r.responsavel_telefone, 32));
+    if (isEmpty(found.email) && r.responsavel_email) push('email', cut(r.responsavel_email, 160));
     if (sets.length) {
       stats.customersEnriched++;
       if (APPLY) {
@@ -148,10 +151,11 @@ async function findOrCreateCustomer(client, r, stats) {
   const ins = await client.query(
     `INSERT INTO customers (customer_name, document, person_type, email, contact_phone, address)
      VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-    [name, doc, personType(doc), r.responsavel_email, r.responsavel_telefone, r.endereco_cliente]
+    [cut(name, 160), doc, personType(doc), cut(r.responsavel_email, 160), cut(r.responsavel_telefone, 32), r.endereco_cliente]
   );
   return ins.rows[0].id;
 }
+
 
 async function importRow(client, src, r, cutoffAtivo, stats) {
   const numero = r.numero;
@@ -180,9 +184,10 @@ async function importRow(client, src, r, cutoffAtivo, stats) {
     if (isEmpty(cur.descricao) && r.descricao) push('descricao', r.descricao, '+descricao');
     if (isEmpty(cur.endereco_obra) && r.endereco_obra) push('endereco_obra', r.endereco_obra, '+obra');
     if (isEmpty(cur.cno) && r.cno) push('cno', r.cno, '+cno');
-    if (isEmpty(cur.responsavel_nome) && r.responsavel_nome) push('responsavel_nome', r.responsavel_nome, '+resp');
-    if (isEmpty(cur.responsavel_telefone) && r.responsavel_telefone) push('responsavel_telefone', r.responsavel_telefone, '+tel');
-    if (isEmpty(cur.responsavel_email) && r.responsavel_email) push('responsavel_email', r.responsavel_email, '+email');
+    if (isEmpty(cur.responsavel_nome) && r.responsavel_nome) push('responsavel_nome', cut(r.responsavel_nome, 160), '+resp');
+    if (isEmpty(cur.responsavel_telefone) && r.responsavel_telefone) push('responsavel_telefone', cut(r.responsavel_telefone, 32), '+tel');
+    if (isEmpty(cur.responsavel_email) && r.responsavel_email) push('responsavel_email', cut(r.responsavel_email, 160), '+email');
+
     if (isEmpty(cur.observacoes) && observacoes) push('observacoes', observacoes, '+obs');
     if (!sets.length) { stats.contractsUpToDate++; return; }
     stats.contractsUpdated++;
@@ -214,12 +219,15 @@ async function importRow(client, src, r, cutoffAtivo, stats) {
                $14,$15,
                $16,$17,$18)`,
       [numero, src.companyId, customerId, r.tipo_contrato, r.descricao,
-       dataInicio, dataFim, r.dia_vencimento || 10, r.valor_mensal || 0,
+       dataInicio, dataFim,
+       Math.min(28, Math.max(1, parseInt(r.dia_vencimento, 10) || 10)),
+       r.valor_mensal || 0,
        ativo, encerradoEm,
        ativo ? null : `Migração: última cobrança em ${r.ultima_competencia}`,
-       observacoes, r.endereco_obra, r.cno,
-       r.responsavel_nome, r.responsavel_telefone, r.responsavel_email]
+       observacoes, r.endereco_obra, cut(r.cno, 60),
+       cut(r.responsavel_nome, 160), cut(r.responsavel_telefone, 32), cut(r.responsavel_email, 160)]
     );
+
   }
   stats.contractsNew++;
   if (ativo) stats.contractsAtivos++;
@@ -249,14 +257,21 @@ async function importSource(client, src, stats) {
     : `  última competência da planilha: ${ultimaCompGlobal} · ativo = cobrado em >= ${cutoffAtivo} (grace ${GRACE} mês/es)`));
 
   for (const r of rows) {
+    // Cada linha em SAVEPOINT: um erro não aborta a transação inteira.
+    await client.query('SAVEPOINT row_sp');
     try {
       await importRow(client, src, r, cutoffAtivo, stats);
+      await client.query('RELEASE SAVEPOINT row_sp');
     } catch (e) {
-      stats.errors.push({ numero: r.numero, msg: e.message });
-      console.log(c.r(`  ✗ ${r.numero}: ${e.message}`));
+      await client.query('ROLLBACK TO SAVEPOINT row_sp').catch(() => {});
+      const det = [e.code && `code=${e.code}`, e.column && `col=${e.column}`,
+        e.constraint && `constraint=${e.constraint}`, e.detail].filter(Boolean).join(' ');
+      stats.errors.push({ numero: r.numero, msg: e.message, det });
+      console.log(c.r(`  ✗ ${r.numero}: ${e.message}`) + (det ? c.dim(`  (${det})`) : ''));
     }
   }
 }
+
 
 (async () => {
   console.log(c.b(`\n=== Importação COBRANÇA → ERP === modo: ${APPLY ? c.g('APPLY') : c.y('DRY-RUN')} ${UPDATE_EXISTING ? c.b('[UPDATE-EXISTING]') : c.dim('[skip-existing]')}`));
@@ -297,4 +312,16 @@ async function importSource(client, src, stats) {
   console.log(`  Contratos atualizados:    ${stats.contractsUpdated}`);
   console.log(`  Contratos já completos:   ${stats.contractsUpToDate}`);
   console.log(`  Erros:                    ${stats.errors.length}`);
+  if (stats.errors.length) {
+    const byMsg = new Map();
+    for (const e of stats.errors) {
+      const k = `${e.msg} ${e.det || ''}`.trim();
+      byMsg.set(k, (byMsg.get(k) || 0) + 1);
+    }
+    console.log('\n' + c.y('Erros agrupados:'));
+    for (const [msg, n] of [...byMsg.entries()].sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${n}x  ${msg}`);
+    }
+  }
 })();
+
