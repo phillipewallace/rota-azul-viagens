@@ -184,9 +184,10 @@ async function importRow(client, src, r, cutoffAtivo, stats) {
     if (isEmpty(cur.descricao) && r.descricao) push('descricao', r.descricao, '+descricao');
     if (isEmpty(cur.endereco_obra) && r.endereco_obra) push('endereco_obra', r.endereco_obra, '+obra');
     if (isEmpty(cur.cno) && r.cno) push('cno', r.cno, '+cno');
-    if (isEmpty(cur.responsavel_nome) && r.responsavel_nome) push('responsavel_nome', r.responsavel_nome, '+resp');
-    if (isEmpty(cur.responsavel_telefone) && r.responsavel_telefone) push('responsavel_telefone', r.responsavel_telefone, '+tel');
-    if (isEmpty(cur.responsavel_email) && r.responsavel_email) push('responsavel_email', r.responsavel_email, '+email');
+    if (isEmpty(cur.responsavel_nome) && r.responsavel_nome) push('responsavel_nome', cut(r.responsavel_nome, 160), '+resp');
+    if (isEmpty(cur.responsavel_telefone) && r.responsavel_telefone) push('responsavel_telefone', cut(r.responsavel_telefone, 32), '+tel');
+    if (isEmpty(cur.responsavel_email) && r.responsavel_email) push('responsavel_email', cut(r.responsavel_email, 160), '+email');
+
     if (isEmpty(cur.observacoes) && observacoes) push('observacoes', observacoes, '+obs');
     if (!sets.length) { stats.contractsUpToDate++; return; }
     stats.contractsUpdated++;
