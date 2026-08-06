@@ -31,6 +31,11 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const argv = process.argv.slice(2);
 const APPLY = argv.includes('--apply');
 const UPDATE_EXISTING = argv.includes('--update-existing');
+// Meses de tolerância para considerar um contrato ATIVO. A planilha do mês
+// corrente costuma estar incompleta no início do mês, então por padrão quem
+// foi cobrado no mês anterior também entra como ativo. Use --grace=0 para
+// exigir presença na última competência.
+const GRACE = parseInt((argv.find(a => a.startsWith('--grace=')) || '').split('=')[1] || '1', 10);
 const ONLY = (argv.find(a => a.startsWith('--only=')) || '').split('=')[1] || null;
 const LIMIT = parseInt((argv.find(a => a.startsWith('--limit=')) || '').split('=')[1] || '0', 10);
 const DATA_DIR = path.join(__dirname, 'legacy-data');
@@ -68,6 +73,14 @@ function lastDayOfCompetencia(comp) {
 function firstDayOfCompetencia(comp) {
   if (!/^\d{4}-\d{2}$/.test(comp || '')) return null;
   return `${comp}-01`;
+}
+
+// Subtrai `n` meses de uma competência 'YYYY-MM'.
+function shiftCompetencia(comp, n) {
+  if (!/^\d{4}-\d{2}$/.test(comp || '')) return comp;
+  const [y, m] = comp.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 - n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function buildObservacoes(r) {
@@ -136,9 +149,9 @@ async function findOrCreateCustomer(client, r, stats) {
   return ins.rows[0].id;
 }
 
-async function importRow(client, src, r, ultimaCompGlobal, stats) {
+async function importRow(client, src, r, cutoffAtivo, stats) {
   const numero = r.numero;
-  const ativo = r.ultima_competencia === ultimaCompGlobal;
+  const ativo = r.ultima_competencia >= cutoffAtivo;
   const encerradoEm = ativo ? null : lastDayOfCompetencia(r.ultima_competencia);
   const ultimoHist = (r.historico || [])[r.historico.length - 1] || {};
   const dataInicio = r.data_entrega
@@ -226,11 +239,12 @@ async function importSource(client, src, stats) {
   console.log(c.dim(`  empresa emissora: ${comp.rows[0].razao_social}`));
 
   const ultimaCompGlobal = rows.reduce((m, r) => (r.ultima_competencia > m ? r.ultima_competencia : m), '');
-  console.log(c.dim(`  última competência da planilha: ${ultimaCompGlobal}`));
+  const cutoffAtivo = shiftCompetencia(ultimaCompGlobal, GRACE);
+  console.log(c.dim(`  última competência da planilha: ${ultimaCompGlobal} · ativo = cobrado em >= ${cutoffAtivo} (grace ${GRACE} mês/es)`));
 
   for (const r of rows) {
     try {
-      await importRow(client, src, r, ultimaCompGlobal, stats);
+      await importRow(client, src, r, cutoffAtivo, stats);
     } catch (e) {
       stats.errors.push({ numero: r.numero, msg: e.message });
       console.log(c.r(`  ✗ ${r.numero}: ${e.message}`));
