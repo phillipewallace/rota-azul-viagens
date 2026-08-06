@@ -134,8 +134,8 @@ async function findOrCreateCustomer(client, r, stats) {
     const vals = [];
     const push = (col, val) => { vals.push(val); sets.push(`${col} = $${vals.length}`); };
     if (isEmpty(found.address) && r.endereco_cliente) push('address', r.endereco_cliente);
-    if (isEmpty(found.contact_phone) && r.responsavel_telefone) push('contact_phone', r.responsavel_telefone);
-    if (isEmpty(found.email) && r.responsavel_email) push('email', r.responsavel_email);
+    if (isEmpty(found.contact_phone) && r.responsavel_telefone) push('contact_phone', cut(r.responsavel_telefone, 32));
+    if (isEmpty(found.email) && r.responsavel_email) push('email', cut(r.responsavel_email, 160));
     if (sets.length) {
       stats.customersEnriched++;
       if (APPLY) {
@@ -151,10 +151,11 @@ async function findOrCreateCustomer(client, r, stats) {
   const ins = await client.query(
     `INSERT INTO customers (customer_name, document, person_type, email, contact_phone, address)
      VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-    [name, doc, personType(doc), r.responsavel_email, r.responsavel_telefone, r.endereco_cliente]
+    [cut(name, 160), doc, personType(doc), cut(r.responsavel_email, 160), cut(r.responsavel_telefone, 32), r.endereco_cliente]
   );
   return ins.rows[0].id;
 }
+
 
 async function importRow(client, src, r, cutoffAtivo, stats) {
   const numero = r.numero;
