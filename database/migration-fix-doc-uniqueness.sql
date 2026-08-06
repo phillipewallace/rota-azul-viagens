@@ -80,6 +80,8 @@ DECLARE
   v_prefix  TEXT;
   v_ano     INT;
   v_n       INT;
+  v_sigla   TEXT;
+  v_sig_p   TEXT := '';
 BEGIN
   IF p_company_id IS NULL THEN
     RAISE EXCEPTION 'company_id obrigatorio para numeracao por empresa'
@@ -101,6 +103,11 @@ BEGIN
     v_prefix := CASE WHEN p_doc = 'REC_SV' THEN NULL ELSE p_doc END;
   END IF;
 
+  SELECT UPPER(sigla) INTO v_sigla FROM erp_companies WHERE id = p_company_id;
+  IF v_sigla IS NOT NULL AND v_sigla <> '' THEN
+    v_sig_p := v_sigla || '-';
+  END IF;
+
   v_ano := CASE WHEN v_year_f THEN EXTRACT(YEAR FROM CURRENT_DATE)::INT ELSE 0 END;
 
   INSERT INTO erp_doc_counters(doc, ano, ultimo, company_id)
@@ -110,10 +117,14 @@ BEGIN
   RETURNING ultimo INTO v_n;
 
   IF v_year_f THEN
-    RETURN COALESCE(v_prefix, p_doc) || '-' || v_ano || '-' || LPAD(v_n::TEXT, v_pad, '0');
+    RETURN v_sig_p || COALESCE(v_prefix, p_doc) || '-' || v_ano || '-' || LPAD(v_n::TEXT, v_pad, '0');
   END IF;
 
-  RETURN LPAD(v_n::TEXT, v_pad, '0');
+  IF v_prefix IS NOT NULL AND v_prefix <> '' THEN
+    RETURN v_sig_p || v_prefix || '-' || LPAD(v_n::TEXT, v_pad, '0');
+  END IF;
+
+  RETURN v_sig_p || LPAD(v_n::TEXT, v_pad, '0');
 END;
 $$ LANGUAGE plpgsql;
 
