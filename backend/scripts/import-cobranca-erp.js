@@ -155,7 +155,7 @@ async function findOrCreateCustomer(client, r, stats) {
 
 async function importRow(client, src, r, cutoffAtivo, stats) {
   const numero = r.numero;
-  const ativo = r.ultima_competencia >= cutoffAtivo;
+  const ativo = ALL_ACTIVE || r.ultima_competencia >= cutoffAtivo;
   const encerradoEm = ativo ? null : lastDayOfCompetencia(r.ultima_competencia);
   const ultimoHist = (r.historico || [])[r.historico.length - 1] || {};
   const dataInicio = r.data_entrega
