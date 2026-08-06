@@ -219,12 +219,15 @@ async function importRow(client, src, r, cutoffAtivo, stats) {
                $14,$15,
                $16,$17,$18)`,
       [numero, src.companyId, customerId, r.tipo_contrato, r.descricao,
-       dataInicio, dataFim, r.dia_vencimento || 10, r.valor_mensal || 0,
+       dataInicio, dataFim,
+       Math.min(28, Math.max(1, parseInt(r.dia_vencimento, 10) || 10)),
+       r.valor_mensal || 0,
        ativo, encerradoEm,
        ativo ? null : `Migração: última cobrança em ${r.ultima_competencia}`,
-       observacoes, r.endereco_obra, r.cno,
-       r.responsavel_nome, r.responsavel_telefone, r.responsavel_email]
+       observacoes, r.endereco_obra, cut(r.cno, 60),
+       cut(r.responsavel_nome, 160), cut(r.responsavel_telefone, 32), cut(r.responsavel_email, 160)]
     );
+
   }
   stats.contractsNew++;
   if (ativo) stats.contractsAtivos++;
