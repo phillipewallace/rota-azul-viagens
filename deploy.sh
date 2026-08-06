@@ -191,6 +191,63 @@ elif [[ -f "$IMPORT_MARKER" ]]; then
   ok "Importação legada v2 já executada em $(cat "$IMPORT_MARKER") — pulando"
 fi
 
+# ─── 5.2b) Importação das planilhas de COBRANÇA (MICBAN + DSR) ───────────────
+# Idempotente: usa os JSONs já versionados em backend/scripts/legacy-data.
+# Se os XLSX de cobrança estiverem presentes e mais novos que os JSONs, regenera.
+# Marker por versão — apague o marker pra reimportar/enriquecer.
+COB_MARKER="${PROJECT_DIR}/backend/scripts/.imported-cobranca-erp-v1"
+COB_IMPORT="${PROJECT_DIR}/backend/scripts/import-cobranca-erp.js"
+COB_CONVERT="${PROJECT_DIR}/backend/scripts/convert-cobranca-xlsx.py"
+COB_MIC_XLSX="${LEGACY_DIR}/COBRANCA_MICBAN.xlsx"
+COB_DSR_XLSX="${LEGACY_DIR}/COBRANCA_DSR.xlsx"
+COB_MIC_JSON="${LEGACY_DIR}/cobranca-micban.json"
+COB_DSR_JSON="${LEGACY_DIR}/cobranca-dsr.json"
+
+if [[ -f "$COB_IMPORT" && ! -f "$COB_MARKER" ]]; then
+  # (a) Regenera JSONs somente se os XLSX existirem e forem mais novos
+  if [[ -f "$COB_CONVERT" && ( -f "$COB_MIC_XLSX" || -f "$COB_DSR_XLSX" ) ]]; then
+    NEED_COB_CONVERT=0
+    [[ -f "$COB_MIC_XLSX" && ( ! -f "$COB_MIC_JSON" || "$COB_MIC_XLSX" -nt "$COB_MIC_JSON" ) ]] && NEED_COB_CONVERT=1
+    [[ -f "$COB_DSR_XLSX" && ( ! -f "$COB_DSR_JSON" || "$COB_DSR_XLSX" -nt "$COB_DSR_JSON" ) ]] && NEED_COB_CONVERT=1
+    if [[ "$NEED_COB_CONVERT" == "1" ]]; then
+      command -v python3 >/dev/null || { log "Instalando python3…"; apt-get install -y python3 python3-pip >/dev/null; }
+      python3 -c "import pandas" 2>/dev/null || {
+        log "Instalando pandas + leitor de xlsx…"
+        pip3 install --break-system-packages --quiet pandas openpyxl python-calamine 2>/dev/null \
+          || pip3 install --quiet pandas openpyxl python-calamine 2>/dev/null \
+          || warn "Falha instalando pandas — usando JSONs versionados"
+      }
+      if python3 -c "import pandas" 2>/dev/null; then
+        log "Convertendo planilhas de COBRANÇA → JSON…"
+        CONV_ARGS=()
+        [[ -f "$COB_MIC_XLSX" ]] && CONV_ARGS+=(--micban "$COB_MIC_XLSX")
+        [[ -f "$COB_DSR_XLSX" ]] && CONV_ARGS+=(--dsr "$COB_DSR_XLSX")
+        python3 "$COB_CONVERT" "${CONV_ARGS[@]}" || warn "convert-cobranca-xlsx.py falhou — usando JSONs versionados"
+      fi
+    fi
+  fi
+
+  if [[ -f "$COB_MIC_JSON" || -f "$COB_DSR_JSON" ]]; then
+    log "Importando contratos de COBRANÇA (MICBAN + DSR)…"
+    log "  → Dry-run (nada é gravado):"
+    (cd "${PROJECT_DIR}/backend" && node scripts/import-cobranca-erp.js --update-existing) \
+      || warn "Dry-run da cobrança falhou"
+    log "  → Aplicando de verdade:"
+    if (cd "${PROJECT_DIR}/backend" && node scripts/import-cobranca-erp.js --apply --update-existing); then
+      date -u +"%Y-%m-%dT%H:%M:%SZ" > "$COB_MARKER"
+      ok "Cobrança importada (marker: $COB_MARKER)"
+    else
+      warn "Importação da cobrança falhou — sem marker, tentará novamente no próximo deploy"
+    fi
+  else
+    warn "JSONs de cobrança ausentes — importação pulada"
+  fi
+elif [[ -f "$COB_MARKER" ]]; then
+  ok "Cobrança já importada em $(cat "$COB_MARKER") — pulando"
+fi
+
+
+
 
 # ─── 5.3) Usuário de demonstração (idempotente) ─────────────────────────────
 DEMO_SCRIPT="${PROJECT_DIR}/backend/scripts/ensure-demo-user.js"
