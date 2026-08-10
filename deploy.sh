@@ -191,11 +191,27 @@ elif [[ -f "$IMPORT_MARKER" ]]; then
   ok "Importação legada v2 já executada em $(cat "$IMPORT_MARKER") — pulando"
 fi
 
+# ─── 5.2a) ROLLBACK opcional da importação de COBRANÇA ───────────────────────
+# Rode:  sudo ROLLBACK_COB=1 ./deploy.sh              (apaga contratos -COB- + filhos)
+#        sudo ROLLBACK_COB=1 PURGE_CUSTOMERS=1 SINCE=2026-08-01 ./deploy.sh
+# Apaga SOMENTE erp_contracts com origem='importacao' e numero LIKE '%-COB-%'.
+COB_ROLLBACK="${PROJECT_DIR}/backend/scripts/rollback-cobranca-erp.js"
+if [[ "${ROLLBACK_COB:-0}" == "1" && -f "$COB_ROLLBACK" ]]; then
+  ROLL_ARGS=(--apply)
+  [[ "${PURGE_CUSTOMERS:-0}" == "1" ]] && ROLL_ARGS+=(--purge-customers)
+  [[ -n "${SINCE:-}" ]] && ROLL_ARGS+=(--since "${SINCE}")
+  log "Rollback da importação de COBRANÇA…"
+  log "  → Dry-run:"
+  (cd "${PROJECT_DIR}/backend" && node scripts/rollback-cobranca-erp.js) || warn "Dry-run do rollback falhou"
+  log "  → Aplicando:"
+  (cd "${PROJECT_DIR}/backend" && node scripts/rollback-cobranca-erp.js "${ROLL_ARGS[@]}") \
+    && ok "Rollback aplicado" || warn "Rollback falhou — verifique manualmente"
+  # impede que o próprio deploy reimporte em seguida
+  date -u +"%Y-%m-%dT%H:%M:%SZ" > "${PROJECT_DIR}/backend/scripts/.imported-cobranca-erp-v2"
+fi
+
 # ─── 5.2b) Importação das planilhas de COBRANÇA (MICBAN + DSR) ───────────────
-# Idempotente: usa os JSONs já versionados em backend/scripts/legacy-data.
-# Se os XLSX de cobrança estiverem presentes e mais novos que os JSONs, regenera.
-# Marker v2: força uma retomada única após corrigir datas pandas "NaT" que
-# causaram importação parcial na v1. Contratos já gravados são reaproveitados.
+# DESLIGADA por padrão. Para rodar de novo: sudo RUN_COB_IMPORT=1 ./deploy.sh
 COB_MARKER_V1="${PROJECT_DIR}/backend/scripts/.imported-cobranca-erp-v1"
 COB_MARKER="${PROJECT_DIR}/backend/scripts/.imported-cobranca-erp-v2"
 COB_IMPORT="${PROJECT_DIR}/backend/scripts/import-cobranca-erp.js"
@@ -205,7 +221,8 @@ COB_DSR_XLSX="${LEGACY_DIR}/COBRANCA_DSR.xlsx"
 COB_MIC_JSON="${LEGACY_DIR}/cobranca-micban.json"
 COB_DSR_JSON="${LEGACY_DIR}/cobranca-dsr.json"
 
-if [[ -f "$COB_IMPORT" && ! -f "$COB_MARKER" ]]; then
+if [[ "${RUN_COB_IMPORT:-0}" == "1" && -f "$COB_IMPORT" ]]; then
+
   # (a) Regenera JSONs somente se os XLSX existirem e forem mais novos
   if [[ -f "$COB_CONVERT" && ( -f "$COB_MIC_XLSX" || -f "$COB_DSR_XLSX" ) ]]; then
     NEED_COB_CONVERT=0
@@ -245,9 +262,10 @@ if [[ -f "$COB_IMPORT" && ! -f "$COB_MARKER" ]]; then
   else
     warn "JSONs de cobrança ausentes — importação pulada"
   fi
-elif [[ -f "$COB_MARKER" ]]; then
-  ok "Cobrança já importada em $(cat "$COB_MARKER") — pulando"
+else
+  ok "Importação de cobrança desativada (use RUN_COB_IMPORT=1 para rodar)"
 fi
+
 
 
 
