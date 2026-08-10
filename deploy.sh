@@ -262,9 +262,10 @@ if [[ "${RUN_COB_IMPORT:-0}" == "1" && -f "$COB_IMPORT" ]]; then
   else
     warn "JSONs de cobrança ausentes — importação pulada"
   fi
-elif [[ -f "$COB_MARKER" ]]; then
-  ok "Cobrança já importada em $(cat "$COB_MARKER") — pulando"
+else
+  ok "Importação de cobrança desativada (use RUN_COB_IMPORT=1 para rodar)"
 fi
+
 
 
 
