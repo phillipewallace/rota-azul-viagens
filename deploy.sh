@@ -191,21 +191,35 @@ elif [[ -f "$IMPORT_MARKER" ]]; then
   ok "Importação legada v2 já executada em $(cat "$IMPORT_MARKER") — pulando"
 fi
 
-# ─── 5.2a) ROLLBACK opcional da importação de COBRANÇA ───────────────────────
-# Rode:  sudo ROLLBACK_COB=1 ./deploy.sh              (apaga contratos -COB- + filhos)
-#        sudo ROLLBACK_COB=1 PURGE_CUSTOMERS=1 SINCE=2026-08-01 ./deploy.sh
+# ─── 5.2a) ROLLBACK da importação de COBRANÇA (AUTOMÁTICO, uma única vez) ─────
+# Roda sozinho no próximo `sudo ./deploy.sh` e grava um marker para não repetir.
+# Para pular:      sudo SKIP_ROLLBACK_COB=1 ./deploy.sh
+# Para rodar dnv:  sudo FORCE_ROLLBACK_COB=1 ./deploy.sh
 # Apaga SOMENTE erp_contracts com origem='importacao' e numero LIKE '%-COB-%'.
 COB_ROLLBACK="${PROJECT_DIR}/backend/scripts/rollback-cobranca-erp.js"
-if [[ "${ROLLBACK_COB:-0}" == "1" && -f "$COB_ROLLBACK" ]]; then
+ROLLBACK_MARKER="${PROJECT_DIR}/backend/scripts/.rolledback-cobranca-erp-v1"
+DO_ROLLBACK=0
+if [[ -f "$COB_ROLLBACK" && "${SKIP_ROLLBACK_COB:-0}" != "1" ]]; then
+  if [[ "${FORCE_ROLLBACK_COB:-0}" == "1" || ! -f "$ROLLBACK_MARKER" ]]; then
+    DO_ROLLBACK=1
+  else
+    ok "Rollback de cobrança já executado em $(cat "$ROLLBACK_MARKER") — pulando"
+  fi
+fi
+if [[ "$DO_ROLLBACK" == "1" ]]; then
   ROLL_ARGS=(--apply)
-  [[ "${PURGE_CUSTOMERS:-0}" == "1" ]] && ROLL_ARGS+=(--purge-customers)
+  [[ "${PURGE_CUSTOMERS:-1}" == "1" ]] && ROLL_ARGS+=(--purge-customers)
   [[ -n "${SINCE:-}" ]] && ROLL_ARGS+=(--since "${SINCE}")
   log "Rollback da importação de COBRANÇA…"
   log "  → Dry-run:"
   (cd "${PROJECT_DIR}/backend" && node scripts/rollback-cobranca-erp.js) || warn "Dry-run do rollback falhou"
   log "  → Aplicando:"
-  (cd "${PROJECT_DIR}/backend" && node scripts/rollback-cobranca-erp.js "${ROLL_ARGS[@]}") \
-    && ok "Rollback aplicado" || warn "Rollback falhou — verifique manualmente"
+  if (cd "${PROJECT_DIR}/backend" && node scripts/rollback-cobranca-erp.js "${ROLL_ARGS[@]}"); then
+    ok "Rollback aplicado"
+    date -u +"%Y-%m-%dT%H:%M:%SZ" > "$ROLLBACK_MARKER"
+  else
+    warn "Rollback falhou — verifique manualmente (não gravei o marker)"
+  fi
   # impede que o próprio deploy reimporte em seguida
   date -u +"%Y-%m-%dT%H:%M:%SZ" > "${PROJECT_DIR}/backend/scripts/.imported-cobranca-erp-v2"
 fi
