@@ -1179,6 +1179,85 @@ const ErpFinanceiro: React.FC = () => {
     fail === 0 ? toast.success(`${ok} recibo(s) cancelados`) : toast.warning(`${ok} ok, ${fail} falharam`);
   };
 
+  const [unifPreview, setUnifPreview] = useState<UnifiedReceiptInput | null>(null);
+
+  const handleUnifiedAction = async (semValidade: boolean) => {
+    const alvos = pendentes.filter(p => selected.has(p.contractId));
+    if (alvos.length === 0) return;
+    const first = alvos[0];
+    
+    // Rótulo da competência padrão (YYYY-MM)
+    const comp = competencia; 
+    
+    // Período unificado padrão: do menor início ao maior fim dos itens
+    const dates = alvos.map(a => computeCompetenciaPeriodo(a.contractDataInicio, comp));
+    const minIni = dates.reduce((m, d) => (!m || d.inicio < m) ? d.inicio : m, '');
+    const maxFim = dates.reduce((m, d) => (!m || d.fim > m) ? d.fim : m, '');
+
+    const input: UnifiedReceiptInput = {
+      numero: 'AGUARDANDO',
+      competencia: comp,
+      periodoInicio: minIni,
+      periodoFim: maxFim,
+      dataEmissao: todayISO(),
+      dataVencimento: nextDueDate(comp, first.contractDiaVencimento || 10),
+      company: companies.find(c => c.id === first.companyId) || { id: first.companyId },
+      customer: { name: first.customerName, id: first.customerId },
+      items: alvos.map(a => ({
+        contractId: a.contractId,
+        contractNumero: a.contractNumero || '',
+        descricao: a.contractDescricao || 'Locação',
+        enderecoObra: a.contractEnderecoObra || a.contractLocalEvento || '',
+        cno: a.contractCno || '',
+        valor: Number(a.valor) || 0,
+      })),
+      total: alvos.reduce((s, a) => s + (Number(a.valor) || 0), 0),
+      semValidade,
+    };
+    setUnifPreview(input);
+  };
+
+  const confirmUnified = async (input: UnifiedReceiptInput) => {
+    setBatchWorking(true);
+    try {
+      const results = [];
+      for (const it of input.items) {
+        const per = (input.periodoInicio && input.periodoFim) 
+          ? { inicio: input.periodoInicio, fim: input.periodoFim } 
+          : undefined;
+        
+        const r = await receiptsService.create({
+          contractId: (it as any).contractId,
+          competencia: input.competencia,
+          valor: it.valor,
+          dataEmissao: input.dataEmissao,
+          dataVencimento: input.dataVencimento || undefined,
+          periodoInicio: per?.inicio,
+          periodoFim: per?.fim,
+          semValidade: !!input.semValidade,
+        });
+        results.push(r);
+      }
+
+      // O número unificado no PDF será o número do primeiro recibo gerado, 
+      // ou um display amigável se preferir. O usuário pediu "numeração comum".
+      const firstR = results[0];
+      await generateUnifiedReceiptPdf({
+        ...input,
+        numero: firstR.numeroDisplay || firstR.numero,
+      });
+
+      toast.success(`${results.length} recibos gerados e PDF unificado baixado`);
+      setSelected(new Set());
+      setUnifPreview(null);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBatchWorking(false);
+    }
+  };
+
   // ===== Exportação CSV =====
   const exportRecibosCsv = (lista: Receipt[]) => {
     if (lista.length === 0) { toast.info('Nada para exportar.'); return; }
@@ -2902,6 +2981,13 @@ const ErpFinanceiro: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <UnifiedPreviewDialog 
+        input={unifPreview}
+        onClose={() => setUnifPreview(null)}
+        onConfirm={confirmUnified}
+        working={batchWorking}
+      />
+
 
 
 
@@ -3342,8 +3428,146 @@ const GerarReciboPopover: React.FC<{
 };
 
 
+const ReceiptUnifiedActions: React.FC<{
+  selected: Set<string>;
+  pendentes: PendingReceipt[];
+  competencia: string;
+  companies: ErpCompany[];
+  batchWorking: boolean;
+  handleUnifiedAction: (sv: boolean) => void;
+}> = ({ handleUnifiedAction }) => {
+  return (
+    <div className="grid grid-cols-2 gap-2 mt-4">
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-full text-amber-600 border-amber-200 hover:bg-amber-50"
+        onClick={() => handleUnifiedAction(true)}
+      >
+        Unificado (Sem Validade)
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-full text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+        onClick={() => handleUnifiedAction(false)}
+      >
+        Unificado (Comum)
+      </Button>
+    </div>
+  );
+};
 
 
+
+
+
+const UnifiedPreviewDialog: React.FC<{
+  input: UnifiedReceiptInput | null;
+  onClose: () => void;
+  onConfirm: (final: UnifiedReceiptInput) => void;
+  working: boolean;
+}> = ({ input, onClose, onConfirm, working }) => {
+  const [dataEmissao, setDataEmissao] = useState('');
+  const [dataVencimento, setDataVencimento] = useState('');
+  const [perIni, setPerIni] = useState('');
+  const [perFim, setPerFim] = useState('');
+  const [obs, setObs] = useState('');
+
+  useEffect(() => {
+    if (!input) return;
+    setDataEmissao(input.dataEmissao);
+    setDataVencimento(input.dataVencimento || '');
+    setPerIni(input.periodoInicio || '');
+    setPerFim(input.periodoFim || '');
+    setObs('');
+  }, [input]);
+
+  if (!input) return null;
+
+  return (
+    <Dialog open={!!input} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Pré-visualização do Recibo Unificado</DialogTitle>
+          <DialogDescription>
+            {input.items.length} contrato(s) selecionados para {input.customer.name}.
+            O PDF será gerado com numeração comum.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Data de Emissão</Label>
+              <Input type="date" value={dataEmissao} onChange={e => setDataEmissao(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Data de Vencimento</Label>
+              <Input type="date" value={dataVencimento} onChange={e => setDataVencimento(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Início do Período</Label>
+              <Input type="date" value={perIni} onChange={e => setPerIni(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Fim do Período</Label>
+              <Input type="date" value={perFim} onChange={e => setPerFim(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Observações (aparece no PDF)</Label>
+            <Textarea 
+              value={obs} 
+              onChange={e => setObs(e.target.value)} 
+              placeholder="Ex: Referente a medição extra de agosto..."
+              rows={2}
+            />
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border text-sm">
+            <div className="font-semibold mb-2">Resumo de Itens:</div>
+            <div className="max-h-32 overflow-auto space-y-1 pr-2">
+              {input.items.map((it, idx) => (
+                <div key={idx} className="flex justify-between items-center text-[11px] border-b border-slate-200 dark:border-slate-800 pb-1">
+                  <span className="truncate mr-2">C. {it.contractNumero} - {it.descricao}</span>
+                  <span className="font-mono">{BRL(it.valor)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between items-center mt-2 font-bold text-indigo-600">
+              <span>TOTAL UNIFICADO</span>
+              <span>{BRL(input.total)}</span>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={working}>Cancelar</Button>
+          <Button 
+            disabled={working}
+            className={input.semValidade ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+            onClick={() => onConfirm({
+              ...input,
+              dataEmissao,
+              dataVencimento,
+              periodoInicio: perIni,
+              periodoFim: perFim,
+              // O campo snapshot pode carregar a obs se necessário no futuro
+            })}
+          >
+            {working ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ReceiptIcon className="h-4 w-4 mr-1" />}
+            Confirmar e Gerar PDF
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const PayDialog: React.FC<{
   receipt: Receipt | null; onClose: () => void; onSaved: () => void;
