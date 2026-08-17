@@ -65,6 +65,7 @@ router.get('/', async (req, res) => {
              o.recolhido_por_nome AS "recolhidoPorNome",
              o.entregue_por_id AS "entreguePorId",
              o.recolhido_por_id AS "recolhidoPorId",
+             o.data_recolhimento_solicitada AS "dataRecolhimentoSolicitada",
              ctr.numero AS "convertedContractNumero",
              cu.customer_name AS "customerName", cu.address AS "customerAddress",
              cu.lat AS "customerLat", cu.lng AS "customerLng",
