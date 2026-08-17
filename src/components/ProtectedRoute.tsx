@@ -33,6 +33,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!isAuthenticated()) {
+    const isAppFuncionarios = location.pathname.startsWith('/app-funcionarios');
+    if (isAppFuncionarios) return <>{children}</>;
     return <Navigate to="/login" replace />;
   }
 
