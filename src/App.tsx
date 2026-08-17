@@ -127,6 +127,7 @@ function AppShell() {
             <Route path="clientes" element={<Customers />} />
             
             <Route path="empresas" element={<ErpCompanies />} />
+            <Route path="funcionarios" element={<FuncionariosAdmin />} />
           </Route>
 
           <Route path="/operator/menu" element={<Protected><MobileOperatorMenuPage /></Protected>} />

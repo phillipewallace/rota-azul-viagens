@@ -36,7 +36,10 @@ const FuncionariosList = () => {
             // Atualiza o contador no card pai se o elemento existir
             const statsEl = document.querySelector('#stats-total-funcionarios p.text-2xl');
             if (statsEl) statsEl.textContent = String(data.length);
-        } catch (e) { toast.error('Erro ao carregar'); }
+        } catch (e) { 
+            console.error(e);
+            toast.error('Erro ao carregar funcionários'); 
+        }
     };
 
     useEffect(() => { load(); }, []);

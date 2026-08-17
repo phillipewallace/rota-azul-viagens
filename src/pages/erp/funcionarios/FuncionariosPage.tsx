@@ -1,18 +1,54 @@
+/**
+ * Página de Gestão de Funcionários
+ * Adicionado botão de voltar para o Dashboard do ERP.
+ */
 import React, { lazy, Suspense } from 'react';
 import { Card } from '@/components/ui/card';
-import { Users, UserPlus } from 'lucide-react';
+import { Users, UserPlus, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useNavigate } from 'react-router-dom';
 
 const FuncionariosList = lazy(() => import('./FuncionariosList'));
 
 const FuncionariosPage = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Gestão de Funcionários</h1>
-          <p className="text-sm text-muted-foreground">Controle de acessos, CPF e equipe de campo.</p>
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate(-1)}
+            className="rounded-full hover:bg-muted"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Gestão de Funcionários</h1>
+            <p className="text-sm text-muted-foreground">Controle de acessos, CPF e equipe de campo.</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2 h-9 px-3"
+            onClick={() => navigate('/erp')}
+          >
+            <ArrowLeft className="h-4 w-4" /> Voltar
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2 h-9 px-3"
+            onClick={() => window.location.reload()}
+          >
+            <RefreshCw className="h-4 w-4" /> Atualizar
+          </Button>
         </div>
       </div>
 

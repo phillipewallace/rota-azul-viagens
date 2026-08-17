@@ -117,6 +117,7 @@ const ErpQuotes: React.FC = () => {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [working, setWorking] = useState<string | null>(null);
 
   // ---- Filtros ----
   const [filterStatus, setFilterStatus] = useState<'all' | Status>('all');
@@ -405,12 +406,19 @@ const ErpQuotes: React.FC = () => {
   };
 
   const shareViaWhatsApp = async (q: Quote) => {
-    const phone = (q.responsavelTelefone || '').replace(/\D/g, '');
+    let phone = (q.responsavelTelefone || '').replace(/\D/g, '');
     if (!phone) {
-      toast.error('Cadastre o telefone do responsável para enviar por WhatsApp.');
+      const cust = customers.find(c => c.id === q.customerId);
+      phone = (cust?.contactPhone || '').replace(/\D/g, '');
+    }
+    
+    if (!phone) {
+      toast.error('Cadastre o telefone do responsável ou do cliente para enviar por WhatsApp.');
       return;
     }
+    
     const waNumber = phone.length <= 11 ? `55${phone}` : phone;
+    setWorking(q.id);
     const t = toast.loading('Gerando e enviando PDF...');
     try {
       const url = await uploadQuotePdf(q);
@@ -420,16 +428,25 @@ const ErpQuotes: React.FC = () => {
       window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
       toast.success('WhatsApp aberto', { id: t });
     } catch (e: any) {
-      toast.error(e.message || 'Falha ao enviar', { id: t });
+      toast.error(e.message || 'Falha ao preparar compartilhamento', { id: t });
+    } finally {
+      setWorking(null);
     }
   };
 
   const shareViaEmail = async (q: Quote) => {
-    const email = (q.responsavelEmail || '').trim();
+    let email = (q.responsavelEmail || '').trim();
     if (!email) {
-      toast.error('Cadastre o e-mail do responsável para enviar por e-mail.');
+      const cust = customers.find(c => c.id === q.customerId);
+      email = (cust?.email || '').trim();
+    }
+
+    if (!email) {
+      toast.error('Cadastre o e-mail do responsável ou do cliente.');
       return;
     }
+
+    setWorking(q.id);
     const t = toast.loading('Gerando e enviando PDF...');
     try {
       const url = await uploadQuotePdf(q);
@@ -439,7 +456,9 @@ const ErpQuotes: React.FC = () => {
       window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       toast.success('E-mail preparado', { id: t });
     } catch (e: any) {
-      toast.error(e.message || 'Falha ao enviar', { id: t });
+      toast.error(e.message || 'Falha ao preparar e-mail', { id: t });
+    } finally {
+      setWorking(null);
     }
   };
 
