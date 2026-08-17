@@ -19,7 +19,7 @@ const PG_MAP: Record<string, { status: number; msg: string }> = {
 export function sendError(res: Response, e: any, logTag = '[api]') {
   // Log completo somente no servidor.
   // eslint-disable-next-line no-console
-  console.error(logTag, e);
+  console.error(logTag, e.stack || e);
 
   const code: string | undefined = e?.code;
   if (code && PG_MAP[code]) {
