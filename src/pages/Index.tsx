@@ -69,7 +69,7 @@ const Index = () => {
     { icon: MapPin, label: 'Mapa Principal', to: '/' },
     { icon: Route, label: 'Rotas', to: '/routes' },
     { icon: Route, label: 'Rotas Concluídas', to: '/rotas-concluidas' },
-    { icon: Settings, label: 'Sanitários', to: '/erp/estoque' },
+    { icon: Settings, label: 'Sanitários', to: '/sanitarios' },
     { icon: Truck, label: 'Caminhões', to: '/trucks' },
     { icon: Container, label: 'Carretinhas', to: '/carretinhas' },
     { icon: ClipboardCheck, label: 'Checklists', to: '/checklists' },
