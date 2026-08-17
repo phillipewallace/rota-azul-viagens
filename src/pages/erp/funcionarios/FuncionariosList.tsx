@@ -30,7 +30,8 @@ const FuncionariosList = () => {
             const res = await fetch(`${API_BASE_URL}/erp/funcionarios`, {
                 headers: { Authorization: token ? `Bearer ${token}` : '' }
             });
-            const data = Array.isArray(await res.json()) ? await res.json() : [];
+            const json = await res.json();
+            const data = Array.isArray(json) ? json : [];
             setList(data);
             // Atualiza o contador no card pai se o elemento existir
             const statsEl = document.querySelector('#stats-total-funcionarios p.text-2xl');
