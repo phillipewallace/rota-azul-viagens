@@ -362,6 +362,18 @@ router.post('/:id/solicitar-recolhimento', async (req, res) => {
   } catch (e: any) { sendError(res, e); }
 });
 
+router.post('/:id/recolhimento-simplificado', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { dataRecolhimento } = req.body;
+    await pool.query(
+      "UPDATE erp_service_orders SET status = 'fechada', data_recolhimento = \$1, data_fechamento = NOW(), updated_at = NOW() WHERE id = \$2",
+      [dataRecolhimento, id]
+    );
+    res.json({ ok: true });
+  } catch (e: any) { sendError(res, e); }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const o = await pool.query(`
