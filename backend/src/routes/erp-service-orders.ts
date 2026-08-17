@@ -349,6 +349,18 @@ router.get('/movements/history', async (req, res) => {
 });
 
 
+router.post('/:id/solicitar-recolhimento', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { dataRecolhimento } = req.body;
+    await pool.query(
+      "UPDATE erp_service_orders SET status = 'recolhimento_solicitado', data_recolhimento_solicitada = \$1, updated_at = NOW() WHERE id = \$2",
+      [dataRecolhimento, id]
+    );
+    res.json({ ok: true });
+  } catch (e: any) { sendError(res, e); }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const o = await pool.query(`

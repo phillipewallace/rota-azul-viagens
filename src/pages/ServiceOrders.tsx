@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ClipboardList, AlertTriangle, CheckCircle2, RefreshCcw, Trash2, Loader2, Search,
   FileDown, History, X, MapPin, Calendar, User, Building2, Package,
-  FileSignature, FileText,
+  FileSignature, FileText, Send, Camera, History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -133,6 +133,21 @@ const ServiceOrders: React.FC = () => {
   const filtered = list;
   const visible = list;
 
+
+  const submitRecolhimento = async (o: ServiceOrder) => {
+    const data = prompt('Data para recolhimento (AAAA-MM-DD):', new Date().toISOString().split('T')[0]);
+    if (!data) return;
+    try {
+      // O endpoint de recolhimento solicita a data e dispara para o app (simulado via status)
+      await fetch(`${API_BASE_URL}/erp/service-orders/${o.id}/solicitar-recolhimento`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ dataRecolhimento: data })
+      });
+      toast.success('Solicitação de recolhimento enviada para a equipe de campo!');
+      load();
+    } catch (e: any) { toast.error(e.message); }
+  };
 
   const close = async (o: ServiceOrder) => {
     if (!(await confirmDialog({ description: `Fechar OS ${o.numero} e devolver ${o.sanitariosAlocados || 0} sanitário(s) ao estoque?`, destructive: true }))) return;
