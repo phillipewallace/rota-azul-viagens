@@ -42,6 +42,9 @@ import erpRecurringExpensesRoutes from './routes/erp-recurring-expenses';
 import erpSignedPdfsRoutes from './routes/erp-signed-pdfs';
 import checklistsRoutes from './routes/checklists';
 import carretinhasRoutes from './routes/carretinhas';
+import erpFuncionariosRoutes from './routes/erp-funcionarios';
+import erpSanitariosNewRoutes from './routes/erp-sanitarios-new';
+import appFuncionariosRoutes from './routes/app-funcionarios';
 import path from 'path';
 
 const app = express();
