@@ -25,9 +25,9 @@ const FuncionariosList = () => {
     
     const load = async () => {
         try {
-            const token = localStorage.getItem('auth_token');
+            const token = localStorage.getItem('rota-azul-token');
             const res = await fetch(`${API_BASE_URL}/erp/funcionarios`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: token ? `Bearer ${token}` : '' }
             });
             const data = await res.json();
             setList(data);
