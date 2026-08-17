@@ -1584,66 +1584,14 @@ const ErpFinanceiro: React.FC = () => {
                   <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar</Button>
                 )}
                 {unifiedGroup && (
-                  <Popover
-                    open={unifOpen}
-                    onOpenChange={(o) => {
-                      if (working === '__unified__') return;
-                      setUnifOpen(o);
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        size="sm"
-                        disabled={working === '__unified__'}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
-                        title="Gera um único PDF somando todos os contratos selecionados"
-                      >
-                        {working === '__unified__'
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                          : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                        Gerar recibo unificado
-                        <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px] bg-primary-foreground/15 text-primary-foreground border-0">
-                          {unifiedGroup.arr.length}
-                        </Badge>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-[340px] p-0 overflow-hidden border-border/60 shadow-lg">
-                      <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
-                        <p className="text-sm font-semibold leading-tight tracking-tight">Recibo unificado</p>
-                        <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-                          {unifiedGroup.arr.length} contratos ·{' '}
-                          <span className="font-medium text-foreground">
-                            {BRL(unifiedGroup.arr.reduce((s, p) => s + Number(p.valorMensal || 0), 0))}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="p-4 space-y-3">
-                        <div className="rounded-md px-3 py-2 text-[11px] leading-snug border bg-muted/40 border-border/60 text-muted-foreground">
-                          O período de cada recibo será calculado automaticamente:
-                          <span className="ml-1 font-medium text-foreground">
-                            data de início do contrato + 30 dias
-                          </span>
-                          , dentro da competência <span className="font-semibold text-foreground">{formatComp(competencia)}</span>.
-                        </div>
-                        <div className="flex items-center justify-end gap-2 pt-0.5">
-                          <Button size="sm" variant="ghost" onClick={() => setUnifOpen(false)} disabled={working === '__unified__'} className="h-8 transition-colors duration-200">
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => gerarUnificado()}
-                            disabled={working === '__unified__'}
-                            className="h-8 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
-                          >
-                            {working === '__unified__'
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                            Gerar
-                          </Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <ReceiptUnifiedActions 
+                    selected={selected} 
+                    pendentes={pendentes} 
+                    competencia={competencia} 
+                    companies={companies} 
+                    batchWorking={batchWorking} 
+                    handleUnifiedAction={handleUnifiedAction} 
+                  />
                 )}
                 <Button size="sm" disabled={selected.size === 0 || working === '__batch__'} onClick={gerarLote}
                   className="bg-emerald-600 hover:bg-emerald-700">
