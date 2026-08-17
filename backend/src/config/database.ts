@@ -108,7 +108,7 @@ export const setupDatabase = async () => {
       ['customers', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       ['customers', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       // erp_service_orders
-      ['erp_service_orders', 'use_new_flow', 'BOOLEAN DEFAULT FALSE'],
+      ['erp_service_orders', 'use_new_flow', 'BOOLEAN DEFAULT TRUE'],
       ['erp_service_orders', 'entregue_por_id', 'UUID REFERENCES erp_funcionarios(id)'],
       ['erp_service_orders', 'recolhido_por_id', 'UUID REFERENCES erp_funcionarios(id)'],
       ['erp_service_orders', 'entregue_por_nome', 'TEXT'],
