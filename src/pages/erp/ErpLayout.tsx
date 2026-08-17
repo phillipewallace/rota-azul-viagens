@@ -23,8 +23,7 @@ const navItems = [
   { to: '/erp/assinatura', label: 'Assinatura', icon: FileSignature },
   { to: '/erp/assinados', label: 'Assinados', icon: Files },
   { to: '/erp/financeiro', label: 'Financeiro', icon: DollarSign },
-  { to: '/erp/clientes', label: 'Clientes', icon: Users },
-  { to: '/funcionarios', label: 'Funcionários', icon: Users },
+  { to: '/erp/funcionarios', label: 'Funcionários', icon: Users },
   { to: '/erp/estoque', label: 'Estoque & Insumos', icon: Boxes },
   { to: '/erp/empresas', label: 'Empresas Emissoras', icon: Building2 },
 ];
