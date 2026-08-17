@@ -74,13 +74,12 @@ router.put('/:id', async (req, res) => {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Exclusão (Lógica/Física)
+// Exclusão (Inativação Lógica conforme política)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        // Exclusão física por enquanto conforme pedido de "excluir" e "inativar"
-        await pool.query('DELETE FROM erp_funcionarios WHERE id = $1', [id]);
-        res.json({ success: true });
+        await pool.query('UPDATE erp_funcionarios SET active = false, updated_at = NOW() WHERE id = $1', [id]);
+        res.json({ success: true, message: 'Funcionário inativado com sucesso' });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
