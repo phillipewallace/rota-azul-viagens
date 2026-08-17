@@ -1259,8 +1259,6 @@ const ErpFinanceiro: React.FC = () => {
       setBatchWorking(false);
     }
   };
-
-  // ===== Exportação CSV =====
   const exportRecibosCsv = (lista: Receipt[]) => {
     if (lista.length === 0) { toast.info('Nada para exportar.'); return; }
     const header = [
