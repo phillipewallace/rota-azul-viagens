@@ -29,7 +29,6 @@ import sanitariosRoutes from './routes/sanitarios';
 import erpInventoryRoutes from './routes/erp-inventory';
 import erpCompaniesRoutes from './routes/erp-companies';
 import erpQuotesRoutes from './routes/erp-quotes';
-import debugDb from './routes/debug-db';
 import erpServiceOrdersRoutes from './routes/erp-service-orders';
 import erpDocSettingsRoutes from './routes/erp-doc-settings';
 import erpContractsRoutes from './routes/erp-contracts';
