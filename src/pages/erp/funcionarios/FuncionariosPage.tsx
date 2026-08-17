@@ -36,15 +36,15 @@ const FuncionariosPage = () => {
           <Button 
             variant="outline" 
             size="sm" 
-            className="gap-2"
+            className="gap-2 h-9 px-3"
             onClick={() => navigate('/erp')}
           >
-            <ArrowLeft className="h-4 w-4" /> Voltar ao ERP
+            <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
           <Button 
             variant="outline" 
             size="sm" 
-            className="gap-2"
+            className="gap-2 h-9 px-3"
             onClick={() => window.location.reload()}
           >
             <RefreshCw className="h-4 w-4" /> Atualizar
