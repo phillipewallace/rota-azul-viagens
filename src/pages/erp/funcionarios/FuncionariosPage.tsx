@@ -1,3 +1,7 @@
+/**
+ * Página de Gestão de Funcionários
+ * Adicionado botão de voltar para o Dashboard do ERP.
+ */
 import React, { lazy, Suspense } from 'react';
 import { Card } from '@/components/ui/card';
 import { Users, UserPlus, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -29,6 +33,14 @@ const FuncionariosPage = () => {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            onClick={() => navigate('/erp')}
+          >
+            <ArrowLeft className="h-4 w-4" /> Voltar ao ERP
+          </Button>
           <Button 
             variant="outline" 
             size="sm" 
