@@ -16,6 +16,7 @@ interface Funcionario {
     email?: string;
     tipo: string;
     active: boolean;
+    created_at?: string;
 }
 
 const FuncionariosList = () => {
@@ -31,6 +32,9 @@ const FuncionariosList = () => {
             });
             const data = await res.json();
             setList(data);
+            // Atualiza o contador no card pai se o elemento existir
+            const statsEl = document.querySelector('#stats-total-funcionarios p.text-2xl');
+            if (statsEl) statsEl.textContent = String(data.length);
         } catch (e) { toast.error('Erro ao carregar'); }
     };
 

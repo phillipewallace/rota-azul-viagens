@@ -10,7 +10,7 @@ import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import routesRoutes from './routes/routes';
 import trucksRoutes from './routes/trucks';
-import driversRoutes from './routes/drivers';
+
 import schedulesRoutes from './routes/schedules';
 import geocodingRoutes from './routes/geocoding';
 import mobileRoutes from './routes/mobile';
@@ -122,7 +122,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/routes', routesRoutes);
 app.use('/api/trucks', trucksRoutes);
-app.use('/api/drivers', driversRoutes);
+
 app.use('/api/schedules', schedulesRoutes);
 app.use('/api/geocoding', geocodingRoutes);
 app.use('/api/mobile', mobileRoutes);
@@ -228,7 +228,7 @@ app.use('/api/*', (req, res) => {
       '/api/auth',
       '/api/routes', 
       '/api/trucks',
-      '/api/drivers',
+      
       '/api/schedules',
       '/api/geocoding',
       '/api/mobile',

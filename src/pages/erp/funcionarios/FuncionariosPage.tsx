@@ -22,9 +22,9 @@ const FuncionariosPage = () => {
             <div className="p-2 bg-primary/10 rounded-lg">
               <Users className="h-5 w-5 text-primary" />
             </div>
-            <div>
+            <div id="stats-total-funcionarios">
               <p className="text-[10px] font-bold uppercase text-muted-foreground">Total Equipe</p>
-              <p className="text-2xl font-black">-</p>
+              <p className="text-2xl font-black">...</p>
             </div>
           </div>
         </Card>
