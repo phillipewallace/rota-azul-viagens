@@ -7,7 +7,8 @@ const router = Router();
 router.get('/os', async (req, res) => {
     try {
         const r = await pool.query(`
-            SELECT o.*, cu.customer_name as "customerName", cu.address as "customerAddress"
+            SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
+                   cu.customer_name as "customerName", cu.address as "customerAddress"
             FROM erp_service_orders o
             LEFT JOIN customers cu ON cu.id = o.customer_id
             WHERE o.status IN ('aberta', 'despachada', 'entregue', 'recolhimento_solicitado')
@@ -21,7 +22,7 @@ router.get('/os', async (req, res) => {
 // Registrar Entrega (com foto e número)
 router.post('/os/:id/entregar', async (req, res) => {
     const { id } = req.params;
-    const { sanitario_numero, fotos, funcionario_id, categoria, tipo_locacao_alvo, estado_atual } = req.body;
+    const { sanitario_numero, fotos, funcionario_id, funcionario_nome, categoria, tipo_locacao_alvo, estado_atual } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -60,8 +61,11 @@ router.post('/os/:id/entregar', async (req, res) => {
             }
         }
 
-        // 4. Mudar status da OS
-        await client.query("UPDATE erp_service_orders SET status = 'entregue', updated_at = NOW() WHERE id = $1", [id]);
+        // 4. Mudar status da OS e registrar executor
+        await client.query(
+            "UPDATE erp_service_orders SET status = 'entregue', entregue_por_id = $2, entregue_por_nome = $3, updated_at = NOW() WHERE id = $1", 
+            [id, funcionario_id, funcionario_nome]
+        );
 
         await client.query('COMMIT');
         res.json({ ok: true });
@@ -74,7 +78,7 @@ router.post('/os/:id/entregar', async (req, res) => {
 // Registrar Recolhimento (com fotos e estado)
 router.post('/os/:id/recolher', async (req, res) => {
     const { id } = req.params;
-    const { fotos, funcionario_id, estado_atual, observacoes } = req.body;
+    const { fotos, funcionario_id, funcionario_nome, estado_atual, observacoes } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -108,8 +112,11 @@ router.post('/os/:id/recolher', async (req, res) => {
             );
         }
 
-        // 5. Fechar OS
-        await client.query("UPDATE erp_service_orders SET status = 'fechada', data_fechamento = NOW(), updated_at = NOW() WHERE id = $1", [id]);
+        // 5. Fechar OS e registrar executor
+        await client.query(
+            "UPDATE erp_service_orders SET status = 'fechada', recolhido_por_id = $2, recolhido_por_nome = $3, data_fechamento = NOW(), updated_at = NOW() WHERE id = $1", 
+            [id, funcionario_id, funcionario_nome]
+        );
 
         await client.query('COMMIT');
         res.json({ ok: true });

@@ -61,6 +61,10 @@ router.get('/', async (req, res) => {
              o.converted_contract_id AS "convertedContractId",
              o.converted_at AS "convertedAt",
              o.use_new_flow AS "useNewFlow",
+             o.entregue_por_nome AS "entreguePorNome",
+             o.recolhido_por_nome AS "recolhidoPorNome",
+             o.entregue_por_id AS "entreguePorId",
+             o.recolhido_por_id AS "recolhidoPorId",
              ctr.numero AS "convertedContractNumero",
              cu.customer_name AS "customerName", cu.address AS "customerAddress",
              cu.lat AS "customerLat", cu.lng AS "customerLng",
@@ -377,7 +381,8 @@ router.post('/:id/recolhimento-simplificado', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const o = await pool.query(`
-      SELECT o.*, cu.customer_name AS customer_name_join, cu.address AS customer_address_join,
+      SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
+             cu.customer_name AS customer_name_join, cu.address AS customer_address_join,
              c.razao_social, c.cnpj, c.inscricao_estadual,
              c.endereco AS company_endereco, c.cidade AS company_cidade, c.estado AS company_estado,
              c.telefone AS company_telefone, c.email AS company_email
