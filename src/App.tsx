@@ -38,6 +38,8 @@ const ErpContracts = lazy(() => import("./pages/erp/ErpContracts"));
 const ErpAssinatura = lazy(() => import("./pages/erp/ErpAssinatura"));
 const ErpAssinados = lazy(() => import("./pages/erp/ErpAssinados"));
 const MobileMenu = lazy(() => import("./mobile/MobileMenu"));
+const FuncionariosApp = lazy(() => import("./pages/app-funcionarios/AppFuncionarios"));
+const FuncionariosAdmin = lazy(() => import("./pages/erp/funcionarios/FuncionariosList"));
 
 // Mobile Operator (lazy também — só pesa quando acessado)
 const MobileOperatorMenuPage = lazy(
