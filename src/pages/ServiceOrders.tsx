@@ -135,13 +135,18 @@ const ServiceOrders: React.FC = () => {
   const visible = list;
 
 
-  const submitRecolhimento = async (o: ServiceOrder) => {
+  const submitRecolhimento = async (o: any) => {
     const data = prompt('Data para recolhimento (AAAA-MM-DD):', new Date().toISOString().split('T')[0]);
     if (!data) return;
     try {
       const token = localStorage.getItem('rota-azul-token');
-      // O endpoint de recolhimento solicita a data e dispara para o app (simulado via status)
-      await fetch(`${API_BASE_URL}/erp/service-orders/${o.id}/solicitar-recolhimento`, {
+      
+      // Se for fluxo antigo, apenas atualiza o status sem disparar para o app
+      const endpoint = o.useNewFlow 
+        ? `${API_BASE_URL}/erp/service-orders/${o.id}/solicitar-recolhimento`
+        : `${API_BASE_URL}/erp/service-orders/${o.id}/recolhimento-simplificado`;
+
+      await fetch(endpoint, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -149,7 +154,9 @@ const ServiceOrders: React.FC = () => {
         },
         body: JSON.stringify({ dataRecolhimento: data })
       });
-      toast.success('Solicitação de recolhimento enviada para a equipe de campo!');
+      toast.success(o.useNewFlow 
+        ? 'Solicitação de recolhimento enviada para a equipe de campo!'
+        : 'Recolhimento registrado (fluxo simplificado)');
       load();
     } catch (e: any) { toast.error(e.message); }
   };

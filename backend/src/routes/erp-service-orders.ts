@@ -60,6 +60,7 @@ router.get('/', async (req, res) => {
              o.created_at AS "createdAt",
              o.converted_contract_id AS "convertedContractId",
              o.converted_at AS "convertedAt",
+             o.use_new_flow AS "useNewFlow",
              ctr.numero AS "convertedContractNumero",
              cu.customer_name AS "customerName", cu.address AS "customerAddress",
              cu.lat AS "customerLat", cu.lng AS "customerLng",
@@ -361,6 +362,18 @@ router.post('/:id/solicitar-recolhimento', async (req, res) => {
   } catch (e: any) { sendError(res, e); }
 });
 
+router.post('/:id/recolhimento-simplificado', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { dataRecolhimento } = req.body;
+    await pool.query(
+      "UPDATE erp_service_orders SET status = 'fechada', data_recolhimento = \$1, data_fechamento = NOW(), updated_at = NOW() WHERE id = \$2",
+      [dataRecolhimento, id]
+    );
+    res.json({ ok: true });
+  } catch (e: any) { sendError(res, e); }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const o = await pool.query(`
@@ -442,8 +455,8 @@ router.post('/', async (req, res) => {
       `INSERT INTO erp_service_orders
          (numero, company_id, customer_id, customer_snapshot,
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
-          forma_pagamento)
-       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,'aberta',$9,$10,$11) RETURNING id`,
+          forma_pagamento, use_new_flow)
+       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,'aberta',$9,$10,$11, TRUE) RETURNING id`,
       [numero, companyId, c.customerId || null, snap,
        c.modalidade || 'diaria', c.tipoLocacao || null, c.dataInicio || null, c.dataFimPrevista || null,
        c.valorTotal || 0, c.observacoes || null, c.formaPagamento || null]

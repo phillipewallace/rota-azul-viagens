@@ -90,6 +90,8 @@ export const setupDatabase = async () => {
       // customers
       ['customers', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       ['customers', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
+      // erp_service_orders
+      ['erp_service_orders', 'use_new_flow', 'BOOLEAN DEFAULT FALSE'],
       // maintenance_records
       ['maintenance_records', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       ['maintenance_records', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
