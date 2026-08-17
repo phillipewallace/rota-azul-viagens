@@ -23,7 +23,7 @@ const ITEMS = [
     label: 'Frota',
     icon: Truck,
     match: (p: string) =>
-      p.startsWith('/trucks') || p.startsWith('/drivers') || p.startsWith('/carretinhas'),
+      p.startsWith('/trucks') || p.startsWith('/funcionarios') || p.startsWith('/carretinhas'),
   },
   { to: '/erp', label: 'ERP', icon: Briefcase, match: (p: string) => p.startsWith('/erp') },
   {

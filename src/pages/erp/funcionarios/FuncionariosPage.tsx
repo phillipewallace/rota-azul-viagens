@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { Card } from '@/components/ui/card';
 import { Users, UserPlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const FuncionariosList = lazy(() => import('./FuncionariosList'));
@@ -21,9 +22,9 @@ const FuncionariosPage = () => {
             <div className="p-2 bg-primary/10 rounded-lg">
               <Users className="h-5 w-5 text-primary" />
             </div>
-            <div>
+            <div id="stats-total-funcionarios">
               <p className="text-[10px] font-bold uppercase text-muted-foreground">Total Equipe</p>
-              <p className="text-2xl font-black">-</p>
+              <p className="text-2xl font-black">...</p>
             </div>
           </div>
         </Card>
@@ -40,9 +41,27 @@ const FuncionariosPage = () => {
           </Suspense>
         </TabsContent>
         <TabsContent value="novo">
-          <Card className="p-10 text-center border-dashed">
-            <p className="text-muted-foreground">Formulário de admissão em desenvolvimento.</p>
-          </Card>
+          <div className="max-w-2xl mx-auto py-8">
+            <Card className="p-6">
+                <div className="text-center space-y-2 mb-6">
+                    <UserPlus className="h-10 w-10 text-primary mx-auto" />
+                    <h3 className="text-lg font-bold">Nova Admissão</h3>
+                    <p className="text-sm text-muted-foreground">O cadastro pode ser feito diretamente pelo botão "Novo Funcionário" na lista.</p>
+                </div>
+                <div className="flex justify-center">
+                    <Button onClick={() => {
+                        const trigger = document.querySelector('[value="lista"]') as HTMLButtonElement;
+                        trigger?.click();
+                        setTimeout(() => {
+                           const btn = document.querySelector('button.gap-2') as HTMLButtonElement;
+                           btn?.click();
+                        }, 100);
+                    }}>
+                        Ir para Formulário
+                    </Button>
+                </div>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
