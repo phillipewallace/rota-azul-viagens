@@ -1,5 +1,6 @@
-const pg = require('pg');
-const pool = new pg.Pool({
+import pg from 'pg';
+const { Pool } = pg;
+const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/alchemy_rotas'
 });
 async function run() {
