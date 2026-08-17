@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PageMeta } from '@/components/PageMeta';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,6 +106,7 @@ const AppFuncionarios = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
+      <PageMeta title="Minha Agenda | Alchemy Operacional" noindex />
       <header className="bg-white border-b sticky top-0 z-10 px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
