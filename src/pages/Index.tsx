@@ -163,9 +163,27 @@ const Index = () => {
                     <span className="text-indigo-100 group-hover:translate-x-1 transition-transform">→</span>
                   </div>
                 </a>
+                <a
+                  href="/app-funcionarios"
+                  className="mt-3 group relative block rounded-xl p-4 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border border-slate-600 hover:from-slate-600 hover:via-slate-700 hover:to-slate-800 shadow-lg shadow-black/20 transition-all overflow-hidden"
+                >
+                  <div className="absolute -right-6 -top-6 h-24 w-24 bg-white/5 rounded-full blur-2xl" />
+                  <div className="relative flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-white/10 backdrop-blur flex items-center justify-center">
+                      <Users className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-sm font-bold text-white block">App Funcionários</span>
+                      <p className="text-[10px] text-slate-300 mt-0.5 italic">Agenda de campo · Offline ready</p>
+                    </div>
+                    <span className="text-slate-400 group-hover:translate-x-1 transition-transform">→</span>
+                  </div>
+                </a>
+                
                 <p className="text-[10px] text-gray-500 mt-2 text-center">
-                  Sistema complementar · dados sincronizados em tempo real
+                  Sistemas operacionais · dados sincronizados em tempo real
                 </p>
+
 
               </div>
 

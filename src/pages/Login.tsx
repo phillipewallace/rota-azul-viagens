@@ -160,9 +160,16 @@ const Login = () => {
             </Button>
           </form>
 
-          <p className="pt-6 text-center text-xs text-muted-foreground">
-            Versão 2.0 · Powered by Alchemy
-          </p>
+          <div className="pt-6 text-center space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Versão 2.0 · Powered by Alchemy
+            </p>
+            <div className="pt-2 border-t border-border/40">
+              <Button variant="outline" size="sm" className="w-full text-[10px] h-8 font-bold uppercase tracking-tighter" asChild>
+                <a href="/app-funcionarios">Acessar App Operacional</a>
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </main>

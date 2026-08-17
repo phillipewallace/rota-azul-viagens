@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PageMeta } from '@/components/PageMeta';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,6 +65,7 @@ const AppFuncionarios = () => {
   if (view === 'login') {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+        <PageMeta title="Login | Alchemy Operacional" noindex />
         <Card className="w-full max-w-sm border-none shadow-2xl bg-slate-800 text-white">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
@@ -105,6 +107,7 @@ const AppFuncionarios = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
+      <PageMeta title="Minha Agenda | Alchemy Operacional" noindex />
       <header className="bg-white border-b sticky top-0 z-10 px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -112,7 +115,7 @@ const AppFuncionarios = () => {
           </div>
           <span className="font-bold text-sm">Minha Agenda</span>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setView('login')}>
+        <Button variant="ghost" size="icon" onClick={() => { setUser(null); setView('login'); }}>
           <LogOut className="h-5 w-5 text-slate-400" />
         </Button>
       </header>
