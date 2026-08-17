@@ -561,3 +561,13 @@ BEGIN
     EXECUTE 'ALTER TABLE erp_companies ADD COLUMN IF NOT EXISTS assinatura_url TEXT';
   END IF;
 END $$;
+
+-- Garantir colunas do novo fluxo ERP (Service Orders)
+ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS use_new_flow BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS data_recolhimento_solicitada DATE;
+ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS entregue_por_id UUID REFERENCES public.erp_funcionarios(id);
+ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS recolhido_por_id UUID REFERENCES public.erp_funcionarios(id);
+ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS entregue_por_nome TEXT;
+ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS recolhido_por_nome TEXT;
+ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.erp_companies(id);
+
