@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import PaginationBar from '@/components/PaginationBar';
-import { API_BASE_URL, authHeaders } from '@/services/config';
+import { API_BASE_URL } from '@/services/config';
 
 import { downloadCsv, downloadPdf } from '@/utils/exporters';
 import { generateContractPdf } from '@/utils/contractPdf';
@@ -139,10 +139,14 @@ const ServiceOrders: React.FC = () => {
     const data = prompt('Data para recolhimento (AAAA-MM-DD):', new Date().toISOString().split('T')[0]);
     if (!data) return;
     try {
+      const token = localStorage.getItem('rota-azul-token');
       // O endpoint de recolhimento solicita a data e dispara para o app (simulado via status)
       await fetch(`${API_BASE_URL}/erp/service-orders/${o.id}/solicitar-recolhimento`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
         body: JSON.stringify({ dataRecolhimento: data })
       });
       toast.success('Solicitação de recolhimento enviada para a equipe de campo!');
