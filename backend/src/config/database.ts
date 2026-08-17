@@ -224,6 +224,16 @@ export const setupDatabase = async () => {
       ['erp_service_orders', 'forma_pagamento', 'TEXT'],
       ['erp_service_orders', 'tipo_locacao', 'TEXT'],
       ['erp_service_orders', 'limpezas_semanais', 'INTEGER'],
+      // erp_invoices
+      ['erp_invoices', 'company_id', 'UUID REFERENCES erp_companies(id)'],
+      // erp_medicoes
+      ['erp_medicoes', 'company_id', 'UUID REFERENCES erp_companies(id)'],
+      // erp_receipts
+      ['erp_receipts', 'company_id', 'UUID REFERENCES erp_companies(id)'],
+      // erp_expenses
+      ['erp_expenses', 'company_id', 'UUID REFERENCES erp_companies(id)'],
+      // erp_signed_pdfs
+      ['erp_signed_pdfs', 'company_id', 'UUID REFERENCES erp_companies(id)'],
       // maintenance_records
       ['maintenance_records', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       ['maintenance_records', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
