@@ -58,7 +58,11 @@ import { medicoesService, type Medicao } from '@/services/medicoes';
 import { MedicaoDialog } from '@/components/erp/MedicaoDialog';
 import { MedicaoViewDialog } from '@/components/erp/MedicaoViewDialog';
 import { toAbsoluteUrl, toAuthedUrl } from '@/utils/absoluteUrl';
-import { generateReceiptPdf, generateUnifiedReceiptPdf } from '@/utils/receiptPdf';
+import { 
+  generateReceiptPdf, 
+  generateUnifiedReceiptPdf,
+  type UnifiedReceiptInput 
+} from '@/utils/receiptPdf';
 import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
@@ -1179,7 +1183,82 @@ const ErpFinanceiro: React.FC = () => {
     fail === 0 ? toast.success(`${ok} recibo(s) cancelados`) : toast.warning(`${ok} ok, ${fail} falharam`);
   };
 
-  // ===== Exportação CSV =====
+  const [unifPreview, setUnifPreview] = useState<UnifiedReceiptInput | null>(null);
+
+  const handleUnifiedAction = async (semValidade: boolean) => {
+    const alvos = pendentes.filter(p => selected.has(p.contractId));
+    if (alvos.length === 0) return;
+    const first = alvos[0];
+    
+    // Rótulo da competência padrão (YYYY-MM)
+    const comp = competencia; 
+    
+    // Período unificado padrão: do menor início ao maior fim dos itens
+    const dates = alvos.map(a => computeCompetenciaPeriodo(a.dataInicio, comp));
+    const minIni = dates.reduce((m, d) => (!m || d.inicio < m) ? d.inicio : m, '');
+    const maxFim = dates.reduce((m, d) => (!m || d.fim > m) ? d.fim : m, '');
+
+    const input: UnifiedReceiptInput = {
+      numero: 'AGUARDANDO',
+      competencia: comp,
+      periodoInicio: minIni,
+      periodoFim: maxFim,
+      dataEmissao: todayISO(),
+      dataVencimento: nextDueDate(comp, first.diaVencimento || 10),
+      company: companies.find(c => c.id === first.companyId) || { id: first.companyId },
+      customer: { name: first.customerName, id: first.customerId },
+      items: alvos.map(a => ({
+        contractId: a.contractId,
+        contractNumero: a.contractNumero || '',
+        descricao: (a as any).contractDescricao || 'Locação',
+        enderecoObra: (a as any).contractEnderecoObra || (a as any).contractLocalEvento || '',
+        cno: (a as any).contractCno || '',
+        valor: Number(a.valorMensal) || 0,
+      })),
+      total: alvos.reduce((s, a) => s + (Number(a.valorMensal) || 0), 0),
+      semValidade,
+    };
+    setUnifPreview(input);
+  };
+
+  const confirmUnified = async (input: UnifiedReceiptInput) => {
+    setBatchWorking(true);
+    try {
+      const results = [];
+      for (const it of input.items) {
+        const per = (input.periodoInicio && input.periodoFim) 
+          ? { inicio: input.periodoInicio, fim: input.periodoFim } 
+          : undefined;
+        
+        const r = await receiptsService.generate({
+          contractId: (it as any).contractId,
+          competencia: input.competencia,
+          valor: it.valor,
+          dataVencimento: input.dataVencimento || undefined,
+          periodoInicio: per?.inicio,
+          periodoFim: per?.fim,
+          semValidade: !!input.semValidade,
+        });
+        results.push(r);
+      }
+
+      // O número unificado no PDF será o número do primeiro recibo gerado
+      const firstR = results[0];
+      await generateUnifiedReceiptPdf({
+        ...input,
+        numero: firstR.numeroDisplay || firstR.numero,
+      });
+
+      toast.success(`${results.length} recibos gerados e PDF unificado baixado`);
+      setSelected(new Set());
+      setUnifPreview(null);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBatchWorking(false);
+    }
+  };
   const exportRecibosCsv = (lista: Receipt[]) => {
     if (lista.length === 0) { toast.info('Nada para exportar.'); return; }
     const header = [
@@ -1505,66 +1584,14 @@ const ErpFinanceiro: React.FC = () => {
                   <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar</Button>
                 )}
                 {unifiedGroup && (
-                  <Popover
-                    open={unifOpen}
-                    onOpenChange={(o) => {
-                      if (working === '__unified__') return;
-                      setUnifOpen(o);
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        size="sm"
-                        disabled={working === '__unified__'}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
-                        title="Gera um único PDF somando todos os contratos selecionados"
-                      >
-                        {working === '__unified__'
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                          : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                        Gerar recibo unificado
-                        <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px] bg-primary-foreground/15 text-primary-foreground border-0">
-                          {unifiedGroup.arr.length}
-                        </Badge>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-[340px] p-0 overflow-hidden border-border/60 shadow-lg">
-                      <div className="px-4 py-3 border-b border-border/60 bg-muted/40">
-                        <p className="text-sm font-semibold leading-tight tracking-tight">Recibo unificado</p>
-                        <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
-                          {unifiedGroup.arr.length} contratos ·{' '}
-                          <span className="font-medium text-foreground">
-                            {BRL(unifiedGroup.arr.reduce((s, p) => s + Number(p.valorMensal || 0), 0))}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="p-4 space-y-3">
-                        <div className="rounded-md px-3 py-2 text-[11px] leading-snug border bg-muted/40 border-border/60 text-muted-foreground">
-                          O período de cada recibo será calculado automaticamente:
-                          <span className="ml-1 font-medium text-foreground">
-                            data de início do contrato + 30 dias
-                          </span>
-                          , dentro da competência <span className="font-semibold text-foreground">{formatComp(competencia)}</span>.
-                        </div>
-                        <div className="flex items-center justify-end gap-2 pt-0.5">
-                          <Button size="sm" variant="ghost" onClick={() => setUnifOpen(false)} disabled={working === '__unified__'} className="h-8 transition-colors duration-200">
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => gerarUnificado()}
-                            disabled={working === '__unified__'}
-                            className="h-8 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200"
-                          >
-                            {working === '__unified__'
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                              : <ReceiptIcon className="h-3.5 w-3.5 mr-1" />}
-                            Gerar
-                          </Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <ReceiptUnifiedActions 
+                    selected={selected} 
+                    pendentes={pendentes} 
+                    competencia={competencia} 
+                    companies={companies} 
+                    batchWorking={batchWorking} 
+                    handleUnifiedAction={handleUnifiedAction} 
+                  />
                 )}
                 <Button size="sm" disabled={selected.size === 0 || working === '__batch__'} onClick={gerarLote}
                   className="bg-emerald-600 hover:bg-emerald-700">
@@ -2902,6 +2929,13 @@ const ErpFinanceiro: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <UnifiedPreviewDialog 
+        input={unifPreview}
+        onClose={() => setUnifPreview(null)}
+        onConfirm={confirmUnified}
+        working={batchWorking}
+      />
+
 
 
 
@@ -3342,8 +3376,146 @@ const GerarReciboPopover: React.FC<{
 };
 
 
+const ReceiptUnifiedActions: React.FC<{
+  selected: Set<string>;
+  pendentes: PendingReceipt[];
+  competencia: string;
+  companies: ErpCompany[];
+  batchWorking: boolean;
+  handleUnifiedAction: (sv: boolean) => void;
+}> = ({ handleUnifiedAction }) => {
+  return (
+    <div className="grid grid-cols-2 gap-2 mt-4">
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-full text-amber-600 border-amber-200 hover:bg-amber-50"
+        onClick={() => handleUnifiedAction(true)}
+      >
+        Unificado (Sem Validade)
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-full text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+        onClick={() => handleUnifiedAction(false)}
+      >
+        Unificado (Comum)
+      </Button>
+    </div>
+  );
+};
 
 
+
+
+
+const UnifiedPreviewDialog: React.FC<{
+  input: UnifiedReceiptInput | null;
+  onClose: () => void;
+  onConfirm: (final: UnifiedReceiptInput) => void;
+  working: boolean;
+}> = ({ input, onClose, onConfirm, working }) => {
+  const [dataEmissao, setDataEmissao] = useState('');
+  const [dataVencimento, setDataVencimento] = useState('');
+  const [perIni, setPerIni] = useState('');
+  const [perFim, setPerFim] = useState('');
+  const [obs, setObs] = useState('');
+
+  useEffect(() => {
+    if (!input) return;
+    setDataEmissao(input.dataEmissao);
+    setDataVencimento(input.dataVencimento || '');
+    setPerIni(input.periodoInicio || '');
+    setPerFim(input.periodoFim || '');
+    setObs('');
+  }, [input]);
+
+  if (!input) return null;
+
+  return (
+    <Dialog open={!!input} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Pré-visualização do Recibo Unificado</DialogTitle>
+          <DialogDescription>
+            {input.items.length} contrato(s) selecionados para {input.customer.name}.
+            O PDF será gerado com numeração comum.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Data de Emissão</Label>
+              <Input type="date" value={dataEmissao} onChange={e => setDataEmissao(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Data de Vencimento</Label>
+              <Input type="date" value={dataVencimento} onChange={e => setDataVencimento(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Início do Período</Label>
+              <Input type="date" value={perIni} onChange={e => setPerIni(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Fim do Período</Label>
+              <Input type="date" value={perFim} onChange={e => setPerFim(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Observações (aparece no PDF)</Label>
+            <Textarea 
+              value={obs} 
+              onChange={e => setObs(e.target.value)} 
+              placeholder="Ex: Referente a medição extra de agosto..."
+              rows={2}
+            />
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border text-sm">
+            <div className="font-semibold mb-2">Resumo de Itens:</div>
+            <div className="max-h-32 overflow-auto space-y-1 pr-2">
+              {input.items.map((it, idx) => (
+                <div key={idx} className="flex justify-between items-center text-[11px] border-b border-slate-200 dark:border-slate-800 pb-1">
+                  <span className="truncate mr-2">C. {it.contractNumero} - {it.descricao}</span>
+                  <span className="font-mono">{BRL(it.valor)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between items-center mt-2 font-bold text-indigo-600">
+              <span>TOTAL UNIFICADO</span>
+              <span>{BRL(input.total)}</span>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={working}>Cancelar</Button>
+          <Button 
+            disabled={working}
+            className={input.semValidade ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+            onClick={() => onConfirm({
+              ...input,
+              dataEmissao,
+              dataVencimento,
+              periodoInicio: perIni,
+              periodoFim: perFim,
+              // O campo snapshot pode carregar a obs se necessário no futuro
+            })}
+          >
+            {working ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ReceiptIcon className="h-4 w-4 mr-1" />}
+            Confirmar e Gerar PDF
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const PayDialog: React.FC<{
   receipt: Receipt | null; onClose: () => void; onSaved: () => void;

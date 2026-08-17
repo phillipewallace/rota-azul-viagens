@@ -505,7 +505,6 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
       : '—';
     return [
       String(idx + 1),
-      it.numeroRecibo || '—',
       `Contrato ${it.contractNumero} · ${desc}`,
       periodo,
       BRL(it.valor),
@@ -514,15 +513,14 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Recibo', 'Descrição', 'Período (competência)', 'Total']],
+    head: [['#', 'Descrição', 'Período (competência)', 'Total']],
     body,
     styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [220, 224, 230] },
     headStyles: { fillColor: PRIMARY, textColor: 255, halign: 'center', fontStyle: 'bold' },
     columnStyles: {
       0: { halign: 'center', cellWidth: 8 },
-      1: { halign: 'center', cellWidth: 22, fontStyle: 'bold' },
-      3: { halign: 'center', cellWidth: 38, fontStyle: 'bold' },
-      4: { halign: 'right',  cellWidth: 28, fontStyle: 'bold' },
+      2: { halign: 'center', cellWidth: 40, fontStyle: 'bold' },
+      3: { halign: 'right',  cellWidth: 30, fontStyle: 'bold' },
     },
     margin: { left: M, right: M },
   });
