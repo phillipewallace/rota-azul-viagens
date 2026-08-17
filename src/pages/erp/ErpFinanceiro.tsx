@@ -3421,6 +3421,7 @@ const UnifiedPreviewDialog: React.FC<{
   const [perIni, setPerIni] = useState('');
   const [perFim, setPerFim] = useState('');
   const [obs, setObs] = useState('');
+  const [items, setItems] = useState<UnifiedReceiptItem[]>([]);
 
   useEffect(() => {
     if (!input) return;
@@ -3429,13 +3430,18 @@ const UnifiedPreviewDialog: React.FC<{
     setPerIni(input.periodoInicio || '');
     setPerFim(input.periodoFim || '');
     setObs('');
+    setItems(input.items || []);
   }, [input]);
+
+  const updateItemPeriod = (idx: number, field: 'periodoInicio' | 'periodoFim', val: string) => {
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it));
+  };
 
   if (!input) return null;
 
   return (
     <Dialog open={!!input} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Pré-visualização do Recibo Unificado</DialogTitle>
           <DialogDescription>
@@ -3444,7 +3450,7 @@ const UnifiedPreviewDialog: React.FC<{
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 overflow-y-auto flex-1 px-1">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Data de Emissão</Label>
@@ -3458,11 +3464,11 @@ const UnifiedPreviewDialog: React.FC<{
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Início do Período</Label>
+              <Label className="text-xs">Início do Período (Global)</Label>
               <Input type="date" value={perIni} onChange={e => setPerIni(e.target.value)} />
             </div>
             <div>
-              <Label className="text-xs">Fim do Período</Label>
+              <Label className="text-xs">Fim do Período (Global)</Label>
               <Input type="date" value={perFim} onChange={e => setPerFim(e.target.value)} />
             </div>
           </div>
@@ -3478,23 +3484,50 @@ const UnifiedPreviewDialog: React.FC<{
           </div>
 
           <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border text-sm">
-            <div className="font-semibold mb-2">Resumo de Itens:</div>
-            <div className="max-h-32 overflow-auto space-y-1 pr-2">
-              {input.items.map((it, idx) => (
-                <div key={idx} className="flex justify-between items-center text-[11px] border-b border-slate-200 dark:border-slate-800 pb-1">
-                  <span className="truncate mr-2">C. {it.contractNumero} - {it.descricao}</span>
-                  <span className="font-mono">{BRL(it.valor)}</span>
+            <div className="font-semibold mb-3 flex items-center justify-between">
+              <span>Períodos por Contrato:</span>
+              <span className="text-[10px] text-muted-foreground font-normal">Edite individualmente se necessário</span>
+            </div>
+            <div className="space-y-3">
+              {items.map((it, idx) => (
+                <div key={idx} className="p-2 border rounded-md bg-background space-y-2 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <span className="font-medium text-xs truncate max-w-[70%]">
+                      C. {it.contractNumero} - {it.descricao}
+                    </span>
+                    <span className="font-mono text-xs text-indigo-600 font-bold">{BRL(it.valor)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Início</Label>
+                      <Input 
+                        type="date" 
+                        value={it.periodoInicio || ''} 
+                        onChange={e => updateItemPeriod(idx, 'periodoInicio', e.target.value)}
+                        className="h-7 text-[11px]"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Fim</Label>
+                      <Input 
+                        type="date" 
+                        value={it.periodoFim || ''} 
+                        onChange={e => updateItemPeriod(idx, 'periodoFim', e.target.value)}
+                        className="h-7 text-[11px]"
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="flex justify-between items-center mt-2 font-bold text-indigo-600">
+            <div className="flex justify-between items-center mt-4 pt-2 border-t font-bold text-indigo-600">
               <span>TOTAL UNIFICADO</span>
               <span>{BRL(input.total)}</span>
             </div>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="pt-4">
           <Button variant="outline" onClick={onClose} disabled={working}>Cancelar</Button>
           <Button 
             disabled={working}
@@ -3505,7 +3538,7 @@ const UnifiedPreviewDialog: React.FC<{
               dataVencimento,
               periodoInicio: perIni,
               periodoFim: perFim,
-              // O campo snapshot pode carregar a obs se necessário no futuro
+              items: items,
             })}
           >
             {working ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ReceiptIcon className="h-4 w-4 mr-1" />}
