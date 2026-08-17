@@ -11,6 +11,7 @@ router.get('/os', async (req, res) => {
             FROM erp_service_orders o
             LEFT JOIN customers cu ON cu.id = o.customer_id
             WHERE o.status IN ('aberta', 'despachada', 'entregue', 'recolhimento_solicitado')
+              AND o.use_new_flow = TRUE
             ORDER BY o.data_entrega ASC
         `);
         res.json(r.rows);
