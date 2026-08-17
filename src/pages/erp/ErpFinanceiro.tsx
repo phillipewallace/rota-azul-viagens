@@ -58,7 +58,11 @@ import { medicoesService, type Medicao } from '@/services/medicoes';
 import { MedicaoDialog } from '@/components/erp/MedicaoDialog';
 import { MedicaoViewDialog } from '@/components/erp/MedicaoViewDialog';
 import { toAbsoluteUrl, toAuthedUrl } from '@/utils/absoluteUrl';
-import { generateReceiptPdf, generateUnifiedReceiptPdf } from '@/utils/receiptPdf';
+import { 
+  generateReceiptPdf, 
+  generateUnifiedReceiptPdf,
+  type UnifiedReceiptInput 
+} from '@/utils/receiptPdf';
 import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
 
@@ -1241,6 +1245,84 @@ const ErpFinanceiro: React.FC = () => {
 
       // O número unificado no PDF será o número do primeiro recibo gerado, 
       // ou um display amigável se preferir. O usuário pediu "numeração comum".
+      const firstR = results[0];
+      await generateUnifiedReceiptPdf({
+        ...input,
+        numero: firstR.numeroDisplay || firstR.numero,
+      });
+
+      toast.success(`${results.length} recibos gerados e PDF unificado baixado`);
+      setSelected(new Set());
+      setUnifPreview(null);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBatchWorking(false);
+    }
+  };
+
+  const [unifPreview, setUnifPreview] = useState<UnifiedReceiptInput | null>(null);
+
+  const handleUnifiedAction = async (semValidade: boolean) => {
+    const alvos = pendentes.filter(p => selected.has(p.contractId));
+    if (alvos.length === 0) return;
+    const first = alvos[0];
+    
+    // Rótulo da competência padrão (YYYY-MM)
+    const comp = competencia; 
+    
+    // Período unificado padrão: do menor início ao maior fim dos itens
+    const dates = alvos.map(a => computeCompetenciaPeriodo(a.dataInicio, comp));
+    const minIni = dates.reduce((m, d) => (!m || d.inicio < m) ? d.inicio : m, '');
+    const maxFim = dates.reduce((m, d) => (!m || d.fim > m) ? d.fim : m, '');
+
+    const input: UnifiedReceiptInput = {
+      numero: 'AGUARDANDO',
+      competencia: comp,
+      periodoInicio: minIni,
+      periodoFim: maxFim,
+      dataEmissao: todayISO(),
+      dataVencimento: nextDueDate(comp, first.diaVencimento || 10),
+      company: companies.find(c => c.id === first.companyId) || { id: first.companyId },
+      customer: { name: first.customerName, id: first.customerId },
+      items: alvos.map(a => ({
+        contractId: a.contractId,
+        contractNumero: a.contractNumero || '',
+        descricao: (a as any).contractDescricao || 'Locação',
+        enderecoObra: (a as any).contractEnderecoObra || (a as any).contractLocalEvento || '',
+        cno: (a as any).contractCno || '',
+        valor: Number(a.valorMensal) || 0,
+      })),
+      total: alvos.reduce((s, a) => s + (Number(a.valorMensal) || 0), 0),
+      semValidade,
+    };
+    setUnifPreview(input);
+  };
+
+  const confirmUnified = async (input: UnifiedReceiptInput) => {
+    setBatchWorking(true);
+    try {
+      const results = [];
+      for (const it of input.items) {
+        const per = (input.periodoInicio && input.periodoFim) 
+          ? { inicio: input.periodoInicio, fim: input.periodoFim } 
+          : undefined;
+        
+        const r = await receiptsService.generate({
+          contractId: (it as any).contractId,
+          competencia: input.competencia,
+          valor: it.valor,
+          dataEmissao: input.dataEmissao,
+          dataVencimento: input.dataVencimento || undefined,
+          periodoInicio: per?.inicio,
+          periodoFim: per?.fim,
+          semValidade: !!input.semValidade,
+        });
+        results.push(r);
+      }
+
+      // O número unificado no PDF será o número do primeiro recibo gerado
       const firstR = results[0];
       await generateUnifiedReceiptPdf({
         ...input,
