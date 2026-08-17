@@ -16,7 +16,7 @@ interface OS {
   numero: string;
   customerName: string;
   customerAddress: string;
-  status: string;
+  status: 'pendente' | 'entregue' | 'recolhimento_solicitado' | 'fechada';
   data_entrega?: string;
 }
 
@@ -148,13 +148,21 @@ const AppFuncionarios = () => {
                   className="w-full text-left p-4 flex items-center gap-4"
                   onClick={() => { setSelectedOs(os); setView('detalhe'); }}
                 >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                    {os.status === 'entregue' ? <PackageCheck className="h-6 w-6" /> : <PackageOpen className="h-6 w-6" />}
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 
+                    os.status === 'recolhimento_solicitado' ? 'bg-amber-100 text-amber-600' :
+                    'bg-blue-100 text-blue-600'
+                  }`}>
+                    {os.status === 'recolhimento_solicitado' ? <PackageOpen className="h-6 w-6" /> : 
+                     os.status === 'entregue' ? <PackageCheck className="h-6 w-6" /> : 
+                     <PackageOpen className="h-6 w-6" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">OS #{os.numero}</span>
-                      <Badge variant="outline" className="text-[9px] uppercase">{os.status}</Badge>
+                      <Badge variant="outline" className={`text-[9px] uppercase ${os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : ''}`}>
+                        {os.status.replace('_', ' ')}
+                      </Badge>
                     </div>
                     <h3 className="font-bold text-sm truncate">{os.customerName}</h3>
                     <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
@@ -203,10 +211,21 @@ const AppFuncionarios = () => {
 
             <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase text-slate-500">Ação Necessária</h3>
-              {selectedOs.status === 'entregue' ? (
-                 <Button className="w-full h-16 text-lg font-bold gap-3 bg-emerald-600 hover:bg-emerald-700">
-                    <PackageCheck className="h-6 w-6" /> REGISTRAR RECOLHIMENTO
-                 </Button>
+              {selectedOs.status === 'recolhimento_solicitado' ? (
+                 <div className="space-y-4">
+                    <p className="text-xs text-amber-600 font-bold bg-amber-50 p-2 rounded border border-amber-200">
+                      Recolhimento solicitado. Tire no mínimo 3 fotos do estado do sanitário.
+                    </p>
+                    <Button className="w-full h-16 text-lg font-bold gap-3 bg-amber-600 hover:bg-amber-700">
+                      <Camera className="h-6 w-6" /> FOTOGRAFAR E RECOLHER
+                    </Button>
+                 </div>
+              ) : selectedOs.status === 'entregue' ? (
+                 <div className="p-4 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 text-center">
+                    <CheckCircle2 className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                    <p className="font-bold">Sanitário Entregue</p>
+                    <p className="text-xs">Aguardando solicitação de recolhimento pelo ERP.</p>
+                 </div>
               ) : (
                  <div className="space-y-4">
                     <div className="space-y-1.5">
