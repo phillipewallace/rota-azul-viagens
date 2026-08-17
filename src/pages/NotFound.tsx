@@ -14,6 +14,8 @@ const NotFound = () => {
     );
   }, [location.pathname]);
 
+  const isAppFuncionarios = location.pathname.startsWith('/app-funcionarios');
+
   return (
     <>
       <PageMeta title="Página não encontrada" noindex />
@@ -43,7 +45,7 @@ const NotFound = () => {
         </div>
 
         <Button asChild className="min-h-11 transition-all duration-200">
-          <Link to="/">
+          <Link to={isAppFuncionarios ? "/app-funcionarios" : "/"}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar ao início
           </Link>
