@@ -27,10 +27,14 @@ router.get('/', async (req, res) => {
     const params: unknown[] = [];
     // [#12 alto] quando overdue=true, ignora status (já força 'aberta'), evitando AND conflitante.
     if (overdue === 'true') {
-      conds.push(`o.status = 'aberta' AND o.modalidade='diaria' AND o.data_fim_prevista IS NOT NULL AND o.data_fim_prevista < CURRENT_DATE`);
+      conds.push(`(o.status = 'aberta' OR o.status = 'recolhimento_solicitado') AND o.modalidade='diaria' AND o.data_fim_prevista IS NOT NULL AND o.data_fim_prevista < CURRENT_DATE`);
     } else if (status) {
-      params.push(status);
-      conds.push(`o.status = $${params.length}`);
+      if (status === 'aberta') {
+        conds.push(`(o.status = 'aberta' OR o.status = 'recolhimento_solicitado')`);
+      } else {
+        params.push(status);
+        conds.push(`o.status = $${params.length}`);
+      }
     }
     if (tipoLocacao) {
       params.push(tipoLocacao);
@@ -65,6 +69,7 @@ router.get('/', async (req, res) => {
              o.recolhido_por_nome AS "recolhidoPorNome",
              o.entregue_por_id AS "entreguePorId",
              o.recolhido_por_id AS "recolhidoPorId",
+             o.data_recolhimento_solicitada AS "dataRecolhimentoSolicitada",
              ctr.numero AS "convertedContractNumero",
              cu.customer_name AS "customerName", cu.address AS "customerAddress",
              cu.lat AS "customerLat", cu.lng AS "customerLng",
@@ -105,7 +110,7 @@ router.get('/stats/counts', async (req, res) => {
     const q = await pool.query(`
       SELECT
         COUNT(*)::int AS todas,
-        COUNT(*) FILTER (WHERE o.status='aberta' AND NOT (
+        COUNT(*) FILTER (WHERE (o.status='aberta' OR o.status='recolhimento_solicitado') AND NOT (
           o.modalidade='diaria' AND o.data_fim_prevista IS NOT NULL AND o.data_fim_prevista < CURRENT_DATE
         ))::int AS abertas,
         COUNT(*) FILTER (WHERE o.status='aberta' AND o.modalidade='diaria'
@@ -148,7 +153,7 @@ router.get('/overdue/count', async (_req, res) => {
     const r = await pool.query(`
       SELECT COUNT(*)::int AS qtd
         FROM erp_service_orders
-       WHERE status='aberta' AND modalidade='diaria'
+       WHERE (status='aberta' OR status='recolhimento_solicitado') AND modalidade='diaria'
          AND data_fim_prevista IS NOT NULL
          AND data_fim_prevista < CURRENT_DATE`);
     res.json({ overdue: r.rows[0].qtd });
