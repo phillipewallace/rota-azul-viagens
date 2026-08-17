@@ -60,6 +60,7 @@ router.get('/', async (req, res) => {
              o.created_at AS "createdAt",
              o.converted_contract_id AS "convertedContractId",
              o.converted_at AS "convertedAt",
+             o.use_new_flow AS "useNewFlow",
              ctr.numero AS "convertedContractNumero",
              cu.customer_name AS "customerName", cu.address AS "customerAddress",
              cu.lat AS "customerLat", cu.lng AS "customerLng",
