@@ -46,6 +46,58 @@ export const setupDatabase = async () => {
       )
     `);
 
+    // 🏗️ Garantir tabela erp_sanitarios_new (estoque de sanitários)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_sanitarios_new (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        numero TEXT UNIQUE NOT NULL,
+        categoria TEXT NOT NULL,
+        status TEXT DEFAULT 'disponivel',
+        estado_atual TEXT DEFAULT 'bom',
+        tipo_locacao_alvo TEXT,
+        current_customer_id UUID,
+        current_customer_name TEXT,
+        current_address TEXT,
+        current_lat NUMERIC,
+        current_lng NUMERIC,
+        installed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // 🏗️ Garantir tabela erp_sanitario_movimentacoes
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_sanitario_movimentacoes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        sanitario_id UUID REFERENCES erp_sanitarios_new(id) ON DELETE CASCADE,
+        operation_type TEXT NOT NULL,
+        customer_id UUID,
+        customer_name TEXT,
+        address TEXT,
+        funcionario_id UUID REFERENCES erp_funcionarios(id),
+        funcionario_nome TEXT,
+        occurred_at TIMESTAMPTZ DEFAULT NOW(),
+        notes TEXT,
+        fotos TEXT[]
+      )
+    `);
+
+    // 🏗️ Garantir tabela erp_sanitario_fotos
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_sanitario_fotos (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        sanitario_id UUID REFERENCES erp_sanitarios_new(id) ON DELETE CASCADE,
+        url TEXT NOT NULL,
+        tipo_evento TEXT,
+        estado_conservacao TEXT,
+        observacoes TEXT,
+        funcionario_id UUID REFERENCES erp_funcionarios(id),
+        funcionario_nome TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     console.log('✅ Extensões e tabelas base do PostgreSQL verificadas');
 
     // 🛡️ Auto-migração defensiva — garante que todas as colunas usadas pelas

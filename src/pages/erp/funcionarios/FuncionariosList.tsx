@@ -26,7 +26,7 @@ const FuncionariosList = () => {
     
     const load = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('auth_token');
             const res = await fetch(`${API_BASE_URL}/erp/funcionarios`, {
                 headers: { Authorization: token ? `Bearer ${token}` : '' }
             });
@@ -104,7 +104,7 @@ const FuncionariosList = () => {
                         const formData = new FormData(e.currentTarget);
                         const payload = Object.fromEntries(formData);
                         try {
-                            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('auth_token');
                             const res = await fetch(`${API_BASE_URL}/erp/funcionarios`, {
                                 method: 'POST',
                                 headers: { 
