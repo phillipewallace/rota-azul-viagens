@@ -365,10 +365,10 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
          (numero, quote_id, company_id, customer_id, customer_snapshot,
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
           data_entrega, limpezas_semanais, endereco_entrega, data_recolhimento, qtd_reservada,
-          forma_pagamento)
+          forma_pagamento, use_new_flow)
        VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE,
                CASE WHEN $16::boolean THEN (CURRENT_DATE + ($17::int * INTERVAL '1 day'))::date ELSE NULL END,
-               'aberta', $8, $9, $10, $11, $12, $13, $14, $15)
+               'aberta', $8, $9, $10, $11, $12, $13, $14, $15, TRUE)
        RETURNING id, numero`,
       [numero, quote.id, quote.company_id, quote.customer_id, quote.customer_snapshot,
        quote.modalidade, quote.tipo_locacao, quote.total, quote.observacoes,
