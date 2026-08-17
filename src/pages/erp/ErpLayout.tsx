@@ -25,7 +25,7 @@ const navItems = [
   { to: '/erp/financeiro', label: 'Financeiro', icon: DollarSign },
   { to: '/funcionarios', label: 'Funcionários', icon: Users },
   { to: '/sanitarios', label: 'Sanitários', icon: Boxes },
-  { to: '/erp/estoque', label: 'Insumos & Peças', icon: Boxes },
+  { to: '/sanitarios', label: 'Sanitários', icon: Boxes },
   { to: '/erp/empresas', label: 'Empresas Emissoras', icon: Building2 },
 ];
 

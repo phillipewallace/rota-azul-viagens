@@ -155,7 +155,7 @@ const modulesConfig: Array<{
   { to: '/erp/contratos',      icon: PackageCheck, title: 'Contratos',        desc: 'Locação recorrente',              tone: 'success' },
   { to: '/erp/financeiro',     icon: DollarSign,   title: 'Financeiro',       desc: 'Recibos, gastos e resultado',     tone: 'warning' },
   { to: '/erp/clientes',       icon: Users,        title: 'Clientes',         desc: 'Cadastro unificado',              tone: 'info' },
-  { to: '/erp/estoque',        icon: Boxes,        title: 'Estoque',          desc: 'Insumos e consumo',               tone: 'primary' },
+  { to: '/sanitarios',         icon: TruckIcon,    title: 'Sanitários',       desc: 'Frota e alocação',                tone: 'destructive' },
   { to: '/erp/empresas',       icon: Building2,    title: 'Empresas',         desc: 'CNPJs emissores',                 tone: 'success' },
   { to: '/sanitarios',         icon: TruckIcon,    title: 'Sanitários',       desc: 'Frota e alocação',                tone: 'destructive' },
 ];
