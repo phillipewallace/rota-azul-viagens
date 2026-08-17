@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { Card } from '@/components/ui/card';
 import { Users, UserPlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const FuncionariosList = lazy(() => import('./FuncionariosList'));
