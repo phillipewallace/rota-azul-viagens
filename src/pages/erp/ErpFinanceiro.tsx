@@ -3421,7 +3421,7 @@ const UnifiedPreviewDialog: React.FC<{
   const [perIni, setPerIni] = useState('');
   const [perFim, setPerFim] = useState('');
   const [obs, setObs] = useState('');
-  const [items, setItems] = useState<UnifiedReceiptItem[]>([]);
+  const [items, setItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (!input) return;
