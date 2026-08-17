@@ -53,7 +53,7 @@ const ERP: Item[] = [
   { to: '/erp/contratos', label: 'Contratos', icon: FileText },
   { to: '/erp/financeiro', label: 'Financeiro', icon: Wallet },
   { to: '/customers', label: 'Clientes', icon: Users },
-  { to: '/erp/estoque', label: 'Estoque interno', icon: Boxes },
+  { to: '/sanitarios', label: 'Sanitários', icon: Container },
   { to: '/erp/empresas', label: 'Empresas emissoras', icon: Building2 },
 ];
 
