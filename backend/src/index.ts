@@ -154,6 +154,9 @@ app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
 app.use('/api/erp/signed-pdfs', erpSignedPdfsRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
+app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
+app.use('/api/erp/sanitarios-new', erpSanitariosNewRoutes);
+app.use('/api/app-funcionarios', appFuncionariosRoutes);
 
 
 // Servir uploads.
