@@ -32,9 +32,13 @@ router.use(requireAuth);
 
 router.get('/', async (req, res) => {
     try {
+        console.log('[DEBUG] Listando funcionários, user:', (req as any).user);
         const r = await pool.query('SELECT id, nome, cpf, telefone, email, tipo, active, first_login FROM erp_funcionarios ORDER BY nome ASC');
         res.json(r.rows);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { 
+        console.error('[ERROR] Erro ao listar funcionários:', e);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 router.post('/', async (req, res) => {
