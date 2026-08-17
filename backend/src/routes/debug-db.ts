@@ -6,7 +6,7 @@ router.get('/schema', async (req, res) => {
     const tables = ['erp_service_orders', 'erp_quotes', 'erp_os_sanitarios', 'sanitarios', 'erp_contracts', 'customers'];
     const results: any = {};
     for (const table of tables) {
-      const r = await pool.query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ", [table]);
+      const r = await pool.query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1", [table]);
       results[table] = r.rows;
     }
     res.json(results);
