@@ -7,7 +7,8 @@ const router = Router();
 router.get('/os', async (req, res) => {
     try {
         const r = await pool.query(`
-            SELECT o.*, cu.customer_name as "customerName", cu.address as "customerAddress"
+            SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
+                   cu.customer_name as "customerName", cu.address as "customerAddress"
             FROM erp_service_orders o
             LEFT JOIN customers cu ON cu.id = o.customer_id
             WHERE o.status IN ('aberta', 'despachada', 'entregue', 'recolhimento_solicitado')
