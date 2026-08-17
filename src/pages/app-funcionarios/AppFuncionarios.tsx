@@ -216,7 +216,29 @@ const AppFuncionarios = () => {
                     <p className="text-xs text-amber-600 font-bold bg-amber-50 p-2 rounded border border-amber-200">
                       Recolhimento solicitado. Tire no mínimo 3 fotos do estado do sanitário.
                     </p>
-                    <Button className="w-full h-16 text-lg font-bold gap-3 bg-amber-600 hover:bg-amber-700">
+                    <Button 
+                      className="w-full h-16 text-lg font-bold gap-3 bg-amber-600 hover:bg-amber-700"
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${selectedOs.id}/recolher`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              funcionario_id: user.id,
+                              funcionario_nome: user.nome,
+                              estado_atual: 'bom',
+                              fotos: ['https://placehold.co/600x400?text=Recolhimento']
+                            })
+                          });
+                          if (!res.ok) throw new Error('Erro ao recolher');
+                          toast.success('Recolhimento registrado!');
+                          setView('agenda');
+                          loadOS();
+                        } catch (e: any) { toast.error(e.message); }
+                        finally { setLoading(false); }
+                      }}
+                    >
                       <Camera className="h-6 w-6" /> FOTOGRAFAR E RECOLHER
                     </Button>
                  </div>
@@ -224,15 +246,40 @@ const AppFuncionarios = () => {
                  <div className="p-4 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 text-center">
                     <CheckCircle2 className="mx-auto h-8 w-8 mb-2 opacity-50" />
                     <p className="font-bold">Sanitário Entregue</p>
-                    <p className="text-xs">Aguardando solicitação de recolhimento pelo ERP.</p>
+                    <p className="text-[10px] mt-1">Realizado por: <span className="font-bold">{user.nome}</span></p>
+                    <p className="text-xs mt-2">Aguardando solicitação de recolhimento pelo ERP.</p>
                  </div>
               ) : (
                  <div className="space-y-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] uppercase font-bold text-slate-500">Número do Sanitário</label>
-                      <Input className="h-12 text-lg font-bold" placeholder="Digite o número..." />
+                      <Input id="san-numero" className="h-12 text-lg font-bold" placeholder="Digite o número..." />
                     </div>
-                    <Button className="w-full h-16 text-lg font-bold gap-3">
+                    <Button 
+                      className="w-full h-16 text-lg font-bold gap-3"
+                      onClick={async () => {
+                        const num = (document.getElementById('san-numero') as HTMLInputElement)?.value;
+                        if (!num) return toast.error('Informe o número do sanitário');
+                        setLoading(true);
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${selectedOs.id}/entregar`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              sanitario_numero: num,
+                              funcionario_id: user.id,
+                              funcionario_nome: user.nome,
+                              fotos: ['https://placehold.co/600x400?text=Entrega']
+                            })
+                          });
+                          if (!res.ok) throw new Error('Erro ao entregar');
+                          toast.success('Entrega registrada!');
+                          setView('agenda');
+                          loadOS();
+                        } catch (e: any) { toast.error(e.message); }
+                        finally { setLoading(false); }
+                      }}
+                    >
                       <Camera className="h-6 w-6" /> TIRAR FOTO E ENTREGAR
                     </Button>
                  </div>
