@@ -142,7 +142,6 @@ app.use('/api/sanitarios', sanitariosRoutes);
 app.use('/api/erp', erpInventoryRoutes);
 app.use('/api/erp/companies', erpCompaniesRoutes);
 app.use('/api/erp/quotes', erpQuotesRoutes);
-app.use('/api/debug-db', debugDb);
 app.use('/api/erp/service-orders', erpServiceOrdersRoutes);
 app.use('/api/erp/doc-settings', erpDocSettingsRoutes);
 app.use('/api/erp/contracts', erpContractsRoutes);
