@@ -29,7 +29,24 @@ export const setupDatabase = async () => {
     await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
 
-    console.log('✅ Extensões do PostgreSQL verificadas');
+    // 🏗️ Garantir tabelas base que podem estar faltando devido a migrações parciais
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_funcionarios (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        nome TEXT NOT NULL,
+        cpf TEXT UNIQUE NOT NULL,
+        password_hash TEXT,
+        tipo TEXT,
+        active BOOLEAN DEFAULT TRUE,
+        first_login BOOLEAN DEFAULT TRUE,
+        telefone TEXT,
+        email TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    console.log('✅ Extensões e tabelas base do PostgreSQL verificadas');
 
     // 🛡️ Auto-migração defensiva — garante que todas as colunas usadas pelas
     // queries existem. 100% idempotente (ADD COLUMN IF NOT EXISTS).
