@@ -38,6 +38,8 @@ const ErpContracts = lazy(() => import("./pages/erp/ErpContracts"));
 const ErpAssinatura = lazy(() => import("./pages/erp/ErpAssinatura"));
 const ErpAssinados = lazy(() => import("./pages/erp/ErpAssinados"));
 const MobileMenu = lazy(() => import("./mobile/MobileMenu"));
+const AppFuncionarios = lazy(() => import("./pages/app-funcionarios/AppFuncionarios"));
+const FuncionariosAdmin = lazy(() => import("./pages/erp/funcionarios/FuncionariosPage"));
 
 // Mobile Operator (lazy também — só pesa quando acessado)
 const MobileOperatorMenuPage = lazy(
@@ -116,6 +118,8 @@ function AppShell() {
           <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
           <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
           <Route path="/menu" element={<Protected><MobileMenu /></Protected>} />
+          <Route path="/app-funcionarios" element={<AppFuncionarios />} />
+          <Route path="/funcionarios" element={<Protected><FuncionariosAdmin /></Protected>} />
 
           <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
             <Route index element={<ErpDashboard />} />

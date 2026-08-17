@@ -42,6 +42,9 @@ import erpRecurringExpensesRoutes from './routes/erp-recurring-expenses';
 import erpSignedPdfsRoutes from './routes/erp-signed-pdfs';
 import checklistsRoutes from './routes/checklists';
 import carretinhasRoutes from './routes/carretinhas';
+import erpFuncionariosRoutes from './routes/erp-funcionarios';
+import erpSanitariosNewRoutes from './routes/erp-sanitarios-new';
+import appFuncionariosRoutes from './routes/app-funcionarios';
 import path from 'path';
 
 const app = express();
@@ -151,6 +154,9 @@ app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
 app.use('/api/erp/signed-pdfs', erpSignedPdfsRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
+app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
+app.use('/api/erp/sanitarios-new', erpSanitariosNewRoutes);
+app.use('/api/app-funcionarios', appFuncionariosRoutes);
 
 
 // Servir uploads.
