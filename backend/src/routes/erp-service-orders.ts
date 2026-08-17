@@ -110,7 +110,7 @@ router.get('/stats/counts', async (req, res) => {
     const q = await pool.query(`
       SELECT
         COUNT(*)::int AS todas,
-        COUNT(*) FILTER (WHERE o.status='aberta' OR o.status='recolhimento_solicitado' AND NOT (
+        COUNT(*) FILTER (WHERE (o.status='aberta' OR o.status='recolhimento_solicitado') AND NOT (
           o.modalidade='diaria' AND o.data_fim_prevista IS NOT NULL AND o.data_fim_prevista < CURRENT_DATE
         ))::int AS abertas,
         COUNT(*) FILTER (WHERE o.status='aberta' AND o.modalidade='diaria'
