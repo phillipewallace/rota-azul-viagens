@@ -14,7 +14,7 @@ import Login from "./pages/Login";
 // Pages — lazy (code-splitting por rota)
 const Index = lazy(() => import("./pages/Index"));
 const Trucks = lazy(() => import("./pages/Trucks"));
-const Drivers = lazy(() => import("./pages/Drivers"));
+
 const RoutesPage = lazy(() => import("./pages/Routes"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
