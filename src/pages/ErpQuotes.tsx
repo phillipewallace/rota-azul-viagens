@@ -117,6 +117,7 @@ const ErpQuotes: React.FC = () => {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [working, setWorking] = useState<string | null>(null);
 
   // ---- Filtros ----
   const [filterStatus, setFilterStatus] = useState<'all' | Status>('all');
@@ -405,10 +406,55 @@ const ErpQuotes: React.FC = () => {
   };
 
   const shareViaWhatsApp = async (q: Quote) => {
-    const phone = (q.responsavelTelefone || '').replace(/\D/g, '');
+    let phone = (q.responsavelTelefone || '').replace(/\D/g, '');
     if (!phone) {
-      toast.error('Cadastre o telefone do responsável para enviar por WhatsApp.');
+      // Tenta pegar do cliente se o responsável não tiver
+      const cust = customers.find(c => c.id === q.customerId);
+      phone = (cust?.contact_phone || '').replace(/\D/g, '');
+    }
+    
+    if (!phone) {
+      toast.error('Cadastre o telefone do responsável ou do cliente para enviar por WhatsApp.');
       return;
+    }
+    
+    setWorking(q.id);
+    try {
+      const url = await uploadQuotePdf(q);
+      const msg = encodeURIComponent(`Olá, segue o orçamento solicitado (${q.numero}):\n${url}`);
+      window.open(`https://api.whatsapp.com/send?phone=55${phone}&text=${msg}`, '_blank');
+      toast.success('Redirecionando para WhatsApp...');
+    } catch (e: any) {
+      toast.error('Erro ao preparar compartilhamento: ' + e.message);
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const shareViaEmail = async (q: Quote) => {
+    let email = q.responsavelEmail;
+    if (!email) {
+      const cust = customers.find(c => c.id === q.customerId);
+      email = cust?.email;
+    }
+
+    if (!email) {
+      toast.error('Cadastre o e-mail do responsável ou do cliente.');
+      return;
+    }
+
+    setWorking(q.id);
+    try {
+      const url = await uploadQuotePdf(q);
+      const subject = encodeURIComponent(`Orçamento ${q.numero} - ${q.companySnapshot?.razao_social || ''}`);
+      const body = encodeURIComponent(`Olá,\n\nSegue link para visualização do orçamento ${q.numero}:\n${url}\n\nAtenciosamente.`);
+      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    } catch (e: any) {
+      toast.error('Erro ao preparar e-mail: ' + e.message);
+    } finally {
+      setWorking(null);
+    }
+  };
     }
     const waNumber = phone.length <= 11 ? `55${phone}` : phone;
     const t = toast.loading('Gerando e enviando PDF...');
