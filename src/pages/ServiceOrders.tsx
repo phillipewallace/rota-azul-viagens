@@ -909,6 +909,19 @@ const ServiceOrders: React.FC = () => {
                   </div>
                 )}
 
+                {(det.entreguePorNome || det.recolhidoPorNome) && (
+                  <div className="grid grid-cols-2 gap-4 border-t pt-2 mt-1">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-bold uppercase text-slate-500">Entrega realizada por</p>
+                      <p className="text-xs font-semibold">{det.entreguePorNome || '—'}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-bold uppercase text-slate-500">Recolhimento realizado por</p>
+                      <p className="text-xs font-semibold">{det.recolhidoPorNome || '—'}</p>
+                    </div>
+                  </div>
+                )}
+
                 {Array.isArray(det.sanitarios) && det.sanitarios.length > 0 && (
                   <div>
                     <div className="font-semibold mt-1 mb-1">Sanitários vinculados ({det.sanitarios.length})</div>
