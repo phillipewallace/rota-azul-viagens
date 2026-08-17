@@ -10,12 +10,19 @@ router.post('/login', async (req, res) => {
     const { cpf, password } = req.body;
     try {
         const cleanCpf = String(cpf).replace(/\D/g, '');
+        console.log(`[AUTH] Tentativa de login CPF: ${cleanCpf}`);
         const r = await pool.query('SELECT * FROM erp_funcionarios WHERE cpf = $1 AND active = true', [cleanCpf]);
         const func = r.rows[0];
-        if (!func) return res.status(401).json({ error: 'Funcionário não encontrado ou inativo' });
+        if (!func) {
+            console.log(`[AUTH] Funcionário não encontrado ou inativo: ${cleanCpf}`);
+            return res.status(401).json({ error: 'Funcionário não encontrado ou inativo' });
+        }
         
-        const valid = await bcrypt.compare(password, func.password_hash);
-        if (!valid) return res.status(401).json({ error: 'Senha incorreta' });
+        const valid = await bcrypt.compare(String(password), func.password_hash);
+        if (!valid) {
+            console.log(`[AUTH] Senha incorreta para CPF: ${cleanCpf}`);
+            return res.status(401).json({ error: 'Senha incorreta' });
+        }
         
         res.json({ 
             id: func.id, 

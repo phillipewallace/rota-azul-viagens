@@ -41,7 +41,7 @@ const AppFuncionarios = () => {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.message || 'Falha no login');
+        throw new Error(err.error || err.message || 'Falha no login');
       }
       const data = await res.json();
       setUser(data);
