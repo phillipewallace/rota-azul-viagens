@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   PackageOpen, PackageCheck, Calendar, MapPin, 
   Camera, LogOut, ClipboardList, CheckCircle2,
-  Clock, AlertCircle, ChevronRight, User
+  Clock, AlertCircle, ChevronRight, User, ArrowLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
