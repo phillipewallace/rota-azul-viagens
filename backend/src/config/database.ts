@@ -98,6 +98,45 @@ export const setupDatabase = async () => {
       )
     `);
 
+    // 🏗️ Garantir tabela erp_companies (Empresas Emissoras)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_companies (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        razao_social TEXT NOT NULL,
+        nome_fantasia TEXT,
+        cnpj TEXT UNIQUE NOT NULL,
+        inscricao_estadual TEXT,
+        endereco TEXT,
+        cidade TEXT,
+        estado TEXT,
+        cep TEXT,
+        telefone TEXT,
+        email TEXT,
+        logo_url TEXT,
+        assinatura_url TEXT,
+        financeiro_contato TEXT,
+        sigla TEXT,
+        ativo BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // 🏗️ Garantir tabela erp_doc_settings_company (Numeração por Empresa)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_doc_settings_company (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        company_id UUID NOT NULL REFERENCES erp_companies(id) ON DELETE CASCADE,
+        doc_type TEXT NOT NULL,
+        prefix TEXT,
+        last_number INTEGER DEFAULT 0,
+        year INTEGER,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(company_id, doc_type, year)
+      )
+    `);
+
     console.log('✅ Extensões e tabelas base do PostgreSQL verificadas');
 
     // 🛡️ Auto-migração defensiva — garante que todas as colunas usadas pelas
