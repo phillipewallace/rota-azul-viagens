@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../config/database';
 const router = Router();
 router.get('/schema', async (req, res) => {
+  console.log('[DEBUG-DB] Acessando /schema');
   try {
     const tables = ['erp_service_orders', 'erp_quotes', 'erp_os_sanitarios', 'sanitarios', 'erp_contracts', 'customers'];
     const results: any = {};
