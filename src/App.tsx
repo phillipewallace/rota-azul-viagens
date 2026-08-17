@@ -112,14 +112,8 @@ function AppShell() {
           <Route path="/maintenance" element={<Protected><Maintenance /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/customers" element={<Protected><Customers /></Protected>} />
-          <Route path="/rotas-concluidas" element={<Protected><CompletedRoutes /></Protected>} />
-          <Route path="/sanitarios" element={<Protected><Sanitarios /></Protected>} />
-          <Route path="/gestao-interna" element={<Protected><InternalManagement /></Protected>} />
-          <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
-          <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
-          <Route path="/menu" element={<Protected><MobileMenu /></Protected>} />
-          <Route path="/app-funcionarios" element={<AppFuncionarios />} />
           <Route path="/funcionarios" element={<Protected><FuncionariosAdmin /></Protected>} />
+          <Route path="/rotas-concluidas" element={<Protected><CompletedRoutes /></Protected>} />
 
           <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
             <Route index element={<ErpDashboard />} />
