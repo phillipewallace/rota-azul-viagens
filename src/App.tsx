@@ -113,6 +113,7 @@ function AppShell() {
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/customers" element={<Protected><Customers /></Protected>} />
           <Route path="/funcionarios" element={<Protected><FuncionariosAdmin /></Protected>} />
+          <Route path="/erp/funcionarios" element={<Protected><ErpLayout><FuncionariosAdmin /></ErpLayout></Protected>} />
           <Route path="/sanitarios" element={<Protected><Sanitarios /></Protected>} />
           <Route path="/rotas-concluidas" element={<Protected><CompletedRoutes /></Protected>} />
 
