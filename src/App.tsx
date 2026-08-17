@@ -86,9 +86,27 @@ function App() {
 function AppShell() {
   const isMobile = useIsMobile();
   const location = useLocation();
+  
+  // Verifica se estamos no app de funcionários para isolar o layout
+  const isAppFuncionarios = location.pathname.startsWith('/app-funcionarios');
+  
   // Chave de transição por "seção" — trocas dentro da mesma seção (ex.: /erp -> /erp/financeiro)
   // não reanimam, só trocas entre abas raiz (Início, Rotas, Frota, ERP, Menu).
   const section = '/' + (location.pathname.split('/')[1] || '');
+  
+  if (isAppFuncionarios) {
+    return (
+      <div className="min-h-screen bg-slate-900">
+        <TopProgressBar />
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/app-funcionarios/*" element={<AppFuncionarios />} />
+          </Routes>
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div className={isMobile ? 'pb-16' : undefined}>
       <TopProgressBar />
