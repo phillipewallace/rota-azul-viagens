@@ -104,7 +104,7 @@ function AppShell() {
 
           <Route path="/" element={<Protected><Index /></Protected>} />
           <Route path="/trucks" element={<Protected><Trucks /></Protected>} />
-          <Route path="/drivers" element={<Protected><Drivers /></Protected>} />
+          
           <Route path="/routes" element={<Protected><RoutesPage /></Protected>} />
           <Route path="/routes/create" element={<Protected><CreateRoute /></Protected>} />
           <Route path="/routes/edit" element={<Protected><CreateRoute /></Protected>} />
