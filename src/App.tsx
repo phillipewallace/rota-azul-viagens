@@ -118,6 +118,8 @@ function AppShell() {
           <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
           <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
           <Route path="/menu" element={<Protected><MobileMenu /></Protected>} />
+          <Route path="/app-funcionarios" element={<AppFuncionarios />} />
+          <Route path="/funcionarios" element={<Protected><FuncionariosAdmin /></Protected>} />
 
           <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
             <Route index element={<ErpDashboard />} />
