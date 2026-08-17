@@ -1234,7 +1234,6 @@ const ErpFinanceiro: React.FC = () => {
           contractId: (it as any).contractId,
           competencia: input.competencia,
           valor: it.valor,
-          dataEmissao: input.dataEmissao,
           dataVencimento: input.dataVencimento || undefined,
           periodoInicio: per?.inicio,
           periodoFim: per?.fim,
