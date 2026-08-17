@@ -97,6 +97,23 @@ export const setupDatabase = async () => {
       ['erp_service_orders', 'entregue_por_nome', 'TEXT'],
       ['erp_service_orders', 'recolhido_por_nome', 'TEXT'],
       ['erp_service_orders', 'data_recolhimento_solicitada', 'DATE'],
+      // erp_quotes
+      ['erp_quotes', 'endereco_entrega', 'TEXT'],
+      ['erp_quotes', 'data_recolhimento', 'DATE'],
+      ['erp_quotes', 'responsavel_nome', 'TEXT'],
+      ['erp_quotes', 'responsavel_telefone', 'TEXT'],
+      ['erp_quotes', 'responsavel_email', 'TEXT'],
+      ['erp_quotes', 'tipo_locacao', 'TEXT'],
+      ['erp_quotes', 'forma_pagamento', 'TEXT'],
+      ['erp_quotes', 'pdf_gerado_em', 'TIMESTAMPTZ'],
+      // erp_service_orders (mais colunas)
+      ['erp_service_orders', 'endereco_entrega', 'TEXT'],
+      ['erp_service_orders', 'data_entrega', 'DATE'],
+      ['erp_service_orders', 'data_recolhimento', 'DATE'],
+      ['erp_service_orders', 'qtd_reservada', 'INTEGER DEFAULT 0'],
+      ['erp_service_orders', 'forma_pagamento', 'TEXT'],
+      ['erp_service_orders', 'tipo_locacao', 'TEXT'],
+      ['erp_service_orders', 'limpezas_semanais', 'INTEGER'],
       // maintenance_records
       ['maintenance_records', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       ['maintenance_records', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
