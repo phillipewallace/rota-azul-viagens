@@ -409,7 +409,7 @@ const ErpQuotes: React.FC = () => {
     let phone = (q.responsavelTelefone || '').replace(/\D/g, '');
     if (!phone) {
       const cust = customers.find(c => c.id === q.customerId);
-      phone = (cust?.contact_phone || '').replace(/\D/g, '');
+      phone = (cust?.contactPhone || '').replace(/\D/g, '');
     }
     
     if (!phone) {
