@@ -118,6 +118,7 @@ console.log('🚀 [SERVER] Registrando rotas da API...');
 
 // Rota de login de funcionários deve vir ANTES de qualquer middleware de auth/demo
 app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
+app.use('/api/app-funcionarios', appFuncionariosRoutes);
 
 app.use('/api/auth', authRoutes);
 
@@ -165,7 +166,7 @@ app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
 // A rota erp/funcionarios já foi registrada acima com tratamento interno de auth para o login
 app.use('/api/erp/sanitarios-new', erpSanitariosNewRoutes);
-app.use('/api/app-funcionarios', appFuncionariosRoutes);
+// A rota app-funcionarios agora é registrada antes para evitar conflitos de middleware
 
 
 // Servir uploads.

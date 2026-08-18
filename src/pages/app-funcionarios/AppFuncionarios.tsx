@@ -89,6 +89,7 @@ const AppFuncionarios = () => {
                 <label className="text-[10px] uppercase font-bold text-slate-500">CPF</label>
                 <Input 
                   placeholder="000.000.000-00" 
+                  autoComplete="username"
                   className="bg-slate-700 border-none text-white h-12"
                   value={cpf}
                     onChange={(e) => {
@@ -112,6 +113,7 @@ const AppFuncionarios = () => {
                 <Input 
                   type="password" 
                   placeholder="••••••••" 
+                  autoComplete="current-password"
                   className="bg-slate-700 border-none text-white h-12"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
