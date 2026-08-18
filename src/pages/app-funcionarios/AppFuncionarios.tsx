@@ -432,7 +432,7 @@ const AppFuncionarios = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-bold text-slate-500">Categoria (Se novo)</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500">Categoria (Obrigatório)</label>
               <Select value={newSanForm.categoria} onValueChange={v => setNewSanForm(p => ({ ...p, categoria: v }))}>
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Selecione" />
@@ -442,6 +442,22 @@ const AppFuncionarios = () => {
                   <SelectItem value="pne">PNE</SelectItem>
                   <SelectItem value="pia">Pia</SelectItem>
                   <SelectItem value="luxo">Luxo</SelectItem>
+                  <SelectItem value="banho">Banho</SelectItem>
+                  <SelectItem value="rede_esgoto">Rede Esgoto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-slate-500">Estado de Conservação</label>
+              <Select value={newSanForm.estado_atual} onValueChange={v => setNewSanForm(p => ({ ...p, estado_atual: v }))}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bom">Bom</SelectItem>
+                  <SelectItem value="regular">Regular</SelectItem>
+                  <SelectItem value="ruim">Ruim</SelectItem>
                 </SelectContent>
               </Select>
             </div>
