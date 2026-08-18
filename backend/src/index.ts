@@ -1,21 +1,20 @@
-
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { pool } from './config/database';
+import path from 'path';
+import { requestLogger, logger } from './utils/logger';
 
 // Import routes
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import routesRoutes from './routes/routes';
 import trucksRoutes from './routes/trucks';
-
 import schedulesRoutes from './routes/schedules';
 import geocodingRoutes from './routes/geocoding';
 import mobileRoutes from './routes/mobile';
 import mobileExtraRoutes from './routes/mobile-extra';
-
 import maintenanceRoutes from './routes/maintenance';
 import managementRoutes from './routes/management';
 import settingsRoutes from './routes/settings';
@@ -45,23 +44,16 @@ import carretinhasRoutes from './routes/carretinhas';
 import erpFuncionariosRoutes from './routes/erp-funcionarios';
 import erpSanitariosNewRoutes from './routes/erp-sanitarios-new';
 import appFuncionariosRoutes from './routes/app-funcionarios';
-import path from 'path';
-import { requestLogger, logger } from './utils/logger';
+import { requireAuth } from './middleware/requireAuth';
+import { restrictDemo } from './middleware/restrictDemo';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-// Rodamos atrás de nginx em produção — necessário para que rate-limit e req.ip
-// leiam corretamente o X-Forwarded-For (evita ERR_ERL_UNEXPECTED_X_FORWARDED_FOR).
 app.set('trust proxy', 1);
-
-// Segurança HTTP — headers seguros (sem CSP para não quebrar assets servidos)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-
-// Logger de requisições profissional
 app.use(requestLogger);
 
-// CORS: permite origens conhecidas + requisições sem Origin (APK Capacitor)
 const ALLOWED_ORIGINS = [
   'http://localhost:5173', 'http://localhost:8080', 'http://192.168.1.100:5173',
   'https://alchemyrotas.com', 'https://www.alchemyrotas.com',
@@ -82,10 +74,9 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Rate limit agressivo no login para mitigar brute-force
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 20, // 20 tentativas/IP
+  windowMs: 15 * 60 * 1000,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Muitas tentativas. Tente novamente em alguns minutos.' },
@@ -93,55 +84,29 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/erp/funcionarios/login', authLimiter);
 
+// Centralized log intake
+app.post('/api/logs/client', (req, res) => {
+  const { level, message, context } = req.body;
+  logger.log(level || 'INFO', 'CLIENT-LOG', message, context);
+  res.status(200).json({ ok: true });
+});
 
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Test database connection
-app.get('/api/test-db', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW()');
-    res.json({ 
-      status: 'Database connected', 
-      timestamp: result.rows[0].now,
-      message: 'PostgreSQL connection successful'
-    });
-  } catch (error) {
-    console.error('Database connection error:', error);
-    res.status(500).json({ 
-      status: 'Database error', 
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-// API Routes (Públicas - Sem requireAuth global aqui)
-console.log('🚀 [SERVER] Registrando rotas da API...');
-
-// Rota de login de funcionários deve vir ANTES de qualquer middleware de auth/demo
 app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
 app.use('/api/app-funcionarios', appFuncionariosRoutes);
-
 app.use('/api/auth', authRoutes);
-
-import { restrictDemo } from './middleware/restrictDemo';
 app.use(restrictDemo);
 
-
-
-
-app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/routes', routesRoutes);
 app.use('/api/trucks', trucksRoutes);
-
 app.use('/api/schedules', schedulesRoutes);
 app.use('/api/geocoding', geocodingRoutes);
 app.use('/api/mobile', mobileRoutes);
 app.use('/api/mobile', mobileExtraRoutes);
-
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/management', managementRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -168,17 +133,8 @@ app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
 app.use('/api/erp/signed-pdfs', erpSignedPdfsRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
-// A rota erp/funcionarios já foi registrada acima com tratamento interno de auth para o login
 app.use('/api/erp/sanitarios-new', erpSanitariosNewRoutes);
-// A rota app-funcionarios agora é registrada antes para evitar conflitos de middleware
 
-
-// Servir uploads.
-// Pastas sensíveis (NFs, docs assinados) EXIGEM auth — evita que qualquer um
-// com a URL baixe uma nota fiscal (CNPJ, valores, cliente).
-// Para funcionar em <a download>/window.open (sem header custom), aceitamos
-// o Bearer token também via query `?token=...`.
-import { requireAuth } from './middleware/requireAuth';
 const SENSITIVE_UPLOAD_PREFIXES = ['/invoices/', '/signed/', '/receipts/'];
 app.use('/uploads', (req, res, next) => {
   if (!SENSITIVE_UPLOAD_PREFIXES.some(p => req.path.startsWith(p))) return next();
@@ -189,75 +145,20 @@ app.use('/uploads', (req, res, next) => {
 });
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d' }));
 
-
-
-console.log('✅ [SERVER] Todas as rotas registradas com sucesso');
-
-// Debug: Lista todas as rotas registradas
-app._router.stack.forEach((middleware: any) => {
-  if (middleware.route) {
-    console.log(`🔍 [DEBUG] Rota registrada: ${middleware.route.path}`);
-  } else if (middleware.name === 'router') {
-    middleware.handle.stack.forEach((handler: any) => {
-      if (handler.route) {
-        console.log(`🔍 [DEBUG] Sub-rota: ${handler.route.path}`);
-      }
-    });
-  }
-});
-
-// Serve static files in production
 if (process.env.NODE_ENV === 'production') {
-  console.log('🏭 [SERVER] Modo produção - servindo arquivos estáticos');
   app.use(express.static('/var/www/rota-azul-viagens/dist'));
-  
-  // Handle client-side routing
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
       res.sendFile('/var/www/rota-azul-viagens/dist/index.html');
     }
   });
-} else {
-  console.log('🔧 [SERVER] Modo desenvolvimento');
 }
 
-// Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('❌ [SERVER] Erro não tratado:', err);
-  res.status(500).json({ 
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
-  });
-});
-
-// 404 handler for API routes
-app.use('/api/*', (req, res) => {
-  console.log('❌ [SERVER] Rota API não encontrada:', req.method, req.path);
-  console.log('❌ [SERVER] Headers da requisição:', req.headers);
-  res.status(404).json({ 
-    error: 'API route not found',
-    path: req.path,
-    method: req.method,
-    available_routes: [
-      '/api/auth',
-      '/api/routes', 
-      '/api/trucks',
-      
-      '/api/schedules',
-      '/api/geocoding',
-      '/api/mobile',
-      '/api/reports',
-      '/api/maintenance',
-      '/api/management',
-      '/api/settings',
-      '/api/upload'
-    ]
-  });
+  logger.error('SERVER-ERROR', err.message, { stack: err.stack });
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 [SERVER] Servidor rodando na porta ${PORT}`);
-  console.log(`🌐 [SERVER] API disponível em: http://localhost:${PORT}/api`);
-  console.log(`📊 [SERVER] Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🎯 [SERVER] Geocoding disponível em: http://localhost:${PORT}/api/geocoding`);
+  logger.info('SERVER', `Servidor rodando na porta ${PORT}`);
 });

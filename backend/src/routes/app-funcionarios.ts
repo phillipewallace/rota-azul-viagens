@@ -8,19 +8,24 @@ const router = Router();
 const TAG = 'APP-FUNC';
 router.use(requireAuth);
 
-// Endpoint para listar OS pendentes/agendadas para o funcionário (SIMULADO: retorna todas abertas por enquanto)
+// Endpoint para listar OS pendentes/agendadas ou histórico
 router.get('/os', async (req, res) => {
     try {
+        const { history } = req.query;
         const funcionarioId = (req as any).user?.funcionarioId;
-        logger.info(TAG, `Buscando OS para func_id: ${funcionarioId}`);
+        logger.info(TAG, `Buscando OS para func_id: ${funcionarioId}${history ? ' (Histórico)' : ''}`);
         
-        // Se for admin (ex: phillipe.sodre), pode ver tudo. Se for funcionário, vê as dele.
+        let statusFilter = "o.status IN ('aberta', 'despachada', 'entregue', 'recolhimento_solicitado')";
+        if (history === 'true') {
+            statusFilter = "o.status = 'fechada'";
+        }
+
         let query = `
             SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
                    cu.customer_name as "customerName", cu.address as "customerAddress"
             FROM erp_service_orders o
             LEFT JOIN customers cu ON cu.id = o.customer_id
-            WHERE o.status IN ('aberta', 'despachada', 'entregue', 'recolhimento_solicitado')
+            WHERE ${statusFilter}
               AND o.use_new_flow = TRUE
         `;
         
@@ -33,7 +38,7 @@ router.get('/os', async (req, res) => {
         query += ` ORDER BY o.data_entrega ASC`;
         
         const r = await pool.query(query, params);
-        res.json(r.rows);
+        res.json(Array.isArray(r.rows) ? r.rows : []);
     } catch (e: any) { 
         return sendError(res, e, `[${TAG}] Erro ao listar OS`);
     }

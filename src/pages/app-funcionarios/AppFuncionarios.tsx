@@ -7,28 +7,31 @@ import { Badge } from '@/components/ui/badge';
 import { 
   PackageOpen, PackageCheck, Calendar, MapPin, 
   Camera, LogOut, ClipboardList, CheckCircle2,
-  Clock, AlertCircle, ChevronRight, User, ArrowLeft
+  Clock, AlertCircle, ChevronRight, User, ArrowLeft, History,
+  Image as ImageIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
+import { logger } from '@/lib/logger';
 
 interface OS {
   id: string;
   numero: string;
   customerName: string;
   customerAddress: string;
-  status: 'pendente' | 'entregue' | 'recolhimento_solicitado' | 'fechada';
-  data_entrega?: string;
+  status: 'aberta' | 'despachada' | 'entregue' | 'recolhimento_solicitado' | 'fechada';
 }
 
 const AppFuncionarios = () => {
   const [user, setUser] = useState<any>(null);
   const [view, setView] = useState<'login' | 'agenda' | 'detalhe'>('login');
+  const [mode, setMode] = useState<'agenda' | 'historico'>('agenda');
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [list, setList] = useState<OS[]>([]);
   const [selectedOs, setSelectedOs] = useState<OS | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('alchemy_func_user');
@@ -55,39 +58,34 @@ const AppFuncionarios = () => {
         body: JSON.stringify({ cpf, password })
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Credenciais inválidas');
-      }
+      if (!res.ok) throw new Error('Credenciais inválidas');
 
       const data = await res.json();
       setUser(data);
       localStorage.setItem('alchemy_func_user', JSON.stringify(data));
       setView('agenda');
       toast.success(`Bem-vindo, ${data.nome}!`);
+      logger.info('Login realizado com sucesso', { id: data.id });
     } catch (e: any) { 
-      toast.error(e.message || 'Erro ao conectar com o servidor'); 
+      logger.error('Erro no login', { message: e.message });
+      toast.error('Erro ao conectar com o servidor'); 
     } finally { 
       setLoading(false); 
     }
   };
 
-  const loadOS = async () => {
+  const loadOS = async (isHistory = false) => {
     if (!user?.token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os`, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os?history=${isHistory}`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
       });
-      if (res.status === 401) {
-        handleLogout();
-        return;
-      }
+      if (res.status === 401) return handleLogout();
       const data = await res.json();
-      setList(data);
-    } catch (e) { 
-      console.error('Erro ao carregar agenda:', e);
+      setList(Array.isArray(data) ? data : []);
+    } catch (e: any) { 
+      logger.error('Erro ao carregar OS', { error: e.message });
+      setList([]);
     }
   };
 
@@ -99,11 +97,40 @@ const AppFuncionarios = () => {
     setPassword('');
   };
 
+  const handleAction = async (type: 'entrega' | 'recolhimento', osId: string, extraData: any) => {
+    setUploading(true);
+    try {
+      const endpoint = type === 'entrega' ? 'entregar' : 'recolher';
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${osId}/${endpoint}`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.token}`
+        },
+        body: JSON.stringify({
+          ...extraData,
+          funcionario_id: user.id,
+          funcionario_nome: user.nome
+        })
+      });
+
+      if (!res.ok) throw new Error(`Erro ao registrar ${type}`);
+      toast.success(`${type === 'entrega' ? 'Entrega' : 'Recolhimento'} registrado!`);
+      setView('agenda');
+      loadOS(mode === 'historico');
+    } catch (e: any) {
+      logger.error(`Erro na ação ${type}`, { error: e.message });
+      toast.error(e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   useEffect(() => {
     if (view === 'agenda' && user?.token) {
-      loadOS();
+      loadOS(mode === 'historico');
     }
-  }, [view, user]);
+  }, [view, user, mode]);
 
   if (view === 'login') {
     return (
@@ -119,40 +146,19 @@ const AppFuncionarios = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-slate-500">CPF</label>
-                <Input 
-                  placeholder="000.000.000-00" 
-                  autoComplete="username"
-                  className="bg-slate-700 border-none text-white h-12"
-                  value={cpf}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '');
-                      let formatted = val;
-                      if (val.length > 0) {
-                        if (val.length <= 11) {
-                          formatted = val.replace(/(\d{3})(\d)/, '$1.$2');
-                          formatted = formatted.replace(/(\d{3})(\d)/, '$1.$2');
-                          formatted = formatted.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                        } else {
-                          formatted = val.slice(0, 11);
-                        }
-                      }
-                      setCpf(formatted);
-                    }}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-slate-500">Senha</label>
-                <Input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  autoComplete="current-password"
-                  className="bg-slate-700 border-none text-white h-12"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+              <Input 
+                placeholder="CPF" 
+                className="bg-slate-700 border-none text-white h-12"
+                value={cpf}
+                onChange={(e) => setCpf(e.target.value)}
+              />
+              <Input 
+                type="password" 
+                placeholder="Senha" 
+                className="bg-slate-700 border-none text-white h-12"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
               <Button type="submit" className="w-full h-12 font-bold text-base" disabled={loading}>
                 {loading ? 'Entrando...' : 'ENTRAR NO APP'}
               </Button>
@@ -178,84 +184,70 @@ const AppFuncionarios = () => {
         </Button>
       </header>
 
-      <main className="p-4 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="bg-blue-600 text-white border-none">
-            <CardContent className="p-3 flex items-center gap-3">
-              <Clock className="h-5 w-5 opacity-50" />
-              <div>
-                <p className="text-[10px] font-bold opacity-70 uppercase">Hoje</p>
-                <p className="text-xl font-black">{list.filter(o => o.status !== 'fechada').length}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-slate-800 text-white border-none">
-            <CardContent className="p-3 flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 opacity-50 text-rose-400" />
-              <div>
-                <p className="text-[10px] font-bold opacity-70 uppercase">Atraso</p>
-                <p className="text-xl font-black">0</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex bg-white p-2 sticky top-16 z-10 border-b">
+        <Button 
+          variant={mode === 'agenda' ? 'default' : 'ghost'} 
+          className="flex-1 gap-2"
+          onClick={() => setMode('agenda')}
+        >
+          <Calendar className="w-4 h-4" /> Agenda
+        </Button>
+        <Button 
+          variant={mode === 'historico' ? 'default' : 'ghost'} 
+          className="flex-1 gap-2"
+          onClick={() => setMode('historico')}
+        >
+          <History className="w-4 h-4" /> Histórico
+        </Button>
+      </div>
 
-        <div className="space-y-3">
-          <h2 className="text-xs font-bold uppercase text-slate-500 tracking-widest pl-1">Programação</h2>
-          {list.map(os => (
-            <Card key={os.id} className="border-none shadow-sm overflow-hidden active:scale-95 transition-transform">
-              <CardContent className="p-0">
-                <button 
-                  className="w-full text-left p-4 flex items-center gap-4"
-                  onClick={() => { setSelectedOs(os); setView('detalhe'); }}
-                >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 
-                    os.status === 'recolhimento_solicitado' ? 'bg-amber-100 text-amber-600' :
-                    'bg-blue-100 text-blue-600'
-                  }`}>
-                    {os.status === 'recolhimento_solicitado' ? <PackageOpen className="h-6 w-6" /> : 
-                     os.status === 'entregue' ? <PackageCheck className="h-6 w-6" /> : 
-                     <PackageOpen className="h-6 w-6" />}
+      <main className="p-4 space-y-3">
+        {list.length === 0 && !loading && (
+          <div className="text-center py-12 text-slate-400">
+            <ClipboardList className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p className="text-sm font-medium">Nenhuma ordem de serviço encontrada.</p>
+          </div>
+        )}
+        {list.map(os => (
+          <Card key={os.id} className="border-none shadow-sm overflow-hidden active:scale-[0.98] transition-all">
+            <CardContent className="p-0">
+              <button 
+                className="w-full text-left p-4 flex items-center gap-4"
+                onClick={() => { setSelectedOs(os); setView('detalhe'); }}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 
+                  os.status === 'recolhimento_solicitado' ? 'bg-amber-100 text-amber-600' :
+                  os.status === 'fechada' ? 'bg-slate-100 text-slate-400' :
+                  'bg-blue-100 text-blue-600'
+                }`}>
+                  {os.status === 'recolhimento_solicitado' ? <PackageOpen className="h-6 w-6" /> : 
+                   os.status === 'entregue' ? <PackageCheck className="h-6 w-6" /> : 
+                   os.status === 'fechada' ? <CheckCircle2 className="h-6 w-6" /> :
+                   <PackageOpen className="h-6 w-6" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">OS #{os.numero}</span>
+                    <Badge variant="outline" className={`text-[9px] uppercase ${os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : ''}`}>
+                      {os.status.replace('_', ' ')}
+                    </Badge>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">OS #{os.numero}</span>
-                      <Badge variant="outline" className={`text-[9px] uppercase ${os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : ''}`}>
-                        {os.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                    <h3 className="font-bold text-sm truncate">{os.customerName}</h3>
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
-                      <MapPin className="h-3 w-3" />
-                      <span className="truncate">{os.customerAddress}</span>
-                    </div>
+                  <h3 className="font-bold text-sm truncate">{os.customerName}</h3>
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
+                    <MapPin className="h-3 w-3" />
+                    <span className="truncate">{os.customerAddress}</span>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-slate-300" />
-                </button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-slate-300" />
+              </button>
+            </CardContent>
+          </Card>
+        ))}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t px-6 h-16 flex items-center justify-between z-20">
-        <button className="flex flex-col items-center gap-1 text-primary">
-          <Calendar className="h-6 w-6" />
-          <span className="text-[9px] font-bold">Agenda</span>
-        </button>
-        <button className="flex flex-col items-center gap-1 text-slate-400">
-          <Camera className="h-6 w-6" />
-          <span className="text-[9px] font-bold">Estoque</span>
-        </button>
-        <button className="flex flex-col items-center gap-1 text-slate-400">
-          <User className="h-6 w-6" />
-          <span className="text-[9px] font-bold">Perfil</span>
-        </button>
-      </nav>
-
       {view === 'detalhe' && selectedOs && (
-        <div className="fixed inset-0 bg-white z-30 flex flex-col">
+        <div className="fixed inset-0 bg-white z-50 flex flex-col animate-in slide-in-from-right duration-300">
           <header className="px-4 h-16 border-b flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => setView('agenda')}><ArrowLeft className="h-5 w-5" /></Button>
             <span className="font-bold">Detalhes da OS</span>
@@ -270,89 +262,115 @@ const AppFuncionarios = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase text-slate-500">Ação Necessária</h3>
-              {selectedOs.status === 'recolhimento_solicitado' ? (
-                 <div className="space-y-4">
-                    <p className="text-xs text-amber-600 font-bold bg-amber-50 p-2 rounded border border-amber-200">
-                      Recolhimento solicitado. Tire no mínimo 3 fotos do estado do sanitário.
+            {selectedOs.status !== 'fechada' && (
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase text-slate-500">Ação Necessária</h3>
+                
+                {selectedOs.status === 'recolhimento_solicitado' ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-amber-600 font-bold bg-amber-50 p-3 rounded-lg border border-amber-200 flex gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      Tire no mínimo 3 fotos do estado do sanitário (Galeria ou Câmera).
                     </p>
-                    <Button 
-                      className="w-full h-16 text-lg font-bold gap-3 bg-amber-600 hover:bg-amber-700"
-                      onClick={async () => {
-                        setLoading(true);
-                        try {
-                          const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${selectedOs.id}/recolher`, {
-                            method: 'POST',
-                            headers: { 
-                              'Content-Type': 'application/json',
-                              'Authorization': `Bearer ${user?.token}`
-                            },
-                            body: JSON.stringify({
-                              funcionario_id: user.id,
-                              funcionario_nome: user.nome,
-                              estado_atual: 'bom',
-                              fotos: ['https://placehold.co/600x400?text=Recolhimento']
-                            })
-                          });
-                          if (!res.ok) throw new Error('Erro ao recolher');
-                          toast.success('Recolhimento registrado!');
-                          setView('agenda');
-                          loadOS();
-                        } catch (e: any) { toast.error(e.message); }
-                        finally { setLoading(false); }
-                      }}
-                    >
-                      <Camera className="h-6 w-6" /> FOTOGRAFAR E RECOLHER
-                    </Button>
-                 </div>
-              ) : selectedOs.status === 'entregue' ? (
-                 <div className="p-4 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 text-center">
-                    <CheckCircle2 className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                    <p className="font-bold">Sanitário Entregue</p>
-                    <p className="text-[10px] mt-1">Realizado por: <span className="font-bold">{user.nome}</span></p>
-                    <p className="text-xs mt-2">Aguardando solicitação de recolhimento pelo ERP.</p>
-                 </div>
-              ) : (
-                 <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-bold text-slate-500">Número do Sanitário</label>
-                      <Input id="san-numero" className="h-12 text-lg font-bold" placeholder="Digite o número..." />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button 
+                        variant="outline" 
+                        className="h-16 flex-col gap-1"
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                      >
+                        <ImageIcon className="h-5 w-5" /> Galeria
+                      </Button>
+                      <Button 
+                        className="h-16 flex-col gap-1 bg-amber-600 hover:bg-amber-700"
+                        onClick={() => document.getElementById('camera-upload')?.click()}
+                      >
+                        <Camera className="h-5 w-5" /> Câmera
+                      </Button>
                     </div>
-                    <Button 
-                      className="w-full h-16 text-lg font-bold gap-3"
-                      onClick={async () => {
+                    
+                    <input 
+                      id="file-upload" 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      className="hidden" 
+                      onChange={() => handleAction('recolhimento', selectedOs.id, { fotos: ['https://placehold.co/600x400?text=Recolhimento'] })}
+                    />
+                    <input 
+                      id="camera-upload" 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment" 
+                      multiple 
+                      className="hidden" 
+                      onChange={() => handleAction('recolhimento', selectedOs.id, { fotos: ['https://placehold.co/600x400?text=Recolhimento'] })}
+                    />
+                  </div>
+                ) : selectedOs.status === 'entregue' ? (
+                  <div className="p-8 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100 text-center">
+                    <CheckCircle2 className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                    <p className="font-bold text-lg">Sanitário Entregue</p>
+                    <p className="text-xs mt-2 opacity-70">Aguardando solicitação de recolhimento pelo ERP.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Número do Sanitário</label>
+                      <Input id="san-numero" className="h-14 text-lg font-bold" placeholder="Ex: S-001" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                       <Button 
+                          variant="outline" 
+                          className="h-16 flex-col gap-1"
+                          onClick={() => document.getElementById('file-upload-del')?.click()}
+                       >
+                          <ImageIcon className="h-5 w-5" /> Galeria
+                       </Button>
+                       <Button 
+                          className="h-16 flex-col gap-1"
+                          onClick={() => document.getElementById('camera-upload-del')?.click()}
+                       >
+                          <Camera className="h-5 w-5" /> Câmera
+                       </Button>
+                    </div>
+
+                    <input 
+                      id="file-upload-del" 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
                         const num = (document.getElementById('san-numero') as HTMLInputElement)?.value;
-                        if (!num) return toast.error('Informe o número do sanitário');
-                        setLoading(true);
-                        try {
-                          const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${selectedOs.id}/entregar`, {
-                            method: 'POST',
-                            headers: { 
-                              'Content-Type': 'application/json',
-                              'Authorization': `Bearer ${user?.token}`
-                            },
-                            body: JSON.stringify({
-                              sanitario_numero: num,
-                              funcionario_id: user.id,
-                              funcionario_nome: user.nome,
-                              fotos: ['https://placehold.co/600x400?text=Entrega']
-                            })
-                          });
-                          if (!res.ok) throw new Error('Erro ao entregar');
-                          toast.success('Entrega registrada!');
-                          setView('agenda');
-                          loadOS();
-                        } catch (e: any) { toast.error(e.message); }
-                        finally { setLoading(false); }
+                        if (!num) return toast.error('Informe o número do sanitário primeiro');
+                        handleAction('entrega', selectedOs.id, { sanitario_numero: num, fotos: ['https://placehold.co/600x400?text=Entrega'] });
                       }}
-                    >
-                      <Camera className="h-6 w-6" /> TIRAR FOTO E ENTREGAR
-                    </Button>
-                 </div>
-              )}
-            </div>
+                    />
+                    <input 
+                      id="camera-upload-del" 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const num = (document.getElementById('san-numero') as HTMLInputElement)?.value;
+                        if (!num) return toast.error('Informe o número do sanitário primeiro');
+                        handleAction('entrega', selectedOs.id, { sanitario_numero: num, fotos: ['https://placehold.co/600x400?text=Entrega'] });
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </main>
+        </div>
+      )}
+
+      {uploading && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-2xl flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="font-bold text-slate-800 text-sm">Registrando operação...</p>
+          </div>
         </div>
       )}
     </div>
