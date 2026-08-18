@@ -6,6 +6,7 @@
  *   } catch (e: any) { return sendError(res, e, '[erp-invoices POST]'); }
  */
 import type { Response } from 'express';
+import { logger } from './logger';
 
 const PG_MAP: Record<string, { status: number; msg: string }> = {
   '23505': { status: 409, msg: 'Registro duplicado.' },        // unique_violation
@@ -17,18 +18,32 @@ const PG_MAP: Record<string, { status: number; msg: string }> = {
 };
 
 export function sendError(res: Response, e: any, logTag = '[api]') {
-  // Log completo somente no servidor.
-  // eslint-disable-next-line no-console
-  console.error(logTag, e);
-
   const code: string | undefined = e?.code;
+  const status = e?.status || (code && PG_MAP[code] ? PG_MAP[code].status : 500);
+  const message = (code && PG_MAP[code]) ? PG_MAP[code].msg : (e.message || 'Erro interno do servidor');
+
+  // Log detalhado e profissional
+  if (status >= 500) {
+    logger.error(logTag, `Erro Crítico: ${message}`, { 
+      stack: e.stack, 
+      code, 
+      detail: e.detail 
+    });
+  } else {
+    logger.warn(logTag, `Erro de Requisição: ${message}`, { 
+      code, 
+      status 
+    });
+  }
+
   if (code && PG_MAP[code]) {
     return res.status(PG_MAP[code].status).json({ error: PG_MAP[code].msg });
   }
-  // Erros de validação lançados no handler com .status
+
   if (typeof e?.status === 'number') {
     return res.status(e.status).json({ error: e.message || 'Erro na requisição' });
   }
+
   if (process.env.NODE_ENV === 'development') {
     return res.status(500).json({ error: e?.message || 'Erro interno' });
   }
