@@ -15,9 +15,20 @@ router.get('/os', async (req, res) => {
         const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
         logger.info(TAG, `Buscando OS para func_id: ${funcionarioId}${history ? ' (Histórico)' : ''}`);
         
-        let statusFilter = "o.status IN ('aberta', 'despachada', 'entregue', 'recolhimento_solicitado')";
+        let statusFilter = "";
+        let params: any[] = [];
+        
         if (history === 'true') {
-            statusFilter = "o.status = 'fechada'";
+            statusFilter = "o.status = 'fechada' AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1)";
+            params.push(funcionarioId);
+        } else {
+            // Fila Global: OS abertas ou despachadas aparecem para todos. 
+            // OS em andamento aparecem apenas para quem as assumiu ou quem está entregando/recolhendo.
+            statusFilter = `(
+                o.status IN ('aberta', 'despachada') 
+                OR (o.status IN ('entregue', 'recolhimento_solicitado') AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1))
+            )`;
+            params.push(funcionarioId);
         }
 
         let query = `
@@ -27,20 +38,31 @@ router.get('/os', async (req, res) => {
             LEFT JOIN customers cu ON cu.id = o.customer_id
             WHERE ${statusFilter}
               AND o.use_new_flow = TRUE
+            ORDER BY o.data_entrega ASC
         `;
-        
-        const params: any[] = [];
-        if (((req as any).user?.role === 'funcionario' || (req as any).user?.funcionario_id) && funcionarioId) {
-            query += ` AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1)`;
-            params.push(funcionarioId);
-        }
-
-        query += ` ORDER BY o.data_entrega ASC`;
         
         const r = await pool.query(query, params);
         res.json(Array.isArray(r.rows) ? r.rows : []);
     } catch (e: any) { 
         return sendError(res, e, `[${TAG}] Erro ao listar OS`);
+    }
+});
+
+// Assumir uma OS da fila global
+router.post('/os/:id/assumir', async (req, res) => {
+    const { id } = req.params;
+    const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
+    const funcionarioNome = (req as any).user?.nome || (req as any).user?.username;
+
+    try {
+        await pool.query(
+            "UPDATE erp_service_orders SET funcionario_id = $1, status = 'despachada', updated_at = NOW() WHERE id = $2 AND (funcionario_id IS NULL OR status = 'aberta')",
+            [funcionarioId, id]
+        );
+        logger.info(TAG, `Funcionario ${funcionarioNome} assumiu OS ${id}`);
+        res.json({ ok: true });
+    } catch (e: any) {
+        return sendError(res, e, `[${TAG}] Erro ao assumir OS`);
     }
 });
 
