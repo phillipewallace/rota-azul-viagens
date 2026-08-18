@@ -77,7 +77,8 @@ function calcTotals(items: any[], descontoPct = 0, frete = 0) {
 async function loadItems(quoteId: string) {
   const r = await pool.query(
     `SELECT id, produto, descricao, quantidade, valor_unitario AS "valorUnitario",
-            valor_total AS "valorTotal", ordem
+            valor_total AS "valorTotal", ordem, is_sanitario AS "isSanitario"
+
        FROM erp_quote_items WHERE quote_id = $1 ORDER BY ordem ASC, id ASC`,
     [quoteId]
   );
@@ -224,10 +225,11 @@ router.post('/', async (req, res) => {
       const it = items[i];
       const linha = +(Number(it.quantidade || 0) * Number(it.valorUnitario || 0)).toFixed(2);
       await client.query(
-        `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [quoteId, it.produto || 'Item', it.descricao || null,
-         it.quantidade || 1, it.valorUnitario || 0, linha, i]
+         it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
+
       );
     }
     await client.query('COMMIT');
@@ -300,10 +302,11 @@ router.put('/:id', async (req, res) => {
         const it = items[i];
         const linha = +(Number(it.quantidade || 0) * Number(it.valorUnitario || 0)).toFixed(2);
         await client.query(
-          `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [req.params.id, it.produto || 'Item', it.descricao || null,
-           it.quantidade || 1, it.valorUnitario || 0, linha, i]
+           it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
+
         );
       }
     }
@@ -344,10 +347,10 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
 
     // [#9 alto] detecção de sanitário mais precisa — evita "sanitização"
     // e captura "banheiro químico" (sem a palavra "sanit").
-    const isSanitarioItem = (s: string) =>
-      /banheiro\s*qu[íi]mico|sanit[áa]rios?(\s|$)/i.test(s || '');
+    const isSanitarioItem = (it: any) =>
+      it.is_sanitario === true || /banheiro\s*qu[íi]mico|sanit[áa]rios?(\s|$)/i.test(it.produto || '');
     const qtdSanit = items
-      .filter((it: any) => isSanitarioItem(it.produto || '') || isSanitarioItem(it.descricao || ''))
+      .filter((it: any) => isSanitarioItem(it))
       .reduce((acc: number, it: any) => acc + Math.ceil(Number(it.quantidade || 0)), 0);
 
     const numRes = await client.query(

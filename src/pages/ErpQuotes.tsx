@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { quotesService, Quote, QuoteItem } from '@/services/quotes';
-import { erpService, ErpCompany, sanitarioNewService, sanitarioCategoriaLabel } from '@/services/erp';
+import { erpService, ErpCompany, sanitarioNewService, sanitarioCategoriaLabel, SANITARIO_CATEGORIAS } from '@/services/erp';
 import { useCustomers } from '@/hooks/useCustomers';
 
 import { generateQuotePdf, generateQuotePdfBlob } from '@/utils/quotePdf';
@@ -952,7 +952,7 @@ const ErpQuotes: React.FC = () => {
 
               <div className="border rounded-lg overflow-hidden">
                 <div className="grid grid-cols-[40px_1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 bg-gray-100 text-xs font-semibold">
-                  <div title="Modo seleção de ativo (estoque)">Ativo</div>
+                   <div title="Definir tipo de sanitário">Tipo?</div>
                   <div>Produto</div>
                   <div>Descrição</div>
                   <div className="text-right">Qtd</div>
@@ -968,30 +968,29 @@ const ErpQuotes: React.FC = () => {
                           <TooltipTrigger asChild>
                             <div className="flex items-center">
                               <Switch 
-                                checked={!!(it as any).useStock} 
-                                onCheckedChange={(val) => updateItem(i, { ...it, useStock: val } as any)} 
+                                checked={!!(it as any).isSanitario} 
+                                onCheckedChange={(val) => updateItem(i, { ...it, isSanitario: val } as any)} 
+
                                 className="scale-75"
                               />
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent>Alternar entre produto livre e sanitário do estoque</TooltipContent>
+                          <TooltipContent>Alternar entre texto livre e categorias de sanitários</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </div>
-                    {(it as any).useStock ? (
+                     {(it as any).isSanitario ? (
                       <SearchableSelect
                         value={it.produto}
-                        placeholder="Sanitário..."
-                        options={availableSanitarios.map(s => ({
-                          value: s.numero,
-                          label: `${s.numero} (${sanitarioCategoriaLabel(s.categoria)})`,
-                          hint: `${s.modelo || ''} - ${s.estado_atual || ''}`
+                        placeholder="Tipo de sanitário..."
+                        options={SANITARIO_CATEGORIAS.map(cat => ({
+                          value: sanitarioCategoriaLabel(cat.value),
+                          label: sanitarioCategoriaLabel(cat.value),
                         }))}
                         onValueChange={(val) => {
-                          const san = availableSanitarios.find(s => s.numero === val);
                           updateItem(i, { 
-                            produto: val, 
-                            descricao: san ? `Sanitário ${sanitarioCategoriaLabel(san.categoria)} - Modelo: ${san.modelo || 'N/A'} - Estado: ${san.estado_atual || 'Bom'}` : it.descricao 
+                            produto: val,
+                            descricao: it.descricao || `Locação de Sanitário Químico tipo ${val}`
                           });
                         }}
                       />
