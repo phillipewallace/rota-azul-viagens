@@ -367,14 +367,23 @@ const AppFuncionarios = () => {
                     </div>
                   ))}
 
+                  {selectedOs.status === 'aberta' && (
+                    <Button 
+                      className="w-full h-16 bg-blue-600 text-white gap-2 font-bold"
+                      onClick={() => handleAssumirOS(selectedOs.id)}
+                    >
+                      <CheckCircle2 className="h-6 w-6" /> ASSUMIR ESTA OS
+                    </Button>
+                  )}
+
                   {selectedOs.status === 'despachada' && (
                     <div className="space-y-3">
                       <Button 
                         variant="outline" 
-                        className="w-full h-16 border-2 border-dashed gap-2"
+                        className="w-full h-16 border-2 border-dashed gap-2 text-primary border-primary/30 bg-primary/5"
                         onClick={() => setAddingSanitario(true)}
                       >
-                        <Plus className="h-5 w-5" /> Vincular Sanitário (Entrega)
+                        <Plus className="h-5 w-5" /> Adicionar Sanitário (Entrega)
                       </Button>
 
                       <Button 
