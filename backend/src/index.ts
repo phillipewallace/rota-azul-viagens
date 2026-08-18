@@ -46,6 +46,7 @@ import erpFuncionariosRoutes from './routes/erp-funcionarios';
 import erpSanitariosNewRoutes from './routes/erp-sanitarios-new';
 import appFuncionariosRoutes from './routes/app-funcionarios';
 import path from 'path';
+import { requestLogger, logger } from './utils/logger';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
