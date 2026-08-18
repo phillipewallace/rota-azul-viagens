@@ -8,11 +8,17 @@ import {
   PackageOpen, PackageCheck, Calendar, MapPin, 
   Camera, LogOut, ClipboardList, CheckCircle2,
   Clock, AlertCircle, ChevronRight, User, ArrowLeft, History,
-  Image as ImageIcon
+  Image as ImageIcon, Plus, Info, Check, X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
 import { logger } from '@/lib/logger';
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter 
+} from '@/components/ui/dialog';
+import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
+} from '@/components/ui/select';
 
 interface OS {
   id: string;
@@ -32,6 +38,13 @@ const AppFuncionarios = () => {
   const [list, setList] = useState<OS[]>([]);
   const [selectedOs, setSelectedOs] = useState<OS | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [osSanitarios, setOsSanitarios] = useState<any[]>([]);
+  const [addingSanitario, setAddingSanitario] = useState(false);
+  const [newSanForm, setNewSanForm] = useState({ 
+    numero: '', 
+    categoria: 'comum', 
+    estado_atual: 'bom' 
+  });
 
   useEffect(() => {
     const savedUser = localStorage.getItem('alchemy_func_user');
@@ -74,6 +87,14 @@ const AppFuncionarios = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('alchemy_func_user');
+    setUser(null);
+    setView('login');
+    setCpf('');
+    setPassword('');
+  };
+
   const loadOS = async (isHistory = false) => {
     if (!user?.token) return;
     try {
@@ -89,18 +110,19 @@ const AppFuncionarios = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('alchemy_func_user');
-    setUser(null);
-    setView('login');
-    setCpf('');
-    setPassword('');
+  const loadOsSanitarios = async (osId: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${osId}/sanitarios`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      if (res.ok) setOsSanitarios(await res.json());
+    } catch (e) {}
   };
 
   const handleAction = async (type: 'entrega' | 'recolhimento', osId: string, extraData: any) => {
     setUploading(true);
     try {
-      const endpoint = type === 'entrega' ? 'entregar' : 'recolher';
+      const endpoint = type === 'entrega' ? 'entregar-item' : 'recolher-item';
       const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${osId}/${endpoint}`, {
         method: 'POST',
         headers: { 
@@ -116,8 +138,14 @@ const AppFuncionarios = () => {
 
       if (!res.ok) throw new Error(`Erro ao registrar ${type}`);
       toast.success(`${type === 'entrega' ? 'Entrega' : 'Recolhimento'} registrado!`);
-      setView('agenda');
-      loadOS(mode === 'historico');
+      
+      await loadOsSanitarios(osId);
+      await loadOS(mode === 'historico');
+      
+      if (extraData.is_last_item) {
+        setView('agenda');
+        setSelectedOs(null);
+      }
     } catch (e: any) {
       logger.error(`Erro na ação ${type}`, { error: e.message });
       toast.error(e.message);
@@ -213,7 +241,7 @@ const AppFuncionarios = () => {
             <CardContent className="p-0">
               <button 
                 className="w-full text-left p-4 flex items-center gap-4"
-                onClick={() => { setSelectedOs(os); setView('detalhe'); }}
+                onClick={() => { setSelectedOs(os); setView('detalhe'); loadOsSanitarios(os.id); }}
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                   os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 
@@ -263,107 +291,123 @@ const AppFuncionarios = () => {
             </div>
 
             {selectedOs.status !== 'fechada' && (
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase text-slate-500">Ação Necessária</h3>
-                
-                {selectedOs.status === 'recolhimento_solicitado' ? (
-                  <div className="space-y-4">
-                    <p className="text-xs text-amber-600 font-bold bg-amber-50 p-3 rounded-lg border border-amber-200 flex gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      Tire no mínimo 3 fotos do estado do sanitário (Galeria ou Câmera).
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button 
-                        variant="outline" 
-                        className="h-16 flex-col gap-1"
-                        onClick={() => document.getElementById('file-upload')?.click()}
-                      >
-                        <ImageIcon className="h-5 w-5" /> Galeria
-                      </Button>
-                      <Button 
-                        className="h-16 flex-col gap-1 bg-amber-600 hover:bg-amber-700"
-                        onClick={() => document.getElementById('camera-upload')?.click()}
-                      >
-                        <Camera className="h-5 w-5" /> Câmera
-                      </Button>
-                    </div>
-                    
-                    <input 
-                      id="file-upload" 
-                      type="file" 
-                      accept="image/*" 
-                      multiple 
-                      className="hidden" 
-                      onChange={() => handleAction('recolhimento', selectedOs.id, { fotos: ['https://placehold.co/600x400?text=Recolhimento'] })}
-                    />
-                    <input 
-                      id="camera-upload" 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment" 
-                      multiple 
-                      className="hidden" 
-                      onChange={() => handleAction('recolhimento', selectedOs.id, { fotos: ['https://placehold.co/600x400?text=Recolhimento'] })}
-                    />
-                  </div>
-                ) : selectedOs.status === 'entregue' ? (
-                  <div className="p-8 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100 text-center">
-                    <CheckCircle2 className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                    <p className="font-bold text-lg">Sanitário Entregue</p>
-                    <p className="text-xs mt-2 opacity-70">Aguardando solicitação de recolhimento pelo ERP.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Número do Sanitário</label>
-                      <Input id="san-numero" className="h-14 text-lg font-bold" placeholder="Ex: S-001" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 pt-2">
-                       <Button 
-                          variant="outline" 
-                          className="h-16 flex-col gap-1"
-                          onClick={() => document.getElementById('file-upload-del')?.click()}
-                       >
-                          <ImageIcon className="h-5 w-5" /> Galeria
-                       </Button>
-                       <Button 
-                          className="h-16 flex-col gap-1"
-                          onClick={() => document.getElementById('camera-upload-del')?.click()}
-                       >
-                          <Camera className="h-5 w-5" /> Câmera
-                       </Button>
-                    </div>
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xs font-bold uppercase text-slate-500">Sanitários Vinculados</h3>
+                  <Badge variant="outline">{osSanitarios.length} un</Badge>
+                </div>
 
-                    <input 
-                      id="file-upload-del" 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const num = (document.getElementById('san-numero') as HTMLInputElement)?.value;
-                        if (!num) return toast.error('Informe o número do sanitário primeiro');
-                        handleAction('entrega', selectedOs.id, { sanitario_numero: num, fotos: ['https://placehold.co/600x400?text=Entrega'] });
-                      }}
-                    />
-                    <input 
-                      id="camera-upload-del" 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const num = (document.getElementById('san-numero') as HTMLInputElement)?.value;
-                        if (!num) return toast.error('Informe o número do sanitário primeiro');
-                        handleAction('entrega', selectedOs.id, { sanitario_numero: num, fotos: ['https://placehold.co/600x400?text=Entrega'] });
-                      }}
-                    />
-                  </div>
-                )}
+                <div className="space-y-3">
+                  {osSanitarios.map(s => (
+                    <div key={s.id} className="p-4 bg-slate-50 border rounded-xl flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-slate-800">#{s.numero}</p>
+                        <p className="text-[10px] text-slate-500 uppercase">{s.categoria}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {s.devolvido_em ? (
+                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200">Recolhido</Badge>
+                        ) : selectedOs.status === 'recolhimento_solicitado' ? (
+                          <Button 
+                            size="sm" 
+                            className="bg-amber-600 text-white gap-1"
+                            onClick={() => handleAction('recolhimento', selectedOs.id, { 
+                              sanitario_id: s.id,
+                              estado_atual: 'bom',
+                              fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
+                              is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
+                            })}
+                          >
+                            <PackageCheck className="h-4 w-4" /> Recolher
+                          </Button>
+                        ) : (
+                          <Badge variant="secondary">Entregue</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {selectedOs.status === 'despachada' && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full h-16 border-2 border-dashed gap-2"
+                      onClick={() => setAddingSanitario(true)}
+                    >
+                      <Plus className="h-5 w-5" /> Vincular Sanitário (Entrega)
+                    </Button>
+                  )}
+
+                  {osSanitarios.length > 0 && selectedOs.status === 'despachada' && (
+                    <Button 
+                      className="w-full h-14 bg-primary text-white mt-6 font-bold text-base shadow-lg shadow-primary/20"
+                      onClick={() => handleAction('entrega', selectedOs.id, { is_last_item: true })}
+                    >
+                      Finalizar Entrega Total
+                    </Button>
+                  )}
+                </div>
+
+                <div className="p-4 bg-blue-50 text-blue-700 rounded-2xl flex gap-3 text-xs leading-relaxed">
+                   <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                   <p>Para locações múltiplas, registre cada sanitário individualmente. Novos ativos serão cadastrados automaticamente se não encontrados.</p>
+                </div>
               </div>
             )}
           </main>
         </div>
       )}
+
+      <Dialog open={addingSanitario} onOpenChange={setAddingSanitario}>
+        <DialogContent className="max-w-xs rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Vincular Entrega</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-slate-500">Número / Série</label>
+              <Input 
+                value={newSanForm.numero} 
+                className="h-12 font-bold uppercase" 
+                placeholder="Ex: S-001" 
+                onChange={e => setNewSanForm(p => ({ ...p, numero: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-slate-500">Categoria (Se novo)</label>
+              <Select value={newSanForm.categoria} onValueChange={v => setNewSanForm(p => ({ ...p, categoria: v }))}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="comum">Comum</SelectItem>
+                  <SelectItem value="pne">PNE</SelectItem>
+                  <SelectItem value="pia">Pia</SelectItem>
+                  <SelectItem value="luxo">Luxo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+               <Button variant="outline" className="h-12 gap-1 text-xs" onClick={() => handleAction('entrega', selectedOs.id, { 
+                 sanitario_numero: newSanForm.numero, 
+                 categoria: newSanForm.categoria,
+                 fotos: ['https://placehold.co/600x400?text=Galeria'],
+                 is_last_item: false
+               }).then(() => setAddingSanitario(false))}>
+                  <ImageIcon className="h-4 w-4" /> Galeria
+               </Button>
+               <Button className="h-12 gap-1 text-xs bg-slate-800" onClick={() => handleAction('entrega', selectedOs.id, { 
+                 sanitario_numero: newSanForm.numero, 
+                 categoria: newSanForm.categoria,
+                 fotos: ['https://placehold.co/600x400?text=Camera'],
+                 is_last_item: false
+               }).then(() => setAddingSanitario(false))}>
+                  <Camera className="h-4 w-4" /> Câmera
+               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {uploading && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">

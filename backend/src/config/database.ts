@@ -266,6 +266,41 @@ export const setupDatabase = async () => {
       console.warn('⚠️ Não foi possível garantir truck_location_history:', (e as Error).message);
     }
 
+    // 🏗️ Garantir tabela de tipos de sanitários
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_sanitario_tipos (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        nome TEXT NOT NULL UNIQUE,
+        descricao TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Inserir tipos padrão
+    await client.query(`
+      INSERT INTO public.erp_sanitario_tipos (nome, descricao)
+      VALUES 
+        ('Comum', 'Sanitário químico padrão'),
+        ('PNE', 'Sanitário adaptado para pessoas com necessidades especiais'),
+        ('Pia', 'Sanitário com lavatório interno'),
+        ('Luxo', 'Sanitário de alto padrão para eventos vip'),
+        ('Banho', 'Cabine de chuveiro/banho'),
+        ('Rede Esgoto', 'Conectado diretamente à rede de esgoto')
+      ON CONFLICT (nome) DO NOTHING
+    `);
+
+    // Garantir colunas extras em sanitarios (tabela base)
+    const sanCols: Array<[string, string]> = [
+      ['categoria', 'TEXT DEFAULT \'comum\''],
+      ['tipo_locacao_alvo', 'TEXT'],
+      ['estado_atual', 'TEXT DEFAULT \'bom\'']
+    ];
+    for (const [col, type] of sanCols) {
+      try {
+        await client.query(`ALTER TABLE public.sanitarios ADD COLUMN IF NOT EXISTS ${col} ${type}`);
+      } catch (e) {}
+    }
+
     console.log('✅ Colunas críticas verificadas');
 
     client.release();

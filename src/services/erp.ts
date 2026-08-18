@@ -323,3 +323,11 @@ export async function uploadSignedPdf(file: File): Promise<string> {
   const data = await res.json();
   return data.url as string;
 }
+
+export const sanitarioNewService = {
+  listAvailable: () => req<any[]>('GET', '/sanitarios/available'),
+  listTipos: () => req<any[]>('GET', '/sanitarios/tipos'),
+  saveManual: (data: any) => req<any>('POST', '/erp/sanitarios-new/estoque-manual', data),
+  remove: (numero: string) => req<any>('DELETE', `/sanitarios/${encodeURIComponent(numero)}`),
+};
+

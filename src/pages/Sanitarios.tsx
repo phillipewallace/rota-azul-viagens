@@ -7,19 +7,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   History, Camera, PackageOpen, PackageCheck, AlertTriangle, 
   Info, Calendar, MapPin, Wrench, Search, Filter, Layers, 
-  Trash2, Plus, ArrowLeft, RefreshCcw, Image as ImageIcon, Users
+  Trash2, Plus, ArrowLeft, RefreshCcw, Image as ImageIcon, Users, Pencil, Save
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
 import { 
   fetchSanitarioStockSummary, sanitarioCategoriaLabel, 
-  type SanitarioCategoria, type SanitarioStockSummary, SANITARIO_CATEGORIAS 
+  type SanitarioCategoria, type SanitarioStockSummary, SANITARIO_CATEGORIAS,
+  sanitarioNewService
 } from '@/services/erp';
 import { Link } from 'react-router-dom';
 import { BRL } from '@/utils/currency';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import ErpServiceOrdersPanel from '@/components/erp/ErpServiceOrdersPanel';
+
 
 interface SanitarioFoto {
   id: string;
@@ -126,7 +130,57 @@ export default function Sanitarios() {
 
   useEffect(() => { load(); }, [statusFilter]);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<Partial<Sanitario> | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const openNew = () => {
+    setEditing({ numero: '', categoria: 'comum', status: 'disponivel', estado_atual: 'bom' });
+    setEditOpen(true);
+  };
+
+  const handleEdit = (s: Sanitario) => {
+    setEditing(s);
+    setEditOpen(true);
+  };
+
+  const handleDelete = async (s: Sanitario) => {
+    if (!confirm(`Deseja realmente excluir o sanitário ${s.numero}?`)) return;
+    try {
+      await sanitarioNewService.remove(s.numero);
+      toast.success('Sanitário removido');
+      load();
+    } catch (e) {
+      toast.error('Erro ao excluir');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!editing?.numero) return toast.error('Número obrigatório');
+    setSaving(true);
+    try {
+      const tk = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_BASE_URL}/sanitarios`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tk}`
+        },
+        body: JSON.stringify(editing)
+      });
+      if (!res.ok) throw new Error('Erro ao salvar');
+      toast.success('Sanitário salvo com sucesso');
+      setEditOpen(false);
+      load();
+    } catch (e) {
+      toast.error('Erro ao salvar sanitário');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const [recolhimentoOpen, setRecolhimentoOpen] = useState(false);
+
   const [recolhimentoData, setRecolhimentoData] = useState({ data: '', osId: '' });
 
   return (
@@ -147,7 +201,11 @@ export default function Sanitarios() {
               <RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Sincronizar
             </Button>
+            <Button size="sm" onClick={openNew} className="gap-2 bg-primary hover:bg-primary/90">
+              <Plus className="h-4 w-4" /> Novo Sanitário
+            </Button>
           </div>
+
         </div>
       </header>
 
@@ -221,12 +279,23 @@ export default function Sanitarios() {
                     >
                       <CardContent className="p-4 space-y-3">
                         <div className="flex justify-between items-start">
-                          <div>
+                          <div onClick={(e) => { e.stopPropagation(); loadDetails(s); }}>
                             <span className="text-xs font-bold text-muted-foreground"># {s.numero}</span>
                             <h3 className="font-bold text-base">{sanitarioCategoriaLabel(s.categoria)}</h3>
                           </div>
-                          {statusBadge(s.status)}
+                          <div className="flex flex-col items-end gap-2">
+                            {statusBadge(s.status)}
+                            <div className="flex gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleEdit(s); }}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(s); }}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
+
                         
                         <div className="flex items-center gap-2">
                           {estadoBadge(s.estado_atual)}
@@ -379,6 +448,67 @@ export default function Sanitarios() {
               toast.success('Solicitação enviada para o app dos funcionários!');
               setRecolhimentoOpen(false);
             }}>Enviar para o App</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Editor Modal (Novo/Editar) */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? 'Editar Sanitário' : 'Novo Sanitário'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Número / Série *</Label>
+              <Input 
+                value={editing?.numero || ''} 
+                placeholder="Ex: S-123" 
+                onChange={e => setEditing(prev => ({ ...prev, numero: e.target.value.toUpperCase() }))} 
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <SearchableSelect
+                  value={editing?.categoria || 'comum'}
+                  options={SANITARIO_CATEGORIAS.map(c => ({ value: c.value, label: c.label }))}
+                  onValueChange={v => setEditing(prev => ({ ...prev, categoria: v as any }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Estado Atual</Label>
+                <SearchableSelect
+                  value={editing?.estado_atual || 'bom'}
+                  options={[
+                    { value: 'bom', label: 'Bom' },
+                    { value: 'danificado', label: 'Danificado' },
+                    { value: 'critico', label: 'Crítico' }
+                  ]}
+                  onValueChange={v => setEditing(prev => ({ ...prev, estado_atual: v as any }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <SearchableSelect
+                value={editing?.status || 'disponivel'}
+                options={[
+                  { value: 'disponivel', label: 'Disponível' },
+                  { value: 'manutencao', label: 'Em Manutenção' },
+                  { value: 'inativo', label: 'Inativo' },
+                  { value: 'em_cliente', label: 'Em Cliente (Auto)', disabled: true }
+                ]}
+                onValueChange={v => setEditing(prev => ({ ...prev, status: v as any }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button className="bg-primary text-white gap-2" onClick={handleSave} disabled={saving}>
+              {saving ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar Ativo
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
