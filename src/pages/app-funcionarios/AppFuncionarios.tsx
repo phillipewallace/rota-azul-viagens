@@ -160,6 +160,24 @@ const AppFuncionarios = () => {
     }
   };
 
+  const handleAssumirOS = async (osId: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${osId}/assumir`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${user?.token}` }
+      });
+      if (!res.ok) throw new Error('Erro ao assumir OS');
+      toast.success('Você assumiu esta OS!');
+      await loadOS();
+      setSelectedOs(list.find(o => o.id === osId));
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (view === 'agenda' && user?.token) {
       loadOS(mode === 'historico');
