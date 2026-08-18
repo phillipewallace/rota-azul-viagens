@@ -85,7 +85,7 @@ const AppFuncionarios = () => {
         return;
       }
       const data = await res.json();
-      setList(data);
+      setList(Array.isArray(data) ? data : []);
     } catch (e) { 
       console.error('Erro ao carregar agenda:', e);
     }

@@ -33,7 +33,7 @@ router.get('/os', async (req, res) => {
         query += ` ORDER BY o.data_entrega ASC`;
         
         const r = await pool.query(query, params);
-        res.json(r.rows);
+        res.json(Array.isArray(r.rows) ? r.rows : []);
     } catch (e: any) { 
         return sendError(res, e, `[${TAG}] Erro ao listar OS`);
     }
