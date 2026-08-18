@@ -281,8 +281,12 @@ const AppFuncionarios = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">OS #{os.numero}</span>
-                    <Badge variant="outline" className={`text-[9px] uppercase ${os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : ''}`}>
-                      {os.status.replace('_', ' ')}
+                    <Badge variant="outline" className={`text-[9px] uppercase ${
+                      os.status === 'aberta' ? 'border-blue-500 text-blue-600' :
+                      os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : 
+                      ''
+                    }`}>
+                      {os.status === 'aberta' ? 'Disponível' : os.status.replace('_', ' ')}
                     </Badge>
                   </div>
                   <h3 className="font-bold text-sm truncate">{os.customerName}</h3>
