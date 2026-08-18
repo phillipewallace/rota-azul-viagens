@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth } from '../middleware/requireAuth';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
 
@@ -24,12 +25,23 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Senha incorreta' });
         }
         
+        const token = jwt.sign(
+            { 
+                userId: func.id, 
+                username: func.cpf, 
+                role: 'funcionario',
+                funcionario_id: func.id 
+            }, 
+            process.env.JWT_SECRET || 'dev-only-insecure-secret',
+            { expiresIn: '30d' }
+        );
+
         res.json({ 
             id: func.id, 
             nome: func.nome, 
             tipo: func.tipo, 
             firstLogin: func.first_login,
-            token: 'dummy-token-funcionario' 
+            token 
         });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
