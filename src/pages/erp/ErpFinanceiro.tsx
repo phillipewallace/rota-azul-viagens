@@ -3491,13 +3491,14 @@ const UnifiedPreviewDialog: React.FC<{
             <div className="space-y-3">
               {items.map((it, idx) => (
                 <div key={idx} className="p-2 border rounded-md bg-background space-y-2 shadow-sm">
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1 relative">
                     <span className="font-medium text-xs">
                       C. {it.contractNumero}
                     </span>
-                    <span className="text-[11px] text-muted-foreground leading-tight italic">
+                    <span className="text-[11px] text-muted-foreground leading-tight italic pr-16">
                       {it.descricao}
                     </span>
+                    <span className="font-mono text-xs text-indigo-600 font-bold absolute top-0 right-0">{BRL(it.valor)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
