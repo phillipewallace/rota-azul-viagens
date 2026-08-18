@@ -8,6 +8,7 @@ const router = Router();
 
 // Login via CPF (Publico para o App de Funcionários)
 router.post('/login', async (req, res) => {
+    console.log(`[AUTH-DEBUG] Login access hit: ${req.method} ${req.path}`);
     const { cpf, password } = req.body;
     try {
         const cleanCpf = String(cpf).replace(/\D/g, '');
@@ -46,10 +47,16 @@ router.post('/login', async (req, res) => {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+
 // Middlewares abaixo exigem autenticação
 router.use((req, res, next) => {
-    // Se for a rota de login, pula o requireAuth
-    if (req.path === '/login' && req.method === 'POST') return next();
+    console.log(`[AUTH-DEBUG] Middleware check for: ${req.method} ${req.path}`);
+    // Se for a rota de login (/login), pula o requireAuth
+    if (req.path === '/login' || req.path === '/') { 
+        // Note: router.post('/login') matches path '/' if sub-routed as app.use('/api/erp/funcionarios/login', router)
+        // or path '/login' if app.use('/api/erp/funcionarios', router)
+        return next(); 
+    }
     return requireAuth(req, res, next);
 });
 
