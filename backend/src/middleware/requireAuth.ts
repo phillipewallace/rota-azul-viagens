@@ -24,7 +24,6 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (!token) {
-      console.log(`[AUTH] Token ausente em ${req.method} ${req.path}`);
       return res.status(401).json({ error: 'Token ausente' });
     }
     const decoded = jwt.verify(token, SECRET) as any;

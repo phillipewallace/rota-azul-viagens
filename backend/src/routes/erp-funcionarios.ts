@@ -8,23 +8,20 @@ const router = Router();
 
 // Login via CPF (Publico para o App de Funcionários)
 router.post('/login', async (req, res) => {
-    console.log(`[AUTH-DEBUG] Login access hit: ${req.method} ${req.path}`);
     const { cpf, password } = req.body;
     try {
         const cleanCpf = String(cpf).replace(/\D/g, '');
-        console.log(`[AUTH] Tentativa de login CPF: ${cleanCpf}`);
         const r = await pool.query('SELECT * FROM erp_funcionarios WHERE cpf = $1 AND active = true', [cleanCpf]);
         const func = r.rows[0];
         if (!func) {
-            console.log(`[AUTH] Funcionário não encontrado ou inativo: ${cleanCpf}`);
             return res.status(401).json({ error: 'Funcionário não encontrado ou inativo' });
         }
         
         const valid = await bcrypt.compare(String(password), func.password_hash);
         if (!valid) {
-            console.log(`[AUTH] Senha incorreta para CPF: ${cleanCpf}`);
             return res.status(401).json({ error: 'Senha incorreta' });
         }
+
         
         const token = jwt.sign(
             { 
@@ -51,10 +48,7 @@ router.post('/login', async (req, res) => {
 // Middlewares abaixo exigem autenticação
 router.use((req, res, next) => {
     // Rota de login deve ser pública
-    // Se o roteamento for app.use('/api/erp/funcionarios', erpFuncionariosRoutes), 
-    // req.path será '/login' quando a URL for /api/erp/funcionarios/login
-    console.log(`[AUTH-DEBUG] req.path: ${req.path}, req.originalUrl: ${req.originalUrl}`);
-    if (req.path === '/login' || req.path.endsWith('/login')) { 
+    if (req.path === '/login' || req.path === '/login/' || req.path.endsWith('/login')) { 
         return next(); 
     }
     return requireAuth(req, res, next);
