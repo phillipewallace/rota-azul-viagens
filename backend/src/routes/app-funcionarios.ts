@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
+router.use(requireAuth);
 
 // Endpoint para listar OS pendentes/agendadas para o funcionário (SIMULADO: retorna todas abertas por enquanto)
 router.get('/os', async (req, res) => {

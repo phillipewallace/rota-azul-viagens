@@ -56,7 +56,16 @@ const AppFuncionarios = () => {
 
   const loadOS = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os`);
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os`, {
+        headers: {
+          'Authorization': `Bearer ${user?.token}`
+        }
+      });
+      if (res.status === 401) {
+        setUser(null);
+        setView('login');
+        return;
+      }
       const data = await res.json();
       setList(data);
     } catch (e) { toast.error('Erro ao carregar agenda'); }
@@ -235,7 +244,10 @@ const AppFuncionarios = () => {
                         try {
                           const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${selectedOs.id}/recolher`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${user?.token}`
+                            },
                             body: JSON.stringify({
                               funcionario_id: user.id,
                               funcionario_nome: user.nome,
@@ -276,7 +288,10 @@ const AppFuncionarios = () => {
                         try {
                           const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${selectedOs.id}/entregar`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${user?.token}`
+                            },
                             body: JSON.stringify({
                               sanitario_numero: num,
                               funcionario_id: user.id,
