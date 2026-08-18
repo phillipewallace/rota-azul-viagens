@@ -21,14 +21,17 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { quotesService, Quote, QuoteItem } from '@/services/quotes';
-import { erpService, ErpCompany } from '@/services/erp';
+import { erpService, ErpCompany, sanitarioNewService, sanitarioCategoriaLabel } from '@/services/erp';
 import { useCustomers } from '@/hooks/useCustomers';
+
 import { generateQuotePdf, generateQuotePdfBlob } from '@/utils/quotePdf';
 import { API_BASE_URL } from '@/services/config';
 import { generateContractPdf } from '@/utils/contractPdf';
 import { FileSignature } from 'lucide-react';
 import { OBSERVACAO_FIXA_LOCACAO, describeFormaPagamento, calcVencimentoBoleto, type FormaPagamento } from '@/utils/fixedObservations';
 import { formatDateBR, parseLocalDate } from '@/utils/dateFormat';
+import { Switch } from '@/components/ui/switch';
+
 
 import { confirmDialog } from '@/lib/confirm';
 import { BRL } from '@/utils/currency';
@@ -118,6 +121,18 @@ const ErpQuotes: React.FC = () => {
   const [editing, setEditing] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
+  const [availableSanitarios, setAvailableSanitarios] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadSanitarios = async () => {
+      try {
+        const data = await sanitarioNewService.listAvailable();
+        setAvailableSanitarios(data || []);
+      } catch (e) {}
+    };
+    loadSanitarios();
+  }, []);
+
 
   // ---- Filtros ----
   const [filterStatus, setFilterStatus] = useState<'all' | Status>('all');
@@ -936,7 +951,8 @@ const ErpQuotes: React.FC = () => {
               {/* Tabela de itens */}
 
               <div className="border rounded-lg overflow-hidden">
-                <div className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 bg-gray-100 text-xs font-semibold">
+                <div className="grid grid-cols-[40px_1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 bg-gray-100 text-xs font-semibold">
+                  <div title="Modo seleção de ativo (estoque)">Ativo</div>
                   <div>Produto</div>
                   <div>Descrição</div>
                   <div className="text-right">Qtd</div>
@@ -945,11 +961,47 @@ const ErpQuotes: React.FC = () => {
                   <div />
                 </div>
                 {editing.items.map((it, i) => (
-                  <div key={(it as any).__uid ?? i} className="grid grid-cols-[1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
-                    <Input value={it.produto} placeholder="Ex.: Sanitário Standard"
-                           onChange={e => updateItem(i, { produto: e.target.value })} />
+                  <div key={(it as any).__uid ?? i} className="grid grid-cols-[40px_1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
+                    <div className="flex justify-center">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center">
+                              <Switch 
+                                checked={!!(it as any).useStock} 
+                                onCheckedChange={(val) => updateItem(i, { ...it, useStock: val } as any)} 
+                                className="scale-75"
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>Alternar entre produto livre e sanitário do estoque</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    {(it as any).useStock ? (
+                      <SearchableSelect
+                        value={it.produto}
+                        placeholder="Sanitário..."
+                        options={availableSanitarios.map(s => ({
+                          value: s.numero,
+                          label: `${s.numero} (${sanitarioCategoriaLabel(s.categoria)})`,
+                          hint: `${s.modelo || ''} - ${s.estado_atual || ''}`
+                        }))}
+                        onValueChange={(val) => {
+                          const san = availableSanitarios.find(s => s.numero === val);
+                          updateItem(i, { 
+                            produto: val, 
+                            descricao: san ? `Sanitário ${sanitarioCategoriaLabel(san.categoria)} - Modelo: ${san.modelo || 'N/A'} - Estado: ${san.estado_atual || 'Bom'}` : it.descricao 
+                          });
+                        }}
+                      />
+                    ) : (
+                      <Input value={it.produto} placeholder="Ex.: Sanitário Standard"
+                             onChange={e => updateItem(i, { produto: e.target.value })} />
+                    )}
                     <Input value={it.descricao || ''} placeholder="Opcional"
                            onChange={e => updateItem(i, { descricao: e.target.value })} />
+
                     <Input type="number" min={0} step="0.01" className="text-right"
                            value={it.quantidade}
                            onChange={e => updateItem(i, { quantidade: parseFloat(e.target.value) || 0 })} />
