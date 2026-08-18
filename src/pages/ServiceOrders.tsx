@@ -74,7 +74,7 @@ const ServiceOrders: React.FC = () => {
     setDetailLoading(true);
     try {
       const det = await serviceOrdersService.get(o.id);
-      logger.info('OS detalhada carregada', { osId: o.id, funcionarioId: det.funcionario_id });
+      logger.info('OS detalhada carregada', { osId: o.id, funcionarioId: (det as any).funcionarioId });
       setDetailData(det);
     } catch (e: any) { toast.error(e.message); }
     finally { setDetailLoading(false); }
