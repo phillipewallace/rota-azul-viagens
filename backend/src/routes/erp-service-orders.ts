@@ -176,6 +176,7 @@ router.get('/financial/summary', async (req, res) => {
       `SELECT o.id, o.numero, o.modalidade, o.tipo_locacao AS "tipoLocacao",
               o.status, o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
               o.data_fechamento AS "dataFechamento", o.valor_total AS "valorTotal",
+              o.funcionario_id AS "funcionarioId",
               cu.customer_name AS "customerName", c.razao_social AS "companyRazaoSocial",
               (o.status='aberta' AND o.modalidade='diaria'
                AND o.data_fim_prevista IS NOT NULL
