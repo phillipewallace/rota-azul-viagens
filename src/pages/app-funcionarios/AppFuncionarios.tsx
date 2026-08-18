@@ -160,6 +160,24 @@ const AppFuncionarios = () => {
     }
   };
 
+  const handleAssumirOS = async (osId: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${osId}/assumir`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${user?.token}` }
+      });
+      if (!res.ok) throw new Error('Erro ao assumir OS');
+      toast.success('Você assumiu esta OS!');
+      await loadOS();
+      setSelectedOs(list.find(o => o.id === osId));
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (view === 'agenda' && user?.token) {
       loadOS(mode === 'historico');
@@ -263,8 +281,12 @@ const AppFuncionarios = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">OS #{os.numero}</span>
-                    <Badge variant="outline" className={`text-[9px] uppercase ${os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : ''}`}>
-                      {os.status.replace('_', ' ')}
+                    <Badge variant="outline" className={`text-[9px] uppercase ${
+                      os.status === 'aberta' ? 'border-blue-500 text-blue-600' :
+                      os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : 
+                      ''
+                    }`}>
+                      {os.status === 'aberta' ? 'Disponível' : os.status.replace('_', ' ')}
                     </Badge>
                   </div>
                   <h3 className="font-bold text-sm truncate">{os.customerName}</h3>
@@ -314,18 +336,30 @@ const AppFuncionarios = () => {
                         {s.devolvido_em ? (
                           <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200">Recolhido</Badge>
                         ) : selectedOs.status === 'recolhimento_solicitado' ? (
-                          <Button 
-                            size="sm" 
-                            className="bg-amber-600 text-white gap-1"
-                            onClick={() => handleAction('recolhimento', selectedOs.id, { 
-                              sanitario_id: s.id,
-                              estado_atual: 'bom',
-                              fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
-                              is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
-                            })}
-                          >
-                            <PackageCheck className="h-4 w-4" /> Recolher
-                          </Button>
+                          <div className="flex flex-col gap-2">
+                             <Select defaultValue="bom" onValueChange={(v) => s.temp_estado = v}>
+                               <SelectTrigger className="h-8 text-[10px] w-24">
+                                 <SelectValue placeholder="Estado" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="bom">Bom</SelectItem>
+                                 <SelectItem value="regular">Regular</SelectItem>
+                                 <SelectItem value="ruim">Ruim</SelectItem>
+                               </SelectContent>
+                             </Select>
+                             <Button 
+                              size="sm" 
+                              className="bg-amber-600 text-white gap-1 text-[10px] h-8"
+                              onClick={() => handleAction('recolhimento', selectedOs.id, { 
+                                sanitario_id: s.id,
+                                estado_atual: s.temp_estado || 'bom',
+                                fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
+                                is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
+                              })}
+                            >
+                              <PackageCheck className="h-3 w-3" /> Recolher
+                            </Button>
+                          </div>
                         ) : (
                           <Badge variant="secondary">Entregue</Badge>
                         )}
@@ -333,14 +367,23 @@ const AppFuncionarios = () => {
                     </div>
                   ))}
 
+                  {selectedOs.status === 'aberta' && (
+                    <Button 
+                      className="w-full h-16 bg-blue-600 text-white gap-2 font-bold"
+                      onClick={() => handleAssumirOS(selectedOs.id)}
+                    >
+                      <CheckCircle2 className="h-6 w-6" /> ASSUMIR ESTA OS
+                    </Button>
+                  )}
+
                   {selectedOs.status === 'despachada' && (
                     <div className="space-y-3">
                       <Button 
                         variant="outline" 
-                        className="w-full h-16 border-2 border-dashed gap-2"
+                        className="w-full h-16 border-2 border-dashed gap-2 text-primary border-primary/30 bg-primary/5"
                         onClick={() => setAddingSanitario(true)}
                       >
-                        <Plus className="h-5 w-5" /> Vincular Sanitário (Entrega)
+                        <Plus className="h-5 w-5" /> Adicionar Sanitário (Entrega)
                       </Button>
 
                       <Button 
@@ -389,7 +432,7 @@ const AppFuncionarios = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-bold text-slate-500">Categoria (Se novo)</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500">Categoria (Obrigatório)</label>
               <Select value={newSanForm.categoria} onValueChange={v => setNewSanForm(p => ({ ...p, categoria: v }))}>
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Selecione" />
@@ -399,25 +442,47 @@ const AppFuncionarios = () => {
                   <SelectItem value="pne">PNE</SelectItem>
                   <SelectItem value="pia">Pia</SelectItem>
                   <SelectItem value="luxo">Luxo</SelectItem>
+                  <SelectItem value="banho">Banho</SelectItem>
+                  <SelectItem value="rede_esgoto">Rede Esgoto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-slate-500">Estado de Conservação</label>
+              <Select value={newSanForm.estado_atual} onValueChange={v => setNewSanForm(p => ({ ...p, estado_atual: v }))}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bom">Bom</SelectItem>
+                  <SelectItem value="regular">Regular</SelectItem>
+                  <SelectItem value="ruim">Ruim</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
-               <Button variant="outline" className="h-12 gap-1 text-xs" onClick={() => handleAction('entrega', selectedOs.id, { 
-                 sanitario_numero: newSanForm.numero, 
-                 categoria: newSanForm.categoria,
-                 fotos: ['https://placehold.co/600x400?text=Galeria'],
-                 is_last_item: false
-               }).then(() => setAddingSanitario(false))}>
+               <Button variant="outline" className="h-12 gap-1 text-xs" 
+                 disabled={!newSanForm.numero || !newSanForm.categoria}
+                 onClick={() => handleAction('entrega', selectedOs.id, { 
+                   sanitario_numero: newSanForm.numero, 
+                   categoria: newSanForm.categoria,
+                   estado_atual: newSanForm.estado_atual,
+                   fotos: ['https://placehold.co/600x400?text=Galeria'],
+                   is_last_item: false
+                 }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
                   <ImageIcon className="h-4 w-4" /> Galeria
                </Button>
-               <Button className="h-12 gap-1 text-xs bg-slate-800" onClick={() => handleAction('entrega', selectedOs.id, { 
-                 sanitario_numero: newSanForm.numero, 
-                 categoria: newSanForm.categoria,
-                 fotos: ['https://placehold.co/600x400?text=Camera'],
-                 is_last_item: false
-               }).then(() => setAddingSanitario(false))}>
+               <Button className="h-12 gap-1 text-xs bg-slate-800" 
+                 disabled={!newSanForm.numero || !newSanForm.categoria}
+                 onClick={() => handleAction('entrega', selectedOs.id, { 
+                   sanitario_numero: newSanForm.numero, 
+                   categoria: newSanForm.categoria,
+                   estado_atual: newSanForm.estado_atual,
+                   fotos: ['https://placehold.co/600x400?text=Camera'],
+                   is_last_item: false
+                 }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
                   <Camera className="h-4 w-4" /> Câmera
                </Button>
             </div>
