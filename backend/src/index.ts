@@ -117,10 +117,8 @@ app.get('/api/test-db', async (req, res) => {
 console.log('🚀 [SERVER] Registrando rotas da API...');
 
 app.use('/api/auth', authRoutes);
-app.use('/api/erp/funcionarios/login', (req, res, next) => {
-    // Rota de login deve ser pública antes de aplicar middlewares restritivos
-    erpFuncionariosRoutes(req, res, next);
-});
+app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
+
 
 import { restrictDemo } from './middleware/restrictDemo';
 app.use(restrictDemo);
@@ -163,8 +161,7 @@ app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
 app.use('/api/erp/signed-pdfs', erpSignedPdfsRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
-// A rota de login já foi registrada como pública acima
-app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
+// A rota erp/funcionarios já foi registrada acima com tratamento interno de auth para o login
 app.use('/api/erp/sanitarios-new', erpSanitariosNewRoutes);
 app.use('/api/app-funcionarios', appFuncionariosRoutes);
 

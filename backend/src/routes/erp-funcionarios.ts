@@ -46,7 +46,12 @@ router.post('/login', async (req, res) => {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.use(requireAuth);
+// Middlewares abaixo exigem autenticação
+router.use((req, res, next) => {
+    // Se for a rota de login, pula o requireAuth
+    if (req.path === '/login' && req.method === 'POST') return next();
+    return requireAuth(req, res, next);
+});
 
 router.get('/', async (req, res) => {
     try {
