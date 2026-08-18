@@ -8,17 +8,33 @@ router.use(requireAuth);
 // Endpoint para listar OS pendentes/agendadas para o funcionário (SIMULADO: retorna todas abertas por enquanto)
 router.get('/os', async (req, res) => {
     try {
-        const r = await pool.query(`
+        const funcionarioId = (req as any).user?.funcionarioId;
+        console.log(`[APP-FUNC] Buscando OS para func_id: ${funcionarioId}`);
+        
+        // Se for admin (ex: phillipe.sodre), pode ver tudo. Se for funcionário, vê as dele.
+        let query = `
             SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
                    cu.customer_name as "customerName", cu.address as "customerAddress"
             FROM erp_service_orders o
             LEFT JOIN customers cu ON cu.id = o.customer_id
             WHERE o.status IN ('aberta', 'despachada', 'entregue', 'recolhimento_solicitado')
               AND o.use_new_flow = TRUE
-            ORDER BY o.data_entrega ASC
-        `);
+        `;
+        
+        const params: any[] = [];
+        if ((req as any).user?.role === 'funcionario' && funcionarioId) {
+            query += ` AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1)`;
+            params.push(funcionarioId);
+        }
+
+        query += ` ORDER BY o.data_entrega ASC`;
+        
+        const r = await pool.query(query, params);
         res.json(r.rows);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { 
+        console.error('[APP-FUNC] Erro ao listar OS:', e);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 // Registrar Entrega (com foto e número)
