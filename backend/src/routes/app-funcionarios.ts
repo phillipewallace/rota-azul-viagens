@@ -44,7 +44,7 @@ router.get('/os', async (req, res) => {
     }
 });
 
-// Registrar Entrega Individual (Suporte a múltiplos itens)
+// Registrar Entrega Individual (Suporte a múltiplos itens ou serviço único)
 router.post('/os/:id/entregar-item', async (req, res) => {
     const { id } = req.params;
     const { 
@@ -55,53 +55,65 @@ router.post('/os/:id/entregar-item', async (req, res) => {
         categoria, 
         tipo_locacao_alvo, 
         estado_atual,
-        item_index, // Para controle opcional no frontend
-        is_last_item
+        item_index,
+        is_last_item,
+        is_generic_service, // Novo flag para serviço sem sanitário
+        observacoes // Novo campo para relato do serviço
     } = req.body;
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
-        const numClean = sanitario_numero.trim().toUpperCase();
+        let sid = null;
 
-        // 1. Garantir que o sanitário existe ou cadastrar na hora
-        let s = await client.query('SELECT id FROM sanitarios WHERE numero = $1', [numClean]);
-        let sid;
-        if (!s.rows.length) {
-            logger.info(TAG, `Auto-registrando novo sanitário: ${numClean}`);
-            const nr = await client.query(
-                `INSERT INTO sanitarios (numero, status, categoria, tipo_locacao_alvo, estado_atual) 
-                 VALUES ($1, 'em_cliente', $2, $3, $4) RETURNING id`,
-                [numClean, categoria || 'comum', tipo_locacao_alvo || 'obra', estado_atual || 'bom']
-            );
-            sid = nr.rows[0].id;
-        } else {
-            sid = s.rows[0].id;
+        if (!is_generic_service) {
+            const numClean = sanitario_numero?.trim().toUpperCase();
+            if (!numClean) throw new Error('Número do sanitário é obrigatório');
+
+            // 1. Garantir que o sanitário existe ou cadastrar na hora
+            let s = await client.query('SELECT id FROM sanitarios WHERE numero = $1', [numClean]);
+            if (!s.rows.length) {
+                logger.info(TAG, `Auto-registrando novo sanitário: ${numClean}`);
+                const nr = await client.query(
+                    `INSERT INTO sanitarios (numero, status, categoria, tipo_locacao_alvo, estado_atual) 
+                     VALUES ($1, 'em_cliente', $2, $3, $4) RETURNING id`,
+                    [numClean, categoria || 'comum', tipo_locacao_alvo || 'obra', estado_atual || 'bom']
+                );
+                sid = nr.rows[0].id;
+            } else {
+                sid = s.rows[0].id;
+                await client.query(
+                    "UPDATE sanitarios SET status = 'em_cliente', updated_at = NOW() WHERE id = $1",
+                    [sid]
+                );
+            }
+
+            // 2. Vincular sanitário à OS
             await client.query(
-                "UPDATE sanitarios SET status = 'em_cliente', updated_at = NOW() WHERE id = $1",
-                [sid]
+                'INSERT INTO erp_os_sanitarios (os_id, sanitario_id, alocado_em) VALUES ($1, $2, NOW()) ON CONFLICT (os_id, sanitario_id) DO NOTHING',
+                [id, sid]
             );
         }
 
-        // 2. Vincular sanitário à OS
-        await client.query(
-            'INSERT INTO erp_os_sanitarios (os_id, sanitario_id, alocado_em) VALUES ($1, $2, NOW()) ON CONFLICT (os_id, sanitario_id) DO NOTHING',
-            [id, sid]
-        );
-
-        // 3. Registrar fotos
+        // 3. Registrar fotos e relato
         if (fotos && Array.isArray(fotos)) {
             for (const url of fotos) {
                 await client.query(
-                    'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, funcionario_id) VALUES ($1, $2, $3, $4, $5)',
-                    [sid, id, url, 'entrega', funcionario_id]
+                    'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, funcionario_id, observacoes) VALUES ($1, $2, $3, $4, $5, $6)',
+                    [sid, id, url, 'entrega', funcionario_id, observacoes || null]
                 );
             }
+        } else if (observacoes) {
+             // Caso tenha relato mas sem foto (não esperado por este requisito, mas seguro)
+             await client.query(
+                'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, funcionario_id, observacoes) VALUES ($1, $2, $3, $4, $5, $6)',
+                [sid, id, 'N/A', 'entrega', funcionario_id, observacoes]
+            );
         }
 
-        // 4. Se for o último item ou solicitado, marcar OS como entregue
-        if (is_last_item) {
+        // 4. Se for o último item ou solicitado (ou serviço genérico), marcar OS como entregue
+        if (is_last_item || is_generic_service) {
             await client.query(
                 "UPDATE erp_service_orders SET status = 'entregue', entregue_por_id = $2, entregue_por_nome = $3, updated_at = NOW() WHERE id = $1", 
                 [id, funcionario_id, funcionario_nome]
