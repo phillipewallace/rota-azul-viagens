@@ -336,18 +336,30 @@ const AppFuncionarios = () => {
                         {s.devolvido_em ? (
                           <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200">Recolhido</Badge>
                         ) : selectedOs.status === 'recolhimento_solicitado' ? (
-                          <Button 
-                            size="sm" 
-                            className="bg-amber-600 text-white gap-1"
-                            onClick={() => handleAction('recolhimento', selectedOs.id, { 
-                              sanitario_id: s.id,
-                              estado_atual: 'bom',
-                              fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
-                              is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
-                            })}
-                          >
-                            <PackageCheck className="h-4 w-4" /> Recolher
-                          </Button>
+                          <div className="flex flex-col gap-2">
+                             <Select defaultValue="bom" onValueChange={(v) => s.temp_estado = v}>
+                               <SelectTrigger className="h-8 text-[10px] w-24">
+                                 <SelectValue placeholder="Estado" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="bom">Bom</SelectItem>
+                                 <SelectItem value="regular">Regular</SelectItem>
+                                 <SelectItem value="ruim">Ruim</SelectItem>
+                               </SelectContent>
+                             </Select>
+                             <Button 
+                              size="sm" 
+                              className="bg-amber-600 text-white gap-1 text-[10px] h-8"
+                              onClick={() => handleAction('recolhimento', selectedOs.id, { 
+                                sanitario_id: s.id,
+                                estado_atual: s.temp_estado || 'bom',
+                                fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
+                                is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
+                              })}
+                            >
+                              <PackageCheck className="h-3 w-3" /> Recolher
+                            </Button>
+                          </div>
                         ) : (
                           <Badge variant="secondary">Entregue</Badge>
                         )}
