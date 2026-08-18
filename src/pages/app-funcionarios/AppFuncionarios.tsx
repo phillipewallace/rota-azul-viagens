@@ -20,7 +20,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 
-
 interface OS {
   id: string;
   numero: string;
@@ -46,7 +45,6 @@ const AppFuncionarios = () => {
     categoria: 'comum', 
     estado_atual: 'bom' 
   });
-
 
   useEffect(() => {
     const savedUser = localStorage.getItem('alchemy_func_user');
@@ -89,6 +87,14 @@ const AppFuncionarios = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('alchemy_func_user');
+    setUser(null);
+    setView('login');
+    setCpf('');
+    setPassword('');
+  };
+
   const loadOS = async (isHistory = false) => {
     if (!user?.token) return;
     try {
@@ -102,14 +108,6 @@ const AppFuncionarios = () => {
       logger.error('Erro ao carregar OS', { error: e.message });
       setList([]);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('alchemy_func_user');
-    setUser(null);
-    setView('login');
-    setCpf('');
-    setPassword('');
   };
 
   const loadOsSanitarios = async (osId: string) => {
@@ -155,7 +153,6 @@ const AppFuncionarios = () => {
       setUploading(false);
     }
   };
-
 
   useEffect(() => {
     if (view === 'agenda' && user?.token) {
@@ -300,7 +297,6 @@ const AppFuncionarios = () => {
                   <Badge variant="outline">{osSanitarios.length} un</Badge>
                 </div>
 
-                {/* Lista de Sanitários */}
                 <div className="space-y-3">
                   {osSanitarios.map(s => (
                     <div key={s.id} className="p-4 bg-slate-50 border rounded-xl flex justify-between items-center">
@@ -351,11 +347,13 @@ const AppFuncionarios = () => {
                   )}
                 </div>
 
-                {/* Info Card */}
                 <div className="p-4 bg-blue-50 text-blue-700 rounded-2xl flex gap-3 text-xs leading-relaxed">
                    <Info className="h-4 w-4 shrink-0 mt-0.5" />
                    <p>Para locações múltiplas, registre cada sanitário individualmente. Novos ativos serão cadastrados automaticamente se não encontrados.</p>
                 </div>
+              </div>
+            )}
+          </main>
         </div>
       )}
 
@@ -411,10 +409,6 @@ const AppFuncionarios = () => {
         </DialogContent>
       </Dialog>
 
-          </main>
-        </div>
-      )}
-      
       {uploading && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white p-6 rounded-2xl flex flex-col items-center gap-4">
