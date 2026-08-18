@@ -563,6 +563,7 @@ BEGIN
 END $$;
 
 -- Garantir colunas do novo fluxo ERP (Service Orders)
+ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS funcionario_id UUID REFERENCES public.erp_funcionarios(id);
 ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS use_new_flow BOOLEAN DEFAULT TRUE;
 ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS data_recolhimento_solicitada DATE;
 ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS entregue_por_id UUID REFERENCES public.erp_funcionarios(id);
