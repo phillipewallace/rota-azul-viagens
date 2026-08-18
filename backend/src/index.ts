@@ -58,6 +58,9 @@ app.set('trust proxy', 1);
 // Segurança HTTP — headers seguros (sem CSP para não quebrar assets servidos)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
+// Logger de requisições profissional
+app.use(requestLogger);
+
 // CORS: permite origens conhecidas + requisições sem Origin (APK Capacitor)
 const ALLOWED_ORIGINS = [
   'http://localhost:5173', 'http://localhost:8080', 'http://192.168.1.100:5173',

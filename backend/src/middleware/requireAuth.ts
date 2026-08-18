@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { logger } from '../utils/logger';
+
+const TAG = 'MIDDLEWARE-AUTH';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -24,12 +27,14 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (!token) {
+      logger.warn(TAG, `Acesso negado: Token ausente em ${req.method} ${req.path}`);
       return res.status(401).json({ error: 'Token ausente' });
     }
     const decoded = jwt.verify(token, SECRET) as any;
     req.user = { userId: decoded.userId, username: decoded.username, role: decoded.role, funcionarioId: decoded.funcionario_id || (decoded.role === 'funcionario' ? decoded.userId : undefined) };
     next();
   } catch (e: any) {
+    logger.error(TAG, `Token inválido ou expirado em ${req.method} ${req.path}`, { error: e.message });
     return res.status(401).json({ error: 'Token inválido' });
   }
 }
