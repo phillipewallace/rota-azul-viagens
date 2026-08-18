@@ -463,20 +463,26 @@ const AppFuncionarios = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
-               <Button variant="outline" className="h-12 gap-1 text-xs" onClick={() => handleAction('entrega', selectedOs.id, { 
-                 sanitario_numero: newSanForm.numero, 
-                 categoria: newSanForm.categoria,
-                 fotos: ['https://placehold.co/600x400?text=Galeria'],
-                 is_last_item: false
-               }).then(() => setAddingSanitario(false))}>
+               <Button variant="outline" className="h-12 gap-1 text-xs" 
+                 disabled={!newSanForm.numero || !newSanForm.categoria}
+                 onClick={() => handleAction('entrega', selectedOs.id, { 
+                   sanitario_numero: newSanForm.numero, 
+                   categoria: newSanForm.categoria,
+                   estado_atual: newSanForm.estado_atual,
+                   fotos: ['https://placehold.co/600x400?text=Galeria'],
+                   is_last_item: false
+                 }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
                   <ImageIcon className="h-4 w-4" /> Galeria
                </Button>
-               <Button className="h-12 gap-1 text-xs bg-slate-800" onClick={() => handleAction('entrega', selectedOs.id, { 
-                 sanitario_numero: newSanForm.numero, 
-                 categoria: newSanForm.categoria,
-                 fotos: ['https://placehold.co/600x400?text=Camera'],
-                 is_last_item: false
-               }).then(() => setAddingSanitario(false))}>
+               <Button className="h-12 gap-1 text-xs bg-slate-800" 
+                 disabled={!newSanForm.numero || !newSanForm.categoria}
+                 onClick={() => handleAction('entrega', selectedOs.id, { 
+                   sanitario_numero: newSanForm.numero, 
+                   categoria: newSanForm.categoria,
+                   estado_atual: newSanForm.estado_atual,
+                   fotos: ['https://placehold.co/600x400?text=Camera'],
+                   is_last_item: false
+                 }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
                   <Camera className="h-4 w-4" /> Câmera
                </Button>
             </div>
