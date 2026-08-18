@@ -30,7 +30,7 @@ router.get('/os', async (req, res) => {
         `;
         
         const params: any[] = [];
-        if ((req as any).user?.role === 'funcionario' && funcionarioId) {
+        if (((req as any).user?.role === 'funcionario' || (req as any).user?.funcionario_id) && funcionarioId) {
             query += ` AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1)`;
             params.push(funcionarioId);
         }

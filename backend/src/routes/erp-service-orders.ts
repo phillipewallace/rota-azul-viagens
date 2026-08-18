@@ -465,11 +465,11 @@ router.post('/', async (req, res) => {
       `INSERT INTO erp_service_orders
          (numero, company_id, customer_id, customer_snapshot,
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
-          forma_pagamento, use_new_flow)
-       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,'aberta',$9,$10,$11, TRUE) RETURNING id`,
+          forma_pagamento, use_new_flow, funcionario_id)
+       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,'aberta',$9,$10,$11, TRUE, $12) RETURNING id`,
       [numero, companyId, c.customerId || null, snap,
        c.modalidade || 'diaria', c.tipoLocacao || null, c.dataInicio || null, c.dataFimPrevista || null,
-       c.valorTotal || 0, c.observacoes || null, c.formaPagamento || null]
+       c.valorTotal || 0, c.observacoes || null, c.formaPagamento || null, c.funcionarioId || null]
     );
     const osId = r.rows[0].id;
     const qtdSanit = Number(c.qtdSanitarios) || 0;
