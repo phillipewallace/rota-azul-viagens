@@ -12,7 +12,7 @@ router.use(requireAuth);
 router.get('/os', async (req, res) => {
     try {
         const { history } = req.query;
-        const funcionarioId = (req as any).user?.funcionarioId;
+        const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
         logger.info(TAG, `Buscando OS para func_id: ${funcionarioId}${history ? ' (Histórico)' : ''}`);
         
         let statusFilter = "o.status IN ('aberta', 'despachada', 'entregue', 'recolhimento_solicitado')";

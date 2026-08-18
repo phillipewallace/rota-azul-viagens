@@ -833,8 +833,8 @@ const ServiceOrders: React.FC = () => {
           )}
 
           {!detailLoading && detailOs && detailData && (() => {
-            const o = detailOs;
-            const det = detailData;
+            const o = detailOs as any;
+            const det = detailData as any;
             return (
               <div className="space-y-3 text-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
