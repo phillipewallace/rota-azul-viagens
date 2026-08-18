@@ -109,7 +109,7 @@ const AppFuncionarios = () => {
         },
         body: JSON.stringify({
           ...extraData,
-          funcionario_id: user.id,
+          funcionario_id: user.funcionario_id || user.id,
           funcionario_nome: user.nome
         })
       });
