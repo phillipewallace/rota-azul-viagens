@@ -52,6 +52,7 @@ router.get('/', async (req, res) => {
     const pg = parsePagination(req, params.length);
     const rowsQ = await pool.query(`
       SELECT o.id, o.numero, o.quote_id AS "quoteId", o.company_id AS "companyId",
+             o.funcionario_id AS "funcionarioId",
              o.customer_id AS "customerId", o.modalidade, o.tipo_locacao AS "tipoLocacao",
              o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
              o.data_fechamento AS "dataFechamento", o.status,
