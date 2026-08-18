@@ -77,6 +77,47 @@ async function getCategoriasTotalFisico(): Promise<Record<Categoria, number>> {
   return map;
 }
 
+/** GET /api/sanitarios/available — sanitários prontos para locação */
+router.get('/available', requireAuth, async (_req: any, res: any) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, numero, categoria, modelo, estado_atual, status 
+       FROM sanitarios 
+       WHERE status = 'disponivel' 
+       ORDER BY numero ASC`
+    );
+    res.json(r.rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/sanitarios/tipos — categorias cadastradas */
+router.get('/tipos', requireAuth, async (_req: any, res: any) => {
+  try {
+    const r = await pool.query('SELECT * FROM erp_sanitario_tipos ORDER BY nome ASC');
+    res.json(r.rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+  const r = await pool.query(
+    `SELECT value FROM app_settings WHERE key = 'sanitarios_categorias_total_fisico'`,
+  );
+  let parsed: any = {};
+  try { parsed = r.rows[0]?.value ? JSON.parse(r.rows[0].value) : {}; } catch { parsed = {}; }
+  if (!Object.keys(parsed).length) {
+    const r2 = await pool.query(`SELECT value FROM app_settings WHERE key = 'sanitarios_total_fisico'`);
+    const legacy = r2.rows[0]?.value ? parseInt(r2.rows[0].value, 10) || 0 : 0;
+    if (legacy > 0) parsed = { comum: legacy };
+  }
+  const map = Object.fromEntries(
+    CATEGORIAS.map(c => [c, Math.max(0, parseInt(parsed[c], 10) || 0)])
+  ) as Record<Categoria, number>;
+  return map;
+}
+
 async function saveCategoriasTotalFisico(map: Record<Categoria, number>) {
   await ensureAppSettings();
   const clean: Record<string, number> = {};
