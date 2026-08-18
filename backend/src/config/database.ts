@@ -202,6 +202,7 @@ export const setupDatabase = async () => {
       ['customers', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       ['customers', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       // erp_service_orders
+      ['erp_service_orders', 'funcionario_id', 'UUID REFERENCES erp_funcionarios(id)'],
       ['erp_service_orders', 'use_new_flow', 'BOOLEAN DEFAULT TRUE'],
       ['erp_service_orders', 'numero', 'TEXT'], // Segurança extra para tabelas que podem estar inconsistentes
       ['erp_service_orders', 'company_id', 'UUID REFERENCES erp_companies(id)'],
