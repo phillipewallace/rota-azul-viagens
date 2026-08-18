@@ -1,6 +1,8 @@
+import { API_BASE_URL } from "@/services/config";
+
 /**
  * Logger estruturado leve para frontend.
- * Saída em JSON no console — fácil de capturar por DevTools/Sentry futuramente.
+ * Saída em JSON no console e opcionalmente enviada para o servidor.
  */
 type Level = "debug" | "info" | "warn" | "error";
 
@@ -10,7 +12,7 @@ interface LogContext {
 
 const isDev = import.meta.env.DEV;
 
-function emit(level: Level, message: string, context?: LogContext) {
+async function emit(level: Level, message: string, context?: LogContext) {
   const entry = {
     ts: new Date().toISOString(),
     level,
@@ -18,17 +20,30 @@ function emit(level: Level, message: string, context?: LogContext) {
     ...(context ?? {}),
   };
 
-  // Em dev, formato legível. Em prod, JSON puro para parsing.
+  // 1. Console Log
   if (isDev) {
     const fn =
       level === "error" ? console.error
       : level === "warn" ? console.warn
       : level === "debug" ? console.debug
       : console.info;
-    fn(`[${level}] ${message}`, context ?? "");
+    fn(`[${level.toUpperCase()}] ${message}`, context ?? "");
   } else {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(entry));
+  }
+
+  // 2. Enviar para o servidor se for erro crítico ou se estiver no app de funcionários
+  // (Poderia ser condicional, mas para rastrear "C.filter" vamos enviar erros)
+  if (level === "error" || level === "warn") {
+    try {
+      fetch(`${API_BASE_URL}/logs/client`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: level.toUpperCase(), message, context }),
+        keepalive: true // Garante o envio mesmo se a página fechar
+      }).catch(() => {}); // Silent catch
+    } catch (e) {}
   }
 }
 
@@ -38,6 +53,7 @@ export const logger = {
   warn: (msg: string, ctx?: LogContext) => emit("warn", msg, ctx),
   error: (msg: string, ctx?: LogContext) => emit("error", msg, ctx),
 };
+
 
 /**
  * Registra handlers globais para erros não tratados.
