@@ -330,3 +330,4 @@ export const sanitarioNewService = {
   saveManual: (data: any) => req<any>('POST', '/erp/sanitarios-new/estoque-manual', data),
   remove: (numero: string) => req<any>('DELETE', `/sanitarios/${encodeURIComponent(numero)}`),
 };
+
