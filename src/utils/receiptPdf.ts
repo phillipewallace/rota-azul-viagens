@@ -491,6 +491,9 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   const muni = [cu.cidade && `${cu.cidade}/${cu.estado || ''}`, cu.cep && `CEP ${cu.cep}`]
     .filter(Boolean).join(' · ');
   if (muni) linhas.push(`Município:  ${muni}`);
+  
+  const contCli = [cu.telefone, cu.email].filter(Boolean).join('  ·  ');
+  if (contCli) linhas.push(`Contato:  ${contCli}`);
   for (const l of linhas) {
     const wrap = doc.splitTextToSize(l, W - 2 * M);
     for (const w of wrap) { doc.text(w, M, y); y += 5; }
