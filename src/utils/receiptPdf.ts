@@ -514,7 +514,7 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
       : '—';
     return [
       String(idx + 1),
-      { content: `Contrato ${it.contractNumero} · ${fullDesc}`, styles: { halign: 'left' } },
+      { content: `Contrato ${it.contractNumero} · ${fullDesc}`, styles: { halign: 'left' as const } },
       periodo,
       BRL(it.valor),
     ];
