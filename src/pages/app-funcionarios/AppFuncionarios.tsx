@@ -91,16 +91,20 @@ const AppFuncionarios = () => {
                   placeholder="000.000.000-00" 
                   className="bg-slate-700 border-none text-white h-12"
                   value={cpf}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '');
-                    let formatted = val;
-                    if (val.length <= 11) {
-                      formatted = val.replace(/(\d{3})(\d)/, '$1.$2');
-                      formatted = formatted.replace(/(\d{3})(\d)/, '$1.$2');
-                      formatted = formatted.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                    }
-                    setCpf(formatted);
-                  }}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      let formatted = val;
+                      if (val.length > 0) {
+                        if (val.length <= 11) {
+                          formatted = val.replace(/(\d{3})(\d)/, '$1.$2');
+                          formatted = formatted.replace(/(\d{3})(\d)/, '$1.$2');
+                          formatted = formatted.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                        } else {
+                          formatted = val.slice(0, 11);
+                        }
+                      }
+                      setCpf(formatted);
+                    }}
                 />
               </div>
               <div className="space-y-1.5">

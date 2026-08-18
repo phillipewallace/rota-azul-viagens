@@ -86,13 +86,24 @@ router.put('/:id', async (req, res) => {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Exclusão (Inativação Lógica conforme política)
+// Exclusão Híbrida (Inativação ou Exclusão Real)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
+    const { permanent } = req.query;
     try {
-        await pool.query('UPDATE erp_funcionarios SET active = false, updated_at = NOW() WHERE id = $1', [id]);
-        res.json({ success: true, message: 'Funcionário inativado com sucesso' });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+        if (permanent === 'true') {
+            await pool.query('DELETE FROM erp_funcionarios WHERE id = $1', [id]);
+            return res.json({ success: true, message: 'Funcionário removido permanentemente' });
+        } else {
+            await pool.query('UPDATE erp_funcionarios SET active = false, updated_at = NOW() WHERE id = $1', [id]);
+            return res.json({ success: true, message: 'Funcionário inativado com sucesso' });
+        }
+    } catch (e: any) { 
+        if (e.code === '23503') {
+            return res.status(400).json({ error: 'Não é possível excluir permanentemente: este funcionário possui registros vinculados (OS/Fotos). Recomenda-se apenas Inativar.' });
+        }
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 export default router;

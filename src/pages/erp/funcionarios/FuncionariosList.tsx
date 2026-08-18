@@ -59,17 +59,31 @@ const FuncionariosList = () => {
     useEffect(() => { load(); }, []);
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Tem certeza que deseja excluir permanentemente este funcionário?')) return;
+        const choice = confirm(
+            'ESCOLHA O TIPO DE EXCLUSÃO:\n\n' +
+            'CANCELAR: Não faz nada.\n' +
+            'OK: INATIVAR (recomendado para manter histórico).\n\n' +
+            'Para EXCLUSÃO DEFINITIVA (remover do banco), clique em OK e depois confirme o aviso de segurança.'
+        );
+        
+        if (!choice) return;
+
+        const isPermanent = confirm('⚠️ AVISO: Deseja EXCLUIR DEFINITIVAMENTE do banco de dados? Esta ação não pode ser desfeita e falhará se o funcionário tiver OS vinculadas.');
+
         try {
             const token = localStorage.getItem('auth_token');
-            const res = await fetch(`${API_BASE_URL}/erp/funcionarios/${id}`, {
+            const url = `${API_BASE_URL}/erp/funcionarios/${id}${isPermanent ? '?permanent=true' : ''}`;
+            const res = await fetch(url, {
                 method: 'DELETE',
                 headers: { Authorization: token ? `Bearer ${token}` : '' }
             });
-            if (!res.ok) throw new Error();
-            toast.success('Funcionário excluído');
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Erro na operação');
+            toast.success(isPermanent ? 'Funcionário removido permanentemente' : 'Funcionário inativado');
             load();
-        } catch { toast.error('Erro ao excluir'); }
+        } catch (e: any) { 
+            toast.error(e.message || 'Erro ao processar exclusão'); 
+        }
     };
 
     const handleToggleStatus = async (f: Funcionario) => {
