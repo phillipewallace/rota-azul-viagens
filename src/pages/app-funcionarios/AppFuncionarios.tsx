@@ -19,6 +19,7 @@ import {
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface OS {
   id: string;
@@ -36,10 +37,15 @@ const AppFuncionarios = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [list, setList] = useState<OS[]>([]);
-  const [selectedOs, setSelectedOs] = useState<OS | null>(null);
+  const [selectedOs, setSelectedOs] = useState<any | null>(null);
   const [uploading, setUploading] = useState(false);
   const [osSanitarios, setOsSanitarios] = useState<any[]>([]);
   const [addingSanitario, setAddingSanitario] = useState(false);
+  const [genericServiceDialog, setGenericServiceDialog] = useState(false);
+  const [genericForm, setGenericForm] = useState({
+    observacoes: '',
+    fotos: [] as string[]
+  });
   const [newSanForm, setNewSanForm] = useState({ 
     numero: '', 
     categoria: 'comum', 
@@ -241,7 +247,7 @@ const AppFuncionarios = () => {
             <CardContent className="p-0">
               <button 
                 className="w-full text-left p-4 flex items-center gap-4"
-                onClick={() => { setSelectedOs(os); setView('detalhe'); loadOsSanitarios(os.id); }}
+                onClick={() => { setSelectedOs(os); setView('detalhe'); loadOsSanitarios(os.id); setGenericForm({ observacoes: '', fotos: [] }); }}
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                   os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 
@@ -328,13 +334,23 @@ const AppFuncionarios = () => {
                   ))}
 
                   {selectedOs.status === 'despachada' && (
-                    <Button 
-                      variant="outline" 
-                      className="w-full h-16 border-2 border-dashed gap-2"
-                      onClick={() => setAddingSanitario(true)}
-                    >
-                      <Plus className="h-5 w-5" /> Vincular Sanitário (Entrega)
-                    </Button>
+                    <div className="space-y-3">
+                      <Button 
+                        variant="outline" 
+                        className="w-full h-16 border-2 border-dashed gap-2"
+                        onClick={() => setAddingSanitario(true)}
+                      >
+                        <Plus className="h-5 w-5" /> Vincular Sanitário (Entrega)
+                      </Button>
+
+                      <Button 
+                        variant="secondary"
+                        className="w-full h-16 border-2 border-dashed gap-2"
+                        onClick={() => setGenericServiceDialog(true)}
+                      >
+                        <CheckCircle2 className="h-5 w-5 text-blue-600" /> Registrar Serviço (Outros)
+                      </Button>
+                    </div>
                   )}
 
                   {osSanitarios.length > 0 && selectedOs.status === 'despachada' && (
@@ -402,6 +418,51 @@ const AppFuncionarios = () => {
                  fotos: ['https://placehold.co/600x400?text=Camera'],
                  is_last_item: false
                }).then(() => setAddingSanitario(false))}>
+                  <Camera className="h-4 w-4" /> Câmera
+               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={genericServiceDialog} onOpenChange={setGenericServiceDialog}>
+        <DialogContent className="max-w-xs rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Registrar Serviço</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-slate-500">Relato do Serviço</label>
+              <Textarea 
+                placeholder="Descreva o que foi realizado..."
+                className="min-h-[100px] bg-slate-50"
+                value={genericForm.observacoes}
+                onChange={e => setGenericForm(p => ({ ...p, observacoes: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+               <Button 
+                variant="outline" 
+                className="h-12 gap-1 text-xs" 
+                disabled={!genericForm.observacoes}
+                onClick={() => handleAction('entrega', selectedOs.id, { 
+                  is_generic_service: true,
+                  observacoes: genericForm.observacoes,
+                  fotos: ['https://placehold.co/600x400?text=Servico-Galeria'],
+                }).then(() => setGenericServiceDialog(false))}
+               >
+                  <ImageIcon className="h-4 w-4" /> Galeria
+               </Button>
+               <Button 
+                className="h-12 gap-1 text-xs bg-slate-800" 
+                disabled={!genericForm.observacoes}
+                onClick={() => handleAction('entrega', selectedOs.id, { 
+                  is_generic_service: true,
+                  observacoes: genericForm.observacoes,
+                  fotos: ['https://placehold.co/600x400?text=Servico-Camera'],
+                }).then(() => setGenericServiceDialog(false))}
+               >
                   <Camera className="h-4 w-4" /> Câmera
                </Button>
             </div>
