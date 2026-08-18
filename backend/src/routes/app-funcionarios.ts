@@ -1,15 +1,18 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth } from '../middleware/requireAuth';
+import { logger } from '../utils/logger';
+import { sendError } from '../utils/apiError';
 
 const router = Router();
+const TAG = 'APP-FUNC';
 router.use(requireAuth);
 
 // Endpoint para listar OS pendentes/agendadas para o funcionário (SIMULADO: retorna todas abertas por enquanto)
 router.get('/os', async (req, res) => {
     try {
         const funcionarioId = (req as any).user?.funcionarioId;
-        console.log(`[APP-FUNC] Buscando OS para func_id: ${funcionarioId}`);
+        logger.info(TAG, `Buscando OS para func_id: ${funcionarioId}`);
         
         // Se for admin (ex: phillipe.sodre), pode ver tudo. Se for funcionário, vê as dele.
         let query = `
@@ -32,8 +35,7 @@ router.get('/os', async (req, res) => {
         const r = await pool.query(query, params);
         res.json(r.rows);
     } catch (e: any) { 
-        console.error('[APP-FUNC] Erro ao listar OS:', e);
-        res.status(500).json({ error: e.message }); 
+        return sendError(res, e, `[${TAG}] Erro ao listar OS`);
     }
 });
 

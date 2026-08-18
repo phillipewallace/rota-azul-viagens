@@ -46,6 +46,7 @@ import erpFuncionariosRoutes from './routes/erp-funcionarios';
 import erpSanitariosNewRoutes from './routes/erp-sanitarios-new';
 import appFuncionariosRoutes from './routes/app-funcionarios';
 import path from 'path';
+import { requestLogger, logger } from './utils/logger';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -56,6 +57,9 @@ app.set('trust proxy', 1);
 
 // Segurança HTTP — headers seguros (sem CSP para não quebrar assets servidos)
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// Logger de requisições profissional
+app.use(requestLogger);
 
 // CORS: permite origens conhecidas + requisições sem Origin (APK Capacitor)
 const ALLOWED_ORIGINS = [

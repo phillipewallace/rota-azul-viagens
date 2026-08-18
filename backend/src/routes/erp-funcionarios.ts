@@ -3,26 +3,40 @@ import { pool } from '../config/database';
 import { requireAuth } from '../middleware/requireAuth';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { logger } from '../utils/logger';
+import { sendError } from '../utils/apiError';
 
 const router = Router();
+const TAG = 'AUTH-FUNC';
 
 // Login via CPF (Publico para o App de Funcionários)
 router.post('/login', async (req, res) => {
     const { cpf, password } = req.body;
-    console.log(`[AUTH] Tentativa de login CPF: ${cpf}`);
+    logger.auth(TAG, `Tentativa de login iniciada para CPF: ${cpf}`);
+    
     try {
+        if (!cpf || !password) {
+            logger.warn(TAG, 'Login falhou: CPF ou senha não fornecidos');
+            return res.status(400).json({ error: 'CPF e senha são obrigatórios' });
+        }
+
         const cleanCpf = String(cpf).replace(/\D/g, '');
+        if (cleanCpf.length !== 11) {
+            logger.warn(TAG, `Login falhou: CPF inválido (${cleanCpf})`);
+            return res.status(400).json({ error: 'CPF deve conter 11 dígitos' });
+        }
+
         const r = await pool.query('SELECT * FROM erp_funcionarios WHERE cpf = $1 AND active = true', [cleanCpf]);
         const func = r.rows[0];
         
         if (!func) {
-            console.warn(`[AUTH] Login falhou: CPF ${cleanCpf} not found or inactive`);
+            logger.warn(TAG, `Login falhou: Funcionário não encontrado ou inativo (CPF: ${cleanCpf})`);
             return res.status(401).json({ error: 'Funcionário não encontrado ou inativo' });
         }
         
         const valid = await bcrypt.compare(String(password), func.password_hash);
         if (!valid) {
-            console.warn(`[AUTH] Login falhou: Wrong password for CPF ${cleanCpf}`);
+            logger.warn(TAG, `Login falhou: Senha incorreta para o funcionário ${func.nome} (CPF: ${cleanCpf})`);
             return res.status(401).json({ error: 'Senha incorreta' });
         }
 
@@ -38,7 +52,8 @@ router.post('/login', async (req, res) => {
             { expiresIn: '30d' }
         );
 
-        console.log(`[AUTH] Login success: ${func.nome} (${cleanCpf})`);
+        logger.auth(TAG, `Login realizado com sucesso: ${func.nome} (ID: ${func.id})`);
+        
         res.json({ 
             id: func.id, 
             nome: func.nome, 
@@ -47,8 +62,7 @@ router.post('/login', async (req, res) => {
             token 
         });
     } catch (e: any) { 
-        console.error('[AUTH] Login error:', e);
-        res.status(500).json({ error: e.message }); 
+        return sendError(res, e, `[${TAG}] Erro crítico no login`);
     }
 });
 
