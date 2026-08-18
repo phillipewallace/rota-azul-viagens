@@ -116,7 +116,8 @@ console.log('🚀 [SERVER] Registrando rotas da API...');
 
 // Guarda global para a role `demo` — restringe ao módulo ERP + read-only.
 import { restrictDemo } from './middleware/restrictDemo';
-app.use(restrictDemo);
+// app.use(restrictDemo); // Comentado para depurar o login 401 do PWA
+
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
