@@ -451,6 +451,67 @@ export default function Sanitarios() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Editor Modal (Novo/Editar) */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? 'Editar Sanitário' : 'Novo Sanitário'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Número / Série *</Label>
+              <Input 
+                value={editing?.numero || ''} 
+                placeholder="Ex: S-123" 
+                onChange={e => setEditing(prev => ({ ...prev, numero: e.target.value.toUpperCase() }))} 
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <SearchableSelect
+                  value={editing?.categoria || 'comum'}
+                  options={SANITARIO_CATEGORIAS.map(c => ({ value: c.value, label: c.label }))}
+                  onValueChange={v => setEditing(prev => ({ ...prev, categoria: v as any }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Estado Atual</Label>
+                <SearchableSelect
+                  value={editing?.estado_atual || 'bom'}
+                  options={[
+                    { value: 'bom', label: 'Bom' },
+                    { value: 'danificado', label: 'Danificado' },
+                    { value: 'critico', label: 'Crítico' }
+                  ]}
+                  onValueChange={v => setEditing(prev => ({ ...prev, estado_atual: v as any }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <SearchableSelect
+                value={editing?.status || 'disponivel'}
+                options={[
+                  { value: 'disponivel', label: 'Disponível' },
+                  { value: 'manutencao', label: 'Em Manutenção' },
+                  { value: 'inativo', label: 'Inativo' },
+                  { value: 'em_cliente', label: 'Em Cliente (Auto)', disabled: true }
+                ]}
+                onValueChange={v => setEditing(prev => ({ ...prev, status: v as any }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button className="bg-primary text-white gap-2" onClick={handleSave} disabled={saving}>
+              {saving ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Salvar Ativo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
