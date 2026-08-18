@@ -87,6 +87,8 @@ const authLimiter = rateLimit({
   message: { error: 'Muitas tentativas. Tente novamente em alguns minutos.' },
 });
 app.use('/api/auth/login', authLimiter);
+app.use('/api/erp/funcionarios/login', authLimiter);
+
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -111,12 +113,19 @@ app.get('/api/test-db', async (req, res) => {
   }
 });
 
-// API Routes
+// API Routes (Públicas - Sem requireAuth global aqui)
 console.log('🚀 [SERVER] Registrando rotas da API...');
 
-// Guarda global para a role `demo` — restringe ao módulo ERP + read-only.
+// Rota de login de funcionários deve vir ANTES de qualquer middleware de auth/demo
+app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
+
+app.use('/api/auth', authRoutes);
+
 import { restrictDemo } from './middleware/restrictDemo';
 app.use(restrictDemo);
+
+
+
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
@@ -154,7 +163,7 @@ app.use('/api/erp/recurring-expenses', erpRecurringExpensesRoutes);
 app.use('/api/erp/signed-pdfs', erpSignedPdfsRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
-app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
+// A rota erp/funcionarios já foi registrada acima com tratamento interno de auth para o login
 app.use('/api/erp/sanitarios-new', erpSanitariosNewRoutes);
 app.use('/api/app-funcionarios', appFuncionariosRoutes);
 

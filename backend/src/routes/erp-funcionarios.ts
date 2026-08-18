@@ -11,19 +11,17 @@ router.post('/login', async (req, res) => {
     const { cpf, password } = req.body;
     try {
         const cleanCpf = String(cpf).replace(/\D/g, '');
-        console.log(`[AUTH] Tentativa de login CPF: ${cleanCpf}`);
         const r = await pool.query('SELECT * FROM erp_funcionarios WHERE cpf = $1 AND active = true', [cleanCpf]);
         const func = r.rows[0];
         if (!func) {
-            console.log(`[AUTH] Funcionário não encontrado ou inativo: ${cleanCpf}`);
             return res.status(401).json({ error: 'Funcionário não encontrado ou inativo' });
         }
         
         const valid = await bcrypt.compare(String(password), func.password_hash);
         if (!valid) {
-            console.log(`[AUTH] Senha incorreta para CPF: ${cleanCpf}`);
             return res.status(401).json({ error: 'Senha incorreta' });
         }
+
         
         const token = jwt.sign(
             { 
@@ -46,7 +44,15 @@ router.post('/login', async (req, res) => {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-router.use(requireAuth);
+
+// Middlewares abaixo exigem autenticação
+router.use((req, res, next) => {
+    // Rota de login deve ser pública
+    if (req.path === '/login' || req.path === '/login/' || req.path.endsWith('/login')) { 
+        return next(); 
+    }
+    return requireAuth(req, res, next);
+});
 
 router.get('/', async (req, res) => {
     try {
@@ -86,13 +92,24 @@ router.put('/:id', async (req, res) => {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// Exclusão (Inativação Lógica conforme política)
+// Exclusão Híbrida (Inativação ou Exclusão Real)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
+    const { permanent } = req.query;
     try {
-        await pool.query('UPDATE erp_funcionarios SET active = false, updated_at = NOW() WHERE id = $1', [id]);
-        res.json({ success: true, message: 'Funcionário inativado com sucesso' });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+        if (permanent === 'true') {
+            await pool.query('DELETE FROM erp_funcionarios WHERE id = $1', [id]);
+            return res.json({ success: true, message: 'Funcionário removido permanentemente' });
+        } else {
+            await pool.query('UPDATE erp_funcionarios SET active = false, updated_at = NOW() WHERE id = $1', [id]);
+            return res.json({ success: true, message: 'Funcionário inativado com sucesso' });
+        }
+    } catch (e: any) { 
+        if (e.code === '23503') {
+            return res.status(400).json({ error: 'Não é possível excluir permanentemente: este funcionário possui registros vinculados (OS/Fotos). Recomenda-se apenas Inativar.' });
+        }
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 export default router;

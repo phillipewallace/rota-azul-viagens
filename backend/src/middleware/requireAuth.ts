@@ -23,7 +23,9 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
   try {
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-    if (!token) return res.status(401).json({ error: 'Token ausente' });
+    if (!token) {
+      return res.status(401).json({ error: 'Token ausente' });
+    }
     const decoded = jwt.verify(token, SECRET) as any;
     req.user = { userId: decoded.userId, username: decoded.username, role: decoded.role, funcionarioId: decoded.funcionario_id || (decoded.role === 'funcionario' ? decoded.userId : undefined) };
     next();
