@@ -356,8 +356,61 @@ const AppFuncionarios = () => {
                    <Info className="h-4 w-4 shrink-0 mt-0.5" />
                    <p>Para locações múltiplas, registre cada sanitário individualmente. Novos ativos serão cadastrados automaticamente se não encontrados.</p>
                 </div>
-              </div>
-            )}
+        </div>
+      )}
+
+      <Dialog open={addingSanitario} onOpenChange={setAddingSanitario}>
+        <DialogContent className="max-w-xs rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Vincular Entrega</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-slate-500">Número / Série</label>
+              <Input 
+                value={newSanForm.numero} 
+                className="h-12 font-bold uppercase" 
+                placeholder="Ex: S-001" 
+                onChange={e => setNewSanForm(p => ({ ...p, numero: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-slate-500">Categoria (Se novo)</label>
+              <Select value={newSanForm.categoria} onValueChange={v => setNewSanForm(p => ({ ...p, categoria: v }))}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="comum">Comum</SelectItem>
+                  <SelectItem value="pne">PNE</SelectItem>
+                  <SelectItem value="pia">Pia</SelectItem>
+                  <SelectItem value="luxo">Luxo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+               <Button variant="outline" className="h-12 gap-1 text-xs" onClick={() => handleAction('entrega', selectedOs.id, { 
+                 sanitario_numero: newSanForm.numero, 
+                 categoria: newSanForm.categoria,
+                 fotos: ['https://placehold.co/600x400?text=Galeria'],
+                 is_last_item: false
+               }).then(() => setAddingSanitario(false))}>
+                  <ImageIcon className="h-4 w-4" /> Galeria
+               </Button>
+               <Button className="h-12 gap-1 text-xs bg-slate-800" onClick={() => handleAction('entrega', selectedOs.id, { 
+                 sanitario_numero: newSanForm.numero, 
+                 categoria: newSanForm.categoria,
+                 fotos: ['https://placehold.co/600x400?text=Camera'],
+                 is_last_item: false
+               }).then(() => setAddingSanitario(false))}>
+                  <Camera className="h-4 w-4" /> Câmera
+               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
           </main>
         </div>
       )}
