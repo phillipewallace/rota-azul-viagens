@@ -51,8 +51,9 @@ router.post('/login', async (req, res) => {
 // Middlewares abaixo exigem autenticação
 router.use((req, res, next) => {
     // Rota de login deve ser pública
-    // Se o roteamento for app.use('/api/erp/funcionarios', erpFuncionariosRoutes), o path será '/login'
-    // Se for sub-roteado de outra forma, checamos o sufixo
+    // Se o roteamento for app.use('/api/erp/funcionarios', erpFuncionariosRoutes), 
+    // req.path será '/login' quando a URL for /api/erp/funcionarios/login
+    console.log(`[AUTH-DEBUG] req.path: ${req.path}, req.originalUrl: ${req.originalUrl}`);
     if (req.path === '/login' || req.path.endsWith('/login')) { 
         return next(); 
     }
