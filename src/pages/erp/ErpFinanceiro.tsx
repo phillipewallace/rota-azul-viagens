@@ -1020,7 +1020,7 @@ const ErpFinanceiro: React.FC = () => {
           const ct = snap.contract || {};
           return {
             contractNumero: g.contractNumero || ct.numero || '',
-            descricao: ct.descricao || `Locação — Contrato ${g.contractNumero || ''}`,
+            descricao: ct.descricaoCompleta || ct.descricao || `Locação — Contrato ${g.contractNumero || ''}`,
             enderecoObra: ct.enderecoObra || ct.localEvento || '',
             cno: ct.cno || '',
             valor: Number(g.valor) || 0,

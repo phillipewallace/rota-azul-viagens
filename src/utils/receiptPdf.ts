@@ -499,13 +499,19 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   // ---------- Itens (endereço da obra dentro da descrição) ----------
   y += 4;
   const body = input.items.map((it, idx) => {
-    const desc = it.enderecoObra ? `${it.descricao} — ${it.enderecoObra}` : it.descricao;
+    // Descrição completa: Descrição do Contrato + Endereço da Obra
+    const descParts = [
+      it.descricao,
+      it.enderecoObra
+    ].filter(Boolean);
+    const fullDesc = descParts.join(' — ');
+
     const periodo = (it.periodoInicio || it.periodoFim)
       ? formatPeriodo(it.periodoInicio, it.periodoFim)
       : '—';
     return [
       String(idx + 1),
-      `Contrato ${it.contractNumero} · ${desc}`,
+      `Contrato ${it.contractNumero} · ${fullDesc}`,
       periodo,
       BRL(it.valor),
     ];
