@@ -1,6 +1,9 @@
 
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
+import { logger } from '../utils/logger';
+
+const TAG = 'DATABASE';
 
 dotenv.config();
 
@@ -19,11 +22,11 @@ const pool = new Pool({
 
 export const setupDatabase = async () => {
   try {
-    console.log(`🔄 Conectando ao banco de dados: ${process.env.DB_NAME || 'alchemy_rotas'}`);
+    logger.info(TAG, `Conectando ao banco de dados: ${process.env.DB_NAME || 'alchemy_rotas'}`);
     
     // Testa a conexão
     const client = await pool.connect();
-    console.log(`✅ Conectado ao banco de dados '${process.env.DB_NAME || 'alchemy_rotas'}'`);
+    logger.info(TAG, `Conectado ao banco de dados '${process.env.DB_NAME || 'alchemy_rotas'}'`);
     
     // Verifica se as extensões estão instaladas
     await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
