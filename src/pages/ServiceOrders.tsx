@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import PaginationBar from '@/components/PaginationBar';
 import { API_BASE_URL } from '@/services/config';
+import { logger } from '@/lib/logger';
+
 
 import { downloadCsv, downloadPdf } from '@/utils/exporters';
 import { generateContractPdf } from '@/utils/contractPdf';
