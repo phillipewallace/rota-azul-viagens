@@ -9,20 +9,24 @@ const router = Router();
 // Login via CPF (Publico para o App de Funcionários)
 router.post('/login', async (req, res) => {
     const { cpf, password } = req.body;
+    console.log(`[AUTH] Tentativa de login CPF: ${cpf}`);
     try {
         const cleanCpf = String(cpf).replace(/\D/g, '');
         const r = await pool.query('SELECT * FROM erp_funcionarios WHERE cpf = $1 AND active = true', [cleanCpf]);
         const func = r.rows[0];
+        
         if (!func) {
+            console.warn(`[AUTH] Login falhou: CPF ${cleanCpf} not found or inactive`);
             return res.status(401).json({ error: 'Funcionário não encontrado ou inativo' });
         }
         
         const valid = await bcrypt.compare(String(password), func.password_hash);
         if (!valid) {
+            console.warn(`[AUTH] Login falhou: Wrong password for CPF ${cleanCpf}`);
             return res.status(401).json({ error: 'Senha incorreta' });
         }
 
-        
+        const SECRET = process.env.JWT_SECRET || 'dev-only-insecure-secret';
         const token = jwt.sign(
             { 
                 userId: func.id, 
@@ -30,10 +34,11 @@ router.post('/login', async (req, res) => {
                 role: 'funcionario',
                 funcionario_id: func.id 
             }, 
-            process.env.JWT_SECRET || 'dev-only-insecure-secret',
+            SECRET,
             { expiresIn: '30d' }
         );
 
+        console.log(`[AUTH] Login success: ${func.nome} (${cleanCpf})`);
         res.json({ 
             id: func.id, 
             nome: func.nome, 
@@ -41,7 +46,10 @@ router.post('/login', async (req, res) => {
             firstLogin: func.first_login,
             token 
         });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { 
+        console.error('[AUTH] Login error:', e);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 
