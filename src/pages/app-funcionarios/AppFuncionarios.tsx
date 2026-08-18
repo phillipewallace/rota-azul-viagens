@@ -30,8 +30,23 @@ const AppFuncionarios = () => {
   const [list, setList] = useState<OS[]>([]);
   const [selectedOs, setSelectedOs] = useState<OS | null>(null);
 
+  useEffect(() => {
+    const savedUser = localStorage.getItem('alchemy_func_user');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+        setView('agenda');
+      } catch (e) {
+        localStorage.removeItem('alchemy_func_user');
+      }
+    }
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!cpf || !password) return toast.error('Preencha todos os campos');
+    
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/erp/funcionarios/login`, {
@@ -39,37 +54,56 @@ const AppFuncionarios = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cpf, password })
       });
+
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || err.message || 'Falha no login');
+        throw new Error(err.error || 'Credenciais inválidas');
       }
+
       const data = await res.json();
       setUser(data);
+      localStorage.setItem('alchemy_func_user', JSON.stringify(data));
       setView('agenda');
-      loadOS();
+      toast.success(`Bem-vindo, ${data.nome}!`);
     } catch (e: any) { 
-      toast.error(e.message || 'CPF ou senha inválidos'); 
+      toast.error(e.message || 'Erro ao conectar com o servidor'); 
     } finally { 
       setLoading(false); 
     }
   };
 
   const loadOS = async () => {
+    if (!user?.token) return;
     try {
       const res = await fetch(`${API_BASE_URL}/app-funcionarios/os`, {
         headers: {
-          'Authorization': `Bearer ${user?.token}`
+          'Authorization': `Bearer ${user.token}`
         }
       });
       if (res.status === 401) {
-        setUser(null);
-        setView('login');
+        handleLogout();
         return;
       }
       const data = await res.json();
       setList(data);
-    } catch (e) { toast.error('Erro ao carregar agenda'); }
+    } catch (e) { 
+      console.error('Erro ao carregar agenda:', e);
+    }
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem('alchemy_func_user');
+    setUser(null);
+    setView('login');
+    setCpf('');
+    setPassword('');
+  };
+
+  useEffect(() => {
+    if (view === 'agenda' && user?.token) {
+      loadOS();
+    }
+  }, [view, user]);
 
   if (view === 'login') {
     return (
