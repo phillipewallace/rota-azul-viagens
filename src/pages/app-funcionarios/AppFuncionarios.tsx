@@ -173,7 +173,7 @@ const AppFuncionarios = () => {
           </div>
           <span className="font-bold text-sm">Minha Agenda</span>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => { setUser(null); setView('login'); }}>
+        <Button variant="ghost" size="icon" onClick={handleLogout}>
           <LogOut className="h-5 w-5 text-slate-400" />
         </Button>
       </header>
