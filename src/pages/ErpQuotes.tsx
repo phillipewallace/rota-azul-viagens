@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { quotesService, Quote, QuoteItem } from '@/services/quotes';
-import { erpService, ErpCompany, sanitarioNewService, sanitarioCategoriaLabel } from '@/services/erp';
+import { erpService, ErpCompany, sanitarioNewService, sanitarioCategoriaLabel, SANITARIO_CATEGORIAS } from '@/services/erp';
 import { useCustomers } from '@/hooks/useCustomers';
 
 import { generateQuotePdf, generateQuotePdfBlob } from '@/utils/quotePdf';
