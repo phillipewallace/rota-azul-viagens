@@ -116,12 +116,14 @@ app.get('/api/test-db', async (req, res) => {
 // API Routes (Públicas - Sem requireAuth global aqui)
 console.log('🚀 [SERVER] Registrando rotas da API...');
 
-app.use('/api/auth', authRoutes);
+// Rota de login de funcionários deve vir ANTES de qualquer middleware de auth/demo
 app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
 
+app.use('/api/auth', authRoutes);
 
 import { restrictDemo } from './middleware/restrictDemo';
 app.use(restrictDemo);
+
 
 
 
