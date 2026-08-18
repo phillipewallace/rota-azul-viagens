@@ -387,7 +387,8 @@ router.post('/:id/recolhimento-simplificado', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const o = await pool.query(`
-      SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
+      SELECT o.*, o.funcionario_id AS "funcionarioId",
+             o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
              cu.customer_name AS customer_name_join, cu.address AS customer_address_join,
              c.razao_social, c.cnpj, c.inscricao_estadual,
              c.endereco AS company_endereco, c.cidade AS company_cidade, c.estado AS company_estado,
