@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 import { serviceOrdersService, ServiceOrder } from '@/services/quotes';
 import PaginationBar from '@/components/PaginationBar';
 import { API_BASE_URL } from '@/services/config';
+import { logger } from '@/lib/logger';
+
 
 import { downloadCsv, downloadPdf } from '@/utils/exporters';
 import { generateContractPdf } from '@/utils/contractPdf';
@@ -72,6 +74,7 @@ const ServiceOrders: React.FC = () => {
     setDetailLoading(true);
     try {
       const det = await serviceOrdersService.get(o.id);
+      logger.info('OS detalhada carregada', { osId: o.id, funcionarioId: (det as any).funcionarioId });
       setDetailData(det);
     } catch (e: any) { toast.error(e.message); }
     finally { setDetailLoading(false); }
@@ -830,8 +833,8 @@ const ServiceOrders: React.FC = () => {
           )}
 
           {!detailLoading && detailOs && detailData && (() => {
-            const o = detailOs;
-            const det = detailData;
+            const o = detailOs as any;
+            const det = detailData as any;
             return (
               <div className="space-y-3 text-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

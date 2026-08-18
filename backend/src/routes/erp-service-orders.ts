@@ -52,6 +52,7 @@ router.get('/', async (req, res) => {
     const pg = parsePagination(req, params.length);
     const rowsQ = await pool.query(`
       SELECT o.id, o.numero, o.quote_id AS "quoteId", o.company_id AS "companyId",
+             o.funcionario_id AS "funcionarioId",
              o.customer_id AS "customerId", o.modalidade, o.tipo_locacao AS "tipoLocacao",
              o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
              o.data_fechamento AS "dataFechamento", o.status,
@@ -175,6 +176,7 @@ router.get('/financial/summary', async (req, res) => {
       `SELECT o.id, o.numero, o.modalidade, o.tipo_locacao AS "tipoLocacao",
               o.status, o.data_inicio AS "dataInicio", o.data_fim_prevista AS "dataFimPrevista",
               o.data_fechamento AS "dataFechamento", o.valor_total AS "valorTotal",
+              o.funcionario_id AS "funcionarioId",
               cu.customer_name AS "customerName", c.razao_social AS "companyRazaoSocial",
               (o.status='aberta' AND o.modalidade='diaria'
                AND o.data_fim_prevista IS NOT NULL
@@ -386,7 +388,8 @@ router.post('/:id/recolhimento-simplificado', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const o = await pool.query(`
-      SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
+      SELECT o.*, o.funcionario_id AS "funcionarioId",
+             o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
              cu.customer_name AS customer_name_join, cu.address AS customer_address_join,
              c.razao_social, c.cnpj, c.inscricao_estadual,
              c.endereco AS company_endereco, c.cidade AS company_cidade, c.estado AS company_estado,
@@ -465,11 +468,11 @@ router.post('/', async (req, res) => {
       `INSERT INTO erp_service_orders
          (numero, company_id, customer_id, customer_snapshot,
           modalidade, tipo_locacao, data_inicio, data_fim_prevista, status, valor_total, observacoes,
-          forma_pagamento, use_new_flow)
-       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,'aberta',$9,$10,$11, TRUE) RETURNING id`,
+          forma_pagamento, use_new_flow, funcionario_id)
+       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8,'aberta',$9,$10,$11, TRUE, $12) RETURNING id`,
       [numero, companyId, c.customerId || null, snap,
        c.modalidade || 'diaria', c.tipoLocacao || null, c.dataInicio || null, c.dataFimPrevista || null,
-       c.valorTotal || 0, c.observacoes || null, c.formaPagamento || null]
+       c.valorTotal || 0, c.observacoes || null, c.formaPagamento || null, c.funcionarioId || null]
     );
     const osId = r.rows[0].id;
     const qtdSanit = Number(c.qtdSanitarios) || 0;

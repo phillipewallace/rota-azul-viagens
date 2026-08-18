@@ -150,6 +150,7 @@ export interface ServiceOrder {
   valorTotal: number;
   observacoes?: string;
   formaPagamento?: 'cartao' | 'pix' | 'boleto' | null;
+  funcionario_id?: string | null;
   createdAt: string;
   emAtraso?: boolean;
   sanitariosAlocados?: number;

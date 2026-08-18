@@ -109,7 +109,7 @@ const AppFuncionarios = () => {
         },
         body: JSON.stringify({
           ...extraData,
-          funcionario_id: user.id,
+          funcionario_id: user.funcionario_id || user.id,
           funcionario_nome: user.nome
         })
       });
@@ -150,7 +150,7 @@ const AppFuncionarios = () => {
                 placeholder="CPF" 
                 className="bg-slate-700 border-none text-white h-12"
                 value={cpf}
-                onChange={(e) => setCpf(e.target.value)}
+                onChange={(e) => setCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
               />
               <Input 
                 type="password" 
