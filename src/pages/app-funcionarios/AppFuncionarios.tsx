@@ -8,11 +8,18 @@ import {
   PackageOpen, PackageCheck, Calendar, MapPin, 
   Camera, LogOut, ClipboardList, CheckCircle2,
   Clock, AlertCircle, ChevronRight, User, ArrowLeft, History,
-  Image as ImageIcon
+  Image as ImageIcon, Plus, Info, Check, X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
 import { logger } from '@/lib/logger';
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter 
+} from '@/components/ui/dialog';
+import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
+} from '@/components/ui/select';
+
 
 interface OS {
   id: string;
@@ -32,6 +39,14 @@ const AppFuncionarios = () => {
   const [list, setList] = useState<OS[]>([]);
   const [selectedOs, setSelectedOs] = useState<OS | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [osSanitarios, setOsSanitarios] = useState<any[]>([]);
+  const [addingSanitario, setAddingSanitario] = useState(false);
+  const [newSanForm, setNewSanForm] = useState({ 
+    numero: '', 
+    categoria: 'comum', 
+    estado_atual: 'bom' 
+  });
+
 
   useEffect(() => {
     const savedUser = localStorage.getItem('alchemy_func_user');
@@ -97,10 +112,19 @@ const AppFuncionarios = () => {
     setPassword('');
   };
 
+  const loadOsSanitarios = async (osId: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${osId}/sanitarios`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      if (res.ok) setOsSanitarios(await res.json());
+    } catch (e) {}
+  };
+
   const handleAction = async (type: 'entrega' | 'recolhimento', osId: string, extraData: any) => {
     setUploading(true);
     try {
-      const endpoint = type === 'entrega' ? 'entregar' : 'recolher';
+      const endpoint = type === 'entrega' ? 'entregar-item' : 'recolher-item';
       const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${osId}/${endpoint}`, {
         method: 'POST',
         headers: { 
@@ -116,8 +140,14 @@ const AppFuncionarios = () => {
 
       if (!res.ok) throw new Error(`Erro ao registrar ${type}`);
       toast.success(`${type === 'entrega' ? 'Entrega' : 'Recolhimento'} registrado!`);
-      setView('agenda');
-      loadOS(mode === 'historico');
+      
+      await loadOsSanitarios(osId);
+      await loadOS(mode === 'historico');
+      
+      if (extraData.is_last_item) {
+        setView('agenda');
+        setSelectedOs(null);
+      }
     } catch (e: any) {
       logger.error(`Erro na ação ${type}`, { error: e.message });
       toast.error(e.message);
@@ -125,6 +155,7 @@ const AppFuncionarios = () => {
       setUploading(false);
     }
   };
+
 
   useEffect(() => {
     if (view === 'agenda' && user?.token) {
@@ -213,7 +244,7 @@ const AppFuncionarios = () => {
             <CardContent className="p-0">
               <button 
                 className="w-full text-left p-4 flex items-center gap-4"
-                onClick={() => { setSelectedOs(os); setView('detalhe'); }}
+                onClick={() => { setSelectedOs(os); setView('detalhe'); loadOsSanitarios(os.id); }}
               >
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                   os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 
@@ -302,7 +333,7 @@ const AppFuncionarios = () => {
 
                   {selectedOs.status === 'despachada' && (
                     <Button 
-                      variant="dashed" 
+                      variant="outline" 
                       className="w-full h-16 border-2 border-dashed gap-2"
                       onClick={() => setAddingSanitario(true)}
                     >
