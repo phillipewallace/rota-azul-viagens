@@ -22,7 +22,7 @@ export interface AuthedRequest extends Request {
 /**
  * Middleware: exige Bearer token JWT válido.
  */
-export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
+export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): any {
   try {
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
@@ -42,7 +42,7 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
 /**
  * Versão "soft": tenta autenticar, mas não bloqueia se falhar.
  */
-export function softAuth(req: AuthedRequest, _res: Response, next: NextFunction) {
+export function softAuth(req: AuthedRequest, _res: Response, next: NextFunction): any {
   try {
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
@@ -60,7 +60,7 @@ export function softAuth(req: AuthedRequest, _res: Response, next: NextFunction)
  * O super-admin `phillipe.sodre` sempre passa.
  */
 export function requireRole(...roles: string[]) {
-  return (req: AuthedRequest, res: Response, next: NextFunction) => {
+  return (req: AuthedRequest, res: Response, next: NextFunction): any => {
     const u = req.user;
     if (!u) return res.status(401).json({ error: 'Não autenticado' });
     if (u.username === 'phillipe.sodre') return next();
