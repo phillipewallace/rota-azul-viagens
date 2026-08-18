@@ -50,11 +50,10 @@ router.post('/login', async (req, res) => {
 
 // Middlewares abaixo exigem autenticação
 router.use((req, res, next) => {
-    console.log(`[AUTH-DEBUG] Middleware check for: ${req.method} ${req.path}`);
-    // Se for a rota de login (/login), pula o requireAuth
-    if (req.path === '/login' || req.path === '/') { 
-        // Note: router.post('/login') matches path '/' if sub-routed as app.use('/api/erp/funcionarios/login', router)
-        // or path '/login' if app.use('/api/erp/funcionarios', router)
+    // Rota de login deve ser pública
+    // Se o roteamento for app.use('/api/erp/funcionarios', erpFuncionariosRoutes), o path será '/login'
+    // Se for sub-roteado de outra forma, checamos o sufixo
+    if (req.path === '/login' || req.path.endsWith('/login')) { 
         return next(); 
     }
     return requireAuth(req, res, next);
