@@ -25,7 +25,7 @@ router.get('/os', async (req, res) => {
             // Fila Global: OS abertas ou despachadas aparecem para todos. 
             // OS em andamento aparecem apenas para quem as assumiu ou quem está entregando/recolhendo.
             statusFilter = `(
-                o.status IN ('aberta', 'despachada') 
+                (o.status IN ('aberta', 'despachada') AND o.data_entrega >= '2026-08-19')
                 OR (o.status IN ('entregue', 'recolhimento_solicitado') AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1))
             )`;
             params.push(funcionarioId);
