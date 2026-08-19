@@ -293,7 +293,7 @@ router.post('/', async (req, res) => {
     res.json({ id: quoteId, numero });
   } catch (e: any) {
     if (client) await client.query('ROLLBACK').catch(() => {});
-    console.error('[erp-quotes POST]', e);
+    logger.error('QUOTES', `Erro ao criar orçamento: ${e.message}`, { error: e.stack });
     sendError(res, e, '[erp-quotes POST]');
   } finally {
     if (client) client.release();
@@ -387,7 +387,7 @@ router.put('/:id', async (req, res) => {
     res.json({ ok: true });
   } catch (e: any) {
     await client.query('ROLLBACK');
-    console.error('[erp-quotes PUT]', e);
+    logger.error('QUOTES', `Erro ao atualizar orçamento ${req.params.id}: ${e.message}`, { error: e.stack });
     sendError(res, e);
   } finally { client.release(); }
 });
