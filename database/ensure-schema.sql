@@ -572,3 +572,26 @@ ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS entregue_por_nome
 ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS recolhido_por_nome TEXT;
 ALTER TABLE public.erp_service_orders ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES public.erp_companies(id);
 
+-- Sanitários e Serviços (Quotes)
+ALTER TABLE public.erp_quote_items ADD COLUMN IF NOT EXISTS is_sanitario BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.erp_quote_items ADD COLUMN IF NOT EXISTS is_generic_service BOOLEAN DEFAULT FALSE;
+
+-- Fotos de Sanitários e Serviços
+ALTER TABLE public.erp_sanitario_fotos ADD COLUMN IF NOT EXISTS observacoes TEXT;
+
+-- Logs de Auditoria
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    table_name TEXT NOT NULL,
+    record_id UUID NOT NULL,
+    action TEXT NOT NULL, -- INSERT, UPDATE, DELETE
+    old_data JSONB,
+    new_data JSONB,
+    changed_by_id UUID,
+    changed_by_name TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_table_record ON public.audit_logs(table_name, record_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at DESC);
+
+
