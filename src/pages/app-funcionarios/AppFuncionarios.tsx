@@ -655,8 +655,8 @@ const AppFuncionarios = () => {
                </Card>
             </div>
 
-            <Button variant="destructive" className="w-full h-14 rounded-2xl font-bold mt-auto" onClick={handleLogout}>
-               Sair da Conta
+            <Button variant="destructive" className="w-full h-16 rounded-[1.5rem] font-black text-lg shadow-xl shadow-red-200 mt-auto" onClick={handleLogout}>
+               SAIR DA CONTA
             </Button>
           </main>
         </div>
