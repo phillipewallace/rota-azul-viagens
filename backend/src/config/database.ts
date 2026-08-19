@@ -384,6 +384,11 @@ export const setupDatabase = async () => {
       } catch (e) {}
     }
 
+    // 🏗️ Garantir coluna is_sanitario em erp_quote_items
+    try {
+      await client.query('ALTER TABLE erp_quote_items ADD COLUMN IF NOT EXISTS is_sanitario BOOLEAN DEFAULT FALSE');
+    } catch (e) {}
+
     console.log('✅ Colunas críticas verificadas');
 
     client.release();
