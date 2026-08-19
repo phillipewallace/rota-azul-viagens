@@ -198,21 +198,27 @@ const AppFuncionarios = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
-              <Input 
-                placeholder="CPF" 
-                className="bg-slate-700 border-none text-white h-12"
-                value={cpf}
-                onChange={(e) => setCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              />
-              <Input 
-                type="password" 
-                placeholder="Senha" 
-                className="bg-slate-700 border-none text-white h-12"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <Button type="submit" className="w-full h-12 font-bold text-base" disabled={loading}>
-                {loading ? 'Entrando...' : 'ENTRAR NO APP'}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">CPF</label>
+                <Input 
+                  placeholder="000.000.000-00" 
+                  className="bg-slate-700/50 border-none text-white h-14 rounded-2xl focus:ring-2 focus:ring-primary"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Senha</label>
+                <Input 
+                  type="password" 
+                  placeholder="••••••••" 
+                  className="bg-slate-700/50 border-none text-white h-14 rounded-2xl focus:ring-2 focus:ring-primary"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full h-14 font-black text-lg rounded-2xl shadow-xl shadow-primary/20 mt-4" disabled={loading}>
+                {loading ? 'ACESSANDO...' : 'ENTRAR NO APP'}
               </Button>
             </form>
           </CardContent>
