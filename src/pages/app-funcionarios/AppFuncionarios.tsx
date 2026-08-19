@@ -351,7 +351,7 @@ const AppFuncionarios = () => {
                         ) : selectedOs.status === 'recolhimento_solicitado' ? (
                           <div className="flex flex-col gap-2">
                              <Select defaultValue="bom" onValueChange={(v) => s.temp_estado = v}>
-                               <SelectTrigger className="h-8 text-[10px] w-24">
+                               <SelectTrigger className="h-10 text-[10px] w-full rounded-xl bg-white">
                                  <SelectValue placeholder="Estado" />
                                </SelectTrigger>
                                <SelectContent>
