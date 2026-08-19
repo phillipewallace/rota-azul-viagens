@@ -29,6 +29,8 @@ export interface QuoteItem {
   valorUnitario: number;
   valorTotal?: number;
   ordem?: number;
+  isSanitario?: boolean;
+  isGenericService?: boolean;
 }
 
 export interface Quote {
