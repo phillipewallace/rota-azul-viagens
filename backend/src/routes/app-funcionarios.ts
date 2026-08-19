@@ -11,24 +11,24 @@ router.use(requireAuth);
 // Endpoint para listar OS pendentes/agendadas ou histórico
 router.get('/os', async (req, res) => {
     try {
-        const { history } = req.query;
+        const { history, date } = req.query;
         const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
-        logger.info(TAG, `Buscando OS para func_id: ${funcionarioId}${history ? ' (Histórico)' : ''}`);
+        logger.info(TAG, `Buscando OS para func_id: ${funcionarioId}${history === 'true' ? ' (Histórico)' : ''} na data: ${date}`);
         
         let statusFilter = "";
         let params: any[] = [];
+        params.push(funcionarioId);
         
         if (history === 'true') {
             statusFilter = "o.status = 'fechada' AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1)";
-            params.push(funcionarioId);
         } else {
-            // Fila Global: OS abertas ou despachadas aparecem para todos. 
-            // OS em andamento aparecem apenas para quem as assumiu ou quem está entregando/recolhendo.
+            // Fila Global filtrada por DATA
+            // $2 será a data no formato YYYY-MM-DD
             statusFilter = `(
-                o.status IN ('aberta', 'despachada') 
+                (o.status IN ('aberta', 'despachada') AND o.data_entrega = $2)
                 OR (o.status IN ('entregue', 'recolhimento_solicitado') AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1))
             )`;
-            params.push(funcionarioId);
+            params.push(date || new Date().toISOString().split('T')[0]);
         }
 
         let query = `

@@ -31,8 +31,9 @@ interface OS {
 
 const AppFuncionarios = () => {
   const [user, setUser] = useState<any>(null);
-  const [view, setView] = useState<'login' | 'agenda' | 'detalhe'>('login');
-  const [mode, setMode] = useState<'agenda' | 'historico'>('agenda');
+  const [view, setView] = useState<'login' | 'agenda' | 'detalhe' | 'perfil'>('login');
+  const [mode, setMode] = useState<'agenda' | 'historico' | 'checklist'>('agenda');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,6 +65,12 @@ const AppFuncionarios = () => {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadOS(mode === 'historico');
+    }
+  }, [user, mode, selectedDate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,8 +110,9 @@ const AppFuncionarios = () => {
 
   const loadOS = async (isHistory = false) => {
     if (!user?.token) return;
+    setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os?history=${isHistory}`, {
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os?history=${isHistory}&date=${selectedDate}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (res.status === 401) return handleLogout();
@@ -113,6 +121,8 @@ const AppFuncionarios = () => {
     } catch (e: any) { 
       logger.error('Erro ao carregar OS', { error: e.message });
       setList([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -188,31 +198,38 @@ const AppFuncionarios = () => {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
         <PageMeta title="Login | Alchemy Operacional" noindex />
-        <Card className="w-full max-w-sm border-none shadow-2xl bg-slate-800 text-white">
+        <Card className="w-full max-w-sm border-none shadow-2xl bg-slate-800 text-white rounded-[2.5rem] p-4">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
               <User className="h-8 w-8 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-black italic tracking-tighter">ALCHEMY OPERACIONAL</CardTitle>
+            <CardTitle className="text-3xl font-black italic tracking-tighter">ALCHEMY <span className="text-primary">OPS</span></CardTitle>
+            <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1">Portal do Funcionário</p>
             <p className="text-xs text-slate-400">Acesse com seu CPF e senha</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
-              <Input 
-                placeholder="CPF" 
-                className="bg-slate-700 border-none text-white h-12"
-                value={cpf}
-                onChange={(e) => setCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              />
-              <Input 
-                type="password" 
-                placeholder="Senha" 
-                className="bg-slate-700 border-none text-white h-12"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <Button type="submit" className="w-full h-12 font-bold text-base" disabled={loading}>
-                {loading ? 'Entrando...' : 'ENTRAR NO APP'}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">CPF</label>
+                <Input 
+                  placeholder="000.000.000-00" 
+                  className="bg-slate-700/50 border-none text-white h-14 rounded-2xl focus:ring-2 focus:ring-primary"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Senha</label>
+                <Input 
+                  type="password" 
+                  placeholder="••••••••" 
+                  className="bg-slate-700/50 border-none text-white h-14 rounded-2xl focus:ring-2 focus:ring-primary"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full h-14 font-black text-lg rounded-2xl shadow-xl shadow-primary/20 mt-4" disabled={loading}>
+                {loading ? 'ACESSANDO...' : 'ENTRAR NO APP'}
               </Button>
             </form>
           </CardContent>
@@ -222,38 +239,60 @@ const AppFuncionarios = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-slate-50 pb-28">
       <PageMeta title="Minha Agenda | Alchemy Operacional" noindex />
       <header className="bg-white border-b sticky top-0 z-10 px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center">
             <ClipboardList className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-sm">Minha Agenda</span>
+          <span className="font-bold text-lg tracking-tighter">Alchemy<span className="text-primary">Ops</span></span>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleLogout}>
-          <LogOut className="h-5 w-5 text-slate-400" />
-        </Button>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => loadOS(mode === 'historico')}>
+            <Clock className="h-5 w-5 text-slate-400" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="h-5 w-5 text-slate-400" />
+          </Button>
+        </div>
       </header>
 
-      <div className="flex bg-white p-2 sticky top-16 z-10 border-b">
-        <Button 
-          variant={mode === 'agenda' ? 'default' : 'ghost'} 
-          className="flex-1 gap-2"
-          onClick={() => setMode('agenda')}
-        >
-          <Calendar className="w-4 h-4" /> Agenda
-        </Button>
-        <Button 
-          variant={mode === 'historico' ? 'default' : 'ghost'} 
-          className="flex-1 gap-2"
-          onClick={() => setMode('historico')}
-        >
-          <History className="w-4 h-4" /> Histórico
-        </Button>
+      {/* Seletor de Datas Semanal */}
+      <div className="bg-white border-b px-2 py-4 flex gap-3 overflow-x-auto no-scrollbar scroll-smooth">
+        {Array.from({ length: 7 }).map((_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() + i);
+          const iso = d.toISOString().split('T')[0];
+          const isSelected = selectedDate === iso;
+          const labels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+          return (
+            <button
+              key={iso}
+              onClick={() => setSelectedDate(iso)}
+              className={`flex flex-col items-center justify-center min-w-[3.5rem] h-20 rounded-2xl transition-all duration-300 ${
+                isSelected 
+                ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-105' 
+                : 'bg-slate-50 text-slate-400'
+              }`}
+            >
+              <span className={`text-[10px] font-black uppercase tracking-tighter ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>
+                {labels[d.getDay()]}
+              </span>
+              <span className="text-xl font-black">{d.getDate()}</span>
+            </button>
+          );
+        })}
       </div>
 
       <main className="p-4 space-y-3">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+            {mode === 'agenda' ? 'Ordens do Dia' : 'Histórico Recente'}
+          </h3>
+          <Badge className="bg-slate-100 text-slate-500 border-none font-bold">{list.length} OS</Badge>
+        </div>
         {list.length === 0 && !loading && (
           <div className="text-center py-12 text-slate-400">
             <ClipboardList className="w-12 h-12 mx-auto mb-2 opacity-20" />
@@ -261,41 +300,44 @@ const AppFuncionarios = () => {
           </div>
         )}
         {list.map(os => (
-          <Card key={os.id} className="border-none shadow-sm overflow-hidden active:scale-[0.98] transition-all">
+          <Card key={os.id} className="border-none shadow-sm overflow-hidden active:scale-[0.97] transition-all bg-white rounded-2xl">
             <CardContent className="p-0">
               <button 
-                className="w-full text-left p-4 flex items-center gap-4"
+                className="w-full text-left p-5 flex items-center gap-4"
                 onClick={() => { setSelectedOs(os); setView('detalhe'); loadOsSanitarios(os.id); setGenericForm({ observacoes: '', fotos: [] }); }}
               >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 
-                  os.status === 'recolhimento_solicitado' ? 'bg-amber-100 text-amber-600' :
-                  os.status === 'fechada' ? 'bg-slate-100 text-slate-400' :
-                  'bg-blue-100 text-blue-600'
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${
+                  os.status === 'entregue' ? 'bg-emerald-50 text-emerald-600' : 
+                  os.status === 'recolhimento_solicitado' ? 'bg-amber-50 text-amber-600' :
+                  os.status === 'fechada' ? 'bg-slate-50 text-slate-400' :
+                  'bg-blue-50 text-blue-600'
                 }`}>
-                  {os.status === 'recolhimento_solicitado' ? <PackageOpen className="h-6 w-6" /> : 
-                   os.status === 'entregue' ? <PackageCheck className="h-6 w-6" /> : 
-                   os.status === 'fechada' ? <CheckCircle2 className="h-6 w-6" /> :
-                   <PackageOpen className="h-6 w-6" />}
+                  {os.status === 'recolhimento_solicitado' ? <PackageOpen className="h-7 w-7" /> : 
+                   os.status === 'entregue' ? <PackageCheck className="h-7 w-7" /> : 
+                   os.status === 'fechada' ? <CheckCircle2 className="h-7 w-7" /> :
+                   <PackageOpen className="h-7 w-7" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">OS #{os.numero}</span>
-                    <Badge variant="outline" className={`text-[9px] uppercase ${
-                      os.status === 'aberta' ? 'border-blue-500 text-blue-600' :
-                      os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : 
-                      ''
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Badge className={`px-2.5 py-0.5 text-[9px] font-black uppercase rounded-full ${
+                      os.status === 'aberta' ? 'bg-blue-500 shadow-lg shadow-blue-200' :
+                      os.status === 'despachada' ? 'bg-amber-500 shadow-lg shadow-amber-200' :
+                      os.status === 'entregue' ? 'bg-emerald-500 shadow-lg shadow-emerald-200' :
+                      'bg-slate-400'
                     }`}>
                       {os.status === 'aberta' ? 'Disponível' : os.status.replace('_', ' ')}
                     </Badge>
+                    <span className="text-[10px] font-black text-slate-400 tracking-tighter">OS #{os.numero}</span>
                   </div>
-                  <h3 className="font-bold text-sm truncate">{os.customerName}</h3>
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
-                    <MapPin className="h-3 w-3" />
-                    <span className="truncate">{os.customerAddress}</span>
-                  </div>
+                  <h4 className="font-black text-slate-800 text-lg leading-tight truncate mb-1">{os.customerName}</h4>
+                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-1 flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-primary shrink-0" />
+                    {os.customerAddress}
+                  </p>
                 </div>
-                <ChevronRight className="h-5 w-5 text-slate-300" />
+                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center shrink-0 border border-slate-100">
+                   <ChevronRight className="w-6 h-6 text-slate-300" />
+                </div>
               </button>
             </CardContent>
           </Card>
@@ -304,17 +346,17 @@ const AppFuncionarios = () => {
 
       {view === 'detalhe' && selectedOs && (
         <div className="fixed inset-0 bg-white z-50 flex flex-col animate-in slide-in-from-right duration-300">
-          <header className="px-4 h-16 border-b flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => setView('agenda')}><ArrowLeft className="h-5 w-5" /></Button>
-            <span className="font-bold">Detalhes da OS</span>
+          <header className="px-4 h-16 border-b flex items-center gap-4 bg-white sticky top-0 z-10">
+            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setView('agenda')}><ArrowLeft className="h-5 w-5" /></Button>
+            <span className="font-bold text-lg">Detalhes da OS</span>
           </header>
           <main className="flex-1 overflow-y-auto p-4 space-y-6">
-            <div className="space-y-1">
-              <Badge className="bg-blue-600 mb-2">OS #{selectedOs.numero}</Badge>
-              <h2 className="text-2xl font-black">{selectedOs.customerName}</h2>
-              <div className="flex items-start gap-2 text-muted-foreground">
-                <MapPin className="h-4 w-4 mt-1 flex-shrink-0" />
-                <span className="text-sm">{selectedOs.customerAddress}</span>
+            <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-3">
+              <Badge className="bg-primary text-white font-black tracking-widest px-3 py-1 rounded-full">OS #{selectedOs.numero}</Badge>
+              <h2 className="text-3xl font-black text-slate-800 leading-tight">{selectedOs.customerName}</h2>
+              <div className="flex items-start gap-3 text-slate-500 bg-slate-50 p-4 rounded-2xl">
+                <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <span className="text-sm font-medium leading-relaxed">{selectedOs.customerAddress}</span>
               </div>
             </div>
 
@@ -327,18 +369,23 @@ const AppFuncionarios = () => {
 
                 <div className="space-y-3">
                   {osSanitarios.map(s => (
-                    <div key={s.id} className="p-4 bg-slate-50 border rounded-xl flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-slate-800">#{s.numero}</p>
-                        <p className="text-[10px] text-slate-500 uppercase">{s.categoria}</p>
+                    <div key={s.id} className="p-5 bg-white border border-slate-100 shadow-sm rounded-3xl flex justify-between items-center transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
+                           <PackageOpen className="w-6 h-6 text-slate-400" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-800 text-lg leading-none mb-1">#{s.numero}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{s.categoria}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {s.devolvido_em ? (
-                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200">Recolhido</Badge>
+                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200 font-bold px-3 py-1 rounded-full">Recolhido</Badge>
                         ) : selectedOs.status === 'recolhimento_solicitado' ? (
                           <div className="flex flex-col gap-2">
                              <Select defaultValue="bom" onValueChange={(v) => s.temp_estado = v}>
-                               <SelectTrigger className="h-8 text-[10px] w-24">
+                               <SelectTrigger className="h-10 text-[10px] w-full rounded-xl bg-white">
                                  <SelectValue placeholder="Estado" />
                                </SelectTrigger>
                                <SelectContent>
@@ -349,7 +396,7 @@ const AppFuncionarios = () => {
                              </Select>
                              <Button 
                               size="sm" 
-                              className="bg-amber-600 text-white gap-1 text-[10px] h-8"
+                              className="bg-amber-600 text-white gap-2 text-xs h-10 rounded-xl font-bold shadow-md shadow-amber-200"
                               onClick={() => handleAction('recolhimento', selectedOs.id, { 
                                 sanitario_id: s.id,
                                 estado_atual: s.temp_estado || 'bom',
@@ -357,7 +404,7 @@ const AppFuncionarios = () => {
                                 is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
                               })}
                             >
-                              <PackageCheck className="h-3 w-3" /> Recolher
+                              <PackageCheck className="h-4 w-4" /> Recolher
                             </Button>
                           </div>
                         ) : (
@@ -369,7 +416,7 @@ const AppFuncionarios = () => {
 
                   {selectedOs.status === 'aberta' && (
                     <Button 
-                      className="w-full h-16 bg-blue-600 text-white gap-2 font-bold"
+                      className="w-full h-16 bg-primary text-white gap-3 font-black text-lg rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                       onClick={() => handleAssumirOS(selectedOs.id)}
                     >
                       <CheckCircle2 className="h-6 w-6" /> ASSUMIR ESTA OS
@@ -380,22 +427,28 @@ const AppFuncionarios = () => {
                     <div className="space-y-3">
                       <Button 
                         variant="outline" 
-                        className="w-full h-16 border-2 border-dashed gap-2 text-primary border-primary/30 bg-primary/5"
+                        className="w-full h-20 border-2 border-dashed gap-3 text-primary border-primary/20 bg-primary/5 rounded-[2rem] hover:bg-primary/10 transition-colors"
                         onClick={() => setAddingSanitario(true)}
                       >
-                        <Plus className="h-5 w-5" /> Adicionar Sanitário (Entrega)
+                        <Plus className="h-6 w-6" /> 
+                        <div className="text-left">
+                           <p className="font-black text-base leading-none">Vincular Sanitário</p>
+                           <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-1">Registrar Entrega</p>
+                        </div>
                       </Button>
 
                       {osSanitarios.length === 0 && (
                         <Button 
                           variant="secondary"
-                          className="w-full h-20 border-2 border-dashed gap-2 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                          className="w-full h-24 border-2 border-dashed gap-3 bg-slate-50 hover:bg-slate-100 border-slate-200 rounded-[2rem] transition-colors"
                           onClick={() => setGenericServiceDialog(true)}
                         >
-                          <div className="flex flex-col items-center gap-1">
-                            <CheckCircle2 className="h-6 w-6 text-blue-600" />
-                            <span className="font-bold">REGISTRAR SERVIÇO CONCLUÍDO</span>
-                            <span className="text-[10px] opacity-60 font-normal">(Limpeza, Manutenção, etc)</span>
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+                               <CheckCircle2 className="h-6 w-6 text-primary" />
+                            </div>
+                            <span className="font-black text-slate-700">REGISTRAR SERVIÇO CONCLUÍDO</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">(Limpeza, Manutenção, etc)</span>
                           </div>
                         </Button>
                       )}
@@ -404,17 +457,17 @@ const AppFuncionarios = () => {
 
                   {osSanitarios.length > 0 && selectedOs.status === 'despachada' && (
                     <Button 
-                      className="w-full h-14 bg-primary text-white mt-6 font-bold text-base shadow-lg shadow-primary/20"
+                      className="w-full h-16 bg-primary text-white mt-8 font-black text-lg shadow-xl shadow-primary/20 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
                       onClick={() => handleAction('entrega', selectedOs.id, { is_last_item: true })}
                     >
-                      Finalizar Entrega Total
+                      FINALIZAR OPERAÇÃO TOTAL
                     </Button>
                   )}
                 </div>
 
-                <div className="p-4 bg-blue-50 text-blue-700 rounded-2xl flex gap-3 text-xs leading-relaxed">
-                   <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                   <p>Para locações múltiplas, registre cada sanitário individualmente. Novos ativos serão cadastrados automaticamente se não encontrados.</p>
+                <div className="p-5 bg-blue-50/50 border border-blue-100 text-blue-700 rounded-[2rem] flex gap-3 text-xs leading-relaxed font-medium">
+                    <Info className="h-5 w-5 shrink-0 text-blue-500" />
+                    <p>Para locações múltiplas, registre cada sanitário individualmente. Novos ativos serão cadastrados automaticamente se não encontrados.</p>
                 </div>
               </div>
             )}
@@ -423,7 +476,7 @@ const AppFuncionarios = () => {
       )}
 
       <Dialog open={addingSanitario} onOpenChange={setAddingSanitario}>
-        <DialogContent className="max-w-xs rounded-3xl">
+        <DialogContent className="max-w-sm rounded-[2.5rem] p-8 border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle>Vincular Entrega</DialogTitle>
           </DialogHeader>
@@ -497,7 +550,7 @@ const AppFuncionarios = () => {
       </Dialog>
 
       <Dialog open={genericServiceDialog} onOpenChange={setGenericServiceDialog}>
-        <DialogContent className="max-w-xs rounded-3xl">
+        <DialogContent className="max-w-sm rounded-[2.5rem] p-8 border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle>Registrar Serviço</DialogTitle>
           </DialogHeader>
@@ -541,11 +594,81 @@ const AppFuncionarios = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Bottom Navigation PWA Style */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t px-6 py-3 flex items-center justify-between z-40 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-[2.5rem]">
+        <button 
+          className={`flex flex-col items-center gap-1 p-2 transition-colors ${mode === 'agenda' ? 'text-primary' : 'text-slate-400'}`}
+          onClick={() => { setMode('agenda'); setView('agenda'); }}
+        >
+          <Calendar className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Agenda</span>
+        </button>
+        <button 
+          className={`flex flex-col items-center gap-1 p-2 transition-colors ${mode === 'historico' ? 'text-primary' : 'text-slate-400'}`}
+          onClick={() => { setMode('historico'); setView('agenda'); }}
+        >
+          <History className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Histórico</span>
+        </button>
+        <button 
+          className="flex flex-col items-center gap-1 p-2 text-slate-400"
+          onClick={() => window.location.href = '/checklist'}
+        >
+          <ClipboardList className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Checklist</span>
+        </button>
+        <button 
+          className={`flex flex-col items-center gap-1 p-2 transition-colors ${view === 'perfil' ? 'text-primary' : 'text-slate-400'}`}
+          onClick={() => setView('perfil')}
+        >
+          <User className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Perfil</span>
+        </button>
+      </nav>
+
+      {view === 'perfil' && (
+        <div className="fixed inset-0 bg-white z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+           <header className="px-4 h-16 border-b flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => setView('agenda')}><ArrowLeft className="h-5 w-5" /></Button>
+            <span className="font-bold text-lg">Meu Perfil</span>
+          </header>
+          <main className="p-6 flex-1 flex flex-col items-center text-center">
+            <div className="w-28 h-28 bg-slate-100 rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-2xl relative">
+               <User className="w-14 h-14 text-slate-300" />
+               <div className="absolute bottom-1 right-1 w-7 h-7 bg-emerald-500 border-4 border-white rounded-full" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800">{user?.nome || 'Funcionário'}</h2>
+            <p className="text-slate-500 font-medium mb-8">CPF: {user?.cpf?.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") || 'N/A'}</p>
+            
+            <div className="w-full space-y-3">
+               <Card className="border-none bg-slate-50 shadow-none rounded-[2rem]">
+                  <CardContent className="p-5 flex items-center justify-between">
+                     <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
+                           <PackageCheck className="w-6 h-6" />
+                        </div>
+                        <div className="text-left">
+                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Status da Fila</p>
+                           <p className="font-black text-slate-800">Operando</p>
+                        </div>
+                     </div>
+                     <Badge className="bg-emerald-500 text-white font-black px-3 py-1 rounded-full">ATIVO</Badge>
+                  </CardContent>
+               </Card>
+            </div>
+
+            <Button variant="destructive" className="w-full h-16 rounded-[1.5rem] font-black text-lg shadow-xl shadow-red-200 mt-auto" onClick={handleLogout}>
+               SAIR DA CONTA
+            </Button>
+          </main>
+        </div>
+      )}
+
       {uploading && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-white p-6 rounded-2xl flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="font-bold text-slate-800 text-sm">Registrando operação...</p>
+          <div className="bg-white p-10 rounded-[2.5rem] flex flex-col items-center gap-6 border-none shadow-2xl">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="font-black text-slate-800 text-lg tracking-tight">REGISTRANDO...</p>
           </div>
         </div>
       )}
