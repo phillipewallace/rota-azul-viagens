@@ -193,7 +193,7 @@ const AppFuncionarios = () => {
             <div className="mx-auto w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
               <User className="h-8 w-8 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-black italic tracking-tighter">ALCHEMY OPERACIONAL</CardTitle>
+            <CardTitle className="text-3xl font-black italic tracking-tighter">ALCHEMY <span className="text-primary">OPS</span></CardTitle>
             <p className="text-xs text-slate-400">Acesse com seu CPF e senha</p>
           </CardHeader>
           <CardContent>
