@@ -182,11 +182,51 @@ router.post('/', async (req, res) => {
   try {
     const companyId = requireCompanyId(c.companyId);
     await client.query('BEGIN');
-    const numRes = await client.query(
-      `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
-      [companyId]
-    );
-    const numero = numRes.rows[0].num;
+    
+    // [#35 crítico] Garantir suporte a ORC no erp_doc_counters
+    // Tenta primeiro garantir a estrutura se falhar (fallback inline para a transação)
+    let numero;
+    try {
+      const numRes = await client.query(
+        `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
+        [companyId]
+      );
+      numero = numRes.rows[0].num;
+    } catch (err: any) {
+       // Se falhar, tentamos criar a tabela e função agora mesmo
+       console.log('Fallback: Criando estrutura de numeração em tempo de execução...');
+       await client.query(`
+         CREATE TABLE IF NOT EXISTS erp_doc_counters (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id UUID REFERENCES erp_companies(id) ON DELETE CASCADE,
+            doc TEXT NOT NULL,
+            ano INTEGER NOT NULL,
+            ultimo INTEGER DEFAULT 0
+         );
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_by_company 
+           ON erp_doc_counters(company_id, doc, ano) WHERE company_id IS NOT NULL;
+         
+         CREATE OR REPLACE FUNCTION erp_next_doc_number(p_doc TEXT, p_company_id UUID)
+         RETURNS TEXT AS $fn$
+         DECLARE
+            v_ano INT := EXTRACT(YEAR FROM CURRENT_DATE)::INT;
+            v_n INT;
+         BEGIN
+            INSERT INTO erp_doc_counters(doc, ano, ultimo, company_id)
+            VALUES (p_doc, v_ano, 1, p_company_id)
+            ON CONFLICT (company_id, doc, ano) WHERE company_id IS NOT NULL 
+            DO UPDATE SET ultimo = erp_doc_counters.ultimo + 1
+            RETURNING ultimo INTO v_n;
+            RETURN p_doc || '-' || v_ano || '-' || LPAD(v_n::TEXT, 4, '0');
+         END;
+         $fn$ LANGUAGE plpgsql;
+       `);
+       const numRes = await client.query(
+        `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
+        [companyId]
+      );
+      numero = numRes.rows[0].num;
+    }
     const { subtotal, total } = calcTotals(items, c.descontoPct, c.frete);
 
     let companySnap: any = null, customerSnap: any = null;
@@ -196,6 +236,7 @@ router.post('/', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
     }
+    
     if (c.customerId) {
       const cu = await client.query('SELECT * FROM customers WHERE id=$1', [c.customerId]);
       customerSnap = cu.rows[0] || null;
@@ -213,7 +254,7 @@ router.post('/', async (req, res) => {
       [numero, companyId, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, emptyToNull(c.dataEmissao), c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
-       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
+       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status || 'rascunho',
        emptyToNull(c.dataEntrega), c.limpezasSemanais ?? null,
        c.enderecoEntrega || null, emptyToNull(c.dataRecolhimento),
        c.formaPagamento || null,
@@ -229,16 +270,17 @@ router.post('/', async (req, res) => {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [quoteId, it.produto || 'Item', it.descricao || null,
          it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
-
       );
     }
     await client.query('COMMIT');
     res.json({ id: quoteId, numero });
   } catch (e: any) {
-    await client.query('ROLLBACK');
+    if (client) await client.query('ROLLBACK').catch(() => {});
     console.error('[erp-quotes POST]', e);
-    sendError(res, e);
-  } finally { client.release(); }
+    sendError(res, e, '[erp-quotes POST]');
+  } finally {
+    if (client) client.release();
+  }
 });
 
 router.put('/:id', async (req, res) => {
