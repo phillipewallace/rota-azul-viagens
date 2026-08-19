@@ -341,7 +341,7 @@ const AppFuncionarios = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         {s.devolvido_em ? (
-                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200">Recolhido</Badge>
+                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200 font-bold px-3 py-1 rounded-full">Recolhido</Badge>
                         ) : selectedOs.status === 'recolhimento_solicitado' ? (
                           <div className="flex flex-col gap-2">
                              <Select defaultValue="bom" onValueChange={(v) => s.temp_estado = v}>
