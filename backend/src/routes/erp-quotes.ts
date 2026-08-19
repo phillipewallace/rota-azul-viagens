@@ -369,6 +369,7 @@ router.put('/:id', async (req, res) => {
           );
         } catch (err: any) {
           if (err.code === '42703') {
+            logger.info('QUOTES', 'Fallback PUT: Adicionando coluna is_sanitario em erp_quote_items...');
             await client.query('ALTER TABLE erp_quote_items ADD COLUMN IF NOT EXISTS is_sanitario BOOLEAN DEFAULT FALSE');
             await client.query(
               `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
