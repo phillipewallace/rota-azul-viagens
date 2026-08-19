@@ -236,18 +236,18 @@ const AppFuncionarios = () => {
         </Button>
       </header>
 
-      <div className="flex bg-white p-2 sticky top-16 z-10 border-b">
+      <div className="flex bg-white p-1 sticky top-16 z-10 border-b gap-1">
         <Button 
           variant={mode === 'agenda' ? 'default' : 'ghost'} 
-          className="flex-1 gap-2"
-          onClick={() => setMode('agenda')}
+          className={`flex-1 h-12 rounded-xl gap-2 text-xs ${mode === 'agenda' ? 'bg-primary shadow-lg shadow-primary/20' : 'text-slate-500'}`}
+          onClick={() => { setMode('agenda'); setView('agenda'); }}
         >
           <Calendar className="w-4 h-4" /> Agenda
         </Button>
         <Button 
           variant={mode === 'historico' ? 'default' : 'ghost'} 
-          className="flex-1 gap-2"
-          onClick={() => setMode('historico')}
+          className={`flex-1 h-12 rounded-xl gap-2 text-xs ${mode === 'historico' ? 'bg-primary shadow-lg shadow-primary/20' : 'text-slate-500'}`}
+          onClick={() => { setMode('historico'); setView('agenda'); }}
         >
           <History className="w-4 h-4" /> Histórico
         </Button>
