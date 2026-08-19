@@ -510,7 +510,7 @@ const AppFuncionarios = () => {
       </Dialog>
 
       <Dialog open={genericServiceDialog} onOpenChange={setGenericServiceDialog}>
-        <DialogContent className="max-w-xs rounded-3xl">
+        <DialogContent className="max-w-sm rounded-[2.5rem] p-8 border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle>Registrar Serviço</DialogTitle>
           </DialogHeader>
