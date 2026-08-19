@@ -311,12 +311,12 @@ const AppFuncionarios = () => {
             <span className="font-bold text-lg">Detalhes da OS</span>
           </header>
           <main className="flex-1 overflow-y-auto p-4 space-y-6">
-            <div className="space-y-1">
-              <Badge className="bg-blue-600 mb-2">OS #{selectedOs.numero}</Badge>
-              <h2 className="text-2xl font-black">{selectedOs.customerName}</h2>
-              <div className="flex items-start gap-2 text-muted-foreground">
-                <MapPin className="h-4 w-4 mt-1 flex-shrink-0" />
-                <span className="text-sm">{selectedOs.customerAddress}</span>
+            <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-3">
+              <Badge className="bg-primary text-white font-black tracking-widest px-3 py-1 rounded-full">OS #{selectedOs.numero}</Badge>
+              <h2 className="text-3xl font-black text-slate-800 leading-tight">{selectedOs.customerName}</h2>
+              <div className="flex items-start gap-3 text-slate-500 bg-slate-50 p-4 rounded-2xl">
+                <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <span className="text-sm font-medium leading-relaxed">{selectedOs.customerAddress}</span>
               </div>
             </div>
 
