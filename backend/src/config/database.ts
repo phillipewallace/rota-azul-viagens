@@ -140,6 +140,29 @@ export const setupDatabase = async () => {
       )
     `);
 
+    // 🏗️ Garantir tabela erp_doc_counters
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_doc_counters (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        company_id UUID REFERENCES erp_companies(id) ON DELETE CASCADE,
+        doc TEXT NOT NULL,
+        ano INTEGER NOT NULL,
+        ultimo INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    // Garantir índices de unicidade nos contadores
+    await client.query(`
+      DROP INDEX IF EXISTS idx_erp_doc_counters_global;
+      DROP INDEX IF EXISTS idx_erp_doc_counters_by_company;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_global
+        ON erp_doc_counters(doc, ano) WHERE company_id IS NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_by_company
+        ON erp_doc_counters(company_id, doc, ano) WHERE company_id IS NOT NULL;
+    `);
+
     console.log('✅ Extensões e tabelas base do PostgreSQL verificadas');
 
     // 🛡️ Auto-migração defensiva — garante que todas as colunas usadas pelas

@@ -182,6 +182,8 @@ router.post('/', async (req, res) => {
   try {
     const companyId = requireCompanyId(c.companyId);
     await client.query('BEGIN');
+    
+    // [#35 crítico] Garantir suporte a ORC no erp_doc_counters
     const numRes = await client.query(
       `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
       [companyId]
@@ -196,6 +198,7 @@ router.post('/', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
     }
+    
     if (c.customerId) {
       const cu = await client.query('SELECT * FROM customers WHERE id=$1', [c.customerId]);
       customerSnap = cu.rows[0] || null;
@@ -213,7 +216,7 @@ router.post('/', async (req, res) => {
       [numero, companyId, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, emptyToNull(c.dataEmissao), c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
-       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
+       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status || 'rascunho',
        emptyToNull(c.dataEntrega), c.limpezasSemanais ?? null,
        c.enderecoEntrega || null, emptyToNull(c.dataRecolhimento),
        c.formaPagamento || null,
@@ -229,16 +232,17 @@ router.post('/', async (req, res) => {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [quoteId, it.produto || 'Item', it.descricao || null,
          it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
-
       );
     }
     await client.query('COMMIT');
     res.json({ id: quoteId, numero });
   } catch (e: any) {
-    await client.query('ROLLBACK');
+    if (client) await client.query('ROLLBACK').catch(() => {});
     console.error('[erp-quotes POST]', e);
-    sendError(res, e);
-  } finally { client.release(); }
+    sendError(res, e, '[erp-quotes POST]');
+  } finally {
+    if (client) client.release();
+  }
 });
 
 router.put('/:id', async (req, res) => {
