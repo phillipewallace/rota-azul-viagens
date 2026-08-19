@@ -359,13 +359,26 @@ router.put('/:id', async (req, res) => {
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         const linha = +(Number(it.quantidade || 0) * Number(it.valorUnitario || 0)).toFixed(2);
-        await client.query(
-          `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [req.params.id, it.produto || 'Item', it.descricao || null,
-           it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
-
-        );
+        try {
+          await client.query(
+            `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [req.params.id, it.produto || 'Item', it.descricao || null,
+             it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
+          );
+        } catch (err: any) {
+          if (err.code === '42703') {
+            await client.query('ALTER TABLE erp_quote_items ADD COLUMN IF NOT EXISTS is_sanitario BOOLEAN DEFAULT FALSE');
+            await client.query(
+              `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+              [req.params.id, it.produto || 'Item', it.descricao || null,
+               it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
+            );
+          } else {
+            throw err;
+          }
+        }
       }
     }
     await client.query('COMMIT');
