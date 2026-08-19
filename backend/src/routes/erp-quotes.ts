@@ -1,4 +1,5 @@
 import { sendError } from '../utils/apiError';
+import { logger } from '../utils/logger';
 import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
 import multer from 'multer';
