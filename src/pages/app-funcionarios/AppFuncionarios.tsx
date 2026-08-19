@@ -238,29 +238,51 @@ const AppFuncionarios = () => {
           </div>
           <span className="font-bold text-lg tracking-tighter">Alchemy<span className="text-primary">Ops</span></span>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleLogout}>
-          <LogOut className="h-5 w-5 text-slate-400" />
-        </Button>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => fetchList()}>
+            <Clock className="h-5 w-5 text-slate-400" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="h-5 w-5 text-slate-400" />
+          </Button>
+        </div>
       </header>
 
-      <div className="flex bg-white p-1 sticky top-16 z-10 border-b gap-1">
-        <Button 
-          variant={mode === 'agenda' ? 'default' : 'ghost'} 
-          className={`flex-1 h-12 rounded-xl gap-2 text-xs ${mode === 'agenda' ? 'bg-primary shadow-lg shadow-primary/20' : 'text-slate-500'}`}
-          onClick={() => { setMode('agenda'); setView('agenda'); }}
-        >
-          <Calendar className="w-4 h-4" /> Agenda
-        </Button>
-        <Button 
-          variant={mode === 'historico' ? 'default' : 'ghost'} 
-          className={`flex-1 h-12 rounded-xl gap-2 text-xs ${mode === 'historico' ? 'bg-primary shadow-lg shadow-primary/20' : 'text-slate-500'}`}
-          onClick={() => { setMode('historico'); setView('agenda'); }}
-        >
-          <History className="w-4 h-4" /> Histórico
-        </Button>
+      {/* Seletor de Datas Semanal */}
+      <div className="bg-white border-b px-2 py-4 flex gap-3 overflow-x-auto no-scrollbar scroll-smooth">
+        {Array.from({ length: 7 }).map((_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() + i);
+          const iso = d.toISOString().split('T')[0];
+          const isSelected = selectedDate === iso;
+          const labels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+          return (
+            <button
+              key={iso}
+              onClick={() => setSelectedDate(iso)}
+              className={`flex flex-col items-center justify-center min-w-[3.5rem] h-20 rounded-2xl transition-all duration-300 ${
+                isSelected 
+                ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-105' 
+                : 'bg-slate-50 text-slate-400'
+              }`}
+            >
+              <span className={`text-[10px] font-black uppercase tracking-tighter ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>
+                {labels[d.getDay()]}
+              </span>
+              <span className="text-xl font-black">{d.getDate()}</span>
+            </button>
+          );
+        })}
       </div>
 
       <main className="p-4 space-y-3">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+            {mode === 'agenda' ? 'Ordens do Dia' : 'Histórico Recente'}
+          </h3>
+          <Badge className="bg-slate-100 text-slate-500 border-none font-bold">{list.length} OS</Badge>
+        </div>
         {list.length === 0 && !loading && (
           <div className="text-center py-12 text-slate-400">
             <ClipboardList className="w-12 h-12 mx-auto mb-2 opacity-20" />
