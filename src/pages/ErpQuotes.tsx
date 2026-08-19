@@ -977,7 +977,11 @@ const ErpQuotes: React.FC = () => {
                               </span>
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent>Alternar entre texto livre e categorias de sanitários</TooltipContent>
+                          <TooltipContent>
+                            {(it as any).isSanitario 
+                              ? "Ativo (Sanitário): Pede fotos e numeração na entrega/recolhimento" 
+                              : "Serviço: Pede apenas relato e foto final na OS"}
+                          </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </div>
