@@ -104,8 +104,9 @@ const AppFuncionarios = () => {
 
   const loadOS = async (isHistory = false) => {
     if (!user?.token) return;
+    setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os?history=${isHistory}`, {
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os?history=${isHistory}&date=${selectedDate}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       if (res.status === 401) return handleLogout();
@@ -114,6 +115,8 @@ const AppFuncionarios = () => {
     } catch (e: any) { 
       logger.error('Erro ao carregar OS', { error: e.message });
       setList([]);
+    } finally {
+      setLoading(false);
     }
   };
 
