@@ -204,6 +204,7 @@ const AppFuncionarios = () => {
               <User className="h-8 w-8 text-primary" />
             </div>
             <CardTitle className="text-3xl font-black italic tracking-tighter">ALCHEMY <span className="text-primary">OPS</span></CardTitle>
+            <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1">Portal do Funcionário</p>
             <p className="text-xs text-slate-400">Acesse com seu CPF e senha</p>
           </CardHeader>
           <CardContent>
