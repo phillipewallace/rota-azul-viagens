@@ -376,7 +376,7 @@ const AppFuncionarios = () => {
 
                   {selectedOs.status === 'aberta' && (
                     <Button 
-                      className="w-full h-16 bg-blue-600 text-white gap-2 font-bold"
+                      className="w-full h-16 bg-primary text-white gap-3 font-black text-lg rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                       onClick={() => handleAssumirOS(selectedOs.id)}
                     >
                       <CheckCircle2 className="h-6 w-6" /> ASSUMIR ESTA OS
