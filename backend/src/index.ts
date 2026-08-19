@@ -91,12 +91,8 @@ app.post('/api/logs/client', (req, res) => {
   res.status(200).json({ ok: true });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
-
-app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
 app.use('/api/app-funcionarios', appFuncionariosRoutes);
+app.use('/api/erp/funcionarios', erpFuncionariosRoutes);
 app.use('/api/auth', authRoutes);
 app.use(restrictDemo);
 
