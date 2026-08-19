@@ -250,7 +250,7 @@ const ErpQuotes: React.FC = () => {
         responsavelNome: (q as any).responsavelNome || '',
         responsavelTelefone: (q as any).responsavelTelefone || '',
         responsavelEmail: (q as any).responsavelEmail || '',
-        items: (q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }]).map(withUid),
+        items: (q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0, isSanitario: false, isGenericService: false }]).map(withUid),
       });
     } catch (e: any) { toast.error(e.message); }
   };
@@ -259,7 +259,7 @@ const ErpQuotes: React.FC = () => {
     if (!editing) return;
     setEditing({ ...editing, items: editing.items.map((it, idx) => idx === i ? { ...it, ...patch } : it) });
   };
-  const addItem = () => editing && setEditing({ ...editing, items: [...editing.items, withUid({ produto: '', quantidade: 1, valorUnitario: 0 })] });
+  const addItem = () => editing && setEditing({ ...editing, items: [...editing.items, withUid({ produto: '', quantidade: 1, valorUnitario: 0, isSanitario: false, isGenericService: false })] });
   const removeItem = (i: number) => editing && setEditing({ ...editing, items: editing.items.filter((_, idx) => idx !== i) });
 
   const save = async (): Promise<Quote | null> => {

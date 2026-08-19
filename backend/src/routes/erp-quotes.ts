@@ -77,7 +77,8 @@ function calcTotals(items: any[], descontoPct = 0, frete = 0) {
 async function loadItems(quoteId: string) {
   const r = await pool.query(
     `SELECT id, produto, descricao, quantidade, valor_unitario AS "valorUnitario",
-            valor_total AS "valorTotal", ordem, is_sanitario AS "isSanitario"
+            valor_total AS "valorTotal", ordem, is_sanitario AS "isSanitario",
+            is_generic_service AS "isGenericService"
 
        FROM erp_quote_items WHERE quote_id = $1 ORDER BY ordem ASC, id ASC`,
     [quoteId]
