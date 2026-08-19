@@ -966,13 +966,15 @@ const ErpQuotes: React.FC = () => {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="flex items-center">
+                            <div className="flex flex-col items-center gap-1">
                               <Switch 
                                 checked={!!(it as any).isSanitario} 
-                                onCheckedChange={(val) => updateItem(i, { ...it, isSanitario: val } as any)} 
-
+                                onCheckedChange={(val) => updateItem(i, { isSanitario: val, isGenericService: !val })} 
                                 className="scale-75"
                               />
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase">
+                                {(it as any).isSanitario ? 'Ativo' : 'Serv'}
+                              </span>
                             </div>
                           </TooltipTrigger>
                           <TooltipContent>Alternar entre texto livre e categorias de sanitários</TooltipContent>
