@@ -123,7 +123,7 @@ router.post('/os/:id/entregar-item', async (req, res) => {
             for (const url of fotos) {
                 await client.query(
                     'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, funcionario_id, observacoes) VALUES ($1, $2, $3, $4, $5, $6)',
-                    [sid, id, url, 'entrega', funcionario_id, observacoes || null]
+                    [sid, id, url, is_generic_service ? 'servico' : 'entrega', funcionario_id, observacoes || null]
                 );
             }
         } else if (observacoes) {

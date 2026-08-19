@@ -77,7 +77,8 @@ function calcTotals(items: any[], descontoPct = 0, frete = 0) {
 async function loadItems(quoteId: string) {
   const r = await pool.query(
     `SELECT id, produto, descricao, quantidade, valor_unitario AS "valorUnitario",
-            valor_total AS "valorTotal", ordem, is_sanitario AS "isSanitario"
+            valor_total AS "valorTotal", ordem, is_sanitario AS "isSanitario",
+            is_generic_service AS "isGenericService"
 
        FROM erp_quote_items WHERE quote_id = $1 ORDER BY ordem ASC, id ASC`,
     [quoteId]
@@ -225,10 +226,10 @@ router.post('/', async (req, res) => {
       const it = items[i];
       const linha = +(Number(it.quantidade || 0) * Number(it.valorUnitario || 0)).toFixed(2);
       await client.query(
-        `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario, is_generic_service)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [quoteId, it.produto || 'Item', it.descricao || null,
-         it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
+         it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false, it.isGenericService || false]
 
       );
     }
@@ -302,10 +303,10 @@ router.put('/:id', async (req, res) => {
         const it = items[i];
         const linha = +(Number(it.quantidade || 0) * Number(it.valorUnitario || 0)).toFixed(2);
         await client.query(
-          `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario, is_generic_service)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [req.params.id, it.produto || 'Item', it.descricao || null,
-           it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
+           it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false, it.isGenericService || false]
 
         );
       }

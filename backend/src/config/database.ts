@@ -244,6 +244,7 @@ export const setupDatabase = async () => {
       ['maintenance_records', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'],
       // erp_quote_items
       ['erp_quote_items', 'is_sanitario', 'BOOLEAN DEFAULT FALSE'],
+      ['erp_quote_items', 'is_generic_service', 'BOOLEAN DEFAULT FALSE'],
 
     ];
     for (const [table, col, type] of ensureCols) {

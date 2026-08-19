@@ -79,7 +79,7 @@ interface EditorState {
 }
 
 let __itemUid = 0;
-const withUid = <T extends object>(it: T): T & { __uid: number } => ({ ...(it as T), __uid: ++__itemUid });
+const withUid = <T extends object>(it: T): T & { __uid: number } => ({ ...it, __uid: ++__itemUid } as any);
 
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
@@ -250,7 +250,7 @@ const ErpQuotes: React.FC = () => {
         responsavelNome: (q as any).responsavelNome || '',
         responsavelTelefone: (q as any).responsavelTelefone || '',
         responsavelEmail: (q as any).responsavelEmail || '',
-        items: (q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0 }]).map(withUid),
+        items: (q.items?.length ? q.items : [{ produto: '', quantidade: 1, valorUnitario: 0, isSanitario: false, isGenericService: false }]).map(withUid),
       });
     } catch (e: any) { toast.error(e.message); }
   };
@@ -259,7 +259,7 @@ const ErpQuotes: React.FC = () => {
     if (!editing) return;
     setEditing({ ...editing, items: editing.items.map((it, idx) => idx === i ? { ...it, ...patch } : it) });
   };
-  const addItem = () => editing && setEditing({ ...editing, items: [...editing.items, withUid({ produto: '', quantidade: 1, valorUnitario: 0 })] });
+  const addItem = () => editing && setEditing({ ...editing, items: [...editing.items, withUid({ produto: '', quantidade: 1, valorUnitario: 0, isSanitario: false, isGenericService: false })] });
   const removeItem = (i: number) => editing && setEditing({ ...editing, items: editing.items.filter((_, idx) => idx !== i) });
 
   const save = async (): Promise<Quote | null> => {
@@ -960,22 +960,28 @@ const ErpQuotes: React.FC = () => {
                   <div className="text-right">Total</div>
                   <div />
                 </div>
-                {editing.items.map((it, i) => (
-                  <div key={(it as any).__uid ?? i} className="grid grid-cols-[40px_1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
+                {editing.items.map((it: any, i) => (
+                  <div key={it.__uid ?? i} className="grid grid-cols-[40px_1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
                     <div className="flex justify-center">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="flex items-center">
+                            <div className="flex flex-col items-center gap-1">
                               <Switch 
                                 checked={!!(it as any).isSanitario} 
-                                onCheckedChange={(val) => updateItem(i, { ...it, isSanitario: val } as any)} 
-
+                                onCheckedChange={(val) => updateItem(i, { isSanitario: val, isGenericService: !val })} 
                                 className="scale-75"
                               />
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase">
+                                {(it as any).isSanitario ? 'Ativo' : 'Serv'}
+                              </span>
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent>Alternar entre texto livre e categorias de sanitários</TooltipContent>
+                          <TooltipContent>
+                            {(it as any).isSanitario 
+                              ? "Ativo (Sanitário): Pede fotos e numeração na entrega/recolhimento" 
+                              : "Serviço: Pede apenas relato e foto final na OS"}
+                          </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </div>
