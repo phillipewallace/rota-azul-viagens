@@ -9,7 +9,7 @@ const TAG = 'APP-FUNC';
 // router.use(requireAuth); // Removido para controle granular abaixo
 
 // Endpoint para listar OS pendentes/agendadas ou histórico
-router.get('/os', async (req, res) => {
+router.get('/os', requireAuth, async (req, res) => {
     try {
         const { history } = req.query;
         const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
@@ -49,7 +49,7 @@ router.get('/os', async (req, res) => {
 });
 
 // Assumir uma OS da fila global
-router.post('/os/:id/assumir', async (req, res) => {
+router.post('/os/:id/assumir', requireAuth, async (req, res) => {
     const { id } = req.params;
     const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
     const funcionarioNome = (req as any).user?.nome || (req as any).user?.username;
@@ -67,7 +67,7 @@ router.post('/os/:id/assumir', async (req, res) => {
 });
 
 // Registrar Entrega Individual (Suporte a múltiplos itens ou serviço único)
-router.post('/os/:id/entregar-item', async (req, res) => {
+router.post('/os/:id/entregar-item', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { 
         sanitario_numero, 
@@ -152,7 +152,7 @@ router.post('/os/:id/entregar-item', async (req, res) => {
 });
 
 // Registrar Recolhimento Individual
-router.post('/os/:id/recolher-item', async (req, res) => {
+router.post('/os/:id/recolher-item', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { 
         sanitario_id, 
@@ -208,7 +208,7 @@ router.post('/os/:id/recolher-item', async (req, res) => {
 });
 
 // Listar sanitários vinculados a uma OS (para recolhimento itemizado)
-router.get('/os/:id/sanitarios', async (req, res) => {
+router.get('/os/:id/sanitarios', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const r = await pool.query(`
