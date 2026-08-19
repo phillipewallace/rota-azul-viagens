@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth, softAuth } from '../middleware/requireAuth';
 import { logger } from '../utils/logger';
 import { sendError } from '../utils/apiError';
 
