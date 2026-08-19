@@ -261,41 +261,43 @@ const AppFuncionarios = () => {
           </div>
         )}
         {list.map(os => (
-          <Card key={os.id} className="border-none shadow-sm overflow-hidden active:scale-[0.98] transition-all">
+          <Card key={os.id} className="border-none shadow-sm overflow-hidden active:scale-[0.97] transition-all bg-white rounded-2xl">
             <CardContent className="p-0">
               <button 
-                className="w-full text-left p-4 flex items-center gap-4"
+                className="w-full text-left p-5 flex items-center gap-4"
                 onClick={() => { setSelectedOs(os); setView('detalhe'); loadOsSanitarios(os.id); setGenericForm({ observacoes: '', fotos: [] }); }}
               >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  os.status === 'entregue' ? 'bg-emerald-100 text-emerald-600' : 
-                  os.status === 'recolhimento_solicitado' ? 'bg-amber-100 text-amber-600' :
-                  os.status === 'fechada' ? 'bg-slate-100 text-slate-400' :
-                  'bg-blue-100 text-blue-600'
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${
+                  os.status === 'entregue' ? 'bg-emerald-50 text-emerald-600' : 
+                  os.status === 'recolhimento_solicitado' ? 'bg-amber-50 text-amber-600' :
+                  os.status === 'fechada' ? 'bg-slate-50 text-slate-400' :
+                  'bg-blue-50 text-blue-600'
                 }`}>
-                  {os.status === 'recolhimento_solicitado' ? <PackageOpen className="h-6 w-6" /> : 
-                   os.status === 'entregue' ? <PackageCheck className="h-6 w-6" /> : 
-                   os.status === 'fechada' ? <CheckCircle2 className="h-6 w-6" /> :
-                   <PackageOpen className="h-6 w-6" />}
+                  {os.status === 'recolhimento_solicitado' ? <PackageOpen className="h-7 w-7" /> : 
+                   os.status === 'entregue' ? <PackageCheck className="h-7 w-7" /> : 
+                   os.status === 'fechada' ? <CheckCircle2 className="h-7 w-7" /> :
+                   <PackageOpen className="h-7 w-7" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">OS #{os.numero}</span>
-                    <Badge variant="outline" className={`text-[9px] uppercase ${
-                      os.status === 'aberta' ? 'border-blue-500 text-blue-600' :
-                      os.status === 'recolhimento_solicitado' ? 'border-amber-500 text-amber-600' : 
-                      ''
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OS #{os.numero}</span>
+                    <Badge variant="outline" className={`text-[9px] font-bold uppercase py-0 px-2 rounded-lg ${
+                      os.status === 'aberta' ? 'bg-blue-50 border-blue-200 text-blue-600' :
+                      os.status === 'recolhimento_solicitado' ? 'bg-amber-50 border-amber-200 text-amber-600' : 
+                      'bg-slate-50 border-slate-200 text-slate-500'
                     }`}>
                       {os.status === 'aberta' ? 'Disponível' : os.status.replace('_', ' ')}
                     </Badge>
                   </div>
-                  <h3 className="font-bold text-sm truncate">{os.customerName}</h3>
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
-                    <MapPin className="h-3 w-3" />
+                  <h3 className="font-black text-base text-slate-800 truncate leading-tight mb-1">{os.customerName}</h3>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
                     <span className="truncate">{os.customerAddress}</span>
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-slate-300" />
+                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
+                  <ChevronRight className="h-5 w-5 text-slate-300" />
+                </div>
               </button>
             </CardContent>
           </Card>
