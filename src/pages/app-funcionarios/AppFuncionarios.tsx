@@ -222,7 +222,7 @@ const AppFuncionarios = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-slate-50 pb-28">
       <PageMeta title="Minha Agenda | Alchemy Operacional" noindex />
       <header className="bg-white border-b sticky top-0 z-10 px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
