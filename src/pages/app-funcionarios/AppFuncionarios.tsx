@@ -631,8 +631,9 @@ const AppFuncionarios = () => {
             <span className="font-bold text-lg">Meu Perfil</span>
           </header>
           <main className="p-6 flex-1 flex flex-col items-center text-center">
-            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-xl">
-               <User className="w-12 h-12 text-slate-400" />
+            <div className="w-28 h-28 bg-slate-100 rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-2xl relative">
+               <User className="w-14 h-14 text-slate-300" />
+               <div className="absolute bottom-1 right-1 w-7 h-7 bg-emerald-500 border-4 border-white rounded-full" />
             </div>
             <h2 className="text-2xl font-black text-slate-800">{user?.nome || 'Funcionário'}</h2>
             <p className="text-slate-500 font-medium mb-8">CPF: {user?.cpf?.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") || 'N/A'}</p>
