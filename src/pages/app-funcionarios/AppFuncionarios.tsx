@@ -33,6 +33,7 @@ const AppFuncionarios = () => {
   const [user, setUser] = useState<any>(null);
   const [view, setView] = useState<'login' | 'agenda' | 'detalhe' | 'perfil'>('login');
   const [mode, setMode] = useState<'agenda' | 'historico' | 'checklist'>('agenda');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
