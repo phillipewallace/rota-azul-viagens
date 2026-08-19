@@ -664,9 +664,9 @@ const AppFuncionarios = () => {
 
       {uploading && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-white p-6 rounded-2xl flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="font-bold text-slate-800 text-sm">Registrando operação...</p>
+          <div className="bg-white p-10 rounded-[2.5rem] flex flex-col items-center gap-6 border-none shadow-2xl">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="font-black text-slate-800 text-lg tracking-tight">REGISTRANDO...</p>
           </div>
         </div>
       )}
