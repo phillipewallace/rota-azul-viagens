@@ -400,13 +400,15 @@ const AppFuncionarios = () => {
                       {osSanitarios.length === 0 && (
                         <Button 
                           variant="secondary"
-                          className="w-full h-20 border-2 border-dashed gap-2 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                          className="w-full h-24 border-2 border-dashed gap-3 bg-slate-50 hover:bg-slate-100 border-slate-200 rounded-[2rem] transition-colors"
                           onClick={() => setGenericServiceDialog(true)}
                         >
-                          <div className="flex flex-col items-center gap-1">
-                            <CheckCircle2 className="h-6 w-6 text-blue-600" />
-                            <span className="font-bold">REGISTRAR SERVIÇO CONCLUÍDO</span>
-                            <span className="text-[10px] opacity-60 font-normal">(Limpeza, Manutenção, etc)</span>
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+                               <CheckCircle2 className="h-6 w-6 text-primary" />
+                            </div>
+                            <span className="font-black text-slate-700">REGISTRAR SERVIÇO CONCLUÍDO</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">(Limpeza, Manutenção, etc)</span>
                           </div>
                         </Button>
                       )}
