@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
 import type { Request, Response, NextFunction } from 'express';
 
 // Garantir que a pasta de logs existe

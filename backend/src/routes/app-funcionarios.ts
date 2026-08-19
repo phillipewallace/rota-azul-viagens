@@ -1,15 +1,15 @@
 import { Router } from 'express';
 import { pool } from '../config/database';
-import { requireAuth, softAuth } from '../middleware/requireAuth';
+import { requireAuth } from '../middleware/requireAuth';
 import { logger } from '../utils/logger';
 import { sendError } from '../utils/apiError';
 
 const router = Router();
 const TAG = 'APP-FUNC';
-// router.use(requireAuth); // Removido para controle granular abaixo
+router.use(requireAuth);
 
 // Endpoint para listar OS pendentes/agendadas ou histórico
-router.get('/os', requireAuth, async (req, res): Promise<any> => {
+router.get('/os', async (req, res) => {
     try {
         const { history } = req.query;
         const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
@@ -49,7 +49,7 @@ router.get('/os', requireAuth, async (req, res): Promise<any> => {
 });
 
 // Assumir uma OS da fila global
-router.post('/os/:id/assumir', requireAuth, async (req, res): Promise<any> => {
+router.post('/os/:id/assumir', async (req, res) => {
     const { id } = req.params;
     const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
     const funcionarioNome = (req as any).user?.nome || (req as any).user?.username;
@@ -67,7 +67,7 @@ router.post('/os/:id/assumir', requireAuth, async (req, res): Promise<any> => {
 });
 
 // Registrar Entrega Individual (Suporte a múltiplos itens ou serviço único)
-router.post('/os/:id/entregar-item', requireAuth, async (req, res) => {
+router.post('/os/:id/entregar-item', async (req, res) => {
     const { id } = req.params;
     const { 
         sanitario_numero, 
@@ -152,7 +152,7 @@ router.post('/os/:id/entregar-item', requireAuth, async (req, res) => {
 });
 
 // Registrar Recolhimento Individual
-router.post('/os/:id/recolher-item', requireAuth, async (req, res) => {
+router.post('/os/:id/recolher-item', async (req, res) => {
     const { id } = req.params;
     const { 
         sanitario_id, 
@@ -208,7 +208,7 @@ router.post('/os/:id/recolher-item', requireAuth, async (req, res) => {
 });
 
 // Listar sanitários vinculados a uma OS (para recolhimento itemizado)
-router.get('/os/:id/sanitarios', requireAuth, async (req, res): Promise<any> => {
+router.get('/os/:id/sanitarios', async (req, res) => {
     try {
         const { id } = req.params;
         const r = await pool.query(`
@@ -220,87 +220,6 @@ router.get('/os/:id/sanitarios', requireAuth, async (req, res): Promise<any> => 
         res.json(r.rows);
     } catch (e: any) {
         sendError(res, e, `Erro ao listar sanitários da OS ${req.params.id}`);
-    }
-});
-
-// Rota administrativa temporária para corrigir banco (Auto-destrutiva)
-// Rota administrativa SEM AUTH (apenas para correção de emergência)
-router.post('/fix-database-numeration-public-emergency-3928', softAuth, async (req, res): Promise<any> => {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS erp_doc_counters (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                company_id UUID REFERENCES erp_companies(id) ON DELETE CASCADE,
-                doc TEXT NOT NULL,
-                ano INTEGER NOT NULL,
-                ultimo INTEGER DEFAULT 0
-            );
-
-            CREATE TABLE IF NOT EXISTS erp_doc_settings_company (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                company_id UUID NOT NULL REFERENCES erp_companies(id) ON DELETE CASCADE,
-                doc_type TEXT NOT NULL,
-                prefix TEXT,
-                last_number INTEGER DEFAULT 0,
-                year INTEGER,
-                UNIQUE(company_id, doc_type, year)
-            );
-
-            DROP INDEX IF EXISTS idx_erp_doc_counters_global;
-            DROP INDEX IF EXISTS idx_erp_doc_counters_by_company;
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_global ON erp_doc_counters(doc, ano) WHERE company_id IS NULL;
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_by_company ON erp_doc_counters(company_id, doc, ano) WHERE company_id IS NOT NULL;
-
-            CREATE OR REPLACE FUNCTION erp_next_doc_number(p_doc TEXT, p_company_id UUID)
-            RETURNS TEXT AS $$
-            DECLARE
-                v_start   INT;
-                v_year_f  BOOLEAN;
-                v_pad     INT;
-                v_prefix  TEXT;
-                v_ano     INT;
-                v_n       INT;
-                v_sigla   TEXT;
-                v_sig_p   TEXT := '';
-            BEGIN
-                IF p_company_id IS NULL THEN
-                    RAISE EXCEPTION 'company_id obrigatorio para numeracao por empresa' USING ERRCODE = '23502';
-                END IF;
-
-                SELECT COALESCE(start_number, 0), 
-                       COALESCE(include_year, p_doc IN ('ORC','OS','MED')),
-                       COALESCE(padding, 4),
-                       COALESCE(prefix, CASE WHEN p_doc = 'REC_SV' THEN NULL ELSE p_doc END)
-                  INTO v_start, v_year_f, v_pad, v_prefix
-                  FROM erp_doc_settings_company
-                 WHERE company_id = p_company_id AND doc_type = p_doc;
-
-                IF NOT FOUND THEN
-                    v_start := 0; v_year_f := p_doc IN ('ORC','OS','MED'); v_pad := 4;
-                    v_prefix := CASE WHEN p_doc = 'REC_SV' THEN NULL ELSE p_doc END;
-                END IF;
-
-                SELECT UPPER(sigla) INTO v_sigla FROM erp_companies WHERE id = p_company_id;
-                IF v_sigla IS NOT NULL AND v_sigla <> '' THEN v_sig_p := v_sigla || '-'; END IF;
-
-                v_ano := CASE WHEN v_year_f THEN EXTRACT(YEAR FROM CURRENT_DATE)::INT ELSE 0 END;
-
-                INSERT INTO erp_doc_counters(doc, ano, ultimo, company_id)
-                     VALUES (p_doc, v_ano, v_start + 1, p_company_id)
-                ON CONFLICT (company_id, doc, ano) WHERE company_id IS NOT NULL DO UPDATE
-                     SET ultimo = GREATEST(erp_doc_counters.ultimo + 1, EXCLUDED.ultimo)
-                RETURNING ultimo INTO v_n;
-
-                IF v_year_f THEN
-                    RETURN v_sig_p || COALESCE(v_prefix, p_doc) || '-' || v_ano || '-' || LPAD(v_n::TEXT, v_pad, '0');
-                END IF;
-                RETURN v_sig_p || COALESCE(v_prefix, p_doc) || '-' || LPAD(v_n::TEXT, v_pad, '0');
-            END;
-            $$ LANGUAGE plpgsql;
-        `);
-        res.json({ ok: true, message: 'Função erp_next_doc_number corrigida no banco.' });
-    } catch (e: any) {
-        sendError(res, e, 'Erro ao corrigir banco via rota');
     }
 });
 

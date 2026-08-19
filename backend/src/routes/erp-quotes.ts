@@ -1,10 +1,9 @@
 import { sendError } from '../utils/apiError';
-import { logger } from '../utils/logger';
 import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
-import * as multer from 'multer';
-import * as path from 'path';
-import * as fs from 'fs';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
 
@@ -158,7 +157,7 @@ router.get('/stats/kpis', async (_req, res) => {
 });
 
 
-router.get('/:id', async (req, res): Promise<any> => {
+router.get('/:id', async (req, res) => {
   try {
     const r = await pool.query(
       `SELECT ${QUOTE_SELECT}
@@ -176,58 +175,18 @@ router.get('/:id', async (req, res): Promise<any> => {
   }
 });
 
-router.post('/', async (req, res): Promise<any> => {
+router.post('/', async (req, res) => {
   const c = req.body || {};
   const items = Array.isArray(c.items) ? c.items : [];
   const client = await pool.connect();
   try {
     const companyId = requireCompanyId(c.companyId);
     await client.query('BEGIN');
-    
-    // [#35 crítico] Garantir suporte a ORC no erp_doc_counters
-    // Tenta primeiro garantir a estrutura se falhar (fallback inline para a transação)
-    let numero;
-    try {
-      const numRes = await client.query(
-        `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
-        [companyId]
-      );
-      numero = numRes.rows[0].num;
-    } catch (err: any) {
-       // Se falhar, tentamos criar a tabela e função agora mesmo
-       console.log('Fallback: Criando estrutura de numeração em tempo de execução...');
-       await client.query(`
-         CREATE TABLE IF NOT EXISTS erp_doc_counters (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            company_id UUID REFERENCES erp_companies(id) ON DELETE CASCADE,
-            doc TEXT NOT NULL,
-            ano INTEGER NOT NULL,
-            ultimo INTEGER DEFAULT 0
-         );
-         CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_by_company 
-           ON erp_doc_counters(company_id, doc, ano) WHERE company_id IS NOT NULL;
-         
-         CREATE OR REPLACE FUNCTION erp_next_doc_number(p_doc TEXT, p_company_id UUID)
-         RETURNS TEXT AS $fn$
-         DECLARE
-            v_ano INT := EXTRACT(YEAR FROM CURRENT_DATE)::INT;
-            v_n INT;
-         BEGIN
-            INSERT INTO erp_doc_counters(doc, ano, ultimo, company_id)
-            VALUES (p_doc, v_ano, 1, p_company_id)
-            ON CONFLICT (company_id, doc, ano) WHERE company_id IS NOT NULL 
-            DO UPDATE SET ultimo = erp_doc_counters.ultimo + 1
-            RETURNING ultimo INTO v_n;
-            RETURN p_doc || '-' || v_ano || '-' || LPAD(v_n::TEXT, 4, '0');
-         END;
-         $fn$ LANGUAGE plpgsql;
-       `);
-       const numRes = await client.query(
-        `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
-        [companyId]
-      );
-      numero = numRes.rows[0].num;
-    }
+    const numRes = await client.query(
+      `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
+      [companyId]
+    );
+    const numero = numRes.rows[0].num;
     const { subtotal, total } = calcTotals(items, c.descontoPct, c.frete);
 
     let companySnap: any = null, customerSnap: any = null;
@@ -237,7 +196,6 @@ router.post('/', async (req, res): Promise<any> => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Empresa emissora não encontrada.' });
     }
-    
     if (c.customerId) {
       const cu = await client.query('SELECT * FROM customers WHERE id=$1', [c.customerId]);
       customerSnap = cu.rows[0] || null;
@@ -255,7 +213,7 @@ router.post('/', async (req, res): Promise<any> => {
       [numero, companyId, c.customerId || null, companySnap, customerSnap,
        c.modalidade || 'mensal', c.tipoLocacao || null, emptyToNull(c.dataEmissao), c.validadeDias || 15,
        c.observacoes || null, c.condicoesPagamento || null,
-       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status || 'rascunho',
+       c.descontoPct || 0, c.frete || 0, subtotal, total, c.status,
        emptyToNull(c.dataEntrega), c.limpezasSemanais ?? null,
        c.enderecoEntrega || null, emptyToNull(c.dataRecolhimento),
        c.formaPagamento || null,
@@ -266,41 +224,24 @@ router.post('/', async (req, res): Promise<any> => {
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       const linha = +(Number(it.quantidade || 0) * Number(it.valorUnitario || 0)).toFixed(2);
-      try {
-        await client.query(
-          `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [quoteId, it.produto || 'Item', it.descricao || null,
-           it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
-        );
-      } catch (err: any) {
-        if (err.code === '42703') { // column does not exist
-          logger.info('QUOTES', 'Fallback: Adicionando coluna is_sanitario em erp_quote_items...');
-          await client.query('ALTER TABLE erp_quote_items ADD COLUMN IF NOT EXISTS is_sanitario BOOLEAN DEFAULT FALSE');
-          // Tenta novamente
-          await client.query(
-            `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [quoteId, it.produto || 'Item', it.descricao || null,
-             it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
-          );
-        } else {
-          throw err;
-        }
-      }
+      await client.query(
+        `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [quoteId, it.produto || 'Item', it.descricao || null,
+         it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
+
+      );
     }
     await client.query('COMMIT');
     res.json({ id: quoteId, numero });
   } catch (e: any) {
-    if (client) await client.query('ROLLBACK').catch(() => {});
-    logger.error('QUOTES', `Erro ao criar orçamento: ${e.message}`, { error: e.stack });
-    sendError(res, e, '[erp-quotes POST]');
-  } finally {
-    if (client) client.release();
-  }
+    await client.query('ROLLBACK');
+    console.error('[erp-quotes POST]', e);
+    sendError(res, e);
+  } finally { client.release(); }
 });
 
-router.put('/:id', async (req, res): Promise<any> => {
+router.put('/:id', async (req, res) => {
   const c = req.body || {};
   const items = Array.isArray(c.items) ? c.items : null;
   const client = await pool.connect();
@@ -360,39 +301,25 @@ router.put('/:id', async (req, res): Promise<any> => {
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         const linha = +(Number(it.quantidade || 0) * Number(it.valorUnitario || 0)).toFixed(2);
-        try {
-          await client.query(
-            `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [req.params.id, it.produto || 'Item', it.descricao || null,
-             it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
-          );
-        } catch (err: any) {
-          if (err.code === '42703') {
-            logger.info('QUOTES', 'Fallback PUT: Adicionando coluna is_sanitario em erp_quote_items...');
-            await client.query('ALTER TABLE erp_quote_items ADD COLUMN IF NOT EXISTS is_sanitario BOOLEAN DEFAULT FALSE');
-            await client.query(
-              `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-              [req.params.id, it.produto || 'Item', it.descricao || null,
-               it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
-            );
-          } else {
-            throw err;
-          }
-        }
+        await client.query(
+          `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [req.params.id, it.produto || 'Item', it.descricao || null,
+           it.quantidade || 1, it.valorUnitario || 0, linha, i, it.isSanitario || false]
+
+        );
       }
     }
     await client.query('COMMIT');
     res.json({ ok: true });
   } catch (e: any) {
     await client.query('ROLLBACK');
-    logger.error('QUOTES', `Erro ao atualizar orçamento ${req.params.id}: ${e.message}`, { error: e.stack });
+    console.error('[erp-quotes PUT]', e);
     sendError(res, e);
   } finally { client.release(); }
 });
 
-router.delete('/:id', requireRole('admin','manager'), async (req, res): Promise<any> => {
+router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
   try {
     const r = await pool.query('DELETE FROM erp_quotes WHERE id=$1 RETURNING id', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
@@ -405,7 +332,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res): Promise<
  * Não consome sanitários reais — apenas registra qtd_reservada na OS.
  * Os números reais são vinculados depois, no fluxo "Entregar / vincular".
  */
-router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, res): Promise<any> => {
+router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -470,7 +397,7 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
  * Duplica um orçamento: cria um novo registro com numeração nova,
  * status 'rascunho', mesmas informações e itens.
  */
-router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res): Promise<any> => {
+router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
