@@ -44,8 +44,14 @@ export function sendError(res: Response, e: any, logTag = '[api]') {
     return res.status(e.status).json({ error: e.message || 'Erro na requisição' });
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    return res.status(500).json({ error: e?.message || 'Erro interno' });
+  if (process.env.NODE_ENV === 'development' || status === 500) {
+    return res.status(status).json({ 
+      error: e?.message || 'Erro interno',
+      code: code,
+      detail: e?.detail,
+      hint: e?.hint,
+      logTag
+    });
   }
   return res.status(500).json({ error: 'Erro interno do servidor.' });
 }
