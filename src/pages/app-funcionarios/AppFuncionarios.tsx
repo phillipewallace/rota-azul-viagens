@@ -638,18 +638,18 @@ const AppFuncionarios = () => {
             <p className="text-slate-500 font-medium mb-8">CPF: {user?.cpf?.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") || 'N/A'}</p>
             
             <div className="w-full space-y-3">
-               <Card className="border-none bg-slate-50 shadow-none">
-                  <CardContent className="p-4 flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
-                           <PackageCheck className="w-5 h-5" />
+               <Card className="border-none bg-slate-50 shadow-none rounded-[2rem]">
+                  <CardContent className="p-5 flex items-center justify-between">
+                     <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
+                           <PackageCheck className="w-6 h-6" />
                         </div>
                         <div className="text-left">
-                           <p className="text-xs text-slate-500 font-bold uppercase">Produtividade</p>
-                           <p className="font-bold">Em dia</p>
+                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Status da Fila</p>
+                           <p className="font-black text-slate-800">Operando</p>
                         </div>
                      </div>
-                     <Badge className="bg-emerald-500">Nota 10</Badge>
+                     <Badge className="bg-emerald-500 text-white font-black px-3 py-1 rounded-full">ATIVO</Badge>
                   </CardContent>
                </Card>
             </div>
