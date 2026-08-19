@@ -239,7 +239,7 @@ const AppFuncionarios = () => {
           <span className="font-bold text-lg tracking-tighter">Alchemy<span className="text-primary">Ops</span></span>
         </div>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => fetchList()}>
+          <Button variant="ghost" size="icon" onClick={() => loadOS(mode === 'historico')}>
             <Clock className="h-5 w-5 text-slate-400" />
           </Button>
           <Button variant="ghost" size="icon" onClick={handleLogout}>
