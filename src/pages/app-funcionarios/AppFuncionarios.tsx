@@ -387,10 +387,14 @@ const AppFuncionarios = () => {
                     <div className="space-y-3">
                       <Button 
                         variant="outline" 
-                        className="w-full h-16 border-2 border-dashed gap-2 text-primary border-primary/30 bg-primary/5"
+                        className="w-full h-20 border-2 border-dashed gap-3 text-primary border-primary/20 bg-primary/5 rounded-[2rem] hover:bg-primary/10 transition-colors"
                         onClick={() => setAddingSanitario(true)}
                       >
-                        <Plus className="h-5 w-5" /> Adicionar Sanitário (Entrega)
+                        <Plus className="h-6 w-6" /> 
+                        <div className="text-left">
+                           <p className="font-black text-base leading-none">Vincular Sanitário</p>
+                           <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-1">Registrar Entrega</p>
+                        </div>
                       </Button>
 
                       {osSanitarios.length === 0 && (
