@@ -184,11 +184,49 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
     
     // [#35 crítico] Garantir suporte a ORC no erp_doc_counters
-    const numRes = await client.query(
-      `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
-      [companyId]
-    );
-    const numero = numRes.rows[0].num;
+    // Tenta primeiro garantir a estrutura se falhar (fallback inline para a transação)
+    let numero;
+    try {
+      const numRes = await client.query(
+        `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
+        [companyId]
+      );
+      numero = numRes.rows[0].num;
+    } catch (err: any) {
+       // Se falhar, tentamos criar a tabela e função agora mesmo
+       console.log('Fallback: Criando estrutura de numeração em tempo de execução...');
+       await client.query(`
+         CREATE TABLE IF NOT EXISTS erp_doc_counters (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            company_id UUID REFERENCES erp_companies(id) ON DELETE CASCADE,
+            doc TEXT NOT NULL,
+            ano INTEGER NOT NULL,
+            ultimo INTEGER DEFAULT 0
+         );
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_erp_doc_counters_by_company 
+           ON erp_doc_counters(company_id, doc, ano) WHERE company_id IS NOT NULL;
+         
+         CREATE OR REPLACE FUNCTION erp_next_doc_number(p_doc TEXT, p_company_id UUID)
+         RETURNS TEXT AS $fn$
+         DECLARE
+            v_ano INT := EXTRACT(YEAR FROM CURRENT_DATE)::INT;
+            v_n INT;
+         BEGIN
+            INSERT INTO erp_doc_counters(doc, ano, ultimo, company_id)
+            VALUES (p_doc, v_ano, 1, p_company_id)
+            ON CONFLICT (company_id, doc, ano) WHERE company_id IS NOT NULL 
+            DO UPDATE SET ultimo = erp_doc_counters.ultimo + 1
+            RETURNING ultimo INTO v_n;
+            RETURN p_doc || '-' || v_ano || '-' || LPAD(v_n::TEXT, 4, '0');
+         END;
+         $fn$ LANGUAGE plpgsql;
+       `);
+       const numRes = await client.query(
+        `SELECT erp_next_doc_number('ORC', $1::uuid) AS num`,
+        [companyId]
+      );
+      numero = numRes.rows[0].num;
+    }
     const { subtotal, total } = calcTotals(items, c.descontoPct, c.frete);
 
     let companySnap: any = null, customerSnap: any = null;
