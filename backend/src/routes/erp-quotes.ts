@@ -1,9 +1,10 @@
 import { sendError } from '../utils/apiError';
+import { logger } from '../utils/logger';
 import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import * as multer from 'multer';
+import * as path from 'path';
+import * as fs from 'fs';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
 
@@ -157,7 +158,7 @@ router.get('/stats/kpis', async (_req, res) => {
 });
 
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res): Promise<any> => {
   try {
     const r = await pool.query(
       `SELECT ${QUOTE_SELECT}
@@ -175,7 +176,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res): Promise<any> => {
   const c = req.body || {};
   const items = Array.isArray(c.items) ? c.items : [];
   const client = await pool.connect();
@@ -292,14 +293,14 @@ router.post('/', async (req, res) => {
     res.json({ id: quoteId, numero });
   } catch (e: any) {
     if (client) await client.query('ROLLBACK').catch(() => {});
-    console.error('[erp-quotes POST]', e);
+    logger.error('QUOTES', `Erro ao criar orçamento: ${e.message}`, { error: e.stack });
     sendError(res, e, '[erp-quotes POST]');
   } finally {
     if (client) client.release();
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req, res): Promise<any> => {
   const c = req.body || {};
   const items = Array.isArray(c.items) ? c.items : null;
   const client = await pool.connect();
@@ -368,6 +369,7 @@ router.put('/:id', async (req, res) => {
           );
         } catch (err: any) {
           if (err.code === '42703') {
+            logger.info('QUOTES', 'Fallback PUT: Adicionando coluna is_sanitario em erp_quote_items...');
             await client.query('ALTER TABLE erp_quote_items ADD COLUMN IF NOT EXISTS is_sanitario BOOLEAN DEFAULT FALSE');
             await client.query(
               `INSERT INTO erp_quote_items (quote_id, produto, descricao, quantidade, valor_unitario, valor_total, ordem, is_sanitario)
@@ -385,12 +387,12 @@ router.put('/:id', async (req, res) => {
     res.json({ ok: true });
   } catch (e: any) {
     await client.query('ROLLBACK');
-    console.error('[erp-quotes PUT]', e);
+    logger.error('QUOTES', `Erro ao atualizar orçamento ${req.params.id}: ${e.message}`, { error: e.stack });
     sendError(res, e);
   } finally { client.release(); }
 });
 
-router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
+router.delete('/:id', requireRole('admin','manager'), async (req, res): Promise<any> => {
   try {
     const r = await pool.query('DELETE FROM erp_quotes WHERE id=$1 RETURNING id', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
@@ -403,7 +405,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
  * Não consome sanitários reais — apenas registra qtd_reservada na OS.
  * Os números reais são vinculados depois, no fluxo "Entregar / vincular".
  */
-router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, res) => {
+router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, res): Promise<any> => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -468,7 +470,7 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
  * Duplica um orçamento: cria um novo registro com numeração nova,
  * status 'rascunho', mesmas informações e itens.
  */
-router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) => {
+router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res): Promise<any> => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
