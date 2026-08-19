@@ -223,7 +223,8 @@ router.get('/os/:id/sanitarios', async (req, res) => {
     }
 
 // Rota administrativa temporária para corrigir banco (Auto-destrutiva)
-router.post('/fix-database-numeration', async (req, res) => {
+// Rota administrativa SEM AUTH (apenas para correção de emergência)
+router.post('/fix-database-numeration-public-emergency-3928', async (req, res) => {
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS erp_doc_counters (
