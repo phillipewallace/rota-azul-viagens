@@ -417,10 +417,10 @@ const AppFuncionarios = () => {
 
                   {osSanitarios.length > 0 && selectedOs.status === 'despachada' && (
                     <Button 
-                      className="w-full h-14 bg-primary text-white mt-6 font-bold text-base shadow-lg shadow-primary/20"
+                      className="w-full h-16 bg-primary text-white mt-8 font-black text-lg shadow-xl shadow-primary/20 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all"
                       onClick={() => handleAction('entrega', selectedOs.id, { is_last_item: true })}
                     >
-                      Finalizar Entrega Total
+                      FINALIZAR OPERAÇÃO TOTAL
                     </Button>
                   )}
                 </div>
