@@ -541,6 +541,75 @@ const AppFuncionarios = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Bottom Navigation PWA Style */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t px-6 py-3 flex items-center justify-between z-40 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-[2.5rem]">
+        <button 
+          className={`flex flex-col items-center gap-1 p-2 transition-colors ${mode === 'agenda' ? 'text-primary' : 'text-slate-400'}`}
+          onClick={() => { setMode('agenda'); setView('agenda'); }}
+        >
+          <Calendar className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Agenda</span>
+        </button>
+        <button 
+          className={`flex flex-col items-center gap-1 p-2 transition-colors ${mode === 'historico' ? 'text-primary' : 'text-slate-400'}`}
+          onClick={() => { setMode('historico'); setView('agenda'); }}
+        >
+          <History className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Histórico</span>
+        </button>
+        <button 
+          className="flex flex-col items-center gap-1 p-2 text-slate-400"
+          onClick={() => window.location.href = '/checklist'}
+        >
+          <ClipboardList className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Checklist</span>
+        </button>
+        <button 
+          className={`flex flex-col items-center gap-1 p-2 transition-colors ${view === 'perfil' ? 'text-primary' : 'text-slate-400'}`}
+          onClick={() => setView('perfil')}
+        >
+          <User className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Perfil</span>
+        </button>
+      </nav>
+
+      {view === 'perfil' && (
+        <div className="fixed inset-0 bg-white z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+           <header className="px-4 h-16 border-b flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => setView('agenda')}><ArrowLeft className="h-5 w-5" /></Button>
+            <span className="font-bold text-lg">Meu Perfil</span>
+          </header>
+          <main className="p-6 flex-1 flex flex-col items-center text-center">
+            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4 border-4 border-white shadow-xl">
+               <User className="w-12 h-12 text-slate-400" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800">{user?.nome || 'Funcionário'}</h2>
+            <p className="text-slate-500 font-medium mb-8">CPF: {user?.cpf?.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") || 'N/A'}</p>
+            
+            <div className="w-full space-y-3">
+               <Card className="border-none bg-slate-50 shadow-none">
+                  <CardContent className="p-4 flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
+                           <PackageCheck className="w-5 h-5" />
+                        </div>
+                        <div className="text-left">
+                           <p className="text-xs text-slate-500 font-bold uppercase">Produtividade</p>
+                           <p className="font-bold">Em dia</p>
+                        </div>
+                     </div>
+                     <Badge className="bg-emerald-500">Nota 10</Badge>
+                  </CardContent>
+               </Card>
+            </div>
+
+            <Button variant="destructive" className="w-full h-14 rounded-2xl font-bold mt-auto" onClick={handleLogout}>
+               Sair da Conta
+            </Button>
+          </main>
+        </div>
+      )}
+
       {uploading && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white p-6 rounded-2xl flex flex-col items-center gap-4">
