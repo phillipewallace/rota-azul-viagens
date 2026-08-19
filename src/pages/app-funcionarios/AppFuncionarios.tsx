@@ -362,7 +362,7 @@ const AppFuncionarios = () => {
                              </Select>
                              <Button 
                               size="sm" 
-                              className="bg-amber-600 text-white gap-1 text-[10px] h-8"
+                              className="bg-amber-600 text-white gap-2 text-xs h-10 rounded-xl font-bold shadow-md shadow-amber-200"
                               onClick={() => handleAction('recolhimento', selectedOs.id, { 
                                 sanitario_id: s.id,
                                 estado_atual: s.temp_estado || 'bom',
@@ -370,7 +370,7 @@ const AppFuncionarios = () => {
                                 is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
                               })}
                             >
-                              <PackageCheck className="h-3 w-3" /> Recolher
+                              <PackageCheck className="h-4 w-4" /> Recolher
                             </Button>
                           </div>
                         ) : (
