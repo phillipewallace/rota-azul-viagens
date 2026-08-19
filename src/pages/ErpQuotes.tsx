@@ -79,7 +79,7 @@ interface EditorState {
 }
 
 let __itemUid = 0;
-const withUid = <T extends object>(it: T): T & { __uid: number } => ({ ...(it as T), __uid: ++__itemUid });
+const withUid = <T extends object>(it: T): T & { __uid: number } => ({ ...it, __uid: ++__itemUid } as any);
 
 const emptyEditor = (): EditorState => ({
   modalidade: 'mensal', tipoLocacao: 'evento', validadeDias: 15, descontoPct: 0, frete: 0,
@@ -960,8 +960,8 @@ const ErpQuotes: React.FC = () => {
                   <div className="text-right">Total</div>
                   <div />
                 </div>
-                {editing.items.map((it, i) => (
-                  <div key={(it as any).__uid ?? i} className="grid grid-cols-[40px_1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
+                {editing.items.map((it: any, i) => (
+                  <div key={it.__uid ?? i} className="grid grid-cols-[40px_1fr_2fr_90px_120px_120px_40px] gap-2 px-3 py-2 border-t items-center">
                     <div className="flex justify-center">
                       <TooltipProvider>
                         <Tooltip>
