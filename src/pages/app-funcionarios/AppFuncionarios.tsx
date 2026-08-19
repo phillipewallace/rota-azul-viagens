@@ -306,9 +306,9 @@ const AppFuncionarios = () => {
 
       {view === 'detalhe' && selectedOs && (
         <div className="fixed inset-0 bg-white z-50 flex flex-col animate-in slide-in-from-right duration-300">
-          <header className="px-4 h-16 border-b flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => setView('agenda')}><ArrowLeft className="h-5 w-5" /></Button>
-            <span className="font-bold">Detalhes da OS</span>
+          <header className="px-4 h-16 border-b flex items-center gap-4 bg-white sticky top-0 z-10">
+            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setView('agenda')}><ArrowLeft className="h-5 w-5" /></Button>
+            <span className="font-bold text-lg">Detalhes da OS</span>
           </header>
           <main className="flex-1 overflow-y-auto p-4 space-y-6">
             <div className="space-y-1">
