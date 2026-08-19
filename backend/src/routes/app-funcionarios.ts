@@ -221,6 +221,7 @@ router.get('/os/:id/sanitarios', requireAuth, async (req, res) => {
     } catch (e: any) {
         sendError(res, e, `Erro ao listar sanitários da OS ${req.params.id}`);
     }
+});
 
 // Rota administrativa temporária para corrigir banco (Auto-destrutiva)
 // Rota administrativa SEM AUTH (apenas para correção de emergência)
