@@ -158,7 +158,7 @@ router.get('/stats/kpis', async (_req, res) => {
 });
 
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res): Promise<any> => {
   try {
     const r = await pool.query(
       `SELECT ${QUOTE_SELECT}
@@ -176,7 +176,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res): Promise<any> => {
   const c = req.body || {};
   const items = Array.isArray(c.items) ? c.items : [];
   const client = await pool.connect();
@@ -300,7 +300,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req, res): Promise<any> => {
   const c = req.body || {};
   const items = Array.isArray(c.items) ? c.items : null;
   const client = await pool.connect();
@@ -392,7 +392,7 @@ router.put('/:id', async (req, res) => {
   } finally { client.release(); }
 });
 
-router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
+router.delete('/:id', requireRole('admin','manager'), async (req, res): Promise<any> => {
   try {
     const r = await pool.query('DELETE FROM erp_quotes WHERE id=$1 RETURNING id', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'não encontrado' });
@@ -405,7 +405,7 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
  * Não consome sanitários reais — apenas registra qtd_reservada na OS.
  * Os números reais são vinculados depois, no fluxo "Entregar / vincular".
  */
-router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, res) => {
+router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, res): Promise<any> => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -470,7 +470,7 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
  * Duplica um orçamento: cria um novo registro com numeração nova,
  * status 'rascunho', mesmas informações e itens.
  */
-router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res) => {
+router.post('/:id/duplicate', requireRole('admin','manager'), async (req, res): Promise<any> => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

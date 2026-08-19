@@ -9,7 +9,7 @@ const TAG = 'APP-FUNC';
 // router.use(requireAuth); // Removido para controle granular abaixo
 
 // Endpoint para listar OS pendentes/agendadas ou histórico
-router.get('/os', requireAuth, async (req, res) => {
+router.get('/os', requireAuth, async (req, res): Promise<any> => {
     try {
         const { history } = req.query;
         const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
@@ -49,7 +49,7 @@ router.get('/os', requireAuth, async (req, res) => {
 });
 
 // Assumir uma OS da fila global
-router.post('/os/:id/assumir', requireAuth, async (req, res) => {
+router.post('/os/:id/assumir', requireAuth, async (req, res): Promise<any> => {
     const { id } = req.params;
     const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
     const funcionarioNome = (req as any).user?.nome || (req as any).user?.username;
@@ -208,7 +208,7 @@ router.post('/os/:id/recolher-item', requireAuth, async (req, res) => {
 });
 
 // Listar sanitários vinculados a uma OS (para recolhimento itemizado)
-router.get('/os/:id/sanitarios', requireAuth, async (req, res) => {
+router.get('/os/:id/sanitarios', requireAuth, async (req, res): Promise<any> => {
     try {
         const { id } = req.params;
         const r = await pool.query(`
@@ -225,7 +225,7 @@ router.get('/os/:id/sanitarios', requireAuth, async (req, res) => {
 
 // Rota administrativa temporária para corrigir banco (Auto-destrutiva)
 // Rota administrativa SEM AUTH (apenas para correção de emergência)
-router.post('/fix-database-numeration-public-emergency-3928', softAuth, async (req, res) => {
+router.post('/fix-database-numeration-public-emergency-3928', softAuth, async (req, res): Promise<any> => {
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS erp_doc_counters (
