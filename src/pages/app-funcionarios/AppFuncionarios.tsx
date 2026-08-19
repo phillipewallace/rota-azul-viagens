@@ -226,10 +226,10 @@ const AppFuncionarios = () => {
       <PageMeta title="Minha Agenda | Alchemy Operacional" noindex />
       <header className="bg-white border-b sticky top-0 z-10 px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center">
             <ClipboardList className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-sm">Minha Agenda</span>
+          <span className="font-bold text-lg tracking-tighter">Alchemy<span className="text-primary">Ops</span></span>
         </div>
         <Button variant="ghost" size="icon" onClick={handleLogout}>
           <LogOut className="h-5 w-5 text-slate-400" />
