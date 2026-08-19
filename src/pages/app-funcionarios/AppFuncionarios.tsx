@@ -425,9 +425,9 @@ const AppFuncionarios = () => {
                   )}
                 </div>
 
-                <div className="p-4 bg-blue-50 text-blue-700 rounded-2xl flex gap-3 text-xs leading-relaxed">
-                   <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                   <p>Para locações múltiplas, registre cada sanitário individualmente. Novos ativos serão cadastrados automaticamente se não encontrados.</p>
+                <div className="p-5 bg-blue-50/50 border border-blue-100 text-blue-700 rounded-[2rem] flex gap-3 text-xs leading-relaxed font-medium">
+                    <Info className="h-5 w-5 shrink-0 text-blue-500" />
+                    <p>Para locações múltiplas, registre cada sanitário individualmente. Novos ativos serão cadastrados automaticamente se não encontrados.</p>
                 </div>
               </div>
             )}
