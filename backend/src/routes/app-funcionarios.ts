@@ -6,7 +6,7 @@ import { sendError } from '../utils/apiError';
 
 const router = Router();
 const TAG = 'APP-FUNC';
-router.use(requireAuth);
+// router.use(requireAuth); // Removido para controle granular abaixo
 
 // Endpoint para listar OS pendentes/agendadas ou histórico
 router.get('/os', async (req, res) => {
