@@ -188,7 +188,7 @@ const AppFuncionarios = () => {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
         <PageMeta title="Login | Alchemy Operacional" noindex />
-        <Card className="w-full max-w-sm border-none shadow-2xl bg-slate-800 text-white">
+        <Card className="w-full max-w-sm border-none shadow-2xl bg-slate-800 text-white rounded-[2.5rem] p-4">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
               <User className="h-8 w-8 text-primary" />
