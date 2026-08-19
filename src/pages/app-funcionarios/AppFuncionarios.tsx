@@ -66,6 +66,12 @@ const AppFuncionarios = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      loadOS(mode === 'historico');
+    }
+  }, [user, mode, selectedDate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cpf || !password) return toast.error('Preencha todos os campos');
