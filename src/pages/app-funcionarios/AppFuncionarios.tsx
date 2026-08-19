@@ -329,10 +329,15 @@ const AppFuncionarios = () => {
 
                 <div className="space-y-3">
                   {osSanitarios.map(s => (
-                    <div key={s.id} className="p-4 bg-slate-50 border rounded-xl flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-slate-800">#{s.numero}</p>
-                        <p className="text-[10px] text-slate-500 uppercase">{s.categoria}</p>
+                    <div key={s.id} className="p-5 bg-white border border-slate-100 shadow-sm rounded-3xl flex justify-between items-center transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
+                           <PackageOpen className="w-6 h-6 text-slate-400" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-800 text-lg leading-none mb-1">#{s.numero}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{s.categoria}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {s.devolvido_em ? (
