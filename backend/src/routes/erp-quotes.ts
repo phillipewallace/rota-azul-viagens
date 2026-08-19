@@ -2,9 +2,9 @@ import { sendError } from '../utils/apiError';
 import { logger } from '../utils/logger';
 import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import * as multer from 'multer';
+import * as path from 'path';
+import * as fs from 'fs';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
 
