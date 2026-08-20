@@ -172,8 +172,11 @@ export async function generateReceiptPdf(
   }
 
   // ---------- Endereço da obra/evento + CNO / OC (quando informados) ----------
-  const enderecoObra = ct.enderecoObra || ct.localEvento;
-  const cno = ct.cno;
+  // O snapshot pode conter overrides feitos no momento da edição.
+  const snapContract = snap.contract || {};
+  const enderecoObra = ct.enderecoObra || ct.localEvento || snapContract.enderecoObra;
+  const cno = ct.cno || snapContract.cno;
+  
   if (enderecoObra || cno) {
     y += 2;
     doc.setTextColor(...PRIMARY);

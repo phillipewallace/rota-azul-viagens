@@ -741,14 +741,16 @@ const ErpFinanceiro: React.FC = () => {
     return out;
   };
 
-  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean; periodo?: { inicio: string; fim: string }; dataVencimento?: string; semValidade?: boolean }) => {
+  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean; periodo?: { inicio: string; fim: string }; dataVencimento?: string; semValidade?: boolean; cno?: string; enderecoObra?: string }) => {
     setWorking(p.contractId);
     try {
       if (opts?.periodo) {
         await gerarPeriodo(p, opts.periodo.inicio, opts.periodo.fim, { 
           baixarPdf: !opts.semPdf, 
           dataVencimento: opts.dataVencimento, 
-          semValidade: opts.semValidade 
+          semValidade: opts.semValidade,
+          cno: opts.cno,
+          enderecoObra: opts.enderecoObra
         });
       } else {
         await generateOne(p.contractId, Number(p.valorMensal), opts);
@@ -762,7 +764,7 @@ const ErpFinanceiro: React.FC = () => {
   // passa a ser exibida como "DD/MM/YYYY - DD/MM/YYYY".
   const gerarPeriodo = async (
     p: PendingReceipt, periodoInicio: string, periodoFim: string,
-    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean; dataVencimento?: string }
+    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean; dataVencimento?: string; cno?: string; enderecoObra?: string }
   ) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
       toast.error('Datas inválidas'); return;
@@ -783,6 +785,8 @@ const ErpFinanceiro: React.FC = () => {
         pago: opts?.marcarPago ?? true,
         semValidade: !!opts?.semValidade,
         dataVencimento: opts?.dataVencimento,
+        cno: opts?.cno,
+        enderecoObra: opts?.enderecoObra,
       });
       if (opts?.baixarPdf !== false) {
         try {
@@ -1701,11 +1705,13 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                               onConfirm={(semValidade, dataVencimento, periodoOverride) => {
+                               onConfirm={(semValidade, dataVencimento, periodoOverride, cno, enderecoObra) => {
                                  void gerar(p, { 
                                    semValidade, 
                                    dataVencimento, 
-                                   periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia) 
+                                   periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia),
+                                   cno,
+                                   enderecoObra
                                  });
                                }}
                               competencia={competencia}
@@ -3205,7 +3211,7 @@ const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
   competencia: string;
-  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }) => void;
+  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }, cno?: string, enderecoObra?: string) => void;
   children: React.ReactNode;
 }> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
@@ -3215,6 +3221,8 @@ const GerarReciboPopover: React.FC<{
   const [overridePeriodo, setOverridePeriodo] = useState(false);
   const [perIniManual, setPerIniManual] = useState('');
   const [perFimManual, setPerFimManual] = useState('');
+  const [cnoManual, setCnoManual] = useState('');
+  const [enderecoManual, setEnderecoManual] = useState('');
 
   // Vencimento padrão (mesma lógica do backend): dia do contrato no mês da competência.
   const vencPadrao = useMemo(() => {
@@ -3235,7 +3243,9 @@ const GerarReciboPopover: React.FC<{
     setOverridePeriodo(false);
     setPerIniManual(periodoPadrao.inicio);
     setPerFimManual(periodoPadrao.fim);
-  }, [open, pending.contractId, vencPadrao, periodoPadrao]);
+    setCnoManual(pending.cno || '');
+    setEnderecoManual(pending.enderecoObra || pending.localEvento || '');
+  }, [open, pending.contractId, vencPadrao, periodoPadrao, pending.cno, pending.enderecoObra, pending.localEvento]);
 
   const periodo = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : periodoPadrao;
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
@@ -3334,29 +3344,53 @@ const GerarReciboPopover: React.FC<{
             )}
           </div>
 
-          {/* Toggle: sem validade jurídica */}
-          <label
-            htmlFor={`gr-sv-${pending.contractId}`}
-            className={
-              'flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors duration-200 ' +
-              (semValidade
-                ? 'border-amber-300 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30'
-                : 'border-border/60 bg-muted/30 hover:bg-muted/50')
-            }
-          >
-            <Checkbox
-              id={`gr-sv-${pending.contractId}`}
-              checked={semValidade}
-              onCheckedChange={(v) => setSemValidade(!!v)}
-              className="mt-0.5"
-            />
-            <div className="text-[11px] leading-snug">
-              <div className="font-medium text-foreground">Recibo sem validade jurídica</div>
-              <div className="text-muted-foreground">
-                Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. No próximo mês, este contrato volta para pendentes normalmente.
-              </div>
+          {/* CNO / Endereço */}
+          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground uppercase">CNO / Ordem de Compra</Label>
+              <Input
+                value={cnoManual}
+                onChange={(e) => setCnoManual(e.target.value)}
+                placeholder="Opcional..."
+                className="h-8 text-xs"
+              />
             </div>
-          </label>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground uppercase">Endereço da Obra/Evento</Label>
+              <Textarea
+                value={enderecoManual}
+                onChange={(e) => setEnderecoManual(e.target.value)}
+                placeholder="Endereço específico para este recibo..."
+                className="min-h-[60px] text-xs resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Toggle: sem validade jurídica */}
+          <div className="space-y-2">
+            <label
+              htmlFor={`gr-sv-${pending.contractId}`}
+              className={
+                'flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors duration-200 ' +
+                (semValidade
+                  ? 'border-amber-300 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30'
+                  : 'border-border/60 bg-muted/30 hover:bg-muted/50')
+              }
+            >
+              <Checkbox
+                id={`gr-sv-${pending.contractId}`}
+                checked={semValidade}
+                onCheckedChange={(v) => setSemValidade(!!v)}
+                className="mt-0.5"
+              />
+              <div className="text-[11px] leading-snug">
+                <div className="font-medium text-foreground">Recibo sem validade jurídica</div>
+                <div className="text-muted-foreground">
+                  Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. No próximo mês, este contrato volta para pendentes normalmente.
+                </div>
+              </div>
+            </label>
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-0.5">
             <Button
@@ -3373,7 +3407,7 @@ const GerarReciboPopover: React.FC<{
               onClick={() => {
                 const venc = overrideVenc && /^\d{4}-\d{2}-\d{2}$/.test(vencManual) ? vencManual : undefined;
                 const per = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : undefined;
-                onConfirm(semValidade, venc, per);
+                onConfirm(semValidade, venc, per, cnoManual, enderecoManual);
                 setOpen(false);
               }}
               disabled={
@@ -3445,6 +3479,7 @@ const UnifiedPreviewDialog: React.FC<{
   const [perFim, setPerFim] = useState('');
   const [obs, setObs] = useState('');
   const [items, setItems] = useState<any[]>([]);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!input) return;
@@ -3454,9 +3489,10 @@ const UnifiedPreviewDialog: React.FC<{
     setPerFim(input.periodoFim || '');
     setObs('');
     setItems(input.items || []);
+    setEditingItemIdx(null);
   }, [input]);
 
-  const updateItemPeriod = (idx: number, field: 'periodoInicio' | 'periodoFim', val: string) => {
+  const updateItem = (idx: number, field: string, val: any) => {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it));
   };
 
@@ -3529,7 +3565,7 @@ const UnifiedPreviewDialog: React.FC<{
                       <Input 
                         type="date" 
                         value={it.periodoInicio || ''} 
-                        onChange={e => updateItemPeriod(idx, 'periodoInicio', e.target.value)}
+                        onChange={e => updateItem(idx, 'periodoInicio', e.target.value)}
                         className="h-7 text-[11px]"
                       />
                     </div>
@@ -3538,10 +3574,45 @@ const UnifiedPreviewDialog: React.FC<{
                       <Input 
                         type="date" 
                         value={it.periodoFim || ''} 
-                        onChange={e => updateItemPeriod(idx, 'periodoFim', e.target.value)}
+                        onChange={e => updateItem(idx, 'periodoFim', e.target.value)}
                         className="h-7 text-[11px]"
                       />
                     </div>
+                  </div>
+
+                  <div className="pt-1 border-t mt-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-[10px] w-full justify-start text-muted-foreground hover:text-indigo-600"
+                      onClick={() => setEditingItemIdx(editingItemIdx === idx ? null : idx)}
+                    >
+                      {editingItemIdx === idx ? <X className="h-3 w-3 mr-1" /> : <Pencil className="h-3 w-3 mr-1" />}
+                      {editingItemIdx === idx ? 'Fechar edição de local' : 'Editar CNO / Endereço'}
+                    </Button>
+
+                    {editingItemIdx === idx && (
+                      <div className="space-y-2 mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded border border-indigo-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div>
+                          <Label className="text-[10px]">Endereço Singular (Obra/Evento)</Label>
+                          <Input 
+                            value={it.enderecoObra || ''} 
+                            onChange={e => updateItem(idx, 'enderecoObra', e.target.value)}
+                            placeholder="Endereço completo da obra..."
+                            className="h-7 text-[11px]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px]">CNO / Ordem de Compra</Label>
+                          <Input 
+                            value={it.cno || ''} 
+                            onChange={e => updateItem(idx, 'cno', e.target.value)}
+                            placeholder="Número do CNO..."
+                            className="h-7 text-[11px]"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -3564,7 +3635,10 @@ const UnifiedPreviewDialog: React.FC<{
               dataVencimento,
               periodoInicio: perIni,
               periodoFim: perFim,
-              items: items,
+              items: items.map(it => ({
+                ...it,
+                // As edições já estão no estado 'items' devido ao updateItem
+              })),
             })}
           >
             {working ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ReceiptIcon className="h-4 w-4 mr-1" />}
@@ -3728,6 +3802,8 @@ const EditVencimentoDialog: React.FC<{
   const [periodoFim, setPeriodoFim] = useState('');
   const [valor, setValor] = useState<string>('');
   const [numeroDisplay, setNumeroDisplay] = useState('');
+  const [cno, setCno] = useState('');
+  const [enderecoObra, setEnderecoObra] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -3738,6 +3814,8 @@ const EditVencimentoDialog: React.FC<{
     setPeriodoFim((receipt.periodoFim || '').slice(0, 10));
     setValor(String(Number(receipt.valor || 0)));
     setNumeroDisplay(receipt.numeroDisplay || '');
+    setCno(receipt.snapshot?.contract?.cno || '');
+    setEnderecoObra(receipt.snapshot?.contract?.enderecoObra || '');
   }, [receipt]);
 
   const salvar = async () => {
@@ -3753,13 +3831,15 @@ const EditVencimentoDialog: React.FC<{
     const v = Number(String(valor).replace(',', '.'));
     if (!Number.isFinite(v) || v < 0) { toast.error('Valor inválido'); return; }
 
-    const patch: Parameters<typeof receiptsService.update>[1] = {
+    const patch: any = {
       dataEmissao,
       dataVencimento: dataVencimento || null,
       periodoInicio: periodoInicio || null,
       periodoFim: periodoFim || null,
       valor: v,
       numeroDisplay: numeroDisplay.trim() || null,
+      cno: cno.trim() || null,
+      enderecoObra: enderecoObra.trim() || null,
     };
     // Recalcula competência a partir do período/emissão para manter consistência.
     const compBase = periodoInicio || dataEmissao;
@@ -3798,6 +3878,25 @@ const EditVencimentoDialog: React.FC<{
           <div className="space-y-1">
             <Label htmlFor="edit-venc">Data de vencimento</Label>
             <Input id="edit-venc" type="date" value={dataVencimento} onChange={(e) => setDataVencimento(e.target.value)} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit-cno">CNO / Ordem de Compra</Label>
+            <Input
+              id="edit-cno"
+              value={cno}
+              onChange={(e) => setCno(e.target.value)}
+              placeholder="Número do CNO..."
+            />
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label htmlFor="edit-endereco">Endereço da Obra (Singular)</Label>
+            <Input
+              id="edit-endereco"
+              value={enderecoObra}
+              onChange={(e) => setEnderecoObra(e.target.value)}
+              placeholder="Endereço completo da obra..."
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="edit-pi">Início do período</Label>
