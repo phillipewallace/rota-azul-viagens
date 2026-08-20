@@ -593,7 +593,7 @@ const ServiceOrders: React.FC = () => {
                       </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground space-y-0.5">
+                  <div className="text-xs text-muted-foreground space-y-0.5 cursor-pointer" onClick={() => openDetail(o)}>
                     <div>{o.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'} · {BRL(o.valorTotal)}</div>
                     <div>Tipo: {tipoLabel((o as any).tipoLocacao)}</div>
                     <div>
@@ -601,7 +601,6 @@ const ServiceOrders: React.FC = () => {
                       {o.dataRecolhimento && <> · Fim previsto: {D(o.dataRecolhimento)}</>}
                     </div>
                     <div>Sanitários alocados: <strong>{o.sanitariosAlocados || 0}</strong></div>
-                    <div className="text-[10px] italic text-primary/70">Clique no card para ver detalhes</div>
                   </div>
 
                   <div className="flex gap-1 pt-2 border-t flex-wrap" onClick={(e) => e.stopPropagation()}>
