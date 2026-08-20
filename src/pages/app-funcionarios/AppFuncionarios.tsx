@@ -188,6 +188,29 @@ const AppFuncionarios = () => {
     }
   };
 
+  const handleDesvincularOS = async (osId: string) => {
+    if (!confirm('Deseja realmente soltar esta OS e devolvê-la para a fila global?')) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${osId}/desvincular`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${user?.token}` }
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro ao desvincular OS');
+      }
+      toast.success('OS devolvida para a fila global');
+      setView('agenda');
+      setSelectedOs(null);
+      await loadOS();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (view === 'agenda' && user?.token) {
       loadOS(mode === 'historico');
