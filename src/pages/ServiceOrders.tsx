@@ -941,15 +941,17 @@ const ServiceOrders: React.FC = () => {
 
                 {Array.isArray(det.sanitarios) && det.sanitarios.length > 0 && (
                   <div>
-                    <div className="font-semibold mt-1 mb-1 flex items-center gap-2">
-                      <Package className="h-4 w-4" /> Sanitários vinculados ({det.sanitarios.length})
+                    <div className="font-semibold mt-1 mb-1 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4" /> Sanitários vinculados ({det.sanitarios.filter((s: any) => s.numero).length})
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {det.sanitarios.map((s: any, i: number) => (
+                      {det.sanitarios.filter((s: any) => s.numero).map((s: any, i: number) => (
                         <div key={i} className="flex items-center gap-2 p-2 border rounded-lg bg-slate-50">
                           <div className="w-10 h-10 rounded border bg-white overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
-                            {s.ultimaFotoUrl ? (
-                              <img src={s.ultimaFotoUrl} alt="Foto" className="w-full h-full object-cover" />
+                            {s.ultimaFotoUrl || s.fotoFinalizacaoUrl ? (
+                              <img src={s.ultimaFotoUrl || s.fotoFinalizacaoUrl} alt="Foto" className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(s.ultimaFotoUrl || s.fotoFinalizacaoUrl, '_blank')} />
                             ) : (
                               <Package className="h-4 w-4 text-slate-300" />
                             )}
