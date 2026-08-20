@@ -175,6 +175,31 @@ export async function generateReceiptPdf(
   const enderecoObra = ct.enderecoObra || ct.localEvento;
   const cno = ct.cno;
   if (enderecoObra || cno) {
+    // ---------- Endereço da obra/evento + CNO / OC (quando informados) ----------
+    // No unificado, cada item pode ter seu próprio endereço/CNO
+    const enderecoObra = it.enderecoObra;
+    const cno = it.cno;
+    
+    if (enderecoObra || cno) {
+      y += 2;
+      doc.setTextColor(...PRIMARY);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      doc.text('LOCAL DE PRESTAÇÃO / REFERÊNCIAS', M, y);
+      doc.setDrawColor(...ACCENT); doc.setLineWidth(0.4);
+      doc.line(M, y + 1, M + 60, y + 1);
+      y += 5;
+
+      doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      if (enderecoObra) {
+        const wrap = doc.splitTextToSize(`Endereço: ${enderecoObra}`, W - 2 * M);
+        for (const w of wrap) { doc.text(w, M, y); y += 4.5; }
+      }
+      if (cno) {
+        doc.text(`CNO / Ordem de Compra: ${cno}`, M, y); y += 4.5;
+      }
+      y += 1;
+    }
+
     y += 2;
     doc.setTextColor(...PRIMARY);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10);

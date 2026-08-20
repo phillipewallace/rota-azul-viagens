@@ -3445,6 +3445,7 @@ const UnifiedPreviewDialog: React.FC<{
   const [perFim, setPerFim] = useState('');
   const [obs, setObs] = useState('');
   const [items, setItems] = useState<any[]>([]);
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!input) return;
@@ -3454,9 +3455,10 @@ const UnifiedPreviewDialog: React.FC<{
     setPerFim(input.periodoFim || '');
     setObs('');
     setItems(input.items || []);
+    setEditingItemIdx(null);
   }, [input]);
 
-  const updateItemPeriod = (idx: number, field: 'periodoInicio' | 'periodoFim', val: string) => {
+  const updateItem = (idx: number, field: string, val: any) => {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it));
   };
 
@@ -3529,7 +3531,7 @@ const UnifiedPreviewDialog: React.FC<{
                       <Input 
                         type="date" 
                         value={it.periodoInicio || ''} 
-                        onChange={e => updateItemPeriod(idx, 'periodoInicio', e.target.value)}
+                        onChange={e => updateItem(idx, 'periodoInicio', e.target.value)}
                         className="h-7 text-[11px]"
                       />
                     </div>
@@ -3538,10 +3540,45 @@ const UnifiedPreviewDialog: React.FC<{
                       <Input 
                         type="date" 
                         value={it.periodoFim || ''} 
-                        onChange={e => updateItemPeriod(idx, 'periodoFim', e.target.value)}
+                        onChange={e => updateItem(idx, 'periodoFim', e.target.value)}
                         className="h-7 text-[11px]"
                       />
                     </div>
+                  </div>
+
+                  <div className="pt-1 border-t mt-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-[10px] w-full justify-start text-muted-foreground hover:text-indigo-600"
+                      onClick={() => setEditingItemIdx(editingItemIdx === idx ? null : idx)}
+                    >
+                      {editingItemIdx === idx ? <X className="h-3 w-3 mr-1" /> : <Pencil className="h-3 w-3 mr-1" />}
+                      {editingItemIdx === idx ? 'Fechar edição de local' : 'Editar CNO / Endereço'}
+                    </Button>
+
+                    {editingItemIdx === idx && (
+                      <div className="space-y-2 mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded border border-indigo-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div>
+                          <Label className="text-[10px]">Endereço Singular (Obra/Evento)</Label>
+                          <Input 
+                            value={it.enderecoObra || ''} 
+                            onChange={e => updateItem(idx, 'enderecoObra', e.target.value)}
+                            placeholder="Endereço completo da obra..."
+                            className="h-7 text-[11px]"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px]">CNO / Ordem de Compra</Label>
+                          <Input 
+                            value={it.cno || ''} 
+                            onChange={e => updateItem(idx, 'cno', e.target.value)}
+                            placeholder="Número do CNO..."
+                            className="h-7 text-[11px]"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -3564,7 +3601,10 @@ const UnifiedPreviewDialog: React.FC<{
               dataVencimento,
               periodoInicio: perIni,
               periodoFim: perFim,
-              items: items,
+              items: items.map(it => ({
+                ...it,
+                // Garantir que as edições de endereço/CNO individuais sejam enviadas
+              })),
             })}
           >
             {working ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ReceiptIcon className="h-4 w-4 mr-1" />}
@@ -3621,6 +3661,17 @@ const PayDialog: React.FC<{
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Endereço da Obra (Singular)</Label>
+              <Input value={enderecoObra} onChange={e => setEnderecoObra(e.target.value)} placeholder="Endereço da obra..." />
+            </div>
+            <div>
+              <Label className="text-xs">CNO / Ordem de Compra</Label>
+              <Input value={cno} onChange={e => setCno(e.target.value)} placeholder="Número do CNO..." />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Forma de pagamento</Label>

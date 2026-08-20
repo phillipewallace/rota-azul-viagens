@@ -405,7 +405,7 @@ router.patch('/:id/vencimento', requireRole(...FIN_ROLES), async (req, res) => {
  * PATCH /:id
  * Edição ampla de um recibo já emitido (correções manuais).
  * Aceita qualquer subconjunto de:
- *   { dataEmissao, dataVencimento, periodoInicio, periodoFim, valor, numeroDisplay, competencia }
+ *   { dataEmissao, dataVencimento, periodoInicio, periodoFim, valor, numeroDisplay, competencia, cno, enderecoObra }
  * Datas em YYYY-MM-DD (ou null para limpar dataVencimento/numeroDisplay).
  * Não altera pagamento/status — use os endpoints específicos.
  */
@@ -452,8 +452,11 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
       if (typeof b.competencia !== 'string' || !/^\d{4}-\d{2}$/.test(b.competencia)) {
         return res.status(400).json({ error: 'competencia inválida (YYYY-MM)' });
       }
-      patch.competencia = b.competencia;
+       patch.competencia = b.competencia;
     }
+
+    if (b.cno !== undefined) patch.cno = b.cno;
+    if (b.enderecoObra !== undefined) patch.endereco_obra = b.enderecoObra;
 
     if (patch.periodo_inicio && patch.periodo_fim && patch.periodo_fim < patch.periodo_inicio) {
       return res.status(400).json({ error: 'periodoFim deve ser >= periodoInicio' });
@@ -462,19 +465,62 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
     const keys = Object.keys(patch);
     if (keys.length === 0) return res.status(400).json({ error: 'Nada para atualizar' });
 
-    const cur = await pool.query('SELECT id, status FROM erp_receipts WHERE id=$1', [req.params.id]);
-    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
-    if (cur.rows[0].status === 'cancelado') {
-      return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
-    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const cur = await client.query('SELECT id, status, contract_id, snapshot FROM erp_receipts WHERE id=$1', [req.params.id]);
+      if (!cur.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Recibo não encontrado' });
+      }
+      const rec = cur.rows[0];
+      if (rec.status === 'cancelado') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
+      }
 
-    const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = keys.map(k => patch[k]);
-    await pool.query(
-      `UPDATE erp_receipts SET ${sets}, updated_at=NOW() WHERE id=$1`,
-      [req.params.id, ...values],
-    );
-    res.json({ ok: true });
+      // Se houver alteração de CNO ou Endereço, atualizamos o snapshot e o contrato
+      if (patch.cno !== undefined || patch.endereco_obra !== undefined) {
+        const snap = rec.snapshot || {};
+        const snapContract = snap.contract || {};
+        
+        if (patch.cno !== undefined) {
+          snapContract.cno = patch.cno;
+          await client.query('UPDATE erp_contracts SET cno = $2 WHERE id = $1', [rec.contract_id, patch.cno]);
+        }
+        if (patch.endereco_obra !== undefined) {
+          snapContract.enderecoObra = patch.endereco_obra;
+          await client.query('UPDATE erp_contracts SET endereco_obra = $2 WHERE id = $1', [rec.contract_id, patch.endereco_obra]);
+        }
+        
+        snap.contract = snapContract;
+        patch.snapshot = snap;
+        
+        // Remove campos que não são colunas da tabela erp_receipts se necessário
+        // (cno e endereco_obra não existem na tabela, apenas no snapshot e no contrato)
+        delete patch.cno;
+        delete patch.endereco_obra;
+      }
+
+      const finalKeys = Object.keys(patch);
+      if (finalKeys.length > 0) {
+        const sets = finalKeys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+        const values = finalKeys.map(k => patch[k]);
+        await client.query(
+          `UPDATE erp_receipts SET ${sets}, updated_at=NOW() WHERE id=$1`,
+          [req.params.id, ...values],
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.json({ ok: true });
+    } catch (e: any) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
   } catch (e: any) {
     console.error('[erp-receipts patch]', e);
     sendError(res, e);
