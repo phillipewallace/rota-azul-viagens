@@ -37,52 +37,54 @@ const pool = new Pool({
 
 async function importFromExcel() {
   console.log('🚀 Iniciando importação de contratos (Micban - Agosto 26)...');
-  console.log(`📂 Diretório atual: ${process.cwd()}`);
-  console.log(`🔍 Procurando .env em: ${path.resolve(process.cwd(), 'backend/.env')}`);
   
-  // Dados extraídos anteriormente via Python/openpyxl (6 linhas sem destaque)
   const rows = [
     {
       empresa: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA',
       valor: 1100,
       vencimento: 15,
-      dados_cadastrais: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA, CNPJ: 22.091.248/0001-04'
+      dados_cadastrais: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA, CNPJ: 22.091.248/0001-04',
+      descricao: 'Locação Mensal - Sanitário Comum'
     },
     {
       empresa: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA',
       valor: 1100,
       vencimento: 15,
-      dados_cadastrais: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA, CNPJ: 22.091.248/0001-04'
+      dados_cadastrais: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA, CNPJ: 22.091.248/0001-04',
+      descricao: 'Locação Mensal - Sanitário Comum'
     },
     {
       empresa: 'CONSTRUTORA SERVCOPA EIRELI',
       valor: 1960,
       vencimento: 22,
-      dados_cadastrais: 'CONSTRUTORA SERVCOPA EIRELI, CNPJ: 21.054.432/0001-07'
+      dados_cadastrais: 'CONSTRUTORA SERVCOPA EIRELI, CNPJ: 21.054.432/0001-07',
+      descricao: 'Locação Mensal - Sanitário Comum'
     },
     {
       empresa: 'CONSTRUTORA RNV LTDA',
       valor: 2000,
-      vencimento: 10, // Default ou detectado
-      dados_cadastrais: 'CONSTRUTORA RNV LTDA, CNPJ: 07.135.295/0001-37'
+      vencimento: 10,
+      dados_cadastrais: 'CONSTRUTORA RNV LTDA, CNPJ: 07.135.295/0001-37',
+      descricao: 'Aluguel de Carretinha - Placas RGD-9D72, RGD-9D70, RGD-9D71, RTK6A34'
     },
     {
       empresa: 'CONSTRUTORA RNV LTDA',
       valor: 1400,
       vencimento: 10,
-      dados_cadastrais: 'CONSTRUTORA RNV LTDA, CNPJ: 07.135.295/0001-37'
+      dados_cadastrais: 'CONSTRUTORA RNV LTDA, CNPJ: 07.135.295/0001-37',
+      descricao: 'Locação Mensal - Sanitário Comum'
     },
     {
       empresa: 'SUPERMERCADOS BH COMERCIO DE ALIMENTOS S/A',
       valor: 450,
       vencimento: 20,
-      dados_cadastrais: 'SUPERMERCADOS BH COMERCIO DE ALIMENTOS S/A, CNPJ: 04.641.376/0001-36'
+      dados_cadastrais: 'SUPERMERCADOS BH COMERCIO DE ALIMENTOS S/A, CNPJ: 04.641.376/0001-36',
+      descricao: 'Locação Mensal - Sanitário Comum'
     }
   ];
 
   const client = await pool.connect();
   try {
-    // 1. Localizar Empresa Emissora (Micban)
     const micbanRes = await client.query("SELECT id FROM erp_companies WHERE razao_social ILIKE '%Micban%' LIMIT 1");
     if (micbanRes.rows.length === 0) {
       throw new Error('Empresa emissora "Micban" não encontrada no sistema.');
@@ -96,24 +98,23 @@ async function importFromExcel() {
       const cnpjMatch = row.dados_cadastrais.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
       const docClean = cnpjMatch ? cnpjMatch[0].replace(/\D/g, '') : '';
       
-      // 2. Verificar se o contrato já existe para este cliente/valor para evitar duplicidade manual
       const existingContract = await client.query(`
         SELECT c.id FROM erp_contracts c
         JOIN customers cust ON c.customer_id = cust.id
         WHERE c.company_id = $1 
         AND (regexp_replace(cust.document, '\\D', 'g', 'g') = $2 OR cust.customer_name ILIKE $3)
         AND c.valor_mensal = $4
-        AND c.origem = 'excel_import'
+        AND c.descricao = $5
+        AND c.origem = 'excel_import_agosto'
         LIMIT 1
-      `, [companyId, docClean, row.empresa, row.valor]);
+      `, [companyId, docClean, row.empresa, row.valor, row.descricao]);
 
       if (existingContract.rows.length > 0) {
-        console.log(`⚠️ Contrato já existe para ${row.empresa} - Pulando.`);
+        console.log(`⚠️ Contrato já existe para ${row.empresa} (${row.descricao}) - Pulando.`);
         await client.query('ROLLBACK');
         continue;
       }
 
-      // 3. Buscar ou criar cliente
       let customerId: string;
       const custRes = await client.query("SELECT id FROM customers WHERE regexp_replace(document, '\\D', 'g', 'g') = $1 OR customer_name ILIKE $2 LIMIT 1", [docClean, row.empresa]);
       
@@ -133,11 +134,11 @@ async function importFromExcel() {
       await client.query(`
         INSERT INTO erp_contracts 
         (numero, company_id, customer_id, descricao, tipo_contrato, data_inicio, dia_vencimento, valor_mensal, ativo, origem)
-        VALUES ($1, $2, $3, $4, 'locacao', CURRENT_DATE, $5, $6, TRUE, 'excel_import')
-      `, [numero, companyId, customerId, `Locação Mensal - Importado Excel Agosto`, row.vencimento || 10, row.valor]);
+        VALUES ($1, $2, $3, $4, 'locacao', '2026-08-01', $5, $6, TRUE, 'excel_import_agosto')
+      `, [numero, companyId, customerId, row.descricao, row.vencimento || 10, row.valor]);
 
       await client.query('COMMIT');
-      console.log(`✅ Contrato ${numero} registrado para ${row.empresa}`);
+      console.log(`✅ Contrato ${numero} registrado para ${row.empresa}: ${row.descricao}`);
     }
 
     console.log('🎉 Importação concluída com sucesso!');
