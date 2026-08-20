@@ -25,6 +25,4 @@ CREATE INDEX IF NOT EXISTS idx_sanitario_fotos_osid ON erp_sanitario_fotos(os_id
 -- Adicionar coluna de fotos (array) na erp_os_sanitarios para cache rápido se preferir, 
 -- mas usaremos a tabela erp_sanitario_fotos como fonte da verdade conforme pedido (interligado).
 
-GRANT ALL ON public.erp_sanitario_fotos TO authenticated;
-GRANT ALL ON public.erp_sanitario_fotos TO service_role;
-GRANT ALL ON public.erp_sanitario_fotos TO postgres;
+GRANT ALL ON public.erp_sanitario_fotos TO public;

@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { Pool } from 'pg';
-import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
+import * as dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 
