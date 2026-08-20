@@ -3847,6 +3847,15 @@ const EditVencimentoDialog: React.FC<{
               maxLength={64}
             />
           </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label htmlFor="edit-cno">CNO / Ordem de Compra</Label>
+            <Input
+              id="edit-cno"
+              value={cno}
+              onChange={(e) => setCno(e.target.value)}
+              placeholder="Ex: 12.345.678/0001-99 ou OC 123"
+            />
+          </div>
         </div>
 
         <DialogFooter>

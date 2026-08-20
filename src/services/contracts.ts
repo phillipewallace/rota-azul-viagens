@@ -267,6 +267,7 @@ export const receiptsService = {
     regerar?: boolean;
     semValidade?: boolean;  // se true, usa contador REC_SV (0001) e não aparece na aba Recibos
     dataVencimento?: string; // YYYY-MM-DD — override manual do vencimento
+    cno?: string; // Override do CNO
   }) =>
     req<{ ok: true; id: string; numero: string; numeroDisplay?: string | null; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
   /** Ajusta manualmente o vencimento de um recibo já emitido. */
