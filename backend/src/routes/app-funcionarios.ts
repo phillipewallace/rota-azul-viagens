@@ -33,7 +33,13 @@ router.get('/os', async (req, res) => {
 
         let query = `
             SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
-                   cu.customer_name as "customerName", cu.address as "customerAddress"
+                   cu.customer_name as "customerName", cu.address as "customerAddress",
+                   (SELECT json_agg(qi) FROM (
+                       SELECT produto, quantidade, is_sanitario as "isSanitario", is_generic_service as "isGenericService"
+                       FROM erp_quote_items 
+                       WHERE quote_id = o.quote_id 
+                       ORDER BY ordem ASC
+                   ) qi) as items
             FROM erp_service_orders o
             LEFT JOIN customers cu ON cu.id = o.customer_id
             WHERE ${statusFilter}
@@ -63,6 +69,31 @@ router.post('/os/:id/assumir', async (req, res) => {
         res.json({ ok: true });
     } catch (e: any) {
         return sendError(res, e, `[${TAG}] Erro ao assumir OS`);
+    }
+});
+
+// Desvincular-se de uma OS (voltar para a fila global)
+router.post('/os/:id/desvincular', async (req, res) => {
+    const { id } = req.params;
+    const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
+    const funcionarioNome = (req as any).user?.nome || (req as any).user?.username;
+
+    try {
+        // Apenas permite desvincular se a OS estiver com o status 'despachada' e pertencer ao funcionário
+        // Voltamos para 'aberta' e limpamos o funcionario_id
+        const result = await pool.query(
+            "UPDATE erp_service_orders SET funcionario_id = NULL, status = 'aberta', updated_at = NOW() WHERE id = $1 AND funcionario_id = $2 AND status = 'despachada'",
+            [id, funcionarioId]
+        );
+        
+        if (result.rowCount === 0) {
+            return res.status(400).json({ error: 'Não é possível desvincular esta OS (status inválido ou não pertence a você)' });
+        }
+        
+        logger.info(TAG, `Funcionario ${funcionarioNome} desvinculou OS ${id} (voltou para fila global)`);
+        res.json({ ok: true });
+    } catch (e: any) {
+        return sendError(res, e, `[${TAG}] Erro ao desvincular OS`);
     }
 });
 

@@ -167,10 +167,18 @@ export default function PublicChecklist() {
   if (!truck) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
+        <Card className="max-w-md w-full relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-2 left-2 text-slate-400 hover:text-primary" 
+            onClick={() => window.location.href = '/app-funcionarios'}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" /> Checklist de Veículo
+            <CardTitle className="flex items-center gap-2 justify-center mt-4">
+              <Truck className="h-5 w-5 text-primary" /> Checklist de Veículo
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -199,7 +207,7 @@ export default function PublicChecklist() {
           <div className="max-w-3xl mx-auto flex items-center gap-3">
             <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700" aria-label="Voltar à lista" onClick={() => { 
               if (signingId) { setSigningId(null); setSigningMeta(null); }
-              else { setTruck(null); setPlate(''); }
+              else { window.location.href = '/app-funcionarios'; }
             }}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -271,7 +279,7 @@ export default function PublicChecklist() {
     <div className="min-h-screen bg-gray-50 pb-32">
       <div className="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700 shrink-0" onClick={() => { setTruck(null); setPlate(''); }}>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700 shrink-0" onClick={() => { window.location.href = '/app-funcionarios'; }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
