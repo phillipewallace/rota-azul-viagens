@@ -8,7 +8,7 @@ import {
   PackageOpen, PackageCheck, Calendar, MapPin, 
   Camera, LogOut, ClipboardList, CheckCircle2,
   Clock, AlertCircle, ChevronRight, User, ArrowLeft, History,
-  Image as ImageIcon, Plus, Info, Check, X
+  Image as ImageIcon, Plus, Info, Check, X, Phone, MessageSquare, Navigation
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/services/config';
@@ -383,7 +383,7 @@ const AppFuncionarios = () => {
             <span className="font-bold text-lg">Detalhes da OS</span>
           </header>
           <main className="flex-1 overflow-y-auto p-4 space-y-6">
-            <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-3 relative">
+            <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-4 relative">
               {selectedOs.status === 'despachada' && (
                 <Button 
                   variant="ghost" 
@@ -394,6 +394,7 @@ const AppFuncionarios = () => {
                   <X className="h-3 w-3" /> SOLTAR OS
                 </Button>
               )}
+              
               <div className="flex flex-wrap gap-2 mb-1">
                 <Badge className="bg-primary text-white font-black tracking-widest px-3 py-1 rounded-full text-[10px]">OS #{selectedOs.numero}</Badge>
                 {selectedOs.tipoLocacao && (
@@ -401,31 +402,83 @@ const AppFuncionarios = () => {
                     {selectedOs.tipoLocacao === 'obra' ? '🏗️ OBRA' : selectedOs.tipoLocacao === 'evento' ? '🎉 EVENTO' : selectedOs.tipoLocacao.toUpperCase()}
                   </Badge>
                 )}
+                <Badge className={`px-3 py-1 text-[10px] font-black uppercase rounded-full ${
+                  selectedOs.status === 'aberta' ? 'bg-blue-500 text-white' :
+                  selectedOs.status === 'despachada' ? 'bg-amber-500 text-white' :
+                  selectedOs.status === 'entregue' ? 'bg-emerald-500 text-white' :
+                  'bg-slate-400 text-white'
+                }`}>
+                  {selectedOs.status === 'aberta' ? 'Disponível' : selectedOs.status.replace('_', ' ')}
+                </Badge>
               </div>
+
               <h2 className="text-3xl font-black text-slate-800 leading-tight">{selectedOs.customerName}</h2>
-              <div className="flex items-start gap-3 text-slate-500 bg-slate-50 p-4 rounded-2xl">
+              
+              <div className="flex items-start gap-3 text-slate-500 bg-slate-50 p-4 rounded-3xl">
                 <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm font-medium leading-relaxed">{selectedOs.customerAddress}</span>
+                <div className="flex-1 space-y-3">
+                  <span className="text-sm font-medium leading-relaxed block">{selectedOs.customerAddress}</span>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="rounded-xl h-10 gap-2 font-bold text-[10px] uppercase border-slate-200"
+                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOs.customerAddress)}`, '_blank')}
+                    >
+                      <Navigation className="h-3.5 w-3.5 text-primary" /> Rota
+                    </Button>
+                    {selectedOs.customerPhone && (
+                      <>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="rounded-xl h-10 gap-2 font-bold text-[10px] uppercase border-slate-200"
+                          onClick={() => window.open(`tel:${selectedOs.customerPhone}`, '_self')}
+                        >
+                          <Phone className="h-3.5 w-3.5 text-primary" /> Ligar
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="rounded-xl h-10 gap-2 font-bold text-[10px] uppercase border-slate-200"
+                          onClick={() => window.open(`https://wa.me/55${selectedOs.customerPhone.replace(/\D/g, '')}`, '_blank')}
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-primary" /> WhatsApp
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Resumo de Itens Pedidos */}
+            {/* Resumo de Itens Pedidos - Agrupado por Tipo */}
             {selectedOs.items && selectedOs.items.length > 0 && (
               <div className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Itens do Pedido</h3>
-                <div className="space-y-3">
-                  {selectedOs.items.map((it: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between border-b border-white/10 pb-2 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-                          <span className="text-primary font-black text-sm">{it.quantidade}x</span>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Locação / Serviços</h3>
+                  <Badge variant="outline" className="border-white/10 text-white/40 text-[9px] font-black tracking-widest">PEDIDO ORIGINAL</Badge>
+                </div>
+                <div className="space-y-4">
+                  {Object.values(selectedOs.items.reduce((acc: any, it: any) => {
+                    const key = `${it.produto}-${it.isSanitario ? 'S' : 'G'}`;
+                    if (!acc[key]) acc[key] = { ...it, quantidade: 0 };
+                    acc[key].quantidade += Number(it.quantidade) || 0;
+                    return acc;
+                  }, {})).map((it: any, idx: number) => (
+                    <div key={idx} className="flex items-start justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0 border border-white/5 shadow-inner">
+                          <span className="text-primary font-black text-lg">{it.quantidade}</span>
                         </div>
-                        <div>
-                          <p className="font-bold text-sm leading-tight">{it.produto}</p>
-                          {it.isSanitario && <span className="text-[8px] font-black bg-primary/20 text-primary px-1.5 py-0.5 rounded uppercase tracking-widest">Sanitário</span>}
+                        <div className="space-y-1">
+                          <p className="font-black text-sm leading-tight tracking-tight uppercase">{it.produto}</p>
+                          <div className="flex gap-1.5">
+                            {it.isSanitario && <span className="text-[8px] font-black bg-primary text-white px-2 py-0.5 rounded-full uppercase tracking-[0.1em]">Ativo</span>}
+                            {!it.isSanitario && it.isGenericService && <span className="text-[8px] font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full uppercase tracking-[0.1em]">Serviço</span>}
+                          </div>
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-white/40 border-white/10 text-[9px]">Pendente</Badge>
                     </div>
                   ))}
                 </div>
