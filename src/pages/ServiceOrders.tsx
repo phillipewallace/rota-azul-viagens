@@ -6,11 +6,23 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { BRL, D, tipoLabel, describeFormaPagamento } from '@/lib/utils';
 import { toast } from 'sonner';
+import { serviceOrdersService } from '@/services/quotes';
+import { BRL } from '@/utils/currency';
+import { formatDateBR } from '@/utils/dateFormat';
+import { describeFormaPagamento } from '@/utils/fixedObservations';
 
-// Re-incorporating the corrected ServiceOrders modal logic from line 816 to 1047
+// Funções locais ou importadas conforme necessário
+const D = (iso: string | null | undefined) => iso ? formatDateBR(iso) : '—';
+const tipoLabel = (t: string) => {
+  const map: any = { obra: 'Obra', evento: 'Evento', industria: 'Indústria', outro: 'Outro' };
+  return map[t] || t;
+};
+
+// Componente ServiceOrders simplificado para recuperar o estado estável
 const ServiceOrders = ({ detailOpen, setDetailOpen, detailLoading, detailOs, detailData }: any) => {
+  if (!detailOpen) return null;
+
   return (
     <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
       <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
@@ -46,7 +58,6 @@ const ServiceOrders = ({ detailOpen, setDetailOpen, detailLoading, detailOs, det
                   <div>
                     <strong>Cliente:</strong> {o.customerName || '—'}
                     {det.customer_snapshot?.contact_phone && <> · {det.customer_snapshot.contact_phone}</>}
-                    {det.customer_snapshot?.contact_name && <> · {det.customer_snapshot.contact_name}</>}
                   </div>
                 </div>
                 <div className="flex items-start gap-2 md:col-span-2">
@@ -58,14 +69,7 @@ const ServiceOrders = ({ detailOpen, setDetailOpen, detailLoading, detailOs, det
                   <div>
                     <strong>Entrega:</strong> {D(det.data_entrega || o.dataEntrega)}
                     {(det.data_recolhimento || o.dataRecolhimento) && <> · <strong>Recolhimento:</strong> {D(det.data_recolhimento || o.dataRecolhimento)}</>}
-                    {det.data_fechamento && <> · <strong>Fechada em:</strong> {D(det.data_fechamento)}</>}
                   </div>
-                </div>
-                <div>
-                  <strong>Modalidade:</strong> {o.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'}
-                </div>
-                <div>
-                  <strong>Tipo:</strong> {tipoLabel((o as any).tipoLocacao)}
                 </div>
               </div>
 
@@ -120,6 +124,25 @@ const ServiceOrders = ({ detailOpen, setDetailOpen, detailLoading, detailOs, det
                       </div>
                     )}
                   </div>
+
+                  <table className="w-full border rounded overflow-hidden text-[10px] mt-2">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="text-left p-1.5">Produto</th>
+                        <th className="text-right p-1.5">Qtd</th>
+                        <th className="text-right p-1.5">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {det.items.map((it: any, i: number) => (
+                        <tr key={i} className="border-t">
+                          <td className="p-1.5 font-medium">{it.produto}</td>
+                          <td className="p-1.5 text-right">{Number(it.quantidade || 0)}</td>
+                          <td className="p-1.5 text-right tabular-nums">{BRL(Number(it.valorTotal || it.valor_total || (Number(it.quantidade) || 0) * Number(it.valorUnitario || it.valor_unitario || 0)))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
 
