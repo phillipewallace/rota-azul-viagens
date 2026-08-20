@@ -174,6 +174,9 @@ export interface PendingReceipt {
   companyCnpj?: string;
   customerName?: string;
   customerDocument?: string;
+  cno?: string;
+  enderecoObra?: string;
+  localEvento?: string;
 }
 export interface ReceiptsSummaryPoint {
   competencia: string;
