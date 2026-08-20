@@ -280,6 +280,7 @@ export const receiptsService = {
     valor?: number;
     numeroDisplay?: string | null;
     competencia?: string;
+    cno?: string | null;
   }) =>
     req<{ ok: true }>('PATCH', `/erp/receipts/${id}`, patch),
   remove: (id: string, force = false) =>

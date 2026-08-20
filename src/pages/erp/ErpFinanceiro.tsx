@@ -3205,7 +3205,7 @@ const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
   competencia: string;
-  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }) => void;
+  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }, cno?: string) => void;
   children: React.ReactNode;
 }> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
@@ -3215,6 +3215,7 @@ const GerarReciboPopover: React.FC<{
   const [overridePeriodo, setOverridePeriodo] = useState(false);
   const [perIniManual, setPerIniManual] = useState('');
   const [perFimManual, setPerFimManual] = useState('');
+  const [cno, setCno] = useState('');
 
   // Vencimento padrão (mesma lógica do backend): dia do contrato no mês da competência.
   const vencPadrao = useMemo(() => {
@@ -3235,7 +3236,8 @@ const GerarReciboPopover: React.FC<{
     setOverridePeriodo(false);
     setPerIniManual(periodoPadrao.inicio);
     setPerFimManual(periodoPadrao.fim);
-  }, [open, pending.contractId, vencPadrao, periodoPadrao]);
+    setCno(pending.snapshot?.contract?.cno || '');
+  }, [open, pending.contractId, vencPadrao, periodoPadrao, pending.snapshot?.contract?.cno]);
 
   const periodo = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : periodoPadrao;
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
@@ -3308,7 +3310,24 @@ const GerarReciboPopover: React.FC<{
             )}
           </div>
 
-          {/* Vencimento (override manual opcional) */}
+          {/* Campo CNO / Ordem de Compra */}
+          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-2">
+            <Label htmlFor={`gr-cno-${pending.contractId}`} className="text-[11px] font-medium text-foreground">
+              CNO / Ordem de Compra
+            </Label>
+            <Input
+              id={`gr-cno-${pending.contractId}`}
+              value={cno}
+              onChange={(e) => setCno(e.target.value)}
+              placeholder="Ex: 12.345.678/0001-99 ou OC 123"
+              className="h-8 text-xs"
+            />
+            <p className="text-[9px] text-muted-foreground">
+              Este valor será salvo no recibo e também atualizará o contrato.
+            </p>
+          </div>
+
+          {/* Toggle: sem validade jurídica */}
           <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-2">
             <label htmlFor={`gr-ov-${pending.contractId}`} className="flex items-start gap-2 cursor-pointer">
               <Checkbox

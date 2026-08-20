@@ -198,6 +198,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     contractId, competencia: comp, valor, pago = true, regerar = false,
     periodoInicio, periodoFim, semValidade = false,
     dataVencimento: dataVencimentoIn,
+    cno: cnoIn,
   } = req.body || {};
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
 
@@ -290,13 +291,16 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       : dataVencCalc;
 
 
+    // Se CNO foi passado no corpo (override), usamos ele. Caso contrário, usamos o do contrato.
+    const finalCno = (cnoIn !== undefined) ? cnoIn : ct.cno;
+
     const snapshot = {
       contract: {
         numero: ct.numero, descricao: ct.descricao,
         dataInicio: ct.data_inicio, valorMensal: ct.valor_mensal,
         diaVencimento: ct.dia_vencimento,
         enderecoObra: ct.endereco_obra, localEvento: ct.local_evento,
-        cno: ct.cno, tipoContrato: ct.tipo_contrato,
+        cno: finalCno, tipoContrato: ct.tipo_contrato,
       },
       company: {
         razaoSocial: ct.company_razao_social, cnpj: ct.company_cnpj,
@@ -338,6 +342,12 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
         [existing.rows[0].id, valorFinal, !!pago, snapshot, dataVenc,
          periodoInicio || null, periodoFim || null]
       );
+
+      // Se passou CNO, atualiza também no contrato original (requisito do usuário)
+      if (cnoIn !== undefined) {
+        await client.query('UPDATE erp_contracts SET cno = $1, updated_at = NOW() WHERE id = $2', [cnoIn, contractId]);
+      }
+
       await client.query('COMMIT');
       return res.json({ ok: true, id: existing.rows[0].id, numero: existing.rows[0].numero, regerado: true });
     }
@@ -364,6 +374,11 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       [numero, ct.company_id, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
        periodoInicio || null, periodoFim || null, !!semValidade, numeroDisplay]
     );
+
+    // Se passou CNO, atualiza também no contrato original (requisito do usuário)
+    if (cnoIn !== undefined) {
+      await client.query('UPDATE erp_contracts SET cno = $1, updated_at = NOW() WHERE id = $2', [cnoIn, contractId]);
+    }
 
     await client.query('COMMIT');
     res.json({ ok: true, ...ins.rows[0] });
@@ -453,6 +468,11 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
         return res.status(400).json({ error: 'competencia inválida (YYYY-MM)' });
       }
       patch.competencia = b.competencia;
+    }
+
+    if (b.cno !== undefined) {
+      // patch.cno será usado para atualizar o snapshot e o contrato
+      // No banco erp_receipts não tem coluna cno, o valor vive no jsonb snapshot
     }
 
     if (patch.periodo_inicio && patch.periodo_fim && patch.periodo_fim < patch.periodo_inicio) {
