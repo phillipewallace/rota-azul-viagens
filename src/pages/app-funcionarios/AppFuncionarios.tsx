@@ -47,6 +47,7 @@ const AppFuncionarios = () => {
     observacoes: '',
     fotos: [] as string[]
   });
+  const [photoLimit, setPhotoLimit] = useState(15);
   const [newSanForm, setNewSanForm] = useState({ 
     numero: '', 
     categoria: 'comum', 
