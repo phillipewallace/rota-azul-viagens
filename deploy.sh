@@ -130,13 +130,9 @@ else
   fi
 fi
 
-# Rodar script de importação específico de cobrança se o arquivo existir
-IMPORT_MICBAN_MARKER="${PROJECT_DIR}/backend/scripts/.imported-agosto-micban"
-if [ -f "${PROJECT_DIR}/scripts/import-agosto-micban.ts" ] && [ ! -f "$IMPORT_MICBAN_MARKER" ]; then
-  log "🚀 Rodando importação de dados do Excel (Micban Agosto)..."
-  (cd "${PROJECT_DIR}/backend" && bun run ../scripts/import-agosto-micban.ts) && touch "$IMPORT_MICBAN_MARKER" || warn "Falha na importação do Excel"
-  ok "Importação do Excel executada."
-fi
+# A importação agora é feita via migration SQL (database/migration-20260820-import-micban-agosto.sql)
+# para garantir injeção direta no banco durante o deploy sem depender do runtime Bun/Node.
+log "Verificação de importação via SQL migrations concluída no passo 4."
 
 ok "Backend compilado"
 
