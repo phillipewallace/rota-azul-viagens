@@ -38,7 +38,7 @@ router.get('/os', async (req, res) => {
                    q.responsavel_nome as "responsavelNome",
                    q.responsavel_email as "responsavelEmail",
                    (SELECT json_agg(qi) FROM (
-                       SELECT produto, quantidade, is_sanitario as "isSanitario", is_generic_service as "isGenericService"
+                       SELECT produto, quantidade, COALESCE(is_sanitario, FALSE) as "isSanitario", COALESCE(is_generic_service, FALSE) as "isGenericService"
                        FROM erp_quote_items 
                        WHERE quote_id = o.quote_id 
                        ORDER BY ordem ASC
