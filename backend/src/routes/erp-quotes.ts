@@ -64,7 +64,20 @@ const QUOTE_SELECT = `
 // [bug fix] strings vazias vindas do front quebram colunas DATE no Postgres
 function emptyToNull(v: any) {
   if (v === undefined || v === null) return null;
-  if (typeof v === 'string' && v.trim() === '') return null;
+  if (typeof v === 'string') {
+    const trimmed = v.trim();
+    // Previne estouro de range de data e "Invalid Date"
+    if (trimmed === '' || trimmed.toLowerCase() === 'invalid date') return null;
+    
+    // Padrão de erro de fuso horário/data inválida (ex: +020216-08)
+    // Postgres code 22009: time zone displacement out of range
+    if (trimmed.startsWith('+') && trimmed.length > 6) return null;
+    
+    // Se parecer uma data ISO mas com ano inválido/gigante
+    if (trimmed.length > 10 && /^\+?\d{5,}/.test(trimmed)) return null;
+
+    return trimmed;
+  }
   return v;
 }
 
