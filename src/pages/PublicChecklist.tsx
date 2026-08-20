@@ -167,10 +167,18 @@ export default function PublicChecklist() {
   if (!truck) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
+        <Card className="max-w-md w-full relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-2 left-2 text-slate-400 hover:text-primary" 
+            onClick={() => window.location.href = '/app-funcionarios'}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" /> Checklist de Veículo
+            <CardTitle className="flex items-center gap-2 justify-center mt-4">
+              <Truck className="h-5 w-5 text-primary" /> Checklist de Veículo
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
