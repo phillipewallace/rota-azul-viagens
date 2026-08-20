@@ -199,7 +199,7 @@ export default function PublicChecklist() {
           <div className="max-w-3xl mx-auto flex items-center gap-3">
             <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700" aria-label="Voltar à lista" onClick={() => { 
               if (signingId) { setSigningId(null); setSigningMeta(null); }
-              else { setTruck(null); setPlate(''); }
+              else { window.location.href = '/app-funcionarios'; }
             }}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
