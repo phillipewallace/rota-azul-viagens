@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { pool } from './backend/src/config/database';
+import { pool } from '../backend/src/config/database';
 import { v4 as uuidv4 } from 'uuid';
 
 // Script para importar dados do Excel "AGOSTO 26 (2)" para contratos no ERP
