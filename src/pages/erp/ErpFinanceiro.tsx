@@ -3401,7 +3401,7 @@ const GerarReciboPopover: React.FC<{
               onClick={() => {
                 const venc = overrideVenc && /^\d{4}-\d{2}-\d{2}$/.test(vencManual) ? vencManual : undefined;
                 const per = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : undefined;
-                onConfirm(semValidade, venc, per);
+                onConfirm(semValidade, venc, per, cnoManual, enderecoManual);
                 setOpen(false);
               }}
               disabled={
