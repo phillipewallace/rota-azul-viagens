@@ -153,6 +153,7 @@ const AppFuncionarios = () => {
       });
 
       if (!res.ok) throw new Error(`Erro ao registrar ${type}`);
+      logger.success(`Operação de ${type} concluída com sucesso!`, { osId, extraData });
       toast.success(`${type === 'entrega' ? 'Entrega' : 'Recolhimento'} registrado!`);
       
       await loadOsSanitarios(osId);

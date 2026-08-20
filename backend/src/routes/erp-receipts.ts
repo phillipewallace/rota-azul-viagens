@@ -200,6 +200,10 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     periodoInicio, periodoFim, semValidade = false,
     dataVencimento: dataVencimentoIn, cno, enderecoObra,
   } = req.body || {};
+  
+  const user = (req as any).user?.username || (req as any).user?.nome;
+  logger.finance('GENERATE', `Solicitação de geração de recibo por ${user}`, { contractId, competencia: comp, semValidade });
+
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
 
   // Validação e normalização do período (DD/MM exato a exibir no recibo).
@@ -359,6 +363,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
          periodoInicio || null, periodoFim || null]
       );
       await client.query('COMMIT');
+      logger.success('FINANCE', `Recibo ${existing.rows[0].numero} REGERADO com sucesso por ${user}`);
       return res.json({ ok: true, id: existing.rows[0].id, numero: existing.rows[0].numero, regerado: true });
     }
 
