@@ -293,8 +293,8 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
 
     // Se informado CNO/Endereço no POST, fazemos o override no contrato e no snapshot
     if (cno !== undefined || enderecoObra !== undefined) {
-      const updates = [];
-      const vals = [];
+      const updates: string[] = [];
+      const vals: any[] = [];
       if (cno !== undefined) {
         updates.push(`cno = $${vals.length + 2}`);
         vals.push(cno);
