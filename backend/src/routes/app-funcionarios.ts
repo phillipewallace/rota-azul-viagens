@@ -13,7 +13,8 @@ router.get('/os', async (req, res) => {
     try {
         const { history, date } = req.query;
         const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
-        logger.info(TAG, `Buscando OS para func_id: ${funcionarioId}${history === 'true' ? ' (Histórico)' : ''} na data: ${date}`);
+        const funcionarioNome = (req as any).user?.nome || (req as any).user?.username;
+        logger.os(TAG, `Agenda consultada por ${funcionarioNome} (ID: ${funcionarioId}) na data: ${date || 'hoje'}${history === 'true' ? ' [HISTÓRICO]' : ''}`);
         
         let statusFilter = "";
         let params: any[] = [];

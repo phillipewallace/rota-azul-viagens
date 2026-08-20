@@ -5,6 +5,7 @@
  * - Visão gerencial: KPIs + gráfico 12 meses (receita × gasto × resultado).
  */
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { logger } from '@/lib/logger';
 import { VirtualRows } from '@/components/erp/VirtualRows';
 import {
   DollarSign, Loader2, Download, RefreshCw, Receipt as ReceiptIcon,
@@ -220,6 +221,10 @@ const ErpFinanceiro: React.FC = () => {
   const [selectedRecibos, setSelectedRecibos] = useState<Set<string>>(new Set());
   const [batchWorking, setBatchWorking] = useState(false);
   const [activeTab, setActiveTab] = useState<'pendentes' | 'pagos' | 'emitidos' | 'sem-validade' | 'notas' | 'medicoes' | 'clientes' | 'gastos'>('pendentes');
+
+  useEffect(() => {
+    logger.info(`Navegou para aba financeira: ${activeTab.toUpperCase()}`);
+  }, [activeTab]);
 
 
   // Notas Fiscais (vinculação de NF do portal do governo)
