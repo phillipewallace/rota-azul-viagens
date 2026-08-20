@@ -27,11 +27,15 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (!token) {
-      logger.warn(TAG, `Acesso negado: Token ausente em ${req.method} ${req.path}`);
+      logger.warn('AUTH', `🔓 Acesso negado: Token ausente em ${req.method} ${req.path}`, { ip: req.ip });
       return res.status(401).json({ error: 'Token ausente' });
     }
     const decoded = jwt.verify(token, SECRET) as any;
     req.user = { userId: decoded.userId, username: decoded.username, role: decoded.role, funcionarioId: decoded.funcionario_id || (decoded.role === 'funcionario' ? decoded.userId : undefined) };
+    
+    // Log vibrante de sessão ativa no Detective Mode
+    logger.auth('SESSION', `👤 Usuário ${req.user.username} (${req.user.role}) acessando ${req.method} ${req.url}`);
+    
     next();
   } catch (e: any) {
     logger.error(TAG, `Token inválido ou expirado em ${req.method} ${req.path}`, { error: e.message });
@@ -62,9 +66,16 @@ export function softAuth(req: AuthedRequest, _res: Response, next: NextFunction)
 export function requireRole(...roles: string[]) {
   return (req: AuthedRequest, res: Response, next: NextFunction): any => {
     const u = req.user;
-    if (!u) return res.status(401).json({ error: 'Não autenticado' });
-    if (u.username === 'phillipe.sodre') return next();
+    if (!u) {
+      logger.warn('AUTH', `🚫 Tentativa de acesso sem usuário autenticado em rota restrita: ${req.url}`);
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
+    if (u.username === 'phillipe.sodre') {
+      logger.auth('ADMIN', `👑 Super-admin phillipe.sodre bypass em ${req.url}`);
+      return next();
+    }
     if (!u.role || !roles.includes(u.role)) {
+      logger.warn('AUTH', `🚫 Acesso negado: Usuário ${u.username} tentou acessar ${req.url} (Requer: ${roles.join(',')})`);
       return res.status(403).json({ error: 'Permissão insuficiente para esta ação' });
     }
     next();
