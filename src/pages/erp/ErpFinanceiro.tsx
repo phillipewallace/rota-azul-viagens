@@ -741,7 +741,7 @@ const ErpFinanceiro: React.FC = () => {
     return out;
   };
 
-  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean; periodo?: { inicio: string; fim: string }; dataVencimento?: string; semValidade?: boolean }) => {
+  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean; periodo?: { inicio: string; fim: string }; dataVencimento?: string; semValidade?: boolean; cno?: string; enderecoObra?: string }) => {
     setWorking(p.contractId);
     try {
       if (opts?.periodo) {
