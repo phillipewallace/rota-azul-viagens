@@ -52,6 +52,7 @@ const AppFuncionarios = () => {
     categoria: 'comum', 
     estado_atual: 'bom' 
   });
+  const [isGenericStep, setIsGenericStep] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('alchemy_func_user');
@@ -695,7 +696,7 @@ const AppFuncionarios = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={genericServiceDialog} onOpenChange={setGenericServiceDialog}>
+      <Dialog open={genericServiceDialog} onOpenChange={(o) => { setGenericServiceDialog(o); if(!o) setIsGenericStep(false); }}>
         <DialogContent className="max-w-[95vw] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
           <DialogHeader className="p-8 pb-0">
             <DialogTitle className="text-2xl font-black flex items-center gap-3">
@@ -704,95 +705,111 @@ const AppFuncionarios = () => {
               </div>
               Execução de Serviço
             </DialogTitle>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">Fluxo Passo a Passo</p>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">
+              {isGenericStep ? 'Passo 2: Relato' : 'Passo 1: Fotos'}
+            </p>
           </DialogHeader>
           
           <div className="p-8 space-y-8">
-            {/* Passo 1: Fotos */}
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px]">1</span>
-                FOTOS DE COMPROVAÇÃO
-              </label>
-              
-              <div className="grid grid-cols-2 gap-4">
-                {genericForm.fotos.map((f, i) => (
-                  <div key={i} className="relative aspect-square rounded-[1.5rem] overflow-hidden shadow-inner bg-slate-100 group border border-slate-100">
-                    <img src={f} className="w-full h-full object-cover" />
-                    <button 
-                      onClick={() => setGenericForm({ ...genericForm, fotos: genericForm.fotos.filter((_, idx) => idx !== i) })}
-                      className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                ))}
+            {!isGenericStep ? (
+              /* Passo 1: Fotos */
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px]">1</span>
+                  FOTOS DE COMPROVAÇÃO
+                </label>
                 
-                {genericForm.fotos.length < 4 && (
-                  <label className="aspect-square rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 bg-slate-50 active:bg-slate-100 transition-all cursor-pointer hover:border-primary/30">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-                      <Camera className="w-6 h-6 text-primary" />
+                <div className="grid grid-cols-2 gap-4">
+                  {genericForm.fotos.map((f, i) => (
+                    <div key={i} className="relative aspect-square rounded-[1.5rem] overflow-hidden shadow-inner bg-slate-100 group border border-slate-100">
+                      <img src={f} className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => setGenericForm({ ...genericForm, fotos: genericForm.fotos.filter((_, idx) => idx !== i) })}
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Adicionar Foto</span>
-                    <input type="file" accept="image/*" capture="environment" hidden onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      try {
-                        setUploading(true);
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        const res = await fetch(`${API_BASE_URL}/upload`, {
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${user.token}` },
-                          body: formData
-                        });
-                        const data = await res.json();
-                        setGenericForm(prev => ({ ...prev, fotos: [...prev.fotos, data.url] }));
-                      } catch (e: any) {
-                        toast.error('Erro ao enviar foto');
-                      } finally {
-                        setUploading(false);
-                      }
-                    }} />
-                  </label>
-                )}
+                  ))}
+                  
+                  {genericForm.fotos.length < 4 && (
+                    <label className="aspect-square rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 bg-slate-50 active:bg-slate-100 transition-all cursor-pointer hover:border-primary/30">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                        <Camera className="w-6 h-6 text-primary" />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter text-center px-2">Toque para Foto</span>
+                      <input type="file" accept="image/*" capture="environment" hidden onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          setUploading(true);
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          const res = await fetch(`${API_BASE_URL}/upload`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${user.token}` },
+                            body: formData
+                          });
+                          const data = await res.json();
+                          setGenericForm(prev => ({ ...prev, fotos: [...prev.fotos, data.url] }));
+                        } catch (e: any) {
+                          toast.error('Erro ao enviar foto');
+                        } finally {
+                          setUploading(false);
+                        }
+                      }} />
+                    </label>
+                  )}
+                </div>
               </div>
-            </div>
-
-            {/* Passo 2: Relato */}
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px]">2</span>
-                RELATO DA EXECUÇÃO
-              </label>
-              <Textarea 
-                placeholder="Descreva o que foi realizado em detalhes..."
-                className="min-h-[140px] rounded-[1.5rem] bg-slate-50 border-none text-slate-700 text-sm font-bold p-5 focus:ring-2 focus:ring-primary/20 shadow-inner"
-                value={genericForm.observacoes}
-                onChange={(e) => setGenericForm({ ...genericForm, observacoes: e.target.value })}
-              />
-            </div>
+            ) : (
+              /* Passo 2: Relato */
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px]">2</span>
+                  RELATO DA EXECUÇÃO
+                </label>
+                <Textarea 
+                  placeholder="Descreva o que foi realizado..."
+                  className="min-h-[180px] rounded-[1.5rem] bg-slate-50 border-none text-slate-700 text-sm font-bold p-5 focus:ring-2 focus:ring-primary/20 shadow-inner"
+                  value={genericForm.observacoes}
+                  onChange={(e) => setGenericForm({ ...genericForm, observacoes: e.target.value })}
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter className="p-6 bg-slate-50 border-t gap-3 sm:flex-row flex-col">
-            <Button variant="ghost" onClick={() => setGenericServiceDialog(false)} className="rounded-2xl font-black text-slate-400 tracking-widest text-[10px]">CANCELAR</Button>
-            <Button 
-              className="rounded-2xl font-black gap-3 h-14 shadow-xl shadow-primary/20 flex-1 text-base italic tracking-tighter"
-              disabled={uploading || !genericForm.observacoes || genericForm.fotos.length === 0}
-              onClick={() => handleAction('entrega', selectedOs.id, {
-                is_generic_service: true,
-                fotos: genericForm.fotos,
-                observacoes: genericForm.observacoes,
-                is_last_item: selectedOs.items.every((i: any) => !i.isSanitario)
-              })}
-            >
-              {uploading ? 'PROCESSANDO...' : (
-                <>
+            {isGenericStep ? (
+              <>
+                <Button variant="ghost" onClick={() => setIsGenericStep(false)} className="rounded-2xl font-black text-slate-400 tracking-widest text-[10px]">VOLTAR</Button>
+                <Button 
+                  className="rounded-2xl font-black gap-3 h-14 shadow-xl shadow-primary/20 flex-1 text-base italic tracking-tighter"
+                  disabled={uploading || !genericForm.observacoes}
+                  onClick={() => handleAction('entrega', selectedOs.id, {
+                    is_generic_service: true,
+                    fotos: genericForm.fotos,
+                    observacoes: genericForm.observacoes,
+                    is_last_item: selectedOs.items?.filter((i:any)=>!i.isSanitario).length === 1 && osSanitarios.length === 0
+                  }).then(() => { setGenericServiceDialog(false); setIsGenericStep(false); })}
+                >
                   <CheckCircle2 className="w-6 h-6" />
-                  FINALIZAR PASSO
-                </>
-              )}
-            </Button>
+                  FINALIZAR SERVIÇO
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => setGenericServiceDialog(false)} className="rounded-2xl font-black text-slate-400 tracking-widest text-[10px]">CANCELAR</Button>
+                <Button 
+                  className="rounded-2xl font-black gap-3 h-14 shadow-xl shadow-primary/20 flex-1 text-base italic tracking-tighter"
+                  disabled={genericForm.fotos.length === 0}
+                  onClick={() => setIsGenericStep(true)}
+                >
+                  PRÓXIMO PASSO
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
