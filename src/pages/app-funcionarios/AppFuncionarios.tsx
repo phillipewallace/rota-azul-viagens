@@ -536,27 +536,32 @@ const AppFuncionarios = () => {
 
                 <div className="space-y-3">
                   {osSanitarios.map(s => (
-                    <div key={s.id} className="p-5 bg-white border border-slate-100 shadow-sm rounded-3xl flex justify-between items-center transition-all">
+                    <div key={s.id} className="p-5 bg-white border border-slate-100 shadow-sm rounded-3xl flex justify-between items-center transition-all hover:border-blue-100">
                       <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-200">
+                        <div className="w-16 h-16 bg-blue-50/50 rounded-2xl flex items-center justify-center overflow-hidden border border-blue-100/50">
                            {s.ultimaFotoUrl ? (
                              <img src={s.ultimaFotoUrl} alt="Sanitário" className="w-full h-full object-cover" />
                            ) : (
-                             <PackageOpen className="w-7 h-7 text-slate-400" />
+                             <PackageOpen className="w-7 h-7 text-blue-300" />
                            )}
                         </div>
                         <div>
                           <p className="font-black text-slate-800 text-lg leading-none mb-1">#{s.numero}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{s.categoria}</p>
+                          <Badge variant="secondary" className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                            {s.categoria}
+                          </Badge>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {s.devolvido_em ? (
-                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200 font-bold px-3 py-1 rounded-full">Recolhido</Badge>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 font-black text-[9px] uppercase px-3 py-1 rounded-full tracking-widest">Recolhido</Badge>
+                            <span className="text-[8px] text-slate-400 font-bold uppercase">{new Date(s.devolvido_em).toLocaleDateString()}</span>
+                          </div>
                         ) : selectedOs.status === 'recolhimento_solicitado' ? (
-                          <div className="flex flex-col gap-2">
+                          <div className="flex flex-col gap-2 w-28">
                              <Select defaultValue="bom" onValueChange={(v) => s.temp_estado = v}>
-                               <SelectTrigger className="h-10 text-[10px] w-full rounded-xl bg-white">
+                               <SelectTrigger className="h-9 text-[10px] w-full rounded-xl bg-slate-50 border-slate-100">
                                  <SelectValue placeholder="Estado" />
                                </SelectTrigger>
                                <SelectContent>
@@ -566,20 +571,22 @@ const AppFuncionarios = () => {
                                </SelectContent>
                              </Select>
                              <Button 
-                              size="sm" 
-                              className="bg-amber-600 text-white gap-2 text-xs h-10 rounded-xl font-bold shadow-md shadow-amber-200"
-                              onClick={() => handleAction('recolhimento', selectedOs.id, { 
-                                sanitario_id: s.id,
-                                estado_atual: s.temp_estado || 'bom',
-                                fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
-                                is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
-                              })}
-                            >
-                              <PackageCheck className="h-4 w-4" /> Recolher
-                            </Button>
+                               size="sm" 
+                               className="bg-amber-500 hover:bg-amber-600 text-white gap-2 text-[10px] h-9 rounded-xl font-black uppercase shadow-lg shadow-amber-200"
+                               onClick={() => handleAction('recolhimento', selectedOs.id, { 
+                                 sanitario_id: s.id,
+                                 estado_atual: s.temp_estado || 'bom',
+                                 fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
+                                 is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
+                               })}
+                             >
+                               <PackageCheck className="h-3.5 w-3.5" /> Recolher
+                             </Button>
                           </div>
                         ) : (
-                          <Badge variant="secondary">Entregue</Badge>
+                          <Badge className="bg-blue-50 text-blue-600 border-blue-100 font-black text-[9px] uppercase px-3 py-1 rounded-full tracking-widest">
+                            Em Uso
+                          </Badge>
                         )}
                       </div>
                     </div>
