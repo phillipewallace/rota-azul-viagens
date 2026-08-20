@@ -165,7 +165,8 @@ router.get('/pending', async (req, res) => {
               c.renovacao_automatica AS "renovacaoAutomatica",
               c.company_id AS "companyId", c.customer_id AS "customerId",
               emp.razao_social AS "companyRazaoSocial", emp.cnpj AS "companyCnpj",
-              cu.customer_name AS "customerName", cu.document AS "customerDocument"
+              cu.customer_name AS "customerName", cu.document AS "customerDocument",
+              c.cno AS "cno"
          FROM erp_contracts c
          LEFT JOIN erp_companies emp ON emp.id = c.company_id
          LEFT JOIN customers cu ON cu.id = c.customer_id
@@ -198,6 +199,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     contractId, competencia: comp, valor, pago = true, regerar = false,
     periodoInicio, periodoFim, semValidade = false,
     dataVencimento: dataVencimentoIn,
+    cno: cnoIn,
   } = req.body || {};
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
 
@@ -290,13 +292,16 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       : dataVencCalc;
 
 
+    // Se CNO foi passado no corpo (override), usamos ele. Caso contrário, usamos o do contrato.
+    const finalCno = (cnoIn !== undefined) ? cnoIn : ct.cno;
+
     const snapshot = {
       contract: {
         numero: ct.numero, descricao: ct.descricao,
         dataInicio: ct.data_inicio, valorMensal: ct.valor_mensal,
         diaVencimento: ct.dia_vencimento,
         enderecoObra: ct.endereco_obra, localEvento: ct.local_evento,
-        cno: ct.cno, tipoContrato: ct.tipo_contrato,
+        cno: finalCno, tipoContrato: ct.tipo_contrato,
       },
       company: {
         razaoSocial: ct.company_razao_social, cnpj: ct.company_cnpj,
@@ -338,6 +343,12 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
         [existing.rows[0].id, valorFinal, !!pago, snapshot, dataVenc,
          periodoInicio || null, periodoFim || null]
       );
+
+      // Se passou CNO, atualiza também no contrato original (requisito do usuário)
+      if (cnoIn !== undefined) {
+        await client.query('UPDATE erp_contracts SET cno = $1, updated_at = NOW() WHERE id = $2', [cnoIn, contractId]);
+      }
+
       await client.query('COMMIT');
       return res.json({ ok: true, id: existing.rows[0].id, numero: existing.rows[0].numero, regerado: true });
     }
@@ -364,6 +375,11 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       [numero, ct.company_id, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
        periodoInicio || null, periodoFim || null, !!semValidade, numeroDisplay]
     );
+
+    // Se passou CNO, atualiza também no contrato original (requisito do usuário)
+    if (cnoIn !== undefined) {
+      await client.query('UPDATE erp_contracts SET cno = $1, updated_at = NOW() WHERE id = $2', [cnoIn, contractId]);
+    }
 
     await client.query('COMMIT');
     res.json({ ok: true, ...ins.rows[0] });
@@ -455,26 +471,57 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
       patch.competencia = b.competencia;
     }
 
+    if (b.cno !== undefined) {
+      // patch.cno será usado para atualizar o snapshot e o contrato
+      // No banco erp_receipts não tem coluna cno, o valor vive no jsonb snapshot
+    }
+
     if (patch.periodo_inicio && patch.periodo_fim && patch.periodo_fim < patch.periodo_inicio) {
       return res.status(400).json({ error: 'periodoFim deve ser >= periodoInicio' });
     }
 
-    const keys = Object.keys(patch);
-    if (keys.length === 0) return res.status(400).json({ error: 'Nada para atualizar' });
+    const keys = Object.keys(patch).filter(k => k !== 'cno');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const cur = await client.query('SELECT id, status, snapshot, contract_id FROM erp_receipts WHERE id=$1', [req.params.id]);
+      if (!cur.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Recibo não encontrado' });
+      }
+      if (cur.rows[0].status === 'cancelado') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
+      }
 
-    const cur = await pool.query('SELECT id, status FROM erp_receipts WHERE id=$1', [req.params.id]);
-    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
-    if (cur.rows[0].status === 'cancelado') {
-      return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
+      if (keys.length > 0) {
+        const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+        const values = keys.map(k => patch[k]);
+        await client.query(`UPDATE erp_receipts SET ${sets}, updated_at=NOW() WHERE id=$1`, [req.params.id, ...values]);
+      }
+
+      // Se CNO foi enviado, atualizamos o snapshot do recibo E o contrato original
+      if (b.cno !== undefined) {
+        const snap = cur.rows[0].snapshot || {};
+        if (snap.contract) {
+          snap.contract.cno = b.cno;
+          await client.query('UPDATE erp_receipts SET snapshot = $1 WHERE id = $2', [snap, req.params.id]);
+        }
+        const contractId = cur.rows[0].contract_id;
+        if (contractId) {
+          await client.query('UPDATE erp_contracts SET cno = $1, updated_at = NOW() WHERE id = $2', [b.cno, contractId]);
+        }
+      }
+
+      await client.query('COMMIT');
+      res.json({ ok: true });
+    } catch (e: any) {
+      await client.query('ROLLBACK');
+      console.error('[erp-receipts patch]', e);
+      sendError(res, e);
+    } finally {
+      client.release();
     }
-
-    const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = keys.map(k => patch[k]);
-    await pool.query(
-      `UPDATE erp_receipts SET ${sets}, updated_at=NOW() WHERE id=$1`,
-      [req.params.id, ...values],
-    );
-    res.json({ ok: true });
   } catch (e: any) {
     console.error('[erp-receipts patch]', e);
     sendError(res, e);

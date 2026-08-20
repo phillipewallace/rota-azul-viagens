@@ -727,9 +727,9 @@ const ErpFinanceiro: React.FC = () => {
 
   // ===== ações =====
   const generateOne = async (
-    contractId: string, valor: number, opts?: { semPdf?: boolean; silent?: boolean }
+    contractId: string, valor: number, opts?: { semPdf?: boolean; silent?: boolean; cno?: string }
   ) => {
-    const out = await receiptsService.generate({ contractId, competencia, valor, pago: true });
+    const out = await receiptsService.generate({ contractId, competencia, valor, pago: true, cno: opts?.cno });
     if (!opts?.semPdf) {
       try {
         const list = await receiptsService.list({ competencia, contractId });
@@ -741,14 +741,15 @@ const ErpFinanceiro: React.FC = () => {
     return out;
   };
 
-  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean; periodo?: { inicio: string; fim: string }; dataVencimento?: string; semValidade?: boolean }) => {
+  const gerar = async (p: PendingReceipt, opts?: { semPdf?: boolean; periodo?: { inicio: string; fim: string }; dataVencimento?: string; semValidade?: boolean; cno?: string }) => {
     setWorking(p.contractId);
     try {
       if (opts?.periodo) {
         await gerarPeriodo(p, opts.periodo.inicio, opts.periodo.fim, { 
           baixarPdf: !opts.semPdf, 
           dataVencimento: opts.dataVencimento, 
-          semValidade: opts.semValidade 
+          semValidade: opts.semValidade,
+          cno: opts.cno
         });
       } else {
         await generateOne(p.contractId, Number(p.valorMensal), opts);
@@ -762,7 +763,7 @@ const ErpFinanceiro: React.FC = () => {
   // passa a ser exibida como "DD/MM/YYYY - DD/MM/YYYY".
   const gerarPeriodo = async (
     p: PendingReceipt, periodoInicio: string, periodoFim: string,
-    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean; dataVencimento?: string }
+    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean; dataVencimento?: string; cno?: string }
   ) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
       toast.error('Datas inválidas'); return;
@@ -783,6 +784,7 @@ const ErpFinanceiro: React.FC = () => {
         pago: opts?.marcarPago ?? true,
         semValidade: !!opts?.semValidade,
         dataVencimento: opts?.dataVencimento,
+        cno: opts?.cno,
       });
       if (opts?.baixarPdf !== false) {
         try {
@@ -1701,13 +1703,14 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                               onConfirm={(semValidade, dataVencimento, periodoOverride) => {
-                                 void gerar(p, { 
-                                   semValidade, 
-                                   dataVencimento, 
-                                   periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia) 
-                                 });
-                               }}
+                                onConfirm={(semValidade, dataVencimento, periodoOverride, cnoOverride) => {
+                                  void gerar(p, { 
+                                    semValidade, 
+                                    dataVencimento, 
+                                    periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia),
+                                    cno: cnoOverride
+                                  });
+                                }}
                               competencia={competencia}
                             >
                               <Button
@@ -3205,7 +3208,7 @@ const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
   competencia: string;
-  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }) => void;
+  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }, cno?: string) => void;
   children: React.ReactNode;
 }> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
@@ -3215,6 +3218,7 @@ const GerarReciboPopover: React.FC<{
   const [overridePeriodo, setOverridePeriodo] = useState(false);
   const [perIniManual, setPerIniManual] = useState('');
   const [perFimManual, setPerFimManual] = useState('');
+  const [cno, setCno] = useState('');
 
   // Vencimento padrão (mesma lógica do backend): dia do contrato no mês da competência.
   const vencPadrao = useMemo(() => {
@@ -3235,7 +3239,8 @@ const GerarReciboPopover: React.FC<{
     setOverridePeriodo(false);
     setPerIniManual(periodoPadrao.inicio);
     setPerFimManual(periodoPadrao.fim);
-  }, [open, pending.contractId, vencPadrao, periodoPadrao]);
+    setCno(pending.cno || '');
+  }, [open, pending.contractId, vencPadrao, periodoPadrao, pending.cno]);
 
   const periodo = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : periodoPadrao;
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
@@ -3308,7 +3313,24 @@ const GerarReciboPopover: React.FC<{
             )}
           </div>
 
-          {/* Vencimento (override manual opcional) */}
+          {/* Campo CNO / Ordem de Compra */}
+          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-2">
+            <Label htmlFor={`gr-cno-${pending.contractId}`} className="text-[11px] font-medium text-foreground">
+              CNO / Ordem de Compra
+            </Label>
+            <Input
+              id={`gr-cno-${pending.contractId}`}
+              value={cno}
+              onChange={(e) => setCno(e.target.value)}
+              placeholder="Ex: 12.345.678/0001-99 ou OC 123"
+              className="h-8 text-xs"
+            />
+            <p className="text-[9px] text-muted-foreground">
+              Este valor será salvo no recibo e também atualizará o contrato.
+            </p>
+          </div>
+
+          {/* Toggle: sem validade jurídica */}
           <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-2">
             <label htmlFor={`gr-ov-${pending.contractId}`} className="flex items-start gap-2 cursor-pointer">
               <Checkbox
@@ -3728,6 +3750,7 @@ const EditVencimentoDialog: React.FC<{
   const [periodoFim, setPeriodoFim] = useState('');
   const [valor, setValor] = useState<string>('');
   const [numeroDisplay, setNumeroDisplay] = useState('');
+  const [cno, setCno] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -3738,6 +3761,7 @@ const EditVencimentoDialog: React.FC<{
     setPeriodoFim((receipt.periodoFim || '').slice(0, 10));
     setValor(String(Number(receipt.valor || 0)));
     setNumeroDisplay(receipt.numeroDisplay || '');
+    setCno(receipt.snapshot?.contract?.cno || '');
   }, [receipt]);
 
   const salvar = async () => {
@@ -3760,6 +3784,7 @@ const EditVencimentoDialog: React.FC<{
       periodoFim: periodoFim || null,
       valor: v,
       numeroDisplay: numeroDisplay.trim() || null,
+      cno: cno.trim() || null,
     };
     // Recalcula competência a partir do período/emissão para manter consistência.
     const compBase = periodoInicio || dataEmissao;
@@ -3822,6 +3847,15 @@ const EditVencimentoDialog: React.FC<{
               onChange={(e) => setNumeroDisplay(e.target.value)}
               placeholder={receipt?.numero || ''}
               maxLength={64}
+            />
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label htmlFor="edit-cno">CNO / Ordem de Compra</Label>
+            <Input
+              id="edit-cno"
+              value={cno}
+              onChange={(e) => setCno(e.target.value)}
+              placeholder="Ex: 12.345.678/0001-99 ou OC 123"
             />
           </div>
         </div>
