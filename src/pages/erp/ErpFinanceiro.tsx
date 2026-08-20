@@ -3205,7 +3205,7 @@ const GerarReciboPopover: React.FC<{
   pending: PendingReceipt;
   working: boolean;
   competencia: string;
-  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }) => void;
+  onConfirm: (semValidade: boolean, dataVencimento?: string, periodo?: { inicio: string; fim: string }, cno?: string, enderecoObra?: string) => void;
   children: React.ReactNode;
 }> = ({ pending, working, competencia, onConfirm, children }) => {
   const [open, setOpen] = useState(false);
