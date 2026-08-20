@@ -176,9 +176,10 @@ router.post('/os/:id/entregar-item', async (req, res) => {
         // 3. Registrar fotos e relato
         if (fotos && Array.isArray(fotos)) {
             for (const url of fotos) {
+                // Registrar na tabela de fotos do sanitário (Histórico Interligado)
                 await client.query(
-                    'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, funcionario_id, observacoes) VALUES ($1, $2, $3, $4, $5, $6)',
-                    [sid, id, url, is_generic_service ? 'servico' : 'entrega', funcionario_id, observacoes || null]
+                    'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, funcionario_id, funcionario_nome, observacoes) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                    [sid, id, url, is_generic_service ? 'servico' : 'entrega', funcionario_id, funcionario_nome, observacoes || null]
                 );
             }
         }
@@ -235,9 +236,10 @@ router.post('/os/:id/recolher-item', async (req, res) => {
         // 1. Registrar fotos e estado para este sanitário específico
         if (fotos && Array.isArray(fotos)) {
             for (const url of fotos) {
+                // Registrar na tabela de fotos do sanitário (Histórico Interligado)
                 await client.query(
-                    'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, estado_conservacao, observacoes, funcionario_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-                    [sanitario_id, id, url, 'recolhimento', estado_atual, observacoes, funcionario_id]
+                    'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, estado_conservacao, observacoes, funcionario_id, funcionario_nome) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+                    [sanitario_id, id, url, 'recolhimento', estado_atual, observacoes, funcionario_id, funcionario_nome]
                 );
             }
         }
