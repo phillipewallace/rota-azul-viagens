@@ -111,8 +111,12 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
         
         // Verbosidade total: Logar body/query em rotas que não sejam sensíveis (auth)
         if (!url.includes('/auth') && !url.includes('/login')) {
-            if (Object.keys(query).length > 0) context.query = query;
-            if (Object.keys(body).length > 0) context.body = body;
+            if (query && typeof query === 'object' && Object.keys(query).length > 0) {
+                context.query = query;
+            }
+            if (body && typeof body === 'object' && Object.keys(body).length > 0) {
+                context.body = body;
+            }
         }
 
         if (status >= 500) {
