@@ -164,6 +164,7 @@ router.get('/pending', async (req, res) => {
               c.data_inicio AS "dataInicio",
               c.renovacao_automatica AS "renovacaoAutomatica",
               c.company_id AS "companyId", c.customer_id AS "customerId",
+              c.cno AS "cno", c.endereco_obra AS "enderecoObra", c.local_evento AS "localEvento",
               emp.razao_social AS "companyRazaoSocial", emp.cnpj AS "companyCnpj",
               cu.customer_name AS "customerName", cu.document AS "customerDocument"
          FROM erp_contracts c
@@ -197,7 +198,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   const {
     contractId, competencia: comp, valor, pago = true, regerar = false,
     periodoInicio, periodoFim, semValidade = false,
-    dataVencimento: dataVencimentoIn,
+    dataVencimento: dataVencimentoIn, cno, enderecoObra,
   } = req.body || {};
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
 
