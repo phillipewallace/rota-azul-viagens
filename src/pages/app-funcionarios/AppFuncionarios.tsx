@@ -371,8 +371,12 @@ const AppFuncionarios = () => {
                   {osSanitarios.map(s => (
                     <div key={s.id} className="p-5 bg-white border border-slate-100 shadow-sm rounded-3xl flex justify-between items-center transition-all">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
-                           <PackageOpen className="w-6 h-6 text-slate-400" />
+                        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-200">
+                           {s.ultimaFotoUrl ? (
+                             <img src={s.ultimaFotoUrl} alt="Sanitário" className="w-full h-full object-cover" />
+                           ) : (
+                             <PackageOpen className="w-7 h-7 text-slate-400" />
+                           )}
                         </div>
                         <div>
                           <p className="font-black text-slate-800 text-lg leading-none mb-1">#{s.numero}</p>
@@ -616,6 +620,13 @@ const AppFuncionarios = () => {
         >
           <ClipboardList className="w-6 h-6" />
           <span className="text-[10px] font-bold">Checklist</span>
+        </button>
+        <button 
+          className="flex flex-col items-center gap-1 p-2 text-slate-400"
+          onClick={() => setAddingSanitario(true)}
+        >
+          <Plus className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Estoque</span>
         </button>
         <button 
           className={`flex flex-col items-center gap-1 p-2 transition-colors ${view === 'perfil' ? 'text-primary' : 'text-slate-400'}`}

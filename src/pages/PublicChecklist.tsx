@@ -197,7 +197,10 @@ export default function PublicChecklist() {
       <div className="min-h-screen bg-gray-50 pb-32">
         <div className="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow">
           <div className="max-w-3xl mx-auto flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700" aria-label="Voltar à lista" onClick={() => { setSigningId(null); setSigningMeta(null); }}>
+            <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700" aria-label="Voltar à lista" onClick={() => { 
+              if (signingId) { setSigningId(null); setSigningMeta(null); }
+              else { setTruck(null); setPlate(''); }
+            }}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
@@ -267,8 +270,11 @@ export default function PublicChecklist() {
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
       <div className="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+          <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700 shrink-0" onClick={() => { setTruck(null); setPlate(''); }}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1">
             <div className="text-xs opacity-80">{isCarretinha ? 'Carretinha' : 'Caminhão'}</div>
             <div className="font-bold">{truck.name} · {truck.plate}</div>
             {truck.model && <div className="text-xs opacity-80">{truck.model}</div>}
