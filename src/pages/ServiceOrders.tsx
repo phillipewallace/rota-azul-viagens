@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ClipboardList, AlertTriangle, CheckCircle2, RefreshCcw, Trash2, Loader2, Search,
   FileDown, History, X, MapPin, Calendar, User, Building2, Package,
-  FileSignature, FileText, Send, Camera
+  FileSignature, FileText, Send, Camera, Clock, MessageSquare, Download, Map
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +93,56 @@ const ServiceOrders: React.FC = () => {
   const [histLoading, setHistLoading] = useState(false);
   const [histType, setHistType] = useState('');
   const [histSan, setHistSan] = useState('');
+
+  // Novo modal de histórico detalhado da OS
+  const [osHistoryOpen, setOsHistoryOpen] = useState(false);
+  const [osHistory, setOsHistory] = useState<any[]>([]);
+  const [osHistoryLoading, setOsHistoryLoading] = useState(false);
+  const [osHistoryTarget, setOsHistoryTarget] = useState<ServiceOrder | null>(null);
+  const [newNote, setNewNote] = useState('');
+  const [noteBusy, setNoteBusy] = useState(false);
+
+  const openOsHistory = async (o: ServiceOrder) => {
+    setOsHistoryTarget(o);
+    setOsHistoryOpen(true);
+    setOsHistory([]);
+    await loadOsHistory(o.id);
+  };
+
+  const loadOsHistory = async (id: string) => {
+    setOsHistoryLoading(true);
+    try {
+      const token = localStorage.getItem('rota-azul-token');
+      const res = await fetch(`${API_BASE_URL}/erp/service-orders/${id}/history`, {
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      if (!res.ok) throw new Error('Falha ao carregar histórico');
+      const data = await res.json();
+      setOsHistory(data);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setOsHistoryLoading(false); }
+  };
+
+  const addNote = async () => {
+    if (!osHistoryTarget || !newNote.trim()) return;
+    setNoteBusy(true);
+    try {
+      const token = localStorage.getItem('rota-azul-token');
+      const res = await fetch(`${API_BASE_URL}/erp/service-orders/${osHistoryTarget.id}/notes`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '' 
+        },
+        body: JSON.stringify({ note: newNote.trim() })
+      });
+      if (!res.ok) throw new Error('Falha ao adicionar nota');
+      setNewNote('');
+      toast.success('Nota adicionada');
+      await loadOsHistory(osHistoryTarget.id);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setNoteBusy(false); }
+  };
 
   // Params server-side derivados da aba
   const serverParams = useMemo(() => {
@@ -604,6 +654,10 @@ const ServiceOrders: React.FC = () => {
                   </div>
 
                   <div className="flex gap-1 pt-2 border-t flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="outline" className="flex-1 min-w-[110px]"
+                            onClick={() => openOsHistory(o)}>
+                      <History className="h-3.5 w-3.5 mr-1" /> Histórico / Fotos
+                    </Button>
                     <Button size="sm" variant="default" className="flex-1 min-w-[110px] bg-green-700 hover:bg-green-800"
                             onClick={() => downloadOsPdf(o)} disabled={pdfBusy === o.id}>
                       {pdfBusy === o.id
@@ -1006,6 +1060,136 @@ const ServiceOrders: React.FC = () => {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+      {/* Histórico Detalhado da OS com Fotos e Auditoria */}
+      <Dialog open={osHistoryOpen} onOpenChange={setOsHistoryOpen}>
+        <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />
+              Histórico Completo OS <span className="font-mono">{osHistoryTarget?.numero}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {/* Timeline */}
+            <div className="relative space-y-6">
+              {/* Linha vertical central */}
+              <div className="absolute left-[19px] top-2 bottom-0 w-0.5 bg-slate-200"></div>
+
+              {osHistoryLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+                </div>
+              )}
+
+              {!osHistoryLoading && osHistory.length === 0 && (
+                <div className="text-center py-12 text-slate-500">
+                  <Clock className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                  <p>Nenhum registro no histórico ainda.</p>
+                </div>
+              )}
+
+              {osHistory.map((item, idx) => {
+                const isPhoto = item.source === 'FOTO';
+                const isNote = item.source === 'NOTA';
+                const isStatus = item.tipo === 'STATUS_CHANGE';
+
+                return (
+                  <div key={idx} className="relative pl-10">
+                    {/* Ícone da timeline */}
+                    <div className={`absolute left-0 top-1 w-10 h-10 rounded-full border-4 border-white shadow-sm flex items-center justify-center z-10 ${
+                      isPhoto ? 'bg-blue-100 text-blue-600' :
+                      isNote ? 'bg-amber-100 text-amber-600' :
+                      isStatus ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {isPhoto ? <Camera className="h-4 w-4" /> :
+                       isNote ? <MessageSquare className="h-4 w-4" /> :
+                       isStatus ? <RefreshCcw className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                    </div>
+
+                    <div className="bg-white border rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {isPhoto ? 'Foto Operacional' : isNote ? 'Nota Interna' : isStatus ? 'Alteração de Status' : item.tipo}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {DT(item.created_at)}
+                        </span>
+                      </div>
+
+                      <div className="text-sm font-medium text-slate-800">
+                        {item.descricao}
+                      </div>
+
+                      {item.author_name && (
+                        <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                          <User className="h-3 w-3" /> {item.author_name}
+                        </div>
+                      )}
+
+                      {/* Conteúdo Extra: Foto */}
+                      {isPhoto && item.payload?.url && (
+                        <div className="mt-3 space-y-2">
+                          <div className="relative group w-full max-w-sm rounded-lg overflow-hidden border shadow-inner bg-slate-50 aspect-video flex items-center justify-center">
+                            <img 
+                              src={item.payload.url} 
+                              alt="Evidência" 
+                              className="w-full h-full object-contain cursor-pointer transition-transform group-hover:scale-105"
+                              onClick={() => window.open(item.payload.url, '_blank')}
+                            />
+                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full shadow-lg" onClick={() => window.open(item.payload.url, '_blank')}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          {item.payload.estado && (
+                            <Badge variant="outline" className="text-[9px] uppercase">Estado: {item.payload.estado}</Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Conteúdo Extra: Status Change */}
+                      {isStatus && item.payload && (
+                        <div className="mt-2 flex items-center gap-2 text-xs">
+                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 line-through opacity-50">{item.payload.old_status}</Badge>
+                          <RefreshCcw className="h-3 w-3 text-slate-300" />
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{item.payload.new_status}</Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Área de Notas Internas */}
+          <div className="p-4 bg-slate-50 border-t space-y-3">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <MessageSquare className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <textarea
+                  placeholder="Adicionar nota interna..."
+                  className="w-full min-h-[80px] pl-10 pr-4 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none bg-white"
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                />
+              </div>
+              <Button 
+                className="self-end rounded-xl px-6" 
+                onClick={addNote} 
+                disabled={noteBusy || !newNote.trim()}
+              >
+                {noteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar Nota'}
+              </Button>
+            </div>
+            <p className="text-[10px] text-slate-400 italic px-1">
+              * Notas internas são visíveis apenas para o administrativo.
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
