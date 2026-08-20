@@ -102,6 +102,58 @@ const ServiceOrders: React.FC = () => {
   const [newNote, setNewNote] = useState('');
   const [noteBusy, setNoteBusy] = useState(false);
 
+  // Modal de Recolhimento
+  const [recolhimentoOpen, setRecolhimentoOpen] = useState(false);
+  const [recolhimentoTarget, setRecolhimentoTarget] = useState<ServiceOrder | null>(null);
+  const [recolhimentoDate, setRecolhimentoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [recolhimentoObs, setRecolhimentoObs] = useState('');
+  const [recolhimentoLoading, setRecolhimentoLoading] = useState(false);
+  const [osSanitariosRec, setOsSanitariosRec] = useState<any[]>([]);
+
+  const openRecolhimento = async (o: ServiceOrder) => {
+    setRecolhimentoTarget(o);
+    setRecolhimentoOpen(true);
+    setRecolhimentoLoading(true);
+    try {
+      const token = localStorage.getItem('rota-azul-token');
+      const res = await fetch(`${API_BASE_URL}/app-funcionarios/os/${o.id}/sanitarios`, {
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      if (!res.ok) throw new Error('Falha ao carregar itens da OS');
+      const data = await res.json();
+      setOsSanitariosRec(data.map((s: any) => ({ ...s, selected: true })));
+    } catch (e: any) { toast.error(e.message); }
+    finally { setRecolhimentoLoading(false); }
+  };
+
+  const handleSolicitarRecolhimento = async () => {
+    if (!recolhimentoTarget) return;
+    setRecolhimentoLoading(true);
+    try {
+      const token = localStorage.getItem('rota-azul-token');
+      const res = await fetch(`${API_BASE_URL}/erp/service-orders/${recolhimentoTarget.id}/solicitar-recolhimento`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '' 
+        },
+        body: JSON.stringify({
+          data_recolhimento: recolhimentoDate,
+          itens_selecionados: osSanitariosRec.filter(s => s.selected).map(s => s.id),
+          observacoes: recolhimentoObs
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro ao solicitar recolhimento');
+      }
+      toast.success('Recolhimento solicitado! OS voltou para a fila global.');
+      setRecolhimentoOpen(false);
+      load();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setRecolhimentoLoading(false); }
+  };
+
   const openOsHistory = async (o: ServiceOrder) => {
     setOsHistoryTarget(o);
     setOsHistoryOpen(true);
@@ -638,9 +690,17 @@ const ServiceOrders: React.FC = () => {
                     {o.emAtraso ? (
                       <Badge className="bg-red-600 text-white gap-1"><AlertTriangle className="h-3 w-3" />Atrasada</Badge>
                     ) : (
-                      <Badge className={o.status === 'fechada' ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}>
-                        {o.status}
-                      </Badge>
+                      <>
+                        {o.status === 'em_cliente' || o.status === 'entregue' ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Em Cliente</Badge>
+                        ) : o.status === 'recolhimento' || o.status === 'recolhimento_solicitado' ? (
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200">Recolhimento</Badge>
+                        ) : (
+                          <Badge className={o.status === 'fechada' ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}>
+                            {o.status}
+                          </Badge>
+                        )}
+                      </>
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground space-y-0.5 cursor-pointer" onClick={() => openDetail(o)}>
@@ -681,8 +741,14 @@ const ServiceOrders: React.FC = () => {
                     </Button>
                   </div>
                   <div className="flex gap-1 pt-1" onClick={(e) => e.stopPropagation()}>
-                    {o.status === 'aberta' && (
-                      <Button size="sm" variant="outline" className="flex-1 text-green-700 hover:bg-green-50" onClick={() => close(o)}>
+                    {(o.status === 'entregue' || o.status === 'em_cliente') ? (
+                      <Button size="sm" variant="outline" className="flex-1 text-amber-600 border-amber-300 hover:bg-amber-50" 
+                              onClick={() => openRecolhimento(o)}>
+                        <RefreshCcw className="h-3.5 w-3.5 mr-1" />Indicar Recolhimento
+                      </Button>
+                    ) : (o.status !== 'fechada' && o.status !== 'cancelada' && o.status !== 'recolhimento') && (
+                      <Button size="sm" variant="outline" className="flex-1 text-green-700 border-green-300 hover:bg-green-50" 
+                              onClick={() => close(o)}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Fechar e devolver
                       </Button>
                     )}
@@ -873,7 +939,11 @@ const ServiceOrders: React.FC = () => {
               OS <span className="font-mono">{detailOs?.numero}</span>
               {detailOs && (detailOs.emAtraso
                 ? <Badge className="bg-red-600 text-white gap-1 ml-2"><AlertTriangle className="h-3 w-3" />Atrasada</Badge>
-                : <Badge className={`ml-2 ${detailOs.status === 'fechada' ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}`}>{detailOs.status}</Badge>
+                : (detailOs.status === 'em_cliente' || detailOs.status === 'entregue')
+                  ? <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 ml-2">Em Cliente</Badge>
+                  : (detailOs.status === 'recolhimento' || detailOs.status === 'recolhimento_solicitado')
+                  ? <Badge className="bg-amber-100 text-amber-700 border-amber-200 ml-2">Recolhimento</Badge>
+                  : <Badge className={`ml-2 ${detailOs.status === 'fechada' ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}`}>{detailOs.status}</Badge>
               )}
             </DialogTitle>
           </DialogHeader>

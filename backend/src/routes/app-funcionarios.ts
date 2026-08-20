@@ -25,9 +25,12 @@ router.get('/os', async (req, res) => {
         } else {
             // Fila Global filtrada por DATA
             // $2 será a data no formato YYYY-MM-DD
+            // OS de ENTREGA aparecem em 'aberta'/'despachada'
+            // OS de RECOLHIMENTO aparecem em 'recolhimento'/'despachada'
             statusFilter = `(
-                (o.status IN ('aberta', 'despachada') AND o.data_entrega = $2)
-                OR (o.status IN ('entregue', 'recolhimento_solicitado') AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1))
+                (o.status IN ('aberta', 'despachada') AND o.tipo_operacao = 'ENTREGA' AND o.data_entrega = $2)
+                OR (o.status IN ('recolhimento', 'despachada') AND o.tipo_operacao = 'RECOLHIMENTO' AND o.data_recolhimento_programada = $2)
+                OR (o.status IN ('entregue', 'recolhimento_solicitado', 'em_cliente') AND (o.funcionario_id = $1 OR o.entregue_por_id = $1 OR o.recolhido_por_id = $1))
             )`;
             params.push(date || new Date().toISOString().split('T')[0]);
         }
@@ -69,7 +72,7 @@ router.post('/os/:id/assumir', async (req, res) => {
 
     try {
         await pool.query(
-            "UPDATE erp_service_orders SET funcionario_id = $1, status = 'despachada', updated_at = NOW() WHERE id = $2 AND (funcionario_id IS NULL OR status = 'aberta')",
+            "UPDATE erp_service_orders SET funcionario_id = $1, status = 'despachada', updated_at = NOW() WHERE id = $2 AND (funcionario_id IS NULL OR status IN ('aberta', 'recolhimento'))",
             [funcionarioId, id]
         );
         
@@ -94,9 +97,9 @@ router.post('/os/:id/desvincular', async (req, res) => {
 
     try {
         // Apenas permite desvincular se a OS estiver com o status 'despachada' e pertencer ao funcionário
-        // Voltamos para 'aberta' e limpamos o funcionario_id
+        // Voltamos para o status original baseado no tipo de operação
         const result = await pool.query(
-            "UPDATE erp_service_orders SET funcionario_id = NULL, status = 'aberta', updated_at = NOW() WHERE id = $1 AND funcionario_id = $2 AND status = 'despachada'",
+            "UPDATE erp_service_orders SET funcionario_id = NULL, status = CASE WHEN tipo_operacao = 'RECOLHIMENTO' THEN 'recolhimento' ELSE 'aberta' END, updated_at = NOW() WHERE id = $1 AND funcionario_id = $2 AND status = 'despachada'",
             [id, funcionarioId]
         );
         
@@ -195,10 +198,10 @@ router.post('/os/:id/entregar-item', async (req, res) => {
             );
         }
 
-        // 4. Se for o último item ou solicitado (ou serviço genérico), marcar OS como entregue
+        // 4. Se for o último item ou solicitado (ou serviço genérico), marcar OS como 'em_cliente'
         if (is_last_item || is_generic_service) {
             await client.query(
-                "UPDATE erp_service_orders SET status = 'entregue', entregue_por_id = $2, entregue_por_nome = $3, updated_at = NOW() WHERE id = $1", 
+                "UPDATE erp_service_orders SET status = 'em_cliente', entregue_por_id = $2, entregue_por_nome = $3, updated_at = NOW() WHERE id = $1", 
                 [id, funcionario_id, funcionario_nome]
             );
         }

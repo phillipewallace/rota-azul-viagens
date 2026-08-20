@@ -148,7 +148,7 @@ export interface ServiceOrder {
   limpezasSemanais?: number | null;
   enderecoEntrega?: string | null;
   qtdReservada?: number;
-  status: 'aberta' | 'fechada' | 'cancelada';
+  status: 'aberta' | 'fechada' | 'cancelada' | 'entregue' | 'em_cliente' | 'recolhimento' | 'recolhimento_solicitado' | 'despachada';
   valorTotal: number;
   observacoes?: string;
   formaPagamento?: 'cartao' | 'pix' | 'boleto' | null;

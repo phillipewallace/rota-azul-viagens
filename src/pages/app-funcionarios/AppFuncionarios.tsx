@@ -26,7 +26,7 @@ interface OS {
   numero: string;
   customerName: string;
   customerAddress: string;
-  status: 'aberta' | 'despachada' | 'entregue' | 'recolhimento_solicitado' | 'fechada';
+  status: 'aberta' | 'despachada' | 'entregue' | 'recolhimento_solicitado' | 'fechada' | 'em_cliente' | 'recolhimento';
 }
 
 const AppFuncionarios = () => {
