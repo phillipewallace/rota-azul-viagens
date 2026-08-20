@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
+import { logger } from '../utils/logger';
 
 const router = Router();
 router.use(requireAuth);
