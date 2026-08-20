@@ -44,6 +44,7 @@ import carretinhasRoutes from './routes/carretinhas';
 import erpFuncionariosRoutes from './routes/erp-funcionarios';
 import erpSanitariosNewRoutes from './routes/erp-sanitarios-new';
 import appFuncionariosRoutes from './routes/app-funcionarios';
+import erpOsHistoryRoutes from './routes/erp-os-history';
 import { requireAuth } from './middleware/requireAuth';
 import { restrictDemo } from './middleware/restrictDemo';
 
@@ -134,6 +135,7 @@ app.use('/api/erp/signed-pdfs', erpSignedPdfsRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/carretinhas', carretinhasRoutes);
 app.use('/api/erp/sanitarios-new', erpSanitariosNewRoutes);
+app.use('/api/erp/service-orders', erpOsHistoryRoutes); // Extende as rotas de OS
 
 const SENSITIVE_UPLOAD_PREFIXES = ['/invoices/', '/signed/', '/receipts/'];
 app.use('/uploads', (req, res, next) => {

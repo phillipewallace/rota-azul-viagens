@@ -72,6 +72,13 @@ router.post('/os/:id/assumir', async (req, res) => {
             "UPDATE erp_service_orders SET funcionario_id = $1, status = 'despachada', updated_at = NOW() WHERE id = $2 AND (funcionario_id IS NULL OR status = 'aberta')",
             [funcionarioId, id]
         );
+        
+        // Registrar no histórico
+        await pool.query(
+            "INSERT INTO erp_os_history (os_id, tipo, descricao, payload, created_by) VALUES ($1, 'STATUS_CHANGE', $2, $3, $4)",
+            [id, `OS assumida por ${funcionarioNome}`, JSON.stringify({ old_status: 'aberta', new_status: 'despachada' }), funcionarioId]
+        );
+
         logger.info(TAG, `Funcionario ${funcionarioNome} assumiu OS ${id}`);
         res.json({ ok: true });
     } catch (e: any) {
@@ -98,6 +105,13 @@ router.post('/os/:id/desvincular', async (req, res) => {
         }
         
         logger.info(TAG, `Funcionario ${funcionarioNome} desvinculou OS ${id} (voltou para fila global)`);
+        
+        // Registrar no histórico
+        await pool.query(
+            "INSERT INTO erp_os_history (os_id, tipo, descricao, payload, created_by) VALUES ($1, 'STATUS_CHANGE', $2, $3, $4)",
+            [id, `OS solta por ${funcionarioNome}`, JSON.stringify({ old_status: 'despachada', new_status: 'aberta' }), funcionarioId]
+        );
+
         res.json({ ok: true });
     } catch (e: any) {
         return sendError(res, e, `[${TAG}] Erro ao desvincular OS`);
