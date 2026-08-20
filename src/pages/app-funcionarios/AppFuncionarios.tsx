@@ -802,7 +802,7 @@ const AppFuncionarios = () => {
                     }
                     toast.success('Sanitário cadastrado no estoque!');
                     setAddingSanitario(false);
-                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' });
+                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom', fotos: [] });
                   } catch (e: any) {
                     toast.error(e.message);
                   } finally {
