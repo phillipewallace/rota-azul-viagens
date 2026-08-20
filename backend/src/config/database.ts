@@ -49,12 +49,13 @@ export const setupDatabase = async () => {
       )
     `);
 
-    // 🏗️ Garantir tabela erp_sanitarios_new (estoque de sanitários)
+    // 🏗️ Garantir tabela sanitarios (estoque unificado)
     await client.query(`
-      CREATE TABLE IF NOT EXISTS public.erp_sanitarios_new (
+      CREATE TABLE IF NOT EXISTS public.sanitarios (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         numero TEXT UNIQUE NOT NULL,
-        categoria TEXT NOT NULL,
+        modelo TEXT,
+        categoria TEXT NOT NULL DEFAULT 'comum',
         status TEXT DEFAULT 'disponivel',
         estado_atual TEXT DEFAULT 'bom',
         tipo_locacao_alvo TEXT,
@@ -73,7 +74,7 @@ export const setupDatabase = async () => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS public.erp_sanitario_movimentacoes (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        sanitario_id UUID REFERENCES erp_sanitarios_new(id) ON DELETE CASCADE,
+        sanitario_id UUID REFERENCES sanitarios(id) ON DELETE CASCADE,
         operation_type TEXT NOT NULL,
         customer_id UUID,
         customer_name TEXT,
@@ -90,7 +91,7 @@ export const setupDatabase = async () => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS public.erp_sanitario_fotos (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        sanitario_id UUID REFERENCES erp_sanitarios_new(id) ON DELETE CASCADE,
+        sanitario_id UUID REFERENCES sanitarios(id) ON DELETE CASCADE,
         url TEXT NOT NULL,
         tipo_evento TEXT,
         estado_conservacao TEXT,
@@ -292,7 +293,7 @@ export const setupDatabase = async () => {
         descricao TEXT,
         payload JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        created_by UUID REFERENCES auth.users(id)
+        created_by UUID REFERENCES public.users(id)
       )
     `);
     await client.query(`
@@ -302,7 +303,7 @@ export const setupDatabase = async () => {
         note TEXT NOT NULL,
         author_name TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        created_by UUID REFERENCES auth.users(id)
+        created_by UUID REFERENCES public.users(id)
       )
     `);
 

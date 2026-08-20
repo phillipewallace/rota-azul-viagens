@@ -7,6 +7,7 @@ ALTER TABLE public.sanitarios ADD COLUMN IF NOT EXISTS estado_atual TEXT DEFAULT
 CREATE TABLE IF NOT EXISTS public.erp_sanitario_tipos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nome TEXT NOT NULL UNIQUE,
+    slug TEXT, -- Removendo restrição NOT NULL se existir ou tratando
     descricao TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -23,7 +24,6 @@ VALUES
 ON CONFLICT (nome) DO NOTHING;
 
 -- Garantir GRANTs (conforme regras do sistema)
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.sanitarios TO authenticated;
-GRANT ALL ON public.sanitarios TO service_role;
-GRANT SELECT ON public.erp_sanitario_tipos TO authenticated;
-GRANT ALL ON public.erp_sanitario_tipos TO service_role;
+-- Garantir GRANTs para a VPS
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.sanitarios TO public;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.erp_sanitario_tipos TO public;

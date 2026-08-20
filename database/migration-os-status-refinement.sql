@@ -18,7 +18,6 @@ BEGIN
 END $$;
 
 -- Garantir que o histórico de sanitários rastreie o status atual no estoque
-ALTER TABLE erp_sanitarios ADD COLUMN IF NOT EXISTS status_atual VARCHAR(20) DEFAULT 'ESTOQUE';
+ALTER TABLE public.sanitarios ADD COLUMN IF NOT EXISTS status_atual VARCHAR(20) DEFAULT 'ESTOQUE';
 
-GRANT ALL ON public.erp_service_orders TO authenticated;
-GRANT ALL ON public.erp_service_orders TO service_role;
+GRANT ALL ON public.erp_service_orders TO public;

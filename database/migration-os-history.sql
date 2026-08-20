@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.erp_os_history (
     descricao TEXT,
     payload JSONB, -- Para armazenar metadados como URL da foto, lat/lng, status antigo/novo
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID REFERENCES auth.users(id)
+    created_by UUID REFERENCES public.users(id)
 );
 
 -- Tabela para notas internas específicas
@@ -15,16 +15,13 @@ CREATE TABLE IF NOT EXISTS public.erp_os_notes (
     os_id UUID REFERENCES public.erp_service_orders(id) ON DELETE CASCADE,
     note TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID REFERENCES auth.users(id),
+    created_by UUID REFERENCES public.users(id),
     author_name TEXT
 );
 
 -- Permissões
-GRANT SELECT, INSERT ON public.erp_os_history TO authenticated;
-GRANT ALL ON public.erp_os_history TO service_role;
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.erp_os_notes TO authenticated;
-GRANT ALL ON public.erp_os_notes TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.erp_os_history TO public;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.erp_os_notes TO public;
 
 -- Index para performance
 CREATE INDEX IF NOT EXISTS idx_os_history_os_id ON public.erp_os_history(os_id);
