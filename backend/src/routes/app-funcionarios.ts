@@ -33,7 +33,10 @@ router.get('/os', async (req, res) => {
 
         let query = `
             SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
-                   cu.customer_name as "customerName", cu.address as "customerAddress", cu.phone as "customerPhone",
+                   cu.customer_name as "customerName", cu.address as "customerAddress",
+                   q.responsavel_telefone as "customerPhone",
+                   q.responsavel_nome as "responsavelNome",
+                   q.responsavel_email as "responsavelEmail",
                    (SELECT json_agg(qi) FROM (
                        SELECT produto, quantidade, is_sanitario as "isSanitario", is_generic_service as "isGenericService"
                        FROM erp_quote_items 
@@ -42,6 +45,7 @@ router.get('/os', async (req, res) => {
                    ) qi) as items
             FROM erp_service_orders o
             LEFT JOIN customers cu ON cu.id = o.customer_id
+            LEFT JOIN erp_quotes q ON q.id = o.quote_id
             WHERE ${statusFilter}
               AND o.use_new_flow = TRUE
             ORDER BY o.data_entrega ASC
