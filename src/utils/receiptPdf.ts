@@ -176,9 +176,8 @@ export async function generateReceiptPdf(
   const cno = ct.cno;
   if (enderecoObra || cno) {
     // ---------- Endereço da obra/evento + CNO / OC (quando informados) ----------
-    // No unificado, cada item pode ter seu próprio endereço/CNO
-    const enderecoObra = it.enderecoObra;
-    const cno = it.cno;
+    const enderecoObra = it.enderecoObra || (it as any).snapshot?.contract?.enderecoObra;
+    const cno = it.cno || (it as any).snapshot?.contract?.cno;
     
     if (enderecoObra || cno) {
       y += 2;

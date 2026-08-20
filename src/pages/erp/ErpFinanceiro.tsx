@@ -3603,7 +3603,7 @@ const UnifiedPreviewDialog: React.FC<{
               periodoFim: perFim,
               items: items.map(it => ({
                 ...it,
-                // Garantir que as edições de endereço/CNO individuais sejam enviadas
+                // As edições já estão no estado 'items' devido ao updateItem
               })),
             })}
           >
@@ -3663,16 +3663,22 @@ const PayDialog: React.FC<{
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Endereço da Obra (Singular)</Label>
-              <Input value={enderecoObra} onChange={e => setEnderecoObra(e.target.value)} placeholder="Endereço da obra..." />
+              <Label className="text-xs">Forma de pagamento</Label>
+              <SearchableSelect
+                value={forma}
+                onValueChange={(v: any) => setForma(v)}
+                placeholder="Forma"
+                options={(Object.keys(FORMA_LABEL) as FormaPagamento[]).map(k => ({
+                  value: k,
+                  label: FORMA_LABEL[k],
+                }))}
+              />
             </div>
             <div>
-              <Label className="text-xs">CNO / Ordem de Compra</Label>
-              <Input value={cno} onChange={e => setCno(e.target.value)} placeholder="Número do CNO..." />
+              <Label className="text-xs">Data do pagamento</Label>
+              <Input type="date" value={data} onChange={e => setData(e.target.value)} />
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Forma de pagamento</Label>
               <SearchableSelect
@@ -3779,6 +3785,8 @@ const EditVencimentoDialog: React.FC<{
   const [periodoFim, setPeriodoFim] = useState('');
   const [valor, setValor] = useState<string>('');
   const [numeroDisplay, setNumeroDisplay] = useState('');
+  const [cno, setCno] = useState('');
+  const [enderecoObra, setEnderecoObra] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -3789,6 +3797,8 @@ const EditVencimentoDialog: React.FC<{
     setPeriodoFim((receipt.periodoFim || '').slice(0, 10));
     setValor(String(Number(receipt.valor || 0)));
     setNumeroDisplay(receipt.numeroDisplay || '');
+    setCno(receipt.snapshot?.contract?.cno || '');
+    setEnderecoObra(receipt.snapshot?.contract?.enderecoObra || '');
   }, [receipt]);
 
   const salvar = async () => {
@@ -3804,13 +3814,15 @@ const EditVencimentoDialog: React.FC<{
     const v = Number(String(valor).replace(',', '.'));
     if (!Number.isFinite(v) || v < 0) { toast.error('Valor inválido'); return; }
 
-    const patch: Parameters<typeof receiptsService.update>[1] = {
+    const patch: any = {
       dataEmissao,
       dataVencimento: dataVencimento || null,
       periodoInicio: periodoInicio || null,
       periodoFim: periodoFim || null,
       valor: v,
       numeroDisplay: numeroDisplay.trim() || null,
+      cno: cno.trim() || null,
+      enderecoObra: enderecoObra.trim() || null,
     };
     // Recalcula competência a partir do período/emissão para manter consistência.
     const compBase = periodoInicio || dataEmissao;
@@ -3849,6 +3861,25 @@ const EditVencimentoDialog: React.FC<{
           <div className="space-y-1">
             <Label htmlFor="edit-venc">Data de vencimento</Label>
             <Input id="edit-venc" type="date" value={dataVencimento} onChange={(e) => setDataVencimento(e.target.value)} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit-cno">CNO / Ordem de Compra</Label>
+            <Input
+              id="edit-cno"
+              value={cno}
+              onChange={(e) => setCno(e.target.value)}
+              placeholder="Número do CNO..."
+            />
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label htmlFor="edit-endereco">Endereço da Obra (Singular)</Label>
+            <Input
+              id="edit-endereco"
+              value={enderecoObra}
+              onChange={(e) => setEnderecoObra(e.target.value)}
+              placeholder="Endereço completo da obra..."
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="edit-pi">Início do período</Label>
