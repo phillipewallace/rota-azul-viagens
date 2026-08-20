@@ -727,9 +727,9 @@ const ErpFinanceiro: React.FC = () => {
 
   // ===== ações =====
   const generateOne = async (
-    contractId: string, valor: number, opts?: { semPdf?: boolean; silent?: boolean }
+    contractId: string, valor: number, opts?: { semPdf?: boolean; silent?: boolean; cno?: string }
   ) => {
-    const out = await receiptsService.generate({ contractId, competencia, valor, pago: true });
+    const out = await receiptsService.generate({ contractId, competencia, valor, pago: true, cno: opts?.cno });
     if (!opts?.semPdf) {
       try {
         const list = await receiptsService.list({ competencia, contractId });
