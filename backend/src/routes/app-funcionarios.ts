@@ -66,6 +66,31 @@ router.post('/os/:id/assumir', async (req, res) => {
     }
 });
 
+// Desvincular-se de uma OS (voltar para a fila global)
+router.post('/os/:id/desvincular', async (req, res) => {
+    const { id } = req.params;
+    const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
+    const funcionarioNome = (req as any).user?.nome || (req as any).user?.username;
+
+    try {
+        // Apenas permite desvincular se a OS estiver com o status 'despachada' e pertencer ao funcionário
+        // Voltamos para 'aberta' e limpamos o funcionario_id
+        const result = await pool.query(
+            "UPDATE erp_service_orders SET funcionario_id = NULL, status = 'aberta', updated_at = NOW() WHERE id = $1 AND funcionario_id = $2 AND status = 'despachada'",
+            [id, funcionarioId]
+        );
+        
+        if (result.rowCount === 0) {
+            return res.status(400).json({ error: 'Não é possível desvincular esta OS (status inválido ou não pertence a você)' });
+        }
+        
+        logger.info(TAG, `Funcionario ${funcionarioNome} desvinculou OS ${id} (voltou para fila global)`);
+        res.json({ ok: true });
+    } catch (e: any) {
+        return sendError(res, e, `[${TAG}] Erro ao desvincular OS`);
+    }
+});
+
 // Registrar Entrega Individual (Suporte a múltiplos itens ou serviço único)
 router.post('/os/:id/entregar-item', async (req, res) => {
     const { id } = req.params;
