@@ -612,7 +612,7 @@ const AppFuncionarios = () => {
       <Dialog open={addingSanitario} onOpenChange={setAddingSanitario}>
         <DialogContent className="max-w-sm rounded-[2.5rem] p-8 border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle>{selectedOs ? 'Vincular Entrega' : 'Cadastrar no Estoque'}</DialogTitle>
+            <DialogTitle>{selectedOs ? 'Vincular Sanitário à OS' : 'Cadastrar no Estoque'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -665,7 +665,11 @@ const AppFuncionarios = () => {
                     estado_atual: newSanForm.estado_atual,
                     fotos: ['https://placehold.co/600x400?text=Galeria'],
                     is_last_item: false
-                  }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
+                  }).then(() => { 
+                    setAddingSanitario(false); 
+                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); 
+                    toast.success('Sanitário vinculado!');
+                  })}>
                    <ImageIcon className="h-4 w-4" /> Galeria
                 </Button>
                 <Button className="h-12 gap-1 text-xs bg-slate-800" 
@@ -676,7 +680,11 @@ const AppFuncionarios = () => {
                     estado_atual: newSanForm.estado_atual,
                     fotos: ['https://placehold.co/600x400?text=Camera'],
                     is_last_item: false
-                  }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
+                  }).then(() => { 
+                    setAddingSanitario(false); 
+                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); 
+                    toast.success('Sanitário vinculado!');
+                  })}>
                    <Camera className="h-4 w-4" /> Câmera
                 </Button>
               </div>
