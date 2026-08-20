@@ -178,6 +178,9 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const c = req.body || {};
+  const user = (req as any).user?.username || (req as any).user?.nome;
+  logger.info('QUOTES', `Solicitação de novo orçamento por ${user}`, { customerId: c.customerId });
+  
   const items = Array.isArray(c.items) ? c.items : [];
   const client = await pool.connect();
   try {
@@ -234,6 +237,7 @@ router.post('/', async (req, res) => {
       );
     }
     await client.query('COMMIT');
+    logger.success('QUOTES', `Orçamento ${numero} criado com sucesso por ${user}`);
     res.json({ id: quoteId, numero });
   } catch (e: any) {
     await client.query('ROLLBACK');
@@ -335,11 +339,13 @@ router.delete('/:id', requireRole('admin','manager'), async (req, res) => {
  */
 router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, res) => {
   const client = await pool.connect();
+  const user = (req as any).user?.username || (req as any).user?.nome;
   try {
     await client.query('BEGIN');
     const q = await client.query('SELECT * FROM erp_quotes WHERE id=$1', [req.params.id]);
     if (!q.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'não encontrado' }); }
     const quote = q.rows[0];
+    logger.os('CONVERT', `Iniciando conversão Orc ${quote.numero} -> OS por ${user}`);
     if (!quote.company_id) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Orçamento sem empresa emissora não pode gerar OS.' });
@@ -385,6 +391,7 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
 
     await client.query(`UPDATE erp_quotes SET status='convertido', updated_at=NOW() WHERE id=$1`, [quote.id]);
     await client.query('COMMIT');
+    logger.success('OS', `OS ${numero} gerada a partir do orçamento ${quote.numero} (Sanitários: ${qtdSanit}) por ${user}`);
     res.json({ ok: true, osId, osNumero: numero, sanitariosReservados: qtdSanit });
   } catch (e: any) {
     await client.query('ROLLBACK');
