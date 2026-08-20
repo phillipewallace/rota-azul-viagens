@@ -47,10 +47,12 @@ const AppFuncionarios = () => {
     observacoes: '',
     fotos: [] as string[]
   });
+  const [photoLimit, setPhotoLimit] = useState(15);
   const [newSanForm, setNewSanForm] = useState({ 
     numero: '', 
     categoria: 'comum', 
-    estado_atual: 'bom' 
+    estado_atual: 'bom',
+    fotos: [] as string[]
   });
 
   useEffect(() => {
@@ -699,39 +701,86 @@ const AppFuncionarios = () => {
               </Select>
             </div>
 
-            {selectedOs ? (
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <Button variant="outline" className="h-12 gap-1 text-xs" 
-                  disabled={!newSanForm.numero || !newSanForm.categoria}
-                  onClick={() => handleAction('entrega', selectedOs.id, { 
-                    sanitario_numero: newSanForm.numero, 
-                    categoria: newSanForm.categoria,
-                    estado_atual: newSanForm.estado_atual,
-                    fotos: ['https://placehold.co/600x400?text=Galeria'],
-                    is_last_item: false
-                  }).then(() => { 
-                    setAddingSanitario(false); 
-                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); 
-                    toast.success('Sanitário vinculado!');
-                  })}>
-                   <ImageIcon className="h-4 w-4" /> Galeria
-                </Button>
-                <Button className="h-12 gap-1 text-xs bg-slate-800" 
-                  disabled={!newSanForm.numero || !newSanForm.categoria}
-                  onClick={() => handleAction('entrega', selectedOs.id, { 
-                    sanitario_numero: newSanForm.numero, 
-                    categoria: newSanForm.categoria,
-                    estado_atual: newSanForm.estado_atual,
-                    fotos: ['https://placehold.co/600x400?text=Camera'],
-                    is_last_item: false
-                  }).then(() => { 
-                    setAddingSanitario(false); 
-                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); 
-                    toast.success('Sanitário vinculado!');
-                  })}>
-                   <Camera className="h-4 w-4" /> Câmera
-                </Button>
+            {/* Upload de Fotos por Item */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                  Fotos (Min: 1 | Max: 15)
+                </label>
+                <span className="text-[10px] font-bold text-slate-400">{newSanForm.fotos?.length || 0}/15</span>
               </div>
+              
+              <div className="grid grid-cols-4 gap-2">
+                {newSanForm.fotos?.map((f, i) => (
+                  <div key={i} className="aspect-square rounded-xl bg-slate-100 relative overflow-hidden border border-slate-200 group">
+                    <img src={f} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => setNewSanForm(p => ({ ...p, fotos: p.fotos.filter((_, idx) => idx !== i) }))}
+                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                
+                {(newSanForm.fotos?.length || 0) < 15 && (
+                  <button 
+                    disabled={uploading}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.multiple = true;
+                      input.onchange = async (e: any) => {
+                        const files = Array.from(e.target.files || []) as File[];
+                        if (files.length === 0) return;
+                        const remaining = 15 - (newSanForm.fotos?.length || 0);
+                        const toUpload = files.slice(0, remaining);
+                        setUploading(true);
+                        try {
+                          for (const file of toUpload) {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            const res = await fetch(`${API_BASE_URL}/upload`, { method: 'POST', body: formData });
+                            if (res.ok) {
+                              const { url } = await res.json();
+                              setNewSanForm(prev => ({ ...prev, fotos: [...(prev.fotos || []), url] }));
+                            }
+                          }
+                        } catch (err) { toast.error("Erro ao subir fotos"); }
+                        finally { setUploading(false); }
+                      };
+                      input.click();
+                    }}
+                    className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1 text-slate-400 bg-white"
+                  >
+                    <Camera className="h-5 w-5" />
+                    <span className="text-[8px] font-bold uppercase">Add</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {selectedOs ? (
+              <Button 
+                className="w-full h-14 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 mt-2" 
+                disabled={!newSanForm.numero || !newSanForm.categoria || (newSanForm.fotos?.length || 0) === 0 || uploading}
+                onClick={() => {
+                  handleAction('entrega', selectedOs.id, { 
+                    sanitario_numero: newSanForm.numero, 
+                    categoria: newSanForm.categoria,
+                    estado_atual: newSanForm.estado_atual,
+                    fotos: newSanForm.fotos,
+                    is_last_item: false
+                  }).then(() => { 
+                    setAddingSanitario(false); 
+                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom', fotos: [] }); 
+                    toast.success('Sanitário vinculado!');
+                  });
+                }}
+              >
+                {uploading ? 'SUBINDO...' : 'CONFIRMAR ENTREGA'}
+              </Button>
             ) : (
               <Button 
                 className="w-full h-14 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20"
@@ -753,7 +802,7 @@ const AppFuncionarios = () => {
                     }
                     toast.success('Sanitário cadastrado no estoque!');
                     setAddingSanitario(false);
-                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' });
+                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom', fotos: [] });
                   } catch (e: any) {
                     toast.error(e.message);
                   } finally {
@@ -797,17 +846,82 @@ const AppFuncionarios = () => {
                >
                   <ImageIcon className="h-4 w-4" /> Galeria
                </Button>
-               <Button 
-                className="h-12 gap-1 text-xs bg-slate-800" 
-                disabled={!genericForm.observacoes}
-                onClick={() => handleAction('entrega', selectedOs.id, { 
+            {/* Upload de Fotos para Serviço Genérico */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                  Fotos (Min: 1 | Max: 15)
+                </label>
+                <span className="text-[10px] font-bold text-slate-400">{genericForm.fotos.length}/15</span>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-2">
+                {genericForm.fotos.map((f, i) => (
+                  <div key={i} className="aspect-square rounded-xl bg-slate-100 relative overflow-hidden border border-slate-200 group">
+                    <img src={f} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => setGenericForm(p => ({ ...p, fotos: p.fotos.filter((_, idx) => idx !== i) }))}
+                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                
+                {genericForm.fotos.length < 15 && (
+                  <button 
+                    disabled={uploading}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.multiple = true;
+                      input.onchange = async (e: any) => {
+                        const files = Array.from(e.target.files || []) as File[];
+                        if (files.length === 0) return;
+                        const remaining = 15 - genericForm.fotos.length;
+                        const toUpload = files.slice(0, remaining);
+                        setUploading(true);
+                        try {
+                          for (const file of toUpload) {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            const res = await fetch(`${API_BASE_URL}/upload`, { method: 'POST', body: formData });
+                            if (res.ok) {
+                              const { url } = await res.json();
+                              setGenericForm(prev => ({ ...prev, fotos: [...prev.fotos, url] }));
+                            }
+                          }
+                        } catch (err) { toast.error("Erro ao subir fotos"); }
+                        finally { setUploading(false); }
+                      };
+                      input.click();
+                    }}
+                    className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1 text-slate-400 bg-white"
+                  >
+                    <Camera className="h-5 w-5" />
+                    <span className="text-[8px] font-bold uppercase">Add</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <Button 
+              className="w-full h-14 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-200 mt-2" 
+              disabled={!genericForm.observacoes || genericForm.fotos.length === 0 || uploading}
+              onClick={() => {
+                handleAction('entrega', selectedOs.id, { 
                   is_generic_service: true,
                   observacoes: genericForm.observacoes,
-                  fotos: ['https://placehold.co/600x400?text=Servico-Camera'],
-                }).then(() => setGenericServiceDialog(false))}
-               >
-                  <Camera className="h-4 w-4" /> Câmera
-               </Button>
+                  fotos: genericForm.fotos,
+                }).then(() => {
+                  setGenericServiceDialog(false);
+                  setGenericForm({ observacoes: '', fotos: [] });
+                });
+              }}
+            >
+              {uploading ? 'SUBINDO...' : 'FINALIZAR SERVIÇO'}
+            </Button>
             </div>
           </div>
         </DialogContent>
