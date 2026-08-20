@@ -374,14 +374,54 @@ const AppFuncionarios = () => {
             <span className="font-bold text-lg">Detalhes da OS</span>
           </header>
           <main className="flex-1 overflow-y-auto p-4 space-y-6">
-            <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-3">
-              <Badge className="bg-primary text-white font-black tracking-widest px-3 py-1 rounded-full">OS #{selectedOs.numero}</Badge>
+            <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-3 relative">
+              {selectedOs.status === 'despachada' && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="absolute top-6 right-6 text-red-500 hover:text-red-700 hover:bg-red-50 font-bold text-[10px] uppercase tracking-tighter gap-1"
+                  onClick={() => handleDesvincularOS(selectedOs.id)}
+                >
+                  <X className="h-3 w-3" /> SOLTAR OS
+                </Button>
+              )}
+              <div className="flex flex-wrap gap-2 mb-1">
+                <Badge className="bg-primary text-white font-black tracking-widest px-3 py-1 rounded-full text-[10px]">OS #{selectedOs.numero}</Badge>
+                {selectedOs.tipoLocacao && (
+                  <Badge variant="outline" className="border-primary/30 text-primary font-black uppercase tracking-widest px-3 py-1 rounded-full text-[10px]">
+                    {selectedOs.tipoLocacao === 'obra' ? '🏗️ OBRA' : selectedOs.tipoLocacao === 'evento' ? '🎉 EVENTO' : selectedOs.tipoLocacao.toUpperCase()}
+                  </Badge>
+                )}
+              </div>
               <h2 className="text-3xl font-black text-slate-800 leading-tight">{selectedOs.customerName}</h2>
               <div className="flex items-start gap-3 text-slate-500 bg-slate-50 p-4 rounded-2xl">
                 <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <span className="text-sm font-medium leading-relaxed">{selectedOs.customerAddress}</span>
               </div>
             </div>
+
+            {/* Resumo de Itens Pedidos */}
+            {selectedOs.items && selectedOs.items.length > 0 && (
+              <div className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Itens do Pedido</h3>
+                <div className="space-y-3">
+                  {selectedOs.items.map((it: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between border-b border-white/10 pb-2 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                          <span className="text-primary font-black text-sm">{it.quantidade}x</span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm leading-tight">{it.produto}</p>
+                          {it.isSanitario && <span className="text-[8px] font-black bg-primary/20 text-primary px-1.5 py-0.5 rounded uppercase tracking-widest">Sanitário</span>}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-white/40 border-white/10 text-[9px]">Pendente</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {selectedOs.status !== 'fechada' && (
               <div className="space-y-6">
