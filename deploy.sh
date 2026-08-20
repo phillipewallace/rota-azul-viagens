@@ -132,11 +132,10 @@ fi
 
 # Rodar script de importação específico de cobrança se o arquivo existir
 IMPORT_MICBAN_MARKER="${PROJECT_DIR}/backend/scripts/.imported-agosto-micban"
-if [ -f "${PROJECT_DIR}/scripts/import-agosto-micban.ts" ] && [ ! -f "$IMPORT_MICBAN_MARKER" ]; then
+if [ -f "${PROJECT_DIR}/scripts/import-agosto-micban.ts" ]; then
   log "🚀 Rodando importação de dados do Excel (Micban Agosto)..."
   (cd "${PROJECT_DIR}" && bun run scripts/import-agosto-micban.ts) || warn "Falha na importação do Excel"
-  date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_MICBAN_MARKER"
-  ok "Importação do Excel concluída."
+  ok "Importação do Excel executada."
 fi
 
 ok "Backend compilado"

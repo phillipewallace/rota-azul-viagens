@@ -76,43 +76,48 @@ async function importFromExcel() {
     for (const row of rows) {
       await client.query('BEGIN');
       
-      // Limpeza de CNPJ para busca
       const cnpjMatch = row.dados_cadastrais.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
       const docClean = cnpjMatch ? cnpjMatch[0].replace(/\D/g, '') : '';
       
-      // 2. Buscar ou criar cliente
+      // 2. Verificar se o contrato já existe para este cliente/valor para evitar duplicidade manual
+      const existingContract = await client.query(`
+        SELECT c.id FROM erp_contracts c
+        JOIN customers cust ON c.customer_id = cust.id
+        WHERE c.company_id = $1 
+        AND (regexp_replace(cust.document, '\\D', 'g', 'g') = $2 OR cust.customer_name ILIKE $3)
+        AND c.valor_mensal = $4
+        AND c.origem = 'excel_import'
+        LIMIT 1
+      `, [companyId, docClean, row.empresa, row.valor]);
+
+      if (existingContract.rows.length > 0) {
+        console.log(`⚠️ Contrato já existe para ${row.empresa} - Pulando.`);
+        await client.query('ROLLBACK');
+        continue;
+      }
+
+      // 3. Buscar ou criar cliente
       let customerId: string;
-      const custRes = await client.query("SELECT id FROM customers WHERE regexp_replace(document, '\\D', 'g', 'g') = $1 LIMIT 1", [docClean]);
+      const custRes = await client.query("SELECT id FROM customers WHERE regexp_replace(document, '\\D', 'g', 'g') = $1 OR customer_name ILIKE $2 LIMIT 1", [docClean, row.empresa]);
       
       if (custRes.rows.length > 0) {
         customerId = custRes.rows[0].id;
-        console.log(`ℹ️ Cliente existente: ${row.empresa} (${docClean})`);
       } else {
         customerId = uuidv4();
         await client.query(`
           INSERT INTO customers (id, customer_name, document, person_type, created_at, updated_at)
           VALUES ($1, $2, $3, 'PJ', NOW(), NOW())
         `, [customerId, row.empresa, cnpjMatch ? cnpjMatch[0] : null]);
-        console.log(`🆕 Novo cliente criado: ${row.empresa}`);
       }
 
-      // 3. Gerar número de contrato
       const numRes = await client.query("SELECT erp_next_doc_number('CTR', $1::uuid) AS num", [companyId]);
       const numero = numRes.rows[0].num;
 
-      // 4. Inserir Contrato
       await client.query(`
         INSERT INTO erp_contracts 
         (numero, company_id, customer_id, descricao, tipo_contrato, data_inicio, dia_vencimento, valor_mensal, ativo, origem)
         VALUES ($1, $2, $3, $4, 'locacao', CURRENT_DATE, $5, $6, TRUE, 'excel_import')
-      `, [
-        numero, 
-        companyId, 
-        customerId, 
-        `Locação Mensal - Importado Excel Agosto`, 
-        row.vencimento || 10, 
-        row.valor
-      ]);
+      `, [numero, companyId, customerId, `Locação Mensal - Importado Excel Agosto`, row.vencimento || 10, row.valor]);
 
       await client.query('COMMIT');
       console.log(`✅ Contrato ${numero} registrado para ${row.empresa}`);
