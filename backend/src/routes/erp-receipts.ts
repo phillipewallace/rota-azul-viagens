@@ -3,6 +3,7 @@ import { parsePagination, sendPaginated } from '../utils/pagination';
 import { Router } from 'express';
 import { pool } from '../config/database';
 import { requireAuth, requireRole } from '../middleware/requireAuth';
+import { logger } from '../utils/logger';
 
 const router = Router();
 router.use(requireAuth);
