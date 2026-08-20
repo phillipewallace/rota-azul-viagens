@@ -291,12 +291,31 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       : dataVencCalc;
 
 
+    // Se informado CNO/Endereço no POST, fazemos o override no contrato e no snapshot
+    if (cno !== undefined || enderecoObra !== undefined) {
+      const updates = [];
+      const vals = [];
+      if (cno !== undefined) {
+        updates.push(`cno = $${vals.length + 2}`);
+        vals.push(cno);
+        ct.cno = cno; // atualiza objeto em memória para snapshot
+      }
+      if (enderecoObra !== undefined) {
+        updates.push(`endereco_obra = $${vals.length + 2}`);
+        vals.push(enderecoObra);
+        ct.endereco_obra = enderecoObra; // atualiza objeto em memória para snapshot
+      }
+      if (updates.length > 0) {
+        await client.query(`UPDATE erp_contracts SET ${updates.join(', ')} WHERE id = $1`, [contractId, ...vals]);
+      }
+    }
+
     const snapshot = {
       contract: {
         numero: ct.numero, descricao: ct.descricao,
         dataInicio: ct.data_inicio, valorMensal: ct.valor_mensal,
         diaVencimento: ct.dia_vencimento,
-        enderecoObra: ct.endereco_obra, localEvento: ct.local_evento,
+        enderecoObra: ct.endereco_obra || ct.local_evento, 
         cno: ct.cno, tipoContrato: ct.tipo_contrato,
       },
       company: {
