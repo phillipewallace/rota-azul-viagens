@@ -784,6 +784,7 @@ const ErpFinanceiro: React.FC = () => {
         pago: opts?.marcarPago ?? true,
         semValidade: !!opts?.semValidade,
         dataVencimento: opts?.dataVencimento,
+        cno: opts?.cno,
       });
       if (opts?.baixarPdf !== false) {
         try {
