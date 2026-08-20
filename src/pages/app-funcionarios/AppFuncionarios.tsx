@@ -458,30 +458,66 @@ const AppFuncionarios = () => {
               </div>
             </div>
 
-            {/* Resumo de Itens Pedidos - Agrupado por Tipo */}
+            {/* Resumo de Itens Pedidos - Refatorado com tons pastéis */}
             {selectedOs.items && selectedOs.items.length > 0 && (
-              <div className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl space-y-4">
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Locação / Serviços</h3>
-                  <Badge variant="outline" className="border-white/10 text-white/40 text-[9px] font-black tracking-widest">PEDIDO ORIGINAL</Badge>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Locação / Serviços</h3>
+                  <Badge variant="outline" className="border-slate-100 text-slate-400 text-[9px] font-black tracking-widest">PEDIDO ORIGINAL</Badge>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {Object.values(selectedOs.items.reduce((acc: any, it: any) => {
-                    const key = `${it.produto}-${it.isSanitario ? 'S' : 'G'}`;
-                    if (!acc[key]) acc[key] = { ...it, quantidade: 0 };
+                    // Normaliza as chaves de flag que podem vir do backend em diferentes formatos
+                    const isSan = it.isSanitario === true || it.isSanitario === 'true';
+                    const isServ = it.isGenericService === true || it.isGenericService === 'true';
+                    const key = `${it.produto}-${isSan ? 'S' : isServ ? 'G' : 'O'}`;
+                    
+                    if (!acc[key]) acc[key] = { ...it, isSanitario: isSan, isGenericService: isServ, quantidade: 0 };
                     acc[key].quantidade += Number(it.quantidade) || 0;
                     return acc;
                   }, {})).map((it: any, idx: number) => (
-                    <div key={idx} className="flex items-start justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0 border border-white/5 shadow-inner">
-                          <span className="text-primary font-black text-lg">{it.quantidade}</span>
+                    <div 
+                      key={idx} 
+                      className={`flex items-start justify-between p-4 rounded-3xl border transition-colors ${
+                        it.isSanitario 
+                          ? 'bg-blue-50/50 border-blue-100/50' 
+                          : it.isGenericService 
+                            ? 'bg-emerald-50/50 border-emerald-100/50'
+                            : 'bg-slate-50 border-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                          it.isSanitario ? 'bg-blue-100 text-blue-600' : 
+                          it.isGenericService ? 'bg-emerald-100 text-emerald-600' : 
+                          'bg-white text-slate-400'
+                        }`}>
+                          <span className="font-black text-lg">{it.quantidade}</span>
                         </div>
                         <div className="space-y-1">
-                          <p className="font-black text-sm leading-tight tracking-tight uppercase">{it.produto}</p>
+                          <p className={`font-black text-sm leading-tight tracking-tight uppercase ${
+                            it.isSanitario ? 'text-blue-900' : 
+                            it.isGenericService ? 'text-emerald-900' : 
+                            'text-slate-800'
+                          }`}>
+                            {it.produto}
+                          </p>
                           <div className="flex gap-1.5">
-                            {it.isSanitario && <span className="text-[8px] font-black bg-primary text-white px-2 py-0.5 rounded-full uppercase tracking-[0.1em]">Ativo</span>}
-                            {!it.isSanitario && it.isGenericService && <span className="text-[8px] font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full uppercase tracking-[0.1em]">Serviço</span>}
+                            {it.isSanitario && (
+                              <span className="text-[8px] font-black bg-blue-200/50 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                Ativo / Sanitário
+                              </span>
+                            )}
+                            {it.isGenericService && (
+                              <span className="text-[8px] font-black bg-emerald-200/50 text-emerald-700 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                Serviço / Manutenção
+                              </span>
+                            )}
+                            {!it.isSanitario && !it.isGenericService && (
+                              <span className="text-[8px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                Outros
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -500,27 +536,32 @@ const AppFuncionarios = () => {
 
                 <div className="space-y-3">
                   {osSanitarios.map(s => (
-                    <div key={s.id} className="p-5 bg-white border border-slate-100 shadow-sm rounded-3xl flex justify-between items-center transition-all">
+                    <div key={s.id} className="p-5 bg-white border border-slate-100 shadow-sm rounded-3xl flex justify-between items-center transition-all hover:border-blue-100">
                       <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-200">
+                        <div className="w-16 h-16 bg-blue-50/50 rounded-2xl flex items-center justify-center overflow-hidden border border-blue-100/50">
                            {s.ultimaFotoUrl ? (
                              <img src={s.ultimaFotoUrl} alt="Sanitário" className="w-full h-full object-cover" />
                            ) : (
-                             <PackageOpen className="w-7 h-7 text-slate-400" />
+                             <PackageOpen className="w-7 h-7 text-blue-300" />
                            )}
                         </div>
                         <div>
                           <p className="font-black text-slate-800 text-lg leading-none mb-1">#{s.numero}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{s.categoria}</p>
+                          <Badge variant="secondary" className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                            {s.categoria}
+                          </Badge>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {s.devolvido_em ? (
-                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200 font-bold px-3 py-1 rounded-full">Recolhido</Badge>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 font-black text-[9px] uppercase px-3 py-1 rounded-full tracking-widest">Recolhido</Badge>
+                            <span className="text-[8px] text-slate-400 font-bold uppercase">{new Date(s.devolvido_em).toLocaleDateString()}</span>
+                          </div>
                         ) : selectedOs.status === 'recolhimento_solicitado' ? (
-                          <div className="flex flex-col gap-2">
+                          <div className="flex flex-col gap-2 w-28">
                              <Select defaultValue="bom" onValueChange={(v) => s.temp_estado = v}>
-                               <SelectTrigger className="h-10 text-[10px] w-full rounded-xl bg-white">
+                               <SelectTrigger className="h-9 text-[10px] w-full rounded-xl bg-slate-50 border-slate-100">
                                  <SelectValue placeholder="Estado" />
                                </SelectTrigger>
                                <SelectContent>
@@ -530,20 +571,22 @@ const AppFuncionarios = () => {
                                </SelectContent>
                              </Select>
                              <Button 
-                              size="sm" 
-                              className="bg-amber-600 text-white gap-2 text-xs h-10 rounded-xl font-bold shadow-md shadow-amber-200"
-                              onClick={() => handleAction('recolhimento', selectedOs.id, { 
-                                sanitario_id: s.id,
-                                estado_atual: s.temp_estado || 'bom',
-                                fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
-                                is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
-                              })}
-                            >
-                              <PackageCheck className="h-4 w-4" /> Recolher
-                            </Button>
+                               size="sm" 
+                               className="bg-amber-500 hover:bg-amber-600 text-white gap-2 text-[10px] h-9 rounded-xl font-black uppercase shadow-lg shadow-amber-200"
+                               onClick={() => handleAction('recolhimento', selectedOs.id, { 
+                                 sanitario_id: s.id,
+                                 estado_atual: s.temp_estado || 'bom',
+                                 fotos: ['https://placehold.co/600x400?text=Recolher-'+s.numero],
+                                 is_last_item: osSanitarios.filter(x => !x.devolvido_em).length === 1
+                               })}
+                             >
+                               <PackageCheck className="h-3.5 w-3.5" /> Recolher
+                             </Button>
                           </div>
                         ) : (
-                          <Badge variant="secondary">Entregue</Badge>
+                          <Badge className="bg-blue-50 text-blue-600 border-blue-100 font-black text-[9px] uppercase px-3 py-1 rounded-full tracking-widest">
+                            Em Uso
+                          </Badge>
                         )}
                       </div>
                     </div>
@@ -562,28 +605,28 @@ const AppFuncionarios = () => {
                     <div className="space-y-3">
                       <Button 
                         variant="outline" 
-                        className="w-full h-20 border-2 border-dashed gap-3 text-primary border-primary/20 bg-primary/5 rounded-[2rem] hover:bg-primary/10 transition-colors"
+                        className="w-full h-20 border-2 border-dashed gap-3 text-blue-600 border-blue-200 bg-blue-50/50 rounded-[2rem] hover:bg-blue-100 transition-colors"
                         onClick={() => setAddingSanitario(true)}
                       >
                         <Plus className="h-6 w-6" /> 
                         <div className="text-left">
                            <p className="font-black text-base leading-none">Vincular Sanitário</p>
-                           <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-1">Registrar Entrega</p>
+                           <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-1 text-blue-900">Registrar Entrega</p>
                         </div>
                       </Button>
 
                       {osSanitarios.length === 0 && (
                         <Button 
                           variant="secondary"
-                          className="w-full h-24 border-2 border-dashed gap-3 bg-slate-50 hover:bg-slate-100 border-slate-200 rounded-[2rem] transition-colors"
+                          className="w-full h-24 border-2 border-dashed gap-3 bg-emerald-50/50 hover:bg-emerald-100/50 border-emerald-100/50 rounded-[2rem] transition-colors"
                           onClick={() => setGenericServiceDialog(true)}
                         >
                           <div className="flex flex-col items-center gap-1.5">
                             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-                               <CheckCircle2 className="h-6 w-6 text-primary" />
+                               <CheckCircle2 className="h-6 w-6 text-emerald-600" />
                             </div>
-                            <span className="font-black text-slate-700">REGISTRAR SERVIÇO CONCLUÍDO</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">(Limpeza, Manutenção, etc)</span>
+                            <span className="font-black text-emerald-900">REGISTRAR SERVIÇO CONCLUÍDO</span>
+                            <span className="text-[10px] text-emerald-600/60 font-bold uppercase tracking-widest">(Limpeza, Manutenção, etc)</span>
                           </div>
                         </Button>
                       )}

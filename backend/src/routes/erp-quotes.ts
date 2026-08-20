@@ -356,7 +356,7 @@ router.post('/:id/convert-to-os', requireRole('admin','manager'), async (req, re
     // Detecção de sanitário: prioriza a flag booleana is_sanitario/isSanitario,
     // depois tenta regex por compatibilidade com orçamentos antigos.
     const isSanitarioItem = (it: any) =>
-      it.isSanitario === true || it.is_sanitario === true || /banheiro\s*qu[íi]mico|sanit[áa]rios?(\s|$)/i.test(it.produto || '');
+      it.isSanitario === true || it.is_sanitario === true || it.isSanitario === 'true' || it.is_sanitario === 'true' || /banheiro\s*qu[íi]mico|sanit[áa]rios?(\s|$)/i.test(it.produto || '');
     const qtdSanit = items
       .filter((it: any) => isSanitarioItem(it))
       .reduce((acc: number, it: any) => acc + Math.ceil(Number(it.quantidade || 0)), 0);
