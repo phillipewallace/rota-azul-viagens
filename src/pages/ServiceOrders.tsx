@@ -580,7 +580,7 @@ const ServiceOrders: React.FC = () => {
                 className={`hover:shadow-md hover:border-primary/40 transition-all cursor-pointer ${o.emAtraso ? 'border-red-300 bg-red-50/40' : ''}`}
               >
                 <CardContent className="p-4 space-y-2">
-                  <div className="w-full flex items-start justify-between gap-2">
+                  <div className="w-full flex items-start justify-between gap-2 cursor-pointer" onClick={() => openDetail(o)}>
                     <div className="min-w-0">
                       <div className="font-mono font-bold text-sm">{o.numero}</div>
                       <div className="text-sm font-semibold truncate">{o.customerName || '—'}</div>
