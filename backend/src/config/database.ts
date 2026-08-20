@@ -245,6 +245,17 @@ export const setupDatabase = async () => {
       // erp_quote_items
       ['erp_quote_items', 'is_sanitario', 'BOOLEAN DEFAULT FALSE'],
       ['erp_quote_items', 'is_generic_service', 'BOOLEAN DEFAULT FALSE'],
+      // erp_os_history
+      ['erp_os_history', 'os_id', 'UUID REFERENCES erp_service_orders(id) ON DELETE CASCADE'],
+      ['erp_os_history', 'tipo', 'TEXT'],
+      ['erp_os_history', 'descricao', 'TEXT'],
+      ['erp_os_history', 'payload', 'JSONB'],
+      ['erp_os_history', 'created_by', 'UUID REFERENCES auth.users(id)'],
+      // erp_os_notes
+      ['erp_os_notes', 'os_id', 'UUID REFERENCES erp_service_orders(id) ON DELETE CASCADE'],
+      ['erp_os_notes', 'note', 'TEXT'],
+      ['erp_os_notes', 'author_name', 'TEXT'],
+      ['erp_os_notes', 'created_by', 'UUID REFERENCES auth.users(id)'],
 
     ];
     for (const [table, col, type] of ensureCols) {
@@ -269,6 +280,29 @@ export const setupDatabase = async () => {
     } catch (e) {
       console.warn('⚠️ Não foi possível garantir truck_location_history:', (e as Error).message);
     }
+
+    // 🏗️ Garantir tabelas de histórico e notas
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_os_history (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        os_id UUID REFERENCES erp_service_orders(id) ON DELETE CASCADE,
+        tipo TEXT NOT NULL,
+        descricao TEXT,
+        payload JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        created_by UUID REFERENCES auth.users(id)
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.erp_os_notes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        os_id UUID REFERENCES erp_service_orders(id) ON DELETE CASCADE,
+        note TEXT NOT NULL,
+        author_name TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        created_by UUID REFERENCES auth.users(id)
+      )
+    `);
 
     // 🏗️ Garantir tabela de tipos de sanitários
     await client.query(`
