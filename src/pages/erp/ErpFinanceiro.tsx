@@ -3215,6 +3215,8 @@ const GerarReciboPopover: React.FC<{
   const [overridePeriodo, setOverridePeriodo] = useState(false);
   const [perIniManual, setPerIniManual] = useState('');
   const [perFimManual, setPerFimManual] = useState('');
+  const [cnoManual, setCnoManual] = useState('');
+  const [enderecoManual, setEnderecoManual] = useState('');
 
   // Vencimento padrão (mesma lógica do backend): dia do contrato no mês da competência.
   const vencPadrao = useMemo(() => {
