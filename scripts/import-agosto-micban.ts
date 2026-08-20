@@ -153,9 +153,9 @@ async function importFromExcel() {
 
       await client.query(`
         INSERT INTO erp_contracts 
-        (numero, company_id, customer_id, descricao, tipo_contrato, data_inicio, dia_vencimento, valor_mensal, ativo, origem)
-        VALUES ($1, $2, $3, $4, 'locacao', '2026-08-01', $5, $6, TRUE, 'excel_import_agosto')
-      `, [numero, companyId, customerId, row.descricao, row.vencimento || 10, row.valor]);
+        (numero, company_id, customer_id, descricao, tipo_contrato, data_inicio, dia_vencimento, valor_mensal, ativo, origem, metadata)
+        VALUES ($1, $2, $3, $4, 'locacao', '2026-08-01', $5, $6, TRUE, 'excel_import_agosto', $7)
+      `, [numero, companyId, customerId, row.descricao, row.vencimento || 10, row.valor, JSON.stringify({ quantidade: row.quantidade, tipo_item: row.tipo_item })]);
 
       await client.query('COMMIT');
       console.log(`✅ Contrato ${numero} registrado para ${row.empresa}: ${row.descricao}`);
