@@ -612,7 +612,7 @@ const AppFuncionarios = () => {
       <Dialog open={addingSanitario} onOpenChange={setAddingSanitario}>
         <DialogContent className="max-w-sm rounded-[2.5rem] p-8 border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle>{selectedOs ? 'Vincular Entrega' : 'Cadastrar no Estoque'}</DialogTitle>
+            <DialogTitle>{selectedOs ? 'Vincular Sanitário à OS' : 'Cadastrar no Estoque'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
