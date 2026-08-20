@@ -577,7 +577,6 @@ const ServiceOrders: React.FC = () => {
               return (
               <Card
                 key={o.id}
-                onClick={() => openDetail(o)}
                 className={`hover:shadow-md hover:border-primary/40 transition-all cursor-pointer ${o.emAtraso ? 'border-red-300 bg-red-50/40' : ''}`}
               >
                 <CardContent className="p-4 space-y-2">
