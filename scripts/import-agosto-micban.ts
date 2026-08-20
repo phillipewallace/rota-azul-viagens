@@ -2,9 +2,26 @@ import fs from 'fs';
 import path from 'path';
 import { Pool } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
-import * as dotenv from 'dotenv';
 
-dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
+// Carregamento manual do .env para evitar dependência do pacote 'dotenv' no ambiente de produção/VPS
+function loadEnv() {
+  const envPath = path.resolve(process.cwd(), 'backend/.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    envContent.split('\n').forEach(line => {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        const key = match[1];
+        let value = match[2] || '';
+        if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+        if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+        process.env[key] = value;
+      }
+    });
+  }
+}
+
+loadEnv();
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',

@@ -134,7 +134,8 @@ fi
 IMPORT_MICBAN_MARKER="${PROJECT_DIR}/backend/scripts/.imported-agosto-micban"
 if [ -f "${PROJECT_DIR}/scripts/import-agosto-micban.ts" ]; then
   log "🚀 Rodando importação de dados do Excel (Micban Agosto)..."
-  (cd "${PROJECT_DIR}" && bun run scripts/import-agosto-micban.ts) || warn "Falha na importação do Excel"
+  # Usando o pool de dependências do backend para garantir pg e uuid, mas o script agora carrega o .env manualmente
+  (cd "${PROJECT_DIR}/backend" && bun run ../scripts/import-agosto-micban.ts) || warn "Falha na importação do Excel"
   ok "Importação do Excel executada."
 fi
 
