@@ -885,19 +885,54 @@ const ServiceOrders: React.FC = () => {
                 )}
 
                 {Array.isArray(det.items) && det.items.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-1 font-semibold mt-1 mb-1">
-                      <Package className="h-4 w-4" /> Itens
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 mt-4">
+                      <Package className="h-3 w-3" /> Itens no Orçamento
                     </div>
-                    <table className="w-full border rounded overflow-hidden text-xs">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="text-left p-1.5">Produto</th>
-                          <th className="text-right p-1.5">Qtd</th>
-                          <th className="text-right p-1.5">Valor un.</th>
-                          <th className="text-right p-1.5">Total</th>
-                        </tr>
-                      </thead>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Sanitários */}
+                      {det.items.filter((i: any) => i.isSanitario).length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-[9px] font-bold text-slate-400/70 uppercase tracking-tighter ml-1">Sanitários</div>
+                          <div className="space-y-2">
+                            {det.items.filter((i: any) => i.isSanitario).map((item: any, idx: number) => (
+                              <div key={idx} className="bg-slate-50 border border-slate-100 p-3 rounded-2xl flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center font-black text-primary text-xs">
+                                    {item.quantidade}x
+                                  </div>
+                                  <span className="font-bold text-xs text-slate-700">{item.produto}</span>
+                                </div>
+                                <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase">Sanitário</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Outros Serviços */}
+                      {det.items.filter((i: any) => !i.isSanitario).length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-[9px] font-bold text-slate-400/70 uppercase tracking-tighter ml-1">Outros Serviços</div>
+                          <div className="space-y-2">
+                            {det.items.filter((i: any) => !i.isSanitario).map((item: any, idx: number) => (
+                              <div key={idx} className="bg-slate-50 border border-slate-100 p-3 rounded-2xl flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center font-black text-amber-600 text-xs">
+                                    {item.quantidade}x
+                                  </div>
+                                  <span className="font-bold text-xs text-slate-700">{item.produto}</span>
+                                </div>
+                                <Badge className="bg-amber-100 text-amber-600 border-none text-[8px] font-black uppercase">Serviço</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                       <tbody>
                         {det.items.map((it: any, i: number) => {
                           const isGeneric = it.isGenericService || !it.isSanitario;

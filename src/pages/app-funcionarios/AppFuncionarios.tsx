@@ -409,28 +409,65 @@ const AppFuncionarios = () => {
               </div>
             </div>
 
-            {/* Resumo de Itens Pedidos */}
-            {selectedOs.items && selectedOs.items.length > 0 && (
-              <div className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Itens do Pedido</h3>
-                <div className="space-y-3">
-                  {selectedOs.items.map((it: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between border-b border-white/10 pb-2 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-                          <span className="text-primary font-black text-sm">{it.quantidade}x</span>
+            {/* Seção de ITENS PEDIDOS - LISTA CATEGORIZADA */}
+            <div className="space-y-4">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                <ClipboardList className="w-3 h-3" /> ITENS DO PEDIDO
+              </h3>
+              
+              <div className="space-y-2">
+                {/* Categorizando Sanitários */}
+                {selectedOs.items?.filter((i: any) => i.isSanitario).length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[9px] font-bold text-slate-400/70 ml-1 uppercase tracking-tighter">Sanitários</div>
+                    {selectedOs.items.filter((i: any) => i.isSanitario).map((item: any, idx: number) => (
+                      <div key={`san-${idx}`} className="bg-slate-900 text-white p-4 rounded-[1.5rem] flex items-center justify-between shadow-lg shadow-slate-200/50">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center font-black text-primary">
+                            {item.quantidade}x
+                          </div>
+                          <div>
+                            <div className="font-bold text-sm">{item.produto}</div>
+                            <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-2 py-0">Sanitário</Badge>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-sm leading-tight">{it.produto}</p>
-                          {it.isSanitario && <span className="text-[8px] font-black bg-primary/20 text-primary px-1.5 py-0.5 rounded uppercase tracking-widest">Sanitário</span>}
+                        <Badge variant="outline" className="border-white/20 text-white/40 text-[9px] font-bold px-3 py-1 rounded-full uppercase">Pendente</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Categorizando Serviços Genéricos */}
+                {selectedOs.items?.filter((i: any) => !i.isSanitario).length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    <div className="text-[9px] font-bold text-slate-400/70 ml-1 uppercase tracking-tighter">Serviços / Produtos</div>
+                    {selectedOs.items.filter((i: any) => !i.isSanitario).map((item: any, idx: number) => (
+                      <div 
+                        key={`serv-${idx}`} 
+                        className="bg-white border border-slate-100 p-4 rounded-[1.5rem] flex items-center justify-between cursor-pointer active:scale-95 transition-transform"
+                        onClick={() => {
+                          setGenericForm({ fotos: [], observacoes: `Execução de: ${item.produto}` });
+                          setGenericServiceDialog(true);
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center font-black text-slate-400">
+                            {item.quantidade}x
+                          </div>
+                          <div>
+                            <div className="font-bold text-sm text-slate-700">{item.produto}</div>
+                            <Badge className="bg-amber-100 text-amber-600 border-none text-[8px] font-black uppercase px-2 py-0">Serviço</Badge>
+                          </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
+                          <Plus className="w-4 h-4 text-slate-300" />
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-white/40 border-white/10 text-[9px]">Pendente</Badge>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {selectedOs.status !== 'fechada' && (
               <div className="space-y-6">
