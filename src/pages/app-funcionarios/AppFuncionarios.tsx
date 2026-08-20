@@ -687,7 +687,6 @@ const AppFuncionarios = () => {
                   })}>
                    <Camera className="h-4 w-4" /> Câmera
                 </Button>
-                </Button>
               </div>
             ) : (
               <Button 
