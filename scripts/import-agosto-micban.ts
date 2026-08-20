@@ -41,45 +41,57 @@ async function importFromExcel() {
   const rows = [
     {
       empresa: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA',
-      valor: 1100,
+      valor: 1100.00,
       vencimento: 15,
-      dados_cadastrais: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA, CNPJ: 22.091.248/0001-04',
-      descricao: 'Locação Mensal - Sanitário Comum'
+      dados_cadastrais: 'CNPJ: 22.091.248/0001-04',
+      descricao: 'Locação Mensal - Sanitário Comum',
+      quantidade: 1,
+      tipo_item: 'Sanitário Comum'
     },
     {
       empresa: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA',
-      valor: 1100,
+      valor: 1100.00,
       vencimento: 15,
-      dados_cadastrais: 'FLAT ENGENHARIA E CONSTRUÇÃO LTDA, CNPJ: 22.091.248/0001-04',
-      descricao: 'Locação Mensal - Sanitário Comum'
+      dados_cadastrais: 'CNPJ: 22.091.248/0001-04',
+      descricao: 'Locação Mensal - Sanitário Comum',
+      quantidade: 1,
+      tipo_item: 'Sanitário Comum'
     },
     {
       empresa: 'CONSTRUTORA SERVCOPA EIRELI',
-      valor: 1960,
+      valor: 1960.00,
       vencimento: 22,
-      dados_cadastrais: 'CONSTRUTORA SERVCOPA EIRELI, CNPJ: 21.054.432/0001-07',
-      descricao: 'Locação Mensal - Sanitário Comum'
+      dados_cadastrais: 'CNPJ: 21.054.432/0001-07',
+      descricao: 'Locação Mensal - Sanitário Comum',
+      quantidade: 1,
+      tipo_item: 'Sanitário Comum'
     },
     {
       empresa: 'CONSTRUTORA RNV LTDA',
-      valor: 2000,
+      valor: 2000.00,
       vencimento: 10,
-      dados_cadastrais: 'CONSTRUTORA RNV LTDA, CNPJ: 07.135.295/0001-37',
-      descricao: 'Aluguel de Carretinha - Placas RGD-9D72, RGD-9D70, RGD-9D71, RTK6A34'
+      dados_cadastrais: 'CNPJ: 07.135.295/0001-37',
+      descricao: 'Aluguel de Carretinha - Placas RGD-9D72, RGD-9D70, RGD-9D71, RTK6A34',
+      quantidade: 4,
+      tipo_item: 'Carretinha'
     },
     {
       empresa: 'CONSTRUTORA RNV LTDA',
-      valor: 1400,
+      valor: 1400.00,
       vencimento: 10,
-      dados_cadastrais: 'CONSTRUTORA RNV LTDA, CNPJ: 07.135.295/0001-37',
-      descricao: 'Locação Mensal - Sanitário Comum'
+      dados_cadastrais: 'CNPJ: 07.135.295/0001-37',
+      descricao: 'Locação Mensal - Sanitário Comum',
+      quantidade: 1,
+      tipo_item: 'Sanitário Comum'
     },
     {
       empresa: 'SUPERMERCADOS BH COMERCIO DE ALIMENTOS S/A',
-      valor: 450,
+      valor: 450.00,
       vencimento: 20,
-      dados_cadastrais: 'SUPERMERCADOS BH COMERCIO DE ALIMENTOS S/A, CNPJ: 04.641.376/0001-36',
-      descricao: 'Locação Mensal - Sanitário Comum'
+      dados_cadastrais: 'CNPJ: 04.641.376/0001-36',
+      descricao: 'Locação Mensal - Sanitário Comum',
+      quantidade: 1,
+      tipo_item: 'Sanitário Comum'
     }
   ];
 
