@@ -85,9 +85,17 @@ async function importFromExcel() {
 
   const client = await pool.connect();
   try {
-    const micbanRes = await client.query("SELECT id FROM erp_companies WHERE razao_social ILIKE '%Micban%' LIMIT 1");
+    // Ajustado para o nome exato e CNPJ conforme informado pelo usuário
+    const micbanRes = await client.query("SELECT id FROM erp_companies WHERE razao_social ILIKE '%MIC BAN LOCACOES%' OR document = '42.264.001/0001-93' LIMIT 1");
+    
     if (micbanRes.rows.length === 0) {
-      throw new Error('Empresa emissora "Micban" não encontrada no sistema.');
+      console.log('Empresa "Micban" não encontrada. Criando empresa emissora...');
+      const newCompanyId = uuidv4();
+      await client.query(`
+        INSERT INTO erp_companies (id, razao_social, nome_fantasia, document, sigla, ativo, created_at, updated_at)
+        VALUES ($1, 'MIC BAN LOCACOES & SERVICOS LTDA', 'MIC BAN', '42.264.001/0001-93', 'MIC', TRUE, NOW(), NOW())
+      `, [newCompanyId]);
+      micbanRes.rows = [{ id: newCompanyId }];
     }
     const companyId = micbanRes.rows[0].id;
     console.log(`✅ Empresa emissora identificada: ${companyId}`);
