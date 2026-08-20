@@ -665,13 +665,6 @@ const AppFuncionarios = () => {
           <span className="text-[10px] font-bold">Checklist</span>
         </button>
         <button 
-          className="flex flex-col items-center gap-1 p-2 text-slate-400"
-          onClick={() => setAddingSanitario(true)}
-        >
-          <Plus className="w-6 h-6" />
-          <span className="text-[10px] font-bold">Estoque</span>
-        </button>
-        <button 
           className={`flex flex-col items-center gap-1 p-2 transition-colors ${view === 'perfil' ? 'text-primary' : 'text-slate-400'}`}
           onClick={() => setView('perfil')}
         >
