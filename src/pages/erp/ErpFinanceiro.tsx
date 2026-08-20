@@ -3237,7 +3237,9 @@ const GerarReciboPopover: React.FC<{
     setOverridePeriodo(false);
     setPerIniManual(periodoPadrao.inicio);
     setPerFimManual(periodoPadrao.fim);
-  }, [open, pending.contractId, vencPadrao, periodoPadrao]);
+    setCnoManual(pending.cno || '');
+    setEnderecoManual(pending.enderecoObra || pending.localEvento || '');
+  }, [open, pending.contractId, vencPadrao, periodoPadrao, pending.cno, pending.enderecoObra, pending.localEvento]);
 
   const periodo = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : periodoPadrao;
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
