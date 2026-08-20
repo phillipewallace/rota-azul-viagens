@@ -3679,23 +3679,6 @@ const PayDialog: React.FC<{
               <Input type="date" value={data} onChange={e => setData(e.target.value)} />
             </div>
           </div>
-            <div>
-              <Label className="text-xs">Forma de pagamento</Label>
-              <SearchableSelect
-                value={forma}
-                onValueChange={(v: any) => setForma(v)}
-                placeholder="Forma"
-                options={(Object.keys(FORMA_LABEL) as FormaPagamento[]).map(k => ({
-                  value: k,
-                  label: FORMA_LABEL[k],
-                }))}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Data do pagamento</Label>
-              <Input type="date" value={data} onChange={e => setData(e.target.value)} />
-            </div>
-          </div>
           <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
             <Checkbox checked={parcial} onCheckedChange={(c) => setParcial(!!c)} />
             <span>Baixa parcial</span>
