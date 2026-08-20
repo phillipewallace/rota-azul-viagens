@@ -12,14 +12,14 @@ CREATE TABLE IF NOT EXISTS public.erp_sanitario_tipos (
 );
 
 -- Inserir tipos padrão se vazia
-INSERT INTO public.erp_sanitario_tipos (nome, descricao)
+INSERT INTO public.erp_sanitario_tipos (nome)
 VALUES 
-('Comum', 'Sanitário químico padrão'),
-('PNE', 'Sanitário adaptado para pessoas com necessidades especiais'),
-('Pia', 'Sanitário com lavatório interno'),
-('Luxo', 'Sanitário de alto padrão para eventos vip'),
-('Banho', 'Cabine de chuveiro/banho'),
-('Rede Esgoto', 'Conectado diretamente à rede de esgoto')
+('Comum'),
+('PNE'),
+('Pia'),
+('Luxo'),
+('Banho'),
+('Rede Esgoto')
 ON CONFLICT (nome) DO NOTHING;
 
 -- Garantir GRANTs (conforme regras do sistema)

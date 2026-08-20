@@ -56,9 +56,6 @@ ON CONFLICT DO NOTHING;
 -- Status possíveis: 'aberta', 'despachada', 'entregue', 'recolhimento_solicitado', 'fechada'
 ALTER TABLE erp_service_orders ADD COLUMN IF NOT EXISTS data_recolhimento_solicitada DATE;
 
-GRANT ALL ON public.erp_funcionarios TO authenticated;
-GRANT ALL ON public.erp_sanitario_fotos TO authenticated;
-GRANT ALL ON public.erp_sanitario_tipos TO authenticated;
-GRANT ALL ON public.erp_funcionarios TO service_role;
-GRANT ALL ON public.erp_sanitario_fotos TO service_role;
-GRANT ALL ON public.erp_sanitario_tipos TO service_role;
+GRANT ALL ON public.erp_funcionarios TO postgres;
+GRANT ALL ON public.erp_sanitario_fotos TO postgres;
+GRANT ALL ON public.erp_sanitario_tipos TO postgres;

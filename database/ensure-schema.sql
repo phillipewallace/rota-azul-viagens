@@ -594,4 +594,17 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 CREATE INDEX IF NOT EXISTS idx_audit_logs_table_record ON public.audit_logs(table_name, record_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at DESC);
 
+-- Refinamento Multi-Sanitários e Fluxo
+CREATE TABLE IF NOT EXISTS public.erp_os_sanitarios (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    os_id uuid REFERENCES public.erp_service_orders(id) ON DELETE CASCADE,
+    sanitario_id uuid REFERENCES public.sanitarios(id) ON DELETE CASCADE,
+    alocado_em timestamp with time zone DEFAULT NOW(),
+    devolvido_em timestamp with time zone,
+    relato_finalizacao text,
+    foto_finalizacao_url text,
+    UNIQUE(os_id, sanitario_id)
+);
+ALTER TABLE public.erp_os_sanitarios ADD COLUMN IF NOT EXISTS relato_finalizacao text;
+ALTER TABLE public.erp_os_sanitarios ADD COLUMN IF NOT EXISTS foto_finalizacao_url text;
 
