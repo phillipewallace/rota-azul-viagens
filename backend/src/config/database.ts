@@ -211,6 +211,8 @@ export const setupDatabase = async () => {
       ['erp_service_orders', 'entregue_por_nome', 'TEXT'],
       ['erp_service_orders', 'recolhido_por_nome', 'TEXT'],
       ['erp_service_orders', 'data_recolhimento_solicitada', 'DATE'],
+      ['erp_sanitario_fotos', 'funcionario_nome', 'TEXT'],
+
       // erp_quotes
       ['erp_quotes', 'company_id', 'UUID REFERENCES erp_companies(id)'],
       ['erp_quotes', 'endereco_entrega', 'TEXT'],
