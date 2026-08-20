@@ -3338,6 +3338,28 @@ const GerarReciboPopover: React.FC<{
             )}
           </div>
 
+          {/* CNO / Endereço */}
+          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground uppercase">CNO / Ordem de Compra</Label>
+              <Input
+                value={cnoManual}
+                onChange={(e) => setCnoManual(e.target.value)}
+                placeholder="Opcional..."
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground uppercase">Endereço da Obra/Evento</Label>
+              <Textarea
+                value={enderecoManual}
+                onChange={(e) => setEnderecoManual(e.target.value)}
+                placeholder="Endereço específico para este recibo..."
+                className="min-h-[60px] text-xs resize-none"
+              />
+            </div>
+          </div>
+
           {/* Toggle: sem validade jurídica */}
           <div className="space-y-2">
             <label
