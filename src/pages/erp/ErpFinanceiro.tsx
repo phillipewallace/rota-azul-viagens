@@ -748,7 +748,8 @@ const ErpFinanceiro: React.FC = () => {
         await gerarPeriodo(p, opts.periodo.inicio, opts.periodo.fim, { 
           baixarPdf: !opts.semPdf, 
           dataVencimento: opts.dataVencimento, 
-          semValidade: opts.semValidade 
+          semValidade: opts.semValidade,
+          cno: opts.cno
         });
       } else {
         await generateOne(p.contractId, Number(p.valorMensal), opts);
@@ -762,7 +763,7 @@ const ErpFinanceiro: React.FC = () => {
   // passa a ser exibida como "DD/MM/YYYY - DD/MM/YYYY".
   const gerarPeriodo = async (
     p: PendingReceipt, periodoInicio: string, periodoFim: string,
-    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean; dataVencimento?: string }
+    opts?: { marcarPago?: boolean; baixarPdf?: boolean; semValidade?: boolean; dataVencimento?: string; cno?: string }
   ) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoFim)) {
       toast.error('Datas inválidas'); return;
