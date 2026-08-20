@@ -480,22 +480,48 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
       return res.status(400).json({ error: 'periodoFim deve ser >= periodoInicio' });
     }
 
-    const keys = Object.keys(patch);
-    if (keys.length === 0) return res.status(400).json({ error: 'Nada para atualizar' });
+    const keys = Object.keys(patch).filter(k => k !== 'cno');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const cur = await client.query('SELECT id, status, snapshot, contract_id FROM erp_receipts WHERE id=$1', [req.params.id]);
+      if (!cur.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Recibo não encontrado' });
+      }
+      if (cur.rows[0].status === 'cancelado') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
+      }
 
-    const cur = await pool.query('SELECT id, status FROM erp_receipts WHERE id=$1', [req.params.id]);
-    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
-    if (cur.rows[0].status === 'cancelado') {
-      return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
+      if (keys.length > 0) {
+        const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+        const values = keys.map(k => patch[k]);
+        await client.query(`UPDATE erp_receipts SET ${sets}, updated_at=NOW() WHERE id=$1`, [req.params.id, ...values]);
+      }
+
+      // Se CNO foi enviado, atualizamos o snapshot do recibo E o contrato original
+      if (b.cno !== undefined) {
+        const snap = cur.rows[0].snapshot || {};
+        if (snap.contract) {
+          snap.contract.cno = b.cno;
+          await client.query('UPDATE erp_receipts SET snapshot = $1 WHERE id = $2', [snap, req.params.id]);
+        }
+        const contractId = cur.rows[0].contract_id;
+        if (contractId) {
+          await client.query('UPDATE erp_contracts SET cno = $1, updated_at = NOW() WHERE id = $2', [b.cno, contractId]);
+        }
+      }
+
+      await client.query('COMMIT');
+      res.json({ ok: true });
+    } catch (e: any) {
+      await client.query('ROLLBACK');
+      console.error('[erp-receipts patch]', e);
+      sendError(res, e);
+    } finally {
+      client.release();
     }
-
-    const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = keys.map(k => patch[k]);
-    await pool.query(
-      `UPDATE erp_receipts SET ${sets}, updated_at=NOW() WHERE id=$1`,
-      [req.params.id, ...values],
-    );
-    res.json({ ok: true });
   } catch (e: any) {
     console.error('[erp-receipts patch]', e);
     sendError(res, e);
