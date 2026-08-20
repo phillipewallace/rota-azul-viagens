@@ -605,28 +605,28 @@ const AppFuncionarios = () => {
                     <div className="space-y-3">
                       <Button 
                         variant="outline" 
-                        className="w-full h-20 border-2 border-dashed gap-3 text-primary border-primary/20 bg-primary/5 rounded-[2rem] hover:bg-primary/10 transition-colors"
+                        className="w-full h-20 border-2 border-dashed gap-3 text-blue-600 border-blue-200 bg-blue-50/50 rounded-[2rem] hover:bg-blue-100 transition-colors"
                         onClick={() => setAddingSanitario(true)}
                       >
                         <Plus className="h-6 w-6" /> 
                         <div className="text-left">
                            <p className="font-black text-base leading-none">Vincular Sanitário</p>
-                           <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-1">Registrar Entrega</p>
+                           <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-1 text-blue-900">Registrar Entrega</p>
                         </div>
                       </Button>
 
                       {osSanitarios.length === 0 && (
                         <Button 
                           variant="secondary"
-                          className="w-full h-24 border-2 border-dashed gap-3 bg-slate-50 hover:bg-slate-100 border-slate-200 rounded-[2rem] transition-colors"
+                          className="w-full h-24 border-2 border-dashed gap-3 bg-emerald-50/50 hover:bg-emerald-100/50 border-emerald-100/50 rounded-[2rem] transition-colors"
                           onClick={() => setGenericServiceDialog(true)}
                         >
                           <div className="flex flex-col items-center gap-1.5">
                             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-                               <CheckCircle2 className="h-6 w-6 text-primary" />
+                               <CheckCircle2 className="h-6 w-6 text-emerald-600" />
                             </div>
-                            <span className="font-black text-slate-700">REGISTRAR SERVIÇO CONCLUÍDO</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">(Limpeza, Manutenção, etc)</span>
+                            <span className="font-black text-emerald-900">REGISTRAR SERVIÇO CONCLUÍDO</span>
+                            <span className="text-[10px] text-emerald-600/60 font-bold uppercase tracking-widest">(Limpeza, Manutenção, etc)</span>
                           </div>
                         </Button>
                       )}
