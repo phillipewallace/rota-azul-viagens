@@ -1,41 +1,34 @@
-import { pool } from '../config/database';
-import { logger } from '../utils/logger';
+-- ============================================================================
+-- MIGRATION MULTI-SANITÁRIOS REFINEMENT (SQL VERSION)
+-- ============================================================================
 
-async function migrate() {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    
-    // 1. Garantir que erp_os_sanitarios tem a coluna 'status' para rastreio
-    // (Pode ser útil, mas a OS em si já tem o fluxo)
-    
-    // 2. Garantir que a tabela erp_os_sanitarios existe e está correta
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS erp_os_sanitarios (
+DO $$
+BEGIN
+    -- 1. Garantir que a tabela erp_os_sanitarios existe
+    CREATE TABLE IF NOT EXISTS public.erp_os_sanitarios (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        os_id uuid REFERENCES erp_service_orders(id) ON DELETE CASCADE,
-        sanitario_id uuid REFERENCES sanitarios(id) ON DELETE CASCADE,
+        os_id uuid REFERENCES public.erp_service_orders(id) ON DELETE CASCADE,
+        sanitario_id uuid REFERENCES public.sanitarios(id) ON DELETE CASCADE,
         alocado_em timestamp with time zone DEFAULT NOW(),
         devolvido_em timestamp with time zone,
         UNIQUE(os_id, sanitario_id)
-      )
-    `);
+    );
 
-    // 3. Adicionar coluna observacoes em erp_os_sanitarios se não existir (para relatos por item)
-    await client.query(`
-      ALTER TABLE erp_os_sanitarios 
-      ADD COLUMN IF NOT EXISTS observacoes text
-    `);
+    -- 2. Adicionar coluna observacoes (relato_finalizacao) se não existir
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='erp_os_sanitarios' AND column_name='relato_finalizacao') THEN
+        ALTER TABLE public.erp_os_sanitarios ADD COLUMN relato_finalizacao text;
+    END IF;
 
-    await client.query('COMMIT');
-    console.log('Migração multi-sanitários concluída com sucesso.');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    console.error('Erro na migração:', e);
-    process.exit(1);
-  } finally {
-    client.release();
-  }
-}
+    -- 3. Adicionar coluna foto_finalizacao_url se não existir
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='erp_os_sanitarios' AND column_name='foto_finalizacao_url') THEN
+        ALTER TABLE public.erp_os_sanitarios ADD COLUMN foto_finalizacao_url text;
+    END IF;
 
-migrate();
+    -- 4. Garantir GRANTs
+    GRANT ALL ON public.erp_os_sanitarios TO postgres;
+    -- Se o banco for Supabase ou tiver roles específicas:
+    -- GRANT ALL ON public.erp_os_sanitarios TO authenticated;
+    -- GRANT ALL ON public.erp_os_sanitarios TO service_role;
+END $$;
