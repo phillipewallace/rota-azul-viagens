@@ -373,17 +373,25 @@ export default function Sanitarios() {
                             {detailsLoading ? (
                               <div className="flex justify-center py-10"><RefreshCcw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                             ) : (
-                              <div className="grid grid-cols-3 gap-2 max-h-[400px] overflow-y-auto">
+                              <div className="grid grid-cols-2 gap-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                                 {details?.fotos.map(f => (
-                                  <div key={f.id} className="group relative aspect-square rounded-md overflow-hidden bg-slate-100 cursor-zoom-in">
-                                    <img src={f.url} alt="Sanitário" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-1">
-                                      <span className="text-[8px] text-white font-bold truncate">{f.tipo_evento}</span>
-                                      <span className="text-[7px] text-white/80">{new Date(f.created_at).toLocaleDateString()}</span>
+                                  <div key={f.id} className="group relative aspect-square rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                    <img src={f.url} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(f.url, '_blank')} />
+                                    <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="flex justify-between items-center text-[8px] text-white font-black uppercase">
+                                        <span>{f.tipo_evento}</span>
+                                        <span>{new Date(f.created_at).toLocaleDateString()}</span>
+                                      </div>
+                                      {f.funcionario_nome && <p className="text-[7px] text-white/70 font-bold truncate">Por: {f.funcionario_nome}</p>}
                                     </div>
                                   </div>
                                 ))}
-                                {!details?.fotos.length && <div className="col-span-3 text-center py-10 text-xs text-muted-foreground italic">Nenhuma foto anexada</div>}
+                                {!details?.fotos.length && (
+                                  <div className="col-span-2 text-center py-10 text-xs text-muted-foreground italic flex flex-col items-center gap-2">
+                                    <ImageIcon className="h-8 w-8 opacity-20" />
+                                    Ainda não há fotos para este sanitário.
+                                  </div>
+                                )}
                               </div>
                             )}
                           </TabsContent>
