@@ -10,7 +10,7 @@ O usuário relatou que os dados do Excel (Micban Agosto) ainda não subiram no f
 - **Importante**: O script já trata a lógica de "Usar cliente existente (via CNPJ/Nome) ou criar novo", conforme solicitado.
 
 ### 2. Ajustes Visuais (Text Edits)
-- Substituir o texto longo de "SYSTEM RULES" pelo novo texto solicitado: "a injeção automatica deve ser somente 1 vez no deploy para evitar duplicatas ok ?"
+- Substituir o texto longo de "SYSTEM RULES" pelo novo texto solicitado: "no caso isso deveria ser sobre a injeção, faça o deploy injetar o que eu preciso nos contratos como ja conversamos antes, e so deve rodar em 1 deploy\n\nAntes de executar qualquer ação, faça de 2 a 5 perguntas INTERATIVAS para entender melhor o que eu quero (alvo, valores, escopo) — não digite o texto das perguntas na sua resposta; quero elas interativas, para eu marcar ou responder direto na caixa de perguntas. Não implemente nada até eu responder. Se o pedido já estiver totalmente especificado (alvo + valor + escopo), aí sim execute direto."
 - Implementar o sistema de perguntas interativas para futuras ações, garantindo que o agente faça de 2 a 5 perguntas antes de agir.
 
 ## Detalhes Técnicos
