@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
@@ -20,6 +20,8 @@ const pool = new Pool({
 
 async function importFromExcel() {
   console.log('🚀 Iniciando importação de contratos (Micban - Agosto 26)...');
+  console.log(`📂 Diretório atual: ${process.cwd()}`);
+  console.log(`🔍 Procurando .env em: ${path.resolve(process.cwd(), 'backend/.env')}`);
   
   // Dados extraídos anteriormente via Python/openpyxl (6 linhas sem destaque)
   const rows = [
