@@ -44,13 +44,15 @@ class Logger {
         let header = `${config.emoji} [${timestamp}] [${level}] [${tag}]`;
         let body = message;
 
-        if (data) {
+        if (data && typeof data === 'object') {
             try {
-                const dataStr = typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data);
+                const dataStr = JSON.stringify(data, null, 2);
                 body += `\n   ┗━━ Data: ${dataStr.replace(/\n/g, '\n   ')}`;
             } catch (e) {
                 body += `\n   ┗━━ Data: [Unserializable Object]`;
             }
+        } else if (data !== undefined && data !== null) {
+            body += `\n   ┗━━ Data: ${String(data)}`;
         }
         
         return { 
