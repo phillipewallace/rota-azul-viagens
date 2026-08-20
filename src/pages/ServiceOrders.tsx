@@ -577,11 +577,10 @@ const ServiceOrders: React.FC = () => {
               return (
               <Card
                 key={o.id}
-                onClick={() => openDetail(o)}
                 className={`hover:shadow-md hover:border-primary/40 transition-all cursor-pointer ${o.emAtraso ? 'border-red-300 bg-red-50/40' : ''}`}
               >
                 <CardContent className="p-4 space-y-2">
-                  <div className="w-full flex items-start justify-between gap-2">
+                  <div className="w-full flex items-start justify-between gap-2 cursor-pointer" onClick={() => openDetail(o)}>
                     <div className="min-w-0">
                       <div className="font-mono font-bold text-sm">{o.numero}</div>
                       <div className="text-sm font-semibold truncate">{o.customerName || '—'}</div>
@@ -594,7 +593,7 @@ const ServiceOrders: React.FC = () => {
                       </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground space-y-0.5">
+                  <div className="text-xs text-muted-foreground space-y-0.5 cursor-pointer" onClick={() => openDetail(o)}>
                     <div>{o.modalidade === 'diaria' ? '🗓 Diária' : '📅 Mensal'} · {BRL(o.valorTotal)}</div>
                     <div>Tipo: {tipoLabel((o as any).tipoLocacao)}</div>
                     <div>
@@ -602,7 +601,6 @@ const ServiceOrders: React.FC = () => {
                       {o.dataRecolhimento && <> · Fim previsto: {D(o.dataRecolhimento)}</>}
                     </div>
                     <div>Sanitários alocados: <strong>{o.sanitariosAlocados || 0}</strong></div>
-                    <div className="text-[10px] italic text-primary/70">Clique no card para ver detalhes</div>
                   </div>
 
                   <div className="flex gap-1 pt-2 border-t flex-wrap" onClick={(e) => e.stopPropagation()}>
