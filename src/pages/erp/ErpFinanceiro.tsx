@@ -3335,28 +3335,30 @@ const GerarReciboPopover: React.FC<{
           </div>
 
           {/* Toggle: sem validade jurídica */}
-          <label
-            htmlFor={`gr-sv-${pending.contractId}`}
-            className={
-              'flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors duration-200 ' +
-              (semValidade
-                ? 'border-amber-300 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30'
-                : 'border-border/60 bg-muted/30 hover:bg-muted/50')
-            }
-          >
-            <Checkbox
-              id={`gr-sv-${pending.contractId}`}
-              checked={semValidade}
-              onCheckedChange={(v) => setSemValidade(!!v)}
-              className="mt-0.5"
-            />
-            <div className="text-[11px] leading-snug">
-              <div className="font-medium text-foreground">Recibo sem validade jurídica</div>
-              <div className="text-muted-foreground">
-                Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. No próximo mês, este contrato volta para pendentes normalmente.
+          <div className="space-y-2">
+            <label
+              htmlFor={`gr-sv-${pending.contractId}`}
+              className={
+                'flex items-start gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors duration-200 ' +
+                (semValidade
+                  ? 'border-amber-300 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/30'
+                  : 'border-border/60 bg-muted/30 hover:bg-muted/50')
+              }
+            >
+              <Checkbox
+                id={`gr-sv-${pending.contractId}`}
+                checked={semValidade}
+                onCheckedChange={(v) => setSemValidade(!!v)}
+                className="mt-0.5"
+              />
+              <div className="text-[11px] leading-snug">
+                <div className="font-medium text-foreground">Recibo sem validade jurídica</div>
+                <div className="text-muted-foreground">
+                  Numeração própria interna (0001…). Vai para a aba <span className="font-medium text-foreground">Sem validade</span>. No próximo mês, este contrato volta para pendentes normalmente.
+                </div>
               </div>
-            </div>
-          </label>
+            </label>
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-0.5">
             <Button
