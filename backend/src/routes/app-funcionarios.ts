@@ -126,11 +126,20 @@ router.post('/os/:id/entregar-item', async (req, res) => {
                     [sid, id, url, is_generic_service ? 'servico' : 'entrega', funcionario_id, observacoes || null]
                 );
             }
-        } else if (observacoes) {
-             // Caso tenha relato mas sem foto (não esperado por este requisito, mas seguro)
-             await client.query(
-                'INSERT INTO erp_sanitario_fotos (sanitario_id, os_id, url, tipo_evento, funcionario_id, observacoes) VALUES ($1, $2, $3, $4, $5, $6)',
-                [sid, id, 'N/A', 'entrega', funcionario_id, observacoes]
+        }
+        
+        // Registrar relato e foto de finalização na tabela de vínculo para consulta fácil no ERP
+        if (is_generic_service) {
+            await client.query(
+                `INSERT INTO erp_os_sanitarios (os_id, alocado_em, relato_finalizacao, foto_finalizacao_url) 
+                 VALUES ($1, NOW(), $2, $3)`,
+                [id, observacoes || 'Serviço finalizado', (fotos && fotos.length > 0) ? fotos[0] : null]
+            );
+        } else if (sid) {
+            await client.query(
+                `UPDATE erp_os_sanitarios SET relato_finalizacao = $3, foto_finalizacao_url = $4 
+                 WHERE os_id = $1 AND sanitario_id = $2`,
+                [id, sid, observacoes || null, (fotos && fotos.length > 0) ? fotos[0] : null]
             );
         }
 
@@ -177,6 +186,13 @@ router.post('/os/:id/recolher-item', async (req, res) => {
                 );
             }
         }
+        
+        // Atualizar o vínculo com o relato de recolhimento
+        await client.query(
+            `UPDATE erp_os_sanitarios SET relato_finalizacao = $3, foto_finalizacao_url = $4, devolvido_em = NOW() 
+             WHERE os_id = $1 AND sanitario_id = $2`,
+            [id, sanitario_id, observacoes || 'Recolhimento realizado', (fotos && fotos.length > 0) ? fotos[0] : null]
+        );
 
         // 2. Atualizar sanitário para disponível e atualizar estado
         await client.query(
