@@ -649,6 +649,16 @@ const AppFuncionarios = () => {
         </button>
         <button 
           className="flex flex-col items-center gap-1 p-2 text-slate-400"
+          onClick={() => {
+            setSelectedOs(null);
+            setAddingSanitario(true);
+          }}
+        >
+          <Plus className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Estoque</span>
+        </button>
+        <button 
+          className="flex flex-col items-center gap-1 p-2 text-slate-400"
           onClick={() => window.location.href = '/checklist'}
         >
           <ClipboardList className="w-6 h-6" />
