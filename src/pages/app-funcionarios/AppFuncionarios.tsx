@@ -413,6 +413,11 @@ const AppFuncionarios = () => {
               </div>
 
               <h2 className="text-3xl font-black text-slate-800 leading-tight">{selectedOs.customerName}</h2>
+              {selectedOs.responsavelNome && (
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest -mt-2 mb-2">
+                  Resp: {selectedOs.responsavelNome}
+                </p>
+              )}
               
               <div className="flex items-start gap-3 text-slate-500 bg-slate-50 p-4 rounded-3xl">
                 <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
