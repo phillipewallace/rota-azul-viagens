@@ -402,7 +402,9 @@ router.get('/:id', async (req, res) => {
     const sans = await pool.query(`
       SELECT 
           s.id, s.numero, s.status, s.categoria, eos.alocado_em AS "alocadoEm", eos.devolvido_em AS "devolvidoEm",
-          (SELECT url FROM erp_sanitario_fotos WHERE sanitario_id = s.id AND os_id = eos.os_id ORDER BY created_at DESC LIMIT 1) as "ultimaFotoUrl"
+          (SELECT url FROM erp_sanitario_fotos WHERE sanitario_id = s.id AND os_id = eos.os_id ORDER BY created_at DESC LIMIT 1) as "ultimaFotoUrl",
+          eos.relato_finalizacao as "relatoFinalizacao",
+          eos.foto_finalizacao_url as "fotoFinalizacaoUrl"
         FROM erp_os_sanitarios eos
         JOIN sanitarios s ON s.id = eos.sanitario_id
        WHERE eos.os_id=$1
@@ -414,7 +416,7 @@ router.get('/:id', async (req, res) => {
     const row = o.rows[0];
     if (row.quote_id) {
       const it = await pool.query(
-        `SELECT produto, descricao, quantidade, valor_unitario AS "valorUnitario", valor_total AS "valorTotal", ordem
+        `SELECT id, produto, descricao, quantidade, valor_unitario AS "valorUnitario", valor_total AS "valorTotal", ordem, is_sanitario as "isSanitario", is_generic_service as "isGenericService"
            FROM erp_quote_items WHERE quote_id=$1 ORDER BY ordem ASC, id ASC`, [row.quote_id]);
       items = it.rows;
       const qs = await pool.query(

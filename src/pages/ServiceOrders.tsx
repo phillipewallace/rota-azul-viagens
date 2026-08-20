@@ -899,14 +899,28 @@ const ServiceOrders: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {det.items.map((it: any, i: number) => (
-                          <tr key={i} className="border-t">
-                            <td className="p-1.5">{[it.produto, it.descricao].filter(Boolean).join(' — ')}</td>
-                            <td className="p-1.5 text-right">{Number(it.quantidade || 0)}</td>
-                            <td className="p-1.5 text-right">{BRL(Number(it.valorUnitario || it.valor_unitario || 0))}</td>
-                            <td className="p-1.5 text-right tabular-nums">{BRL(Number(it.valorTotal || it.valor_total || (Number(it.quantidade) || 0) * Number(it.valorUnitario || it.valor_unitario || 0)))}</td>
-                          </tr>
-                        ))}
+                        {det.items.map((it: any, i: number) => {
+                          const isGeneric = it.isGenericService || !it.isSanitario;
+                          return (
+                            <tr key={i} className="border-t">
+                              <td className="p-1.5">
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{it.produto}</span>
+                                  {it.descricao && <span className="text-[10px] text-muted-foreground">{it.descricao}</span>}
+                                  {isGeneric && (det.entreguePorNome || det.recolhidoPorNome) && (
+                                    <Badge variant="outline" className="w-fit text-[9px] h-4 px-1 mt-1 bg-blue-50 text-blue-600 border-blue-200">Serviço</Badge>
+                                  )}
+                                  {!isGeneric && (
+                                    <Badge variant="outline" className="w-fit text-[9px] h-4 px-1 mt-1 bg-emerald-50 text-emerald-600 border-emerald-200">Sanitário</Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-1.5 text-right">{Number(it.quantidade || 0)}</td>
+                              <td className="p-1.5 text-right">{BRL(Number(it.valorUnitario || it.valor_unitario || 0))}</td>
+                              <td className="p-1.5 text-right tabular-nums">{BRL(Number(it.valorTotal || it.valor_total || (Number(it.quantidade) || 0) * Number(it.valorUnitario || it.valor_unitario || 0)))}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -947,6 +961,40 @@ const ServiceOrders: React.FC = () => {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Relatos de Serviços Genéricos */}
+                {det.items.some((it: any) => it.isGenericService || !it.isSanitario) && (det.entreguePorNome || det.recolhidoPorNome) && (
+                  <div className="mt-2 space-y-2">
+                    <div className="font-semibold text-xs flex items-center gap-2">
+                      <FileSignature className="h-3 w-3" /> Execução de Serviços
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {det.items.filter((it: any) => it.isGenericService || !it.isSanitario).map((it: any, idx: number) => {
+                        // Tenta achar um registro de finalização correspondente (pode estar na OS ou nos vinculados)
+                        // Como serviços genéricos não têm numeração de sanitário, eles salvam o relato na erp_os_sanitarios com id nulo ou similar?
+                        // Na verdade, a implementação anterior salvava no app-funcionarios.ts o relato.
+                        return (
+                          <div key={idx} className="p-2 border rounded-lg bg-blue-50/30 text-xs">
+                            <div className="font-bold text-blue-700">{it.produto}</div>
+                            <div className="mt-1 text-slate-600 italic">
+                              {det.sanitarios?.find((s: any) => !s.numero && s.relatoFinalizacao)?.relatoFinalizacao || "Aguardando execução ou relato não preenchido."}
+                            </div>
+                            {det.sanitarios?.find((s: any) => !s.numero && s.fotoFinalizacaoUrl)?.fotoFinalizacaoUrl && (
+                              <div className="mt-2 w-24 h-24 rounded border overflow-hidden">
+                                <img 
+                                  src={det.sanitarios?.find((s: any) => !s.numero && s.fotoFinalizacaoUrl).fotoFinalizacaoUrl} 
+                                  className="w-full h-full object-cover cursor-pointer" 
+                                  onClick={() => window.open(det.sanitarios?.find((s: any) => !s.numero && s.fotoFinalizacaoUrl).fotoFinalizacaoUrl, '_blank')}
+                                  alt="Execução" 
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
