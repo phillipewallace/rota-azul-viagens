@@ -180,7 +180,16 @@ const AppFuncionarios = () => {
       if (!res.ok) throw new Error('Erro ao assumir OS');
       toast.success('Você assumiu esta OS!');
       await loadOS();
-      setSelectedOs(list.find(o => o.id === osId));
+      // Atualiza o selectedOs com os dados novos vindos do loadOS (incluindo items)
+      const freshList = await fetch(`${API_BASE_URL}/app-funcionarios/os?history=false&date=${selectedDate}`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      }).then(r => r.json());
+      const fresh = freshList.find((o: any) => o.id === osId);
+      if (fresh) {
+        setSelectedOs(fresh);
+        setView('detalhe');
+        loadOsSanitarios(osId);
+      }
     } catch (e: any) {
       toast.error(e.message);
     } finally {

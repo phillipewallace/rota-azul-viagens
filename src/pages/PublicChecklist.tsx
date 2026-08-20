@@ -271,7 +271,7 @@ export default function PublicChecklist() {
     <div className="min-h-screen bg-gray-50 pb-32">
       <div className="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-          <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700 shrink-0" onClick={() => { setTruck(null); setPlate(''); }}>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-blue-700 shrink-0" onClick={() => { window.location.href = '/app-funcionarios'; }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">

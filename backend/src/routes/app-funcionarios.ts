@@ -33,7 +33,13 @@ router.get('/os', async (req, res) => {
 
         let query = `
             SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
-                   cu.customer_name as "customerName", cu.address as "customerAddress"
+                   cu.customer_name as "customerName", cu.address as "customerAddress",
+                   (SELECT json_agg(qi) FROM (
+                       SELECT produto, quantidade, is_sanitario as "isSanitario", is_generic_service as "isGenericService"
+                       FROM erp_quote_items 
+                       WHERE quote_id = o.quote_id 
+                       ORDER BY ordem ASC
+                   ) qi) as items
             FROM erp_service_orders o
             LEFT JOIN customers cu ON cu.id = o.customer_id
             WHERE ${statusFilter}
