@@ -927,12 +927,25 @@ const ServiceOrders: React.FC = () => {
 
                 {Array.isArray(det.sanitarios) && det.sanitarios.length > 0 && (
                   <div>
-                    <div className="font-semibold mt-1 mb-1">Sanitários vinculados ({det.sanitarios.length})</div>
-                    <div className="flex flex-wrap gap-1">
+                    <div className="font-semibold mt-1 mb-1 flex items-center gap-2">
+                      <Package className="h-4 w-4" /> Sanitários vinculados ({det.sanitarios.length})
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {det.sanitarios.map((s: any, i: number) => (
-                        <Badge key={i} variant={s.devolvido_em || s.devolvidoEm ? 'outline' : 'default'} className="text-[11px] font-mono">
-                          {s.numero}{(s.devolvido_em || s.devolvidoEm) ? ' ✓' : ''}
-                        </Badge>
+                        <div key={i} className="flex items-center gap-2 p-2 border rounded-lg bg-slate-50">
+                          <div className="w-10 h-10 rounded border bg-white overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
+                            {s.ultimaFotoUrl ? (
+                              <img src={s.ultimaFotoUrl} alt="Foto" className="w-full h-full object-cover" />
+                            ) : (
+                              <Package className="h-4 w-4 text-slate-300" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-bold truncate">#{s.numero}</div>
+                            <div className="text-[9px] text-muted-foreground uppercase truncate">{s.categoria || 'Comum'}</div>
+                            {(s.devolvidoEm || s.devolvido_em) && <Badge className="bg-emerald-100 text-emerald-700 text-[8px] h-3 px-1 mt-0.5">Devolvido</Badge>}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>

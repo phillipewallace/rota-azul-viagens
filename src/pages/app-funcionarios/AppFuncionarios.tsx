@@ -371,8 +371,12 @@ const AppFuncionarios = () => {
                   {osSanitarios.map(s => (
                     <div key={s.id} className="p-5 bg-white border border-slate-100 shadow-sm rounded-3xl flex justify-between items-center transition-all">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
-                           <PackageOpen className="w-6 h-6 text-slate-400" />
+                        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden border border-slate-200">
+                           {s.ultimaFotoUrl ? (
+                             <img src={s.ultimaFotoUrl} alt="Sanitário" className="w-full h-full object-cover" />
+                           ) : (
+                             <PackageOpen className="w-7 h-7 text-slate-400" />
+                           )}
                         </div>
                         <div>
                           <p className="font-black text-slate-800 text-lg leading-none mb-1">#{s.numero}</p>
@@ -478,7 +482,7 @@ const AppFuncionarios = () => {
       <Dialog open={addingSanitario} onOpenChange={setAddingSanitario}>
         <DialogContent className="max-w-sm rounded-[2.5rem] p-8 border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Vincular Entrega</DialogTitle>
+            <DialogTitle>{selectedOs ? 'Vincular Entrega' : 'Cadastrar no Estoque'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -521,30 +525,63 @@ const AppFuncionarios = () => {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2">
-               <Button variant="outline" className="h-12 gap-1 text-xs" 
-                 disabled={!newSanForm.numero || !newSanForm.categoria}
-                 onClick={() => handleAction('entrega', selectedOs.id, { 
-                   sanitario_numero: newSanForm.numero, 
-                   categoria: newSanForm.categoria,
-                   estado_atual: newSanForm.estado_atual,
-                   fotos: ['https://placehold.co/600x400?text=Galeria'],
-                   is_last_item: false
-                 }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
-                  <ImageIcon className="h-4 w-4" /> Galeria
-               </Button>
-               <Button className="h-12 gap-1 text-xs bg-slate-800" 
-                 disabled={!newSanForm.numero || !newSanForm.categoria}
-                 onClick={() => handleAction('entrega', selectedOs.id, { 
-                   sanitario_numero: newSanForm.numero, 
-                   categoria: newSanForm.categoria,
-                   estado_atual: newSanForm.estado_atual,
-                   fotos: ['https://placehold.co/600x400?text=Camera'],
-                   is_last_item: false
-                 }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
-                  <Camera className="h-4 w-4" /> Câmera
-               </Button>
-            </div>
+            {selectedOs ? (
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <Button variant="outline" className="h-12 gap-1 text-xs" 
+                  disabled={!newSanForm.numero || !newSanForm.categoria}
+                  onClick={() => handleAction('entrega', selectedOs.id, { 
+                    sanitario_numero: newSanForm.numero, 
+                    categoria: newSanForm.categoria,
+                    estado_atual: newSanForm.estado_atual,
+                    fotos: ['https://placehold.co/600x400?text=Galeria'],
+                    is_last_item: false
+                  }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
+                   <ImageIcon className="h-4 w-4" /> Galeria
+                </Button>
+                <Button className="h-12 gap-1 text-xs bg-slate-800" 
+                  disabled={!newSanForm.numero || !newSanForm.categoria}
+                  onClick={() => handleAction('entrega', selectedOs.id, { 
+                    sanitario_numero: newSanForm.numero, 
+                    categoria: newSanForm.categoria,
+                    estado_atual: newSanForm.estado_atual,
+                    fotos: ['https://placehold.co/600x400?text=Camera'],
+                    is_last_item: false
+                  }).then(() => { setAddingSanitario(false); setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' }); })}>
+                   <Camera className="h-4 w-4" /> Câmera
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                className="w-full h-14 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20"
+                disabled={!newSanForm.numero || !newSanForm.categoria || uploading}
+                onClick={async () => {
+                  setUploading(true);
+                  try {
+                    const res = await fetch(`${API_BASE_URL}/app-funcionarios/estoque-manual`, {
+                      method: 'POST',
+                      headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${user?.token}`
+                      },
+                      body: JSON.stringify(newSanForm)
+                    });
+                    if (!res.ok) {
+                      const err = await res.json();
+                      throw new Error(err.error || 'Erro ao cadastrar');
+                    }
+                    toast.success('Sanitário cadastrado no estoque!');
+                    setAddingSanitario(false);
+                    setNewSanForm({ numero: '', categoria: 'comum', estado_atual: 'bom' });
+                  } catch (e: any) {
+                    toast.error(e.message);
+                  } finally {
+                    setUploading(false);
+                  }
+                }}
+              >
+                CADASTRAR NO ESTOQUE
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -609,6 +646,16 @@ const AppFuncionarios = () => {
         >
           <History className="w-6 h-6" />
           <span className="text-[10px] font-bold">Histórico</span>
+        </button>
+        <button 
+          className="flex flex-col items-center gap-1 p-2 text-slate-400"
+          onClick={() => {
+            setSelectedOs(null);
+            setAddingSanitario(true);
+          }}
+        >
+          <Plus className="w-6 h-6" />
+          <span className="text-[10px] font-bold">Estoque</span>
         </button>
         <button 
           className="flex flex-col items-center gap-1 p-2 text-slate-400"

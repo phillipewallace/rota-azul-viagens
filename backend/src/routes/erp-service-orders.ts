@@ -400,7 +400,9 @@ router.get('/:id', async (req, res) => {
        WHERE o.id=$1`, [req.params.id]);
     if (!o.rows[0]) return res.status(404).json({ error: 'não encontrado' });
     const sans = await pool.query(`
-      SELECT s.id, s.numero, s.status, eos.alocado_em AS "alocadoEm", eos.devolvido_em AS "devolvidoEm"
+      SELECT 
+          s.id, s.numero, s.status, s.categoria, eos.alocado_em AS "alocadoEm", eos.devolvido_em AS "devolvidoEm",
+          (SELECT url FROM erp_sanitario_fotos WHERE sanitario_id = s.id AND os_id = eos.os_id ORDER BY created_at DESC LIMIT 1) as "ultimaFotoUrl"
         FROM erp_os_sanitarios eos
         JOIN sanitarios s ON s.id = eos.sanitario_id
        WHERE eos.os_id=$1

@@ -212,7 +212,9 @@ router.get('/os/:id/sanitarios', async (req, res) => {
     try {
         const { id } = req.params;
         const r = await pool.query(`
-            SELECT s.id, s.numero, s.categoria, s.estado_atual, os.alocado_em, os.devolvido_em
+            SELECT 
+                s.id, s.numero, s.categoria, s.estado_atual, os.alocado_em, os.devolvido_em,
+                (SELECT url FROM erp_sanitario_fotos WHERE sanitario_id = s.id AND os_id = os.os_id ORDER BY created_at DESC LIMIT 1) as "ultimaFotoUrl"
             FROM erp_os_sanitarios os
             JOIN sanitarios s ON s.id = os.sanitario_id
             WHERE os.os_id = $1
@@ -220,6 +222,37 @@ router.get('/os/:id/sanitarios', async (req, res) => {
         res.json(r.rows);
     } catch (e: any) {
         sendError(res, e, `Erro ao listar sanitários da OS ${req.params.id}`);
+    }
+});
+
+
+// Cadastrar sanitário manualmente no estoque
+router.post('/estoque-manual', async (req, res) => {
+    const { numero, categoria, estado_atual } = req.body;
+    const funcionarioId = (req as any).user?.funcionarioId || (req as any).user?.funcionario_id;
+
+    if (!numero || !categoria) {
+        return res.status(400).json({ error: 'Número e categoria são obrigatórios' });
+    }
+
+    try {
+        const numClean = numero.trim().toUpperCase();
+        const check = await pool.query('SELECT id FROM sanitarios WHERE numero = $1', [numClean]);
+        
+        if (check.rows.length > 0) {
+            return res.status(400).json({ error: 'Este número de sanitário já está cadastrado' });
+        }
+
+        const nr = await pool.query(
+            `INSERT INTO sanitarios (numero, status, categoria, estado_atual, created_at) 
+             VALUES ($1, 'disponivel', $2, $3, NOW()) RETURNING id`,
+            [numClean, categoria, estado_atual || 'bom']
+        );
+
+        logger.info(TAG, `Sanitário ${numClean} cadastrado manualmente por func_id: ${funcionarioId}`);
+        res.json({ ok: true, id: nr.rows[0].id });
+    } catch (e: any) {
+        return sendError(res, e, `[${TAG}] Erro ao cadastrar sanitário no estoque`);
     }
 });
 
