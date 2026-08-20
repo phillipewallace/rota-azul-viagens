@@ -748,7 +748,9 @@ const ErpFinanceiro: React.FC = () => {
         await gerarPeriodo(p, opts.periodo.inicio, opts.periodo.fim, { 
           baixarPdf: !opts.semPdf, 
           dataVencimento: opts.dataVencimento, 
-          semValidade: opts.semValidade 
+          semValidade: opts.semValidade,
+          cno: opts.cno,
+          enderecoObra: opts.enderecoObra
         });
       } else {
         await generateOne(p.contractId, Number(p.valorMensal), opts);
