@@ -10,7 +10,7 @@ O usuário relatou que os dados do Excel (Micban Agosto) ainda não subiram no f
 - **Importante**: O script já trata a lógica de "Usar cliente existente (via CNPJ/Nome) ou criar novo", conforme solicitado.
 
 ### 2. Ajustes Visuais (Text Edits)
-- Substituir o texto longo de "SYSTEM RULES" pelo novo texto solicitado na interface.
+- Substituir o texto longo de "SYSTEM RULES" pelo novo texto solicitado: "o script n rodou. tem algum comando que posso rodar ele manualmente ?\n\nAntes de executar qualquer ação, faça de 2 a 5 perguntas INTERATIVAS para entender melhor o que eu quero (alvo, valores, escopo) — não digite o texto das perguntas na sua resposta; quero elas interativas, para eu marcar ou responder direto na caixa de perguntas. Não implemente nada até eu responder. Se o pedido já estiver totalmente especificado (alvo + valor + escopo), aí sim execute direto."
 - Implementar o sistema de perguntas interativas para futuras ações, garantindo que o agente faça de 2 a 5 perguntas antes de agir.
 
 ## Detalhes Técnicos
