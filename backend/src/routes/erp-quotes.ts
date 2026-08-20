@@ -64,7 +64,13 @@ const QUOTE_SELECT = `
 // [bug fix] strings vazias vindas do front quebram colunas DATE no Postgres
 function emptyToNull(v: any) {
   if (v === undefined || v === null) return null;
-  if (typeof v === 'string' && v.trim() === '') return null;
+  if (typeof v === 'string') {
+    const trimmed = v.trim();
+    if (trimmed === '' || trimmed.toLowerCase() === 'invalid date') return null;
+    // Previne estouro de range de data (+020216-08)
+    if (trimmed.startsWith('+') || (trimmed.length > 20 && !trimmed.includes('T'))) return null;
+    return trimmed;
+  }
   return v;
 }
 
