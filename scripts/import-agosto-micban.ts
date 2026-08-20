@@ -1,7 +1,19 @@
 import fs from 'fs';
 import path from 'path';
-import { pool } from '../backend/src/config/database';
+import { Pool } from 'pg';
+import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
+
+dotenv.config();
+
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'alchemy_rotas',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
 
 // Script para importar dados do Excel "AGOSTO 26 (2)" para contratos no ERP
 // Executado via node no ambiente da VPS após deploy ou via sandbox para teste.
