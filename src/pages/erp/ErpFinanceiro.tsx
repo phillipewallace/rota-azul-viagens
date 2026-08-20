@@ -1701,13 +1701,14 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                               onConfirm={(semValidade, dataVencimento, periodoOverride) => {
-                                 void gerar(p, { 
-                                   semValidade, 
-                                   dataVencimento, 
-                                   periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia) 
-                                 });
-                               }}
+                                onConfirm={(semValidade, dataVencimento, periodoOverride, cnoOverride) => {
+                                  void gerar(p, { 
+                                    semValidade, 
+                                    dataVencimento, 
+                                    periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia),
+                                    cno: cnoOverride
+                                  });
+                                }}
                               competencia={competencia}
                             >
                               <Button
@@ -3236,8 +3237,8 @@ const GerarReciboPopover: React.FC<{
     setOverridePeriodo(false);
     setPerIniManual(periodoPadrao.inicio);
     setPerFimManual(periodoPadrao.fim);
-    setCno(pending.snapshot?.contract?.cno || '');
-  }, [open, pending.contractId, vencPadrao, periodoPadrao, pending.snapshot?.contract?.cno]);
+    setCno(pending.cno || '');
+  }, [open, pending.contractId, vencPadrao, periodoPadrao, pending.cno]);
 
   const periodo = overridePeriodo ? { inicio: perIniManual, fim: perFimManual } : periodoPadrao;
   const dataInicioContrato = pending.dataInicio ? (pending.dataInicio as string).slice(0, 10) : '';
@@ -3747,6 +3748,7 @@ const EditVencimentoDialog: React.FC<{
   const [periodoFim, setPeriodoFim] = useState('');
   const [valor, setValor] = useState<string>('');
   const [numeroDisplay, setNumeroDisplay] = useState('');
+  const [cno, setCno] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -3757,6 +3759,7 @@ const EditVencimentoDialog: React.FC<{
     setPeriodoFim((receipt.periodoFim || '').slice(0, 10));
     setValor(String(Number(receipt.valor || 0)));
     setNumeroDisplay(receipt.numeroDisplay || '');
+    setCno(receipt.snapshot?.contract?.cno || '');
   }, [receipt]);
 
   const salvar = async () => {
@@ -3779,6 +3782,7 @@ const EditVencimentoDialog: React.FC<{
       periodoFim: periodoFim || null,
       valor: v,
       numeroDisplay: numeroDisplay.trim() || null,
+      cno: cno.trim() || null,
     };
     // Recalcula competência a partir do período/emissão para manter consistência.
     const compBase = periodoInicio || dataEmissao;

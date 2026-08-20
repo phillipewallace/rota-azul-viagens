@@ -165,7 +165,8 @@ router.get('/pending', async (req, res) => {
               c.renovacao_automatica AS "renovacaoAutomatica",
               c.company_id AS "companyId", c.customer_id AS "customerId",
               emp.razao_social AS "companyRazaoSocial", emp.cnpj AS "companyCnpj",
-              cu.customer_name AS "customerName", cu.document AS "customerDocument"
+              cu.customer_name AS "customerName", cu.document AS "customerDocument",
+              c.cno AS "cno"
          FROM erp_contracts c
          LEFT JOIN erp_companies emp ON emp.id = c.company_id
          LEFT JOIN customers cu ON cu.id = c.customer_id
