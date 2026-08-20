@@ -458,30 +458,66 @@ const AppFuncionarios = () => {
               </div>
             </div>
 
-            {/* Resumo de Itens Pedidos - Agrupado por Tipo */}
+            {/* Resumo de Itens Pedidos - Refatorado com tons pastéis */}
             {selectedOs.items && selectedOs.items.length > 0 && (
-              <div className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl space-y-4">
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Locação / Serviços</h3>
-                  <Badge variant="outline" className="border-white/10 text-white/40 text-[9px] font-black tracking-widest">PEDIDO ORIGINAL</Badge>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Locação / Serviços</h3>
+                  <Badge variant="outline" className="border-slate-100 text-slate-400 text-[9px] font-black tracking-widest">PEDIDO ORIGINAL</Badge>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {Object.values(selectedOs.items.reduce((acc: any, it: any) => {
-                    const key = `${it.produto}-${it.isSanitario ? 'S' : 'G'}`;
-                    if (!acc[key]) acc[key] = { ...it, quantidade: 0 };
+                    // Normaliza as chaves de flag que podem vir do backend em diferentes formatos
+                    const isSan = it.isSanitario === true || it.isSanitario === 'true';
+                    const isServ = it.isGenericService === true || it.isGenericService === 'true';
+                    const key = `${it.produto}-${isSan ? 'S' : isServ ? 'G' : 'O'}`;
+                    
+                    if (!acc[key]) acc[key] = { ...it, isSanitario: isSan, isGenericService: isServ, quantidade: 0 };
                     acc[key].quantidade += Number(it.quantidade) || 0;
                     return acc;
                   }, {})).map((it: any, idx: number) => (
-                    <div key={idx} className="flex items-start justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0 border border-white/5 shadow-inner">
-                          <span className="text-primary font-black text-lg">{it.quantidade}</span>
+                    <div 
+                      key={idx} 
+                      className={`flex items-start justify-between p-4 rounded-3xl border transition-colors ${
+                        it.isSanitario 
+                          ? 'bg-blue-50/50 border-blue-100/50' 
+                          : it.isGenericService 
+                            ? 'bg-emerald-50/50 border-emerald-100/50'
+                            : 'bg-slate-50 border-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                          it.isSanitario ? 'bg-blue-100 text-blue-600' : 
+                          it.isGenericService ? 'bg-emerald-100 text-emerald-600' : 
+                          'bg-white text-slate-400'
+                        }`}>
+                          <span className="font-black text-lg">{it.quantidade}</span>
                         </div>
                         <div className="space-y-1">
-                          <p className="font-black text-sm leading-tight tracking-tight uppercase">{it.produto}</p>
+                          <p className={`font-black text-sm leading-tight tracking-tight uppercase ${
+                            it.isSanitario ? 'text-blue-900' : 
+                            it.isGenericService ? 'text-emerald-900' : 
+                            'text-slate-800'
+                          }`}>
+                            {it.produto}
+                          </p>
                           <div className="flex gap-1.5">
-                            {it.isSanitario && <span className="text-[8px] font-black bg-primary text-white px-2 py-0.5 rounded-full uppercase tracking-[0.1em]">Ativo</span>}
-                            {!it.isSanitario && it.isGenericService && <span className="text-[8px] font-black bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full uppercase tracking-[0.1em]">Serviço</span>}
+                            {it.isSanitario && (
+                              <span className="text-[8px] font-black bg-blue-200/50 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                Ativo / Sanitário
+                              </span>
+                            )}
+                            {it.isGenericService && (
+                              <span className="text-[8px] font-black bg-emerald-200/50 text-emerald-700 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                Serviço / Manutenção
+                              </span>
+                            )}
+                            {!it.isSanitario && !it.isGenericService && (
+                              <span className="text-[8px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                Outros
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
