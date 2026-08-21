@@ -93,7 +93,7 @@ ok "Schema + migrations aplicados (dados preservados)"
 
 # ─── 4.1) Importação MIC BAN Agosto/2026 (one-shot, idempotente) ─────────────
 IMPORT_SQL="${PROJECT_DIR}/database/import-micban-agosto.sql"
-IMPORT_OK_MARKER="${PROJECT_DIR}/database/.imported-micban-agosto"
+IMPORT_OK_MARKER="${PROJECT_DIR}/database/.imported-micban-agosto-v2"
 if [[ -f "$IMPORT_SQL" ]]; then
   if [[ -f "$IMPORT_OK_MARKER" ]]; then
     ok "Importação MIC BAN Agosto/2026 já aplicada ($(cat "$IMPORT_OK_MARKER")) — pulando"
@@ -116,7 +116,7 @@ fi
 # ─── 4.2) Importação DSR Setembro/2026 (one-shot, idempotente) ───────────────
 IMPORT_DSR_SQL="${PROJECT_DIR}/database/import-dsr-setembro.sql"
 # v2: reexecuta uma vez para vincular os clientes aos contratos já importados
-IMPORT_DSR_MARKER="${PROJECT_DIR}/database/.imported-dsr-set26-v2"
+IMPORT_DSR_MARKER="${PROJECT_DIR}/database/.imported-dsr-set26-v3"
 if [[ -f "$IMPORT_DSR_SQL" ]]; then
   if [[ -f "$IMPORT_DSR_MARKER" ]]; then
     ok "Importação DSR Setembro/2026 já aplicada ($(cat "$IMPORT_DSR_MARKER")) — pulando"
@@ -138,7 +138,7 @@ fi
 
 # ─── 4.3) Importação MIC BAN Setembro/2026 (one-shot, idempotente) ───────────
 IMPORT_MIC_SET_SQL="${PROJECT_DIR}/database/import-micban-setembro.sql"
-IMPORT_MIC_SET_MARKER="${PROJECT_DIR}/database/.imported-micban-set26"
+IMPORT_MIC_SET_MARKER="${PROJECT_DIR}/database/.imported-micban-set26-v2"
 if [[ -f "$IMPORT_MIC_SET_SQL" ]]; then
   if [[ -f "$IMPORT_MIC_SET_MARKER" ]]; then
     ok "Importação MIC BAN Setembro/2026 já aplicada ($(cat "$IMPORT_MIC_SET_MARKER")) — pulando"
@@ -164,7 +164,7 @@ fi
 FIX_COMP_SQL="${PROJECT_DIR}/database/fix-import-competencia-setembro.sql"
 if [[ -f "$FIX_COMP_SQL" ]]; then
   if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$FIX_COMP_SQL"; then
-    ok "Competência dos contratos importados ajustada para Setembro/2026"
+    ok "Gatilho de deploy rodado (datas originais preservadas)"
   else
     warn "Falha na correção de competência (deploy continua) — veja o erro SQL acima"
   fi

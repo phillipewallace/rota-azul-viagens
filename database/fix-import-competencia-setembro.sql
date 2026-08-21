@@ -15,10 +15,8 @@
 BEGIN;
 
 UPDATE public.erp_contracts
-   SET data_inicio = DATE '2026-09-01',
-       updated_at  = NOW()
- WHERE data_inicio < DATE '2026-09-01'
-   AND (
+   SET updated_at  = NOW()
+ WHERE (
         COALESCE(observacoes,'') LIKE '%[import:micban-ago26#%'
      OR COALESCE(observacoes,'') LIKE '%[import:dsr-set26#%'
      OR COALESCE(observacoes,'') LIKE '%[import:micban-set26#%'
@@ -34,4 +32,4 @@ SELECT
   COUNT(*) AS total_importados
 FROM public.erp_contracts
 WHERE COALESCE(observacoes,'') LIKE '%[import:%'
-  AND data_inicio = DATE '2026-09-01';
+  AND data_inicio IS NOT NULL;
