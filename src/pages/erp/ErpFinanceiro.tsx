@@ -363,7 +363,7 @@ const ErpFinanceiro: React.FC = () => {
       setMergedComps(extras);
       setSelected(prev => {
         if (prev.size === 0) return prev;
-        const valid = new Set(p.pendentes.map(item => item.contractId));
+        const valid = new Set(merged.map(item => item.contractId));
         const next = new Set(Array.from(prev).filter(id => valid.has(id)));
         return next.size === prev.size ? prev : next;
       });
