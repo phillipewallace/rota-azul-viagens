@@ -34,13 +34,13 @@ BEGIN
   -- ── 2) Contratos de Agosto/2026 ───────────────────────────────────────────
   FOR r IN
     SELECT * FROM (VALUES
-      (1, 'FLAT ENGENHARIA E CONSTRUCAO LTDA',            '22.091.248/0001-04', 'Locação Mensal - Sanitário Comum (1 un.)',                                   1100.00, 15),
-      (2, 'FLAT ENGENHARIA E CONSTRUCAO LTDA',            '22.091.248/0001-04', 'Locação Mensal - Sanitário Comum (1 un.)',                                   1100.00, 15),
-      (3, 'CONSTRUTORA SERVCOPA',                         '21.054.432/0001-07', 'Locação Mensal - Sanitário Comum (1 un.)',                                   1960.00, 22),
-      (4, 'CONSTRUTORA RNV',                              '07.135.295/0001-37', 'Aluguel de Carretinha (4 un.) - Placas RGD9D72, RGD9D70, RGD9D71, RTK6A34',   2000.00, 10),
-      (5, 'CONSTRUTORA RNV',                              '07.135.295/0001-37', 'Locação Mensal - Sanitário Comum (1 un.)',                                   1400.00, 10),
-      (6, 'SUPERMERCADOS BH COMERCIO DE ALIMENTOS S/A',   '04.641.376/0001-36', 'Locação Mensal - Sanitário Comum (1 un.)',                                    450.00, 20)
-    ) AS t(idx, cliente, doc, descricao, valor, venc)
+      (1, 'FLAT ENGENHARIA E CONSTRUCAO LTDA',            '22.091.248/0001-04', 'Locação Mensal - Sanitário Comum (1 un.)',                                   1100.00, 15, DATE '2026-08-01'),
+      (2, 'FLAT ENGENHARIA E CONSTRUCAO LTDA',            '22.091.248/0001-04', 'Locação Mensal - Sanitário Comum (1 un.)',                                   1100.00, 15, DATE '2026-08-01'),
+      (3, 'CONSTRUTORA SERVCOPA',                         '21.054.432/0001-07', 'Locação Mensal - Sanitário Comum (1 un.)',                                   1960.00, 22, DATE '2026-08-01'),
+      (4, 'CONSTRUTORA RNV',                              '07.135.295/0001-37', 'Aluguel de Carretinha (4 un.) - Placas RGD9D72, RGD9D70, RGD9D71, RTK6A34',   2000.00, 10, DATE '2026-08-01'),
+      (5, 'CONSTRUTORA RNV',                              '07.135.295/0001-37', 'Locação Mensal - Sanitário Comum (1 un.)',                                   1400.00, 10, DATE '2026-08-01'),
+      (6, 'SUPERMERCADOS BH COMERCIO DE ALIMENTOS S/A',   '04.641.376/0001-36', 'Locação Mensal - Sanitário Comum (1 un.)',                                    450.00, 20, DATE '2026-08-01')
+    ) AS t(idx, cliente, doc, descricao, valor, venc, data_referencia)
   LOOP
     v_key := '[import:micban-ago26#' || r.idx || ']';
 
@@ -90,7 +90,7 @@ BEGIN
       (numero, company_id, customer_id, origem, descricao, data_inicio,
        dia_vencimento, valor_mensal, renovacao_automatica, ativo, observacoes)
     VALUES
-      (v_numero, v_company_id, v_customer_id, 'sistema', r.descricao, DATE '2026-09-01',
+      (v_numero, v_company_id, v_customer_id, 'sistema', r.descricao, r.data_referencia,
        r.venc, r.valor, TRUE, TRUE, 'Importação Excel Agosto/2026 ' || v_key);
 
     v_inserted := v_inserted + 1;
