@@ -115,7 +115,8 @@ fi
 
 # ─── 4.2) Importação DSR Setembro/2026 (one-shot, idempotente) ───────────────
 IMPORT_DSR_SQL="${PROJECT_DIR}/database/import-dsr-setembro.sql"
-IMPORT_DSR_MARKER="${PROJECT_DIR}/database/.imported-dsr-set26"
+# v2: reexecuta uma vez para vincular os clientes aos contratos já importados
+IMPORT_DSR_MARKER="${PROJECT_DIR}/database/.imported-dsr-set26-v2"
 if [[ -f "$IMPORT_DSR_SQL" ]]; then
   if [[ -f "$IMPORT_DSR_MARKER" ]]; then
     ok "Importação DSR Setembro/2026 já aplicada ($(cat "$IMPORT_DSR_MARKER")) — pulando"

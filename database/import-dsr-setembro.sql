@@ -13,8 +13,13 @@
 DO $$
 DECLARE
   v_company uuid;
+  v_company_snap jsonb;
+  v_customer uuid;
+  v_customer_snap jsonb;
   r RECORD;
   v_inseridos int := 0;
+  v_clientes_criados int := 0;
+  v_vinculados int := 0;
 BEGIN
   SELECT id INTO v_company
     FROM erp_companies
@@ -26,6 +31,9 @@ BEGIN
   IF v_company IS NULL THEN
     RAISE EXCEPTION 'Empresa emissora DSR não encontrada em erp_companies. Importação abortada.';
   END IF;
+
+  SELECT to_jsonb(e) INTO v_company_snap FROM erp_companies e WHERE e.id = v_company;
+
 
   FOR r IN (
     SELECT * FROM (VALUES
@@ -60,14 +68,61 @@ BEGIN
       (29, 'Progeter Serviços e Consultoria Ltda', '07.985.926/0001-22', 'Locação de Carretinha', 800.00, 10, DATE '2026-08-01', 'CLIENTE BUSCOU NO GALPÃO', 'NF: 601 | Período cobrança: 08/08/2026 Á 07/09/2026')
     ) AS v(idx, cliente_nome, cliente_cnpj, descricao, valor_mensal, dia_vencimento, data_inicio, endereco_obra, obs_extra)
   ) LOOP
+    -- ---------------------------------------------------------------------
+    -- 1) Resolve (ou cria) o cliente: match por CNPJ (só dígitos) e depois
+    --    por nome (case-insensitive). Se não existir, cadastra.
+    -- ---------------------------------------------------------------------
+    v_customer := NULL;
+
+    IF NULLIF(r.cliente_cnpj, '') IS NOT NULL THEN
+      SELECT id INTO v_customer
+        FROM customers
+       WHERE regexp_replace(COALESCE(document,''), '\D', '', 'g')
+             = regexp_replace(r.cliente_cnpj, '\D', '', 'g')
+         AND regexp_replace(COALESCE(document,''), '\D', '', 'g') <> ''
+       ORDER BY created_at ASC
+       LIMIT 1;
+    END IF;
+
+    IF v_customer IS NULL THEN
+      SELECT id INTO v_customer
+        FROM customers
+       WHERE lower(btrim(COALESCE(customer_name,''))) = lower(btrim(r.cliente_nome))
+       ORDER BY created_at ASC
+       LIMIT 1;
+    END IF;
+
+    IF v_customer IS NULL THEN
+      INSERT INTO customers (customer_name, document, person_type, address, notes)
+      VALUES (btrim(r.cliente_nome),
+              NULLIF(r.cliente_cnpj, ''),
+              'PJ',
+              NULLIF(r.endereco_obra, ''),
+              '[import:dsr-set26]')
+      RETURNING id INTO v_customer;
+      v_clientes_criados := v_clientes_criados + 1;
+    ELSIF NULLIF(r.cliente_cnpj, '') IS NOT NULL THEN
+      -- completa o CNPJ em cadastros antigos que estavam sem documento
+      UPDATE customers
+         SET document = r.cliente_cnpj, updated_at = NOW()
+       WHERE id = v_customer
+         AND COALESCE(btrim(document), '') = '';
+    END IF;
+
+    SELECT to_jsonb(c) INTO v_customer_snap FROM customers c WHERE c.id = v_customer;
+
+    -- ---------------------------------------------------------------------
+    -- 2) Insere o contrato já vinculado ao cliente
+    -- ---------------------------------------------------------------------
     INSERT INTO erp_contracts
       (numero, company_id, customer_id, origem, descricao,
        data_inicio, dia_vencimento, valor_mensal,
-       renovacao_automatica, ativo, endereco_obra, observacoes)
+       renovacao_automatica, ativo, endereco_obra, observacoes,
+       company_snapshot, customer_snapshot)
     SELECT
       erp_next_doc_number('CTR', v_company),
       v_company,
-      NULL,
+      v_customer,
       'excel_import_setembro',
       r.descricao,
       r.data_inicio,
@@ -78,13 +133,27 @@ BEGIN
       NULLIF(r.endereco_obra, ''),
       concat_ws(' | ', NULLIF(r.obs_extra, ''),
                 format('Cliente planilha: %s (CNPJ %s)', r.cliente_nome, NULLIF(r.cliente_cnpj,'')),
-                format('[import:dsr-set26#%s]', r.idx))
+                format('[import:dsr-set26#%s]', r.idx)),
+      v_company_snap,
+      v_customer_snap
     WHERE NOT EXISTS (
       SELECT 1 FROM erp_contracts ec
        WHERE ec.observacoes LIKE format('%%[import:dsr-set26#%s]%%', r.idx)
     );
     IF FOUND THEN v_inseridos := v_inseridos + 1; END IF;
+
+    -- ---------------------------------------------------------------------
+    -- 3) Backfill: contratos já importados antes (sem vínculo) são corrigidos
+    -- ---------------------------------------------------------------------
+    UPDATE erp_contracts ec
+       SET customer_id = v_customer,
+           customer_snapshot = COALESCE(ec.customer_snapshot, v_customer_snap),
+           updated_at = NOW()
+     WHERE ec.observacoes LIKE format('%%[import:dsr-set26#%s]%%', r.idx)
+       AND ec.customer_id IS DISTINCT FROM v_customer;
+    IF FOUND THEN v_vinculados := v_vinculados + 1; END IF;
   END LOOP;
 
-  RAISE NOTICE 'Importação DSR set/26 concluída: % novo(s) contrato(s).', v_inseridos;
+  RAISE NOTICE 'Importação DSR set/26: % novo(s) contrato(s), % cliente(s) criado(s), % vínculo(s) corrigido(s).',
+    v_inseridos, v_clientes_criados, v_vinculados;
 END $$;
