@@ -1308,9 +1308,11 @@ const ErpFinanceiro: React.FC = () => {
           competencia: input.competencia,
           valor: it.valor,
           dataVencimento: input.dataVencimento || undefined,
-          periodoInicio: per?.inicio,
-          periodoFim: per?.fim,
+          periodoInicio: (it as any).periodoInicio || per?.inicio,
+          periodoFim: (it as any).periodoFim || per?.fim,
           semValidade: !!input.semValidade,
+          cno: it.cno || undefined,
+          enderecoObra: it.enderecoObra || undefined,
         });
         results.push(r);
       }
