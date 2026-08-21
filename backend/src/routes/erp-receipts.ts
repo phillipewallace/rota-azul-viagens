@@ -358,7 +358,12 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     if (existing.rows[0]) {
       if (!regerar) {
         await client.query('ROLLBACK');
-        return res.status(409).json({ error: 'Recibo desta competência já existe', existing: existing.rows[0] });
+        return res.status(409).json({
+          error: semValidade
+            ? 'Recibo sem validade jurídica desta competência já existe'
+            : 'Recibo desta competência já existe',
+          existing: existing.rows[0],
+        });
       }
       await client.query(
         `UPDATE erp_receipts
