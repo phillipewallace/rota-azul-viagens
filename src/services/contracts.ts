@@ -168,6 +168,7 @@ export interface PendingReceipt {
   diaVencimento: number;
   dataInicio: string;
   renovacaoAutomatica: boolean;
+  tipoContrato?: 'locacao' | 'evento' | 'obra';
   companyId?: string;
   customerId?: string;
   companyRazaoSocial?: string;

@@ -354,8 +354,19 @@ const ErpFinanceiro: React.FC = () => {
       for (let depth = 0; depth < 3; depth++) {
         const resp = await receiptsService.pending(comp);
         if (!mountedRef.current || requestId !== pendentesRequestRef.current) return;
-        merged.push(...resp.pendentes.map(x => ({ ...x, competencia: comp })));
+
+        // REGRA DE EVENTO: Se for tipo 'evento', não permite mesclar meses futuros.
+        // O faturamento de eventos deve ocorrer exatamente no mês em questão.
+        const validPendentes = depth === 0 
+          ? resp.pendentes 
+          : resp.pendentes.filter(p => p.tipoContrato !== 'evento');
+
+        merged.push(...validPendentes.map(x => ({ ...x, competencia: comp })));
+        
+        // Se após filtrar sobraram itens de evento que foram barrados, ou se a lista
+        // original já era grande, paramos a recursão.
         if (resp.pendentes.length > 5 || depth === 2) break;
+        
         comp = nextComp(comp);
         extras.push(comp);
       }
