@@ -174,9 +174,12 @@ router.get('/pending', async (req, res) => {
         WHERE c.ativo = TRUE
           AND c.data_inicio <= (date_trunc('month', ($1 || '-01')::date)
                                 + INTERVAL '1 month - 1 day')::date
+          -- Recibo "sem validade jurídica" é controle interno: NÃO tira o
+          -- contrato da lista de pendentes do faturamento oficial.
           AND NOT EXISTS (
              SELECT 1 FROM erp_receipts r
               WHERE r.contract_id = c.id AND r.competencia = $1
+                AND COALESCE(r.sem_validade, FALSE) = FALSE
           )
           -- Também considera "faturado" quando há NF ativa vinculada
           -- (fluxo: cliente paga por Nota Fiscal do portal do governo).
@@ -249,9 +252,13 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       return res.status(400).json({ error: 'Contrato sem empresa emissora não pode gerar recibo.' });
     }
 
+    // Unicidade é POR TIPO: recibo normal e "sem validade jurídica" podem
+    // coexistir na mesma competência (migration-erp-receipts-sem-validade-unique).
     const existing = await client.query(
-      `SELECT id, numero, snapshot FROM erp_receipts WHERE contract_id=$1 AND competencia=$2`,
-      [contractId, competencia]
+      `SELECT id, numero, snapshot FROM erp_receipts
+        WHERE contract_id=$1 AND competencia=$2
+          AND COALESCE(sem_validade, FALSE) = $3`,
+      [contractId, competencia, !!semValidade]
     );
 
     // [#10 alto] regerar um recibo NÃO deve duplicar o frete: ao regerar,
