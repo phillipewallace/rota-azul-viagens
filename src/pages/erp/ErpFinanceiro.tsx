@@ -818,8 +818,13 @@ const ErpFinanceiro: React.FC = () => {
       }
     } catch (e: any) {
       const msg = String(e.message || '');
-      if (msg.toLowerCase().includes('já existe')) toast.warning('Já existe um recibo para o mês desse período.');
-      else toast.error(msg || 'Falha ao gerar recibo');
+      if (msg.toLowerCase().includes('já existe')) {
+        const mes = String(periodoInicio || '').slice(0, 7);
+        toast.warning(
+          `Já existe um recibo para a competência ${mes || '—'}. Ele aparece na aba "Sem validade" (limpe os filtros de data para vê-lo).`,
+        );
+      } else toast.error(msg || 'Falha ao gerar recibo');
+
     } finally { setWorking(null); }
   };
 
