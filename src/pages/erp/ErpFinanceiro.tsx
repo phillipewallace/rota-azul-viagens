@@ -1050,7 +1050,9 @@ const ErpFinanceiro: React.FC = () => {
         });
         const total = items.reduce((s, it) => s + it.valor, 0);
         await generateUnifiedReceiptPdf({
-          numero: r.numero,
+          // Numeração do grupo (todos os recibos unificados compartilham o
+          // mesmo número exibido) — nunca o número interno "SV-...".
+          numero: group[0].numeroDisplay || r.numeroDisplay || r.numero,
           competencia: r.competencia,
           periodoInicio: r.periodoInicio,
           periodoFim: r.periodoFim,
