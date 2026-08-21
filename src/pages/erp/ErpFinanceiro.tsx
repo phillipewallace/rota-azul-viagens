@@ -328,13 +328,39 @@ const ErpFinanceiro: React.FC = () => {
   // Loads separados: pendentes NÃO dependem dos filtros da aba Recibos.
   // Isso evita que mexer em filtro de Recibos re-baixe (e às vezes zere) a lista
   // de Pendentes ao voltar para essa sub-aba.
+  const [mergedComps, setMergedComps] = useState<string[]>([]);
+
+  /** Competência do mês seguinte (YYYY-MM). */
+  const nextComp = (c: string) => {
+    const [y, m] = c.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    d.setMonth(d.getMonth() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+  /** Competência real do pendente (regra dos 5 pode mesclar meses futuros). */
+  const compOf = (p: PendingReceipt) => p.competencia || competencia;
+
   const loadPendentes = useCallback(async () => {
     const requestId = ++pendentesRequestRef.current;
     setPendentesLoading(true);
     try {
-      const p = await receiptsService.pending(competencia);
-      if (!mountedRef.current || requestId !== pendentesRequestRef.current) return;
-      setPendentes(p.pendentes);
+      // REGRA DOS 5: quando restam 5 ou menos cobranças pendentes na
+      // competência selecionada, o mês seguinte é liberado automaticamente.
+      // Em cadeia: se o mês seguinte também ficar com ≤5, libera o próximo
+      // (trava de segurança: no máximo 3 meses à frente).
+      const merged: PendingReceipt[] = [];
+      const extras: string[] = [];
+      let comp = competencia;
+      for (let depth = 0; depth < 3; depth++) {
+        const resp = await receiptsService.pending(comp);
+        if (!mountedRef.current || requestId !== pendentesRequestRef.current) return;
+        merged.push(...resp.pendentes.map(x => ({ ...x, competencia: comp })));
+        if (resp.pendentes.length > 5 || depth === 2) break;
+        comp = nextComp(comp);
+        extras.push(comp);
+      }
+      setPendentes(merged);
+      setMergedComps(extras);
       setSelected(prev => {
         if (prev.size === 0) return prev;
         const valid = new Set(p.pendentes.map(item => item.contractId));
