@@ -1274,11 +1274,20 @@ const ErpFinanceiro: React.FC = () => {
         results.push(r);
       }
 
-      // O número unificado no PDF será o número do primeiro recibo gerado
+      // Numeração unificada: TODOS os recibos do grupo passam a exibir o MESMO
+      // número (o do primeiro gerado). Assim, baixando qualquer um deles, o
+      // documento sai com a mesma numeração do PDF unificado.
       const firstR = results[0];
+      const numeroUnificado = firstR.numeroDisplay || firstR.numero;
+      await Promise.all(
+        results.map(r =>
+          receiptsService.update(r.id, { numeroDisplay: numeroUnificado }).catch(() => null),
+        ),
+      );
+
       await generateUnifiedReceiptPdf({
         ...input,
-        numero: firstR.numeroDisplay || firstR.numero,
+        numero: numeroUnificado,
       });
 
       toast.success(`${results.length} recibos gerados e PDF unificado baixado`);
