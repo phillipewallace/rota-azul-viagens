@@ -113,6 +113,27 @@ if [[ -f "$IMPORT_SQL" ]]; then
   fi
 fi
 
+# ─── 4.2) Importação DSR Setembro/2026 (one-shot, idempotente) ───────────────
+IMPORT_DSR_SQL="${PROJECT_DIR}/database/import-dsr-setembro.sql"
+IMPORT_DSR_MARKER="${PROJECT_DIR}/database/.imported-dsr-set26"
+if [[ -f "$IMPORT_DSR_SQL" ]]; then
+  if [[ -f "$IMPORT_DSR_MARKER" ]]; then
+    ok "Importação DSR Setembro/2026 já aplicada ($(cat "$IMPORT_DSR_MARKER")) — pulando"
+  else
+    log "Importando contratos DSR Setembro/2026 no banco…"
+    if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$IMPORT_DSR_SQL"; then
+      IMPORT_DSR_COUNT="$(sudo -u postgres psql -d "${DB_NAME}" -tAc "SELECT COUNT(*) FROM public.erp_contracts WHERE COALESCE(observacoes,'') LIKE '%[import:dsr-set26#%'" | tr -d '[:space:]')"
+      if [[ "${IMPORT_DSR_COUNT:-0}" -ge 29 ]]; then
+        date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_DSR_MARKER"
+        ok "Importação DSR Setembro/2026 concluída — ${IMPORT_DSR_COUNT} contratos no banco (marcador criado, não roda de novo)"
+      else
+        warn "Importação DSR rodou mas só encontrei ${IMPORT_DSR_COUNT:-0} contratos — marcador NÃO criado, tentará novamente no próximo deploy"
+      fi
+    else
+      warn "Falha na importação DSR (deploy continua) — veja o erro SQL acima"
+    fi
+  fi
+fi
 
 
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
