@@ -13,8 +13,13 @@
 DO $$
 DECLARE
   v_company uuid;
+  v_company_snap jsonb;
+  v_customer uuid;
+  v_customer_snap jsonb;
   r RECORD;
   v_inseridos int := 0;
+  v_clientes_criados int := 0;
+  v_vinculados int := 0;
 BEGIN
   SELECT id INTO v_company
     FROM erp_companies
@@ -26,6 +31,9 @@ BEGIN
   IF v_company IS NULL THEN
     RAISE EXCEPTION 'Empresa emissora DSR não encontrada em erp_companies. Importação abortada.';
   END IF;
+
+  SELECT to_jsonb(e) INTO v_company_snap FROM erp_companies e WHERE e.id = v_company;
+
 
   FOR r IN (
     SELECT * FROM (VALUES
