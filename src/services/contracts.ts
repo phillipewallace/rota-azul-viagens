@@ -177,6 +177,9 @@ export interface PendingReceipt {
   cno?: string;
   enderecoObra?: string;
   localEvento?: string;
+  /** Competência real do item — preenchida no frontend quando meses futuros
+   *  são mesclados pela "regra dos 5". Ausente = competência selecionada. */
+  competencia?: string;
 }
 export interface ReceiptsSummaryPoint {
   competencia: string;
