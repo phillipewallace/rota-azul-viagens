@@ -90,7 +90,7 @@ BEGIN
       (numero, company_id, customer_id, origem, descricao, data_inicio,
        dia_vencimento, valor_mensal, renovacao_automatica, ativo, observacoes)
     VALUES
-      (v_numero, v_company_id, v_customer_id, 'sistema', r.descricao, DATE '2026-08-01',
+      (v_numero, v_company_id, v_customer_id, 'sistema', r.descricao, DATE '2026-09-01',
        r.venc, r.valor, TRUE, TRUE, 'Importação Excel Agosto/2026 ' || v_key);
 
     v_inserted := v_inserted + 1;

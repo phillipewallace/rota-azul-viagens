@@ -158,6 +158,18 @@ if [[ -f "$IMPORT_MIC_SET_SQL" ]]; then
   fi
 fi
 
+# ─── 4.4) Correção de competência: importados valem a partir de Setembro/2026 ─
+# Idempotente (UPDATE com WHERE) — roda em todo deploy para corrigir também
+# contratos importados antes desta regra existir.
+FIX_COMP_SQL="${PROJECT_DIR}/database/fix-import-competencia-setembro.sql"
+if [[ -f "$FIX_COMP_SQL" ]]; then
+  if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$FIX_COMP_SQL"; then
+    ok "Competência dos contratos importados ajustada para Setembro/2026"
+  else
+    warn "Falha na correção de competência (deploy continua) — veja o erro SQL acima"
+  fi
+fi
+
 
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
 log "Backend: instalando deps + compilando TS…"

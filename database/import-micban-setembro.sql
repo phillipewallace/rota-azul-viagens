@@ -141,7 +141,8 @@ BEGIN
       v_customer,
       'excel_import_setembro',
       r.descricao,
-      r.data_inicio,
+      -- Competência inicial: setembro/2026 (data original da planilha fica só como referência no VALUES acima)
+      DATE '2026-09-01',
       r.dia_vencimento,
       r.valor_mensal,
       TRUE,
