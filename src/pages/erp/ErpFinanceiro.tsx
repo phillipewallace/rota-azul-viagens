@@ -362,9 +362,14 @@ const ErpFinanceiro: React.FC = () => {
     const statusParam = activeTab === 'pagos'
       ? undefined
       : (filterStatus !== 'all' ? filterStatus : undefined);
+    // Na aba "Sem validade" NÃO limitamos pela competência do topo: recibos SV
+    // emitidos com período de outro mês ficavam invisíveis (mas bloqueavam a
+    // reemissão). Só filtra por data quando o usuário define um range explícito.
+    const escopoData = usaRange
+      ? { from: filterFrom || undefined, to: filterTo || undefined }
+      : (activeTab === 'sem-validade' ? {} : { competencia });
     return {
-      ...(usaRange ? { from: filterFrom || undefined, to: filterTo || undefined }
-                   : { competencia }),
+      ...escopoData,
       status: statusParam,
       companyId: filterCompanyId !== 'all' ? filterCompanyId : undefined,
       semValidade: semValidadeParam,
@@ -373,6 +378,7 @@ const ErpFinanceiro: React.FC = () => {
     } as const;
   }, [competencia, filterFrom, filterTo, filterStatus, filterCompanyId,
       dateBase, debouncedSearch, activeTab]);
+
 
   const loadRecibos = useCallback(async () => {
     setLoading(true);
@@ -812,8 +818,13 @@ const ErpFinanceiro: React.FC = () => {
       }
     } catch (e: any) {
       const msg = String(e.message || '');
-      if (msg.toLowerCase().includes('já existe')) toast.warning('Já existe um recibo para o mês desse período.');
-      else toast.error(msg || 'Falha ao gerar recibo');
+      if (msg.toLowerCase().includes('já existe')) {
+        const mes = String(periodoInicio || '').slice(0, 7);
+        toast.warning(
+          `Já existe um recibo para a competência ${mes || '—'}. Ele aparece na aba "Sem validade" (limpe os filtros de data para vê-lo).`,
+        );
+      } else toast.error(msg || 'Falha ao gerar recibo');
+
     } finally { setWorking(null); }
   };
 
