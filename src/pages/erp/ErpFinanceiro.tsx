@@ -931,7 +931,8 @@ const ErpFinanceiro: React.FC = () => {
       const periodos = contracts.map((c) => computeCompetenciaPeriodo(c.dataInicio, competencia));
 
       // Persiste um recibo por contrato — cada um com SEU período de 30 dias.
-      // Coletamos o número retornado para exibir no PDF unificado.
+      // Coletamos os ids para aplicar a MESMA numeração a todo o grupo.
+      const gerados: { id: string; numero: string; numeroDisplay?: string | null }[] = [];
       const numeros: (string | null)[] = [];
       let okCount = 0, failCount = 0;
       for (let i = 0; i < arr.length; i++) {
@@ -945,6 +946,7 @@ const ErpFinanceiro: React.FC = () => {
             valor: Number(p.valorMensal),
             pago: true,
           });
+          gerados.push({ id: out.id, numero: out.numero, numeroDisplay: out.numeroDisplay });
           numeros.push(out.numeroDisplay || out.numero || null);
           okCount++;
         } catch {
@@ -953,13 +955,25 @@ const ErpFinanceiro: React.FC = () => {
         }
       }
 
+      // Numeração única do grupo: todos os recibos exibem o número do primeiro.
+      const numero = gerados.length
+        ? (gerados[0].numeroDisplay || gerados[0].numero)
+        : `UNIF-${todayISO()}`;
+      if (gerados.length) {
+        await Promise.all(
+          gerados.map(g =>
+            receiptsService.update(g.id, { numeroDisplay: numero }).catch(() => null),
+          ),
+        );
+      }
+
       const items = contracts.map((c, i) => ({
         contractNumero: c.numero,
         descricao: c.descricao || `Locação mensal — Contrato ${c.numero}`,
         enderecoObra: c.enderecoObra || c.localEvento || '',
         cno: c.cno || '',
         valor: Number(arr[i].valorMensal),
-        numeroRecibo: numeros[i],
+        numeroRecibo: numeros[i] ? numero : null,
         periodoInicio: periodos[i].inicio,
         periodoFim: periodos[i].fim,
       }));
@@ -970,8 +984,6 @@ const ErpFinanceiro: React.FC = () => {
       const fimCons = periodos.map(p => p.fim).sort().slice(-1)[0];
 
       // Gera UM PDF unificado
-      const now = new Date();
-      const numero = `UNIF-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
       await generateUnifiedReceiptPdf({
         numero,
         competencia,
@@ -1019,6 +1031,7 @@ const ErpFinanceiro: React.FC = () => {
             x.periodoFim === r.periodoFim &&
             (x.customerName || '') === (r.customerName || '') &&
             (x.companyRazaoSocial || '') === (r.companyRazaoSocial || '') &&
+            !!x.semValidade === !!r.semValidade &&
             x.status !== 'cancelado',
           )
         : [];
@@ -1037,7 +1050,9 @@ const ErpFinanceiro: React.FC = () => {
         });
         const total = items.reduce((s, it) => s + it.valor, 0);
         await generateUnifiedReceiptPdf({
-          numero: r.numero,
+          // Numeração do grupo (todos os recibos unificados compartilham o
+          // mesmo número exibido) — nunca o número interno "SV-...".
+          numero: group[0].numeroDisplay || r.numeroDisplay || r.numero,
           competencia: r.competencia,
           periodoInicio: r.periodoInicio,
           periodoFim: r.periodoFim,
@@ -1274,11 +1289,20 @@ const ErpFinanceiro: React.FC = () => {
         results.push(r);
       }
 
-      // O número unificado no PDF será o número do primeiro recibo gerado
+      // Numeração unificada: TODOS os recibos do grupo passam a exibir o MESMO
+      // número (o do primeiro gerado). Assim, baixando qualquer um deles, o
+      // documento sai com a mesma numeração do PDF unificado.
       const firstR = results[0];
+      const numeroUnificado = firstR.numeroDisplay || firstR.numero;
+      await Promise.all(
+        results.map(r =>
+          receiptsService.update(r.id, { numeroDisplay: numeroUnificado }).catch(() => null),
+        ),
+      );
+
       await generateUnifiedReceiptPdf({
         ...input,
-        numero: firstR.numeroDisplay || firstR.numero,
+        numero: numeroUnificado,
       });
 
       toast.success(`${results.length} recibos gerados e PDF unificado baixado`);

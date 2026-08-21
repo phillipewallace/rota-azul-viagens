@@ -502,22 +502,56 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
     for (const w of wrap) { doc.text(w, M, y); y += 5; }
   }
 
-  // ---------- Itens (endereço da obra dentro da descrição) ----------
+  // ---------- Local de prestação / referências (endereços de obra + CNO) ----------
+  // Mesma seção do recibo individual, para que o unificado (inclusive os
+  // recibos sem validade jurídica) exiba endereço da obra/evento e CNO.
+  const refs = input.items
+    .map(it => ({
+      contrato: it.contractNumero || '',
+      endereco: (it.enderecoObra || '').trim(),
+      cno: (it.cno || '').trim(),
+    }))
+    .filter(r => r.endereco || r.cno);
+
+  if (refs.length) {
+    y += 2;
+    doc.setTextColor(...PRIMARY);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    doc.text('LOCAL DE PRESTAÇÃO / REFERÊNCIAS', M, y);
+    doc.setDrawColor(...ACCENT); doc.setLineWidth(0.6);
+    doc.line(M, y + 1, M + 66, y + 1);
+    y += 6;
+
+    doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    const enderecosUnicos = Array.from(new Set(refs.map(r => r.endereco).filter(Boolean)));
+    const cnosUnicos = Array.from(new Set(refs.map(r => r.cno).filter(Boolean)));
+
+    if (enderecosUnicos.length === 1 && refs.every(r => !r.endereco || r.endereco === enderecosUnicos[0])) {
+      const wrap = doc.splitTextToSize(`Endereço da obra/evento:  ${enderecosUnicos[0]}`, W - 2 * M);
+      for (const w of wrap) { doc.text(w, M, y); y += 5; }
+    } else {
+      for (const r of refs) {
+        if (!r.endereco) continue;
+        const wrap = doc.splitTextToSize(`Contrato ${r.contrato}:  ${r.endereco}`, W - 2 * M);
+        for (const w of wrap) { doc.text(w, M, y); y += 5; }
+      }
+    }
+
+    if (cnosUnicos.length) {
+      const wrap = doc.splitTextToSize(`CNO / Ordem de Compra:  ${cnosUnicos.join(', ')}`, W - 2 * M);
+      for (const w of wrap) { doc.text(w, M, y); y += 5; }
+    }
+  }
+
+  // ---------- Itens ----------
   y += 4;
   const body = input.items.map((it, idx) => {
-    // Descrição completa: Descrição do Contrato + Endereço da Obra
-    const descParts = [
-      it.descricao,
-      it.enderecoObra
-    ].filter(Boolean);
-    const fullDesc = descParts.join(' — ');
-
     const periodo = (it.periodoInicio || it.periodoFim)
       ? formatPeriodo(it.periodoInicio, it.periodoFim)
       : '—';
     return [
       String(idx + 1),
-      { content: `Contrato ${it.contractNumero} · ${fullDesc}`, styles: { halign: 'left' as const } },
+      { content: `Contrato ${it.contractNumero} · ${it.descricao}`, styles: { halign: 'left' as const } },
       periodo,
       BRL(it.valor),
     ];
@@ -538,15 +572,6 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   });
   let afterY = (doc as any).lastAutoTable.finalY + 2;
 
-  // CNOs consolidados
-  const cnos = input.items.map(i => (i.cno || '').trim()).filter(Boolean);
-  if (cnos.length) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
-    const label = `CNO / Ordens de Compra: ${cnos.join(', ')}`;
-    const wrap = doc.splitTextToSize(label, W - 2 * M);
-    for (const w of wrap) { doc.text(w, M, afterY + 4); afterY += 4; }
-    afterY += 2;
-  }
   afterY += 4;
 
   // Linha "Competência / Vencimento / Total"
