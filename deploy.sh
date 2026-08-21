@@ -136,6 +136,28 @@ if [[ -f "$IMPORT_DSR_SQL" ]]; then
   fi
 fi
 
+# ─── 4.3) Importação MIC BAN Setembro/2026 (one-shot, idempotente) ───────────
+IMPORT_MIC_SET_SQL="${PROJECT_DIR}/database/import-micban-setembro.sql"
+IMPORT_MIC_SET_MARKER="${PROJECT_DIR}/database/.imported-micban-set26"
+if [[ -f "$IMPORT_MIC_SET_SQL" ]]; then
+  if [[ -f "$IMPORT_MIC_SET_MARKER" ]]; then
+    ok "Importação MIC BAN Setembro/2026 já aplicada ($(cat "$IMPORT_MIC_SET_MARKER")) — pulando"
+  else
+    log "Importando contratos MIC BAN Setembro/2026 no banco…"
+    if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$IMPORT_MIC_SET_SQL"; then
+      IMPORT_MIC_SET_COUNT="$(sudo -u postgres psql -d "${DB_NAME}" -tAc "SELECT COUNT(*) FROM public.erp_contracts WHERE COALESCE(observacoes,'') LIKE '%[import:micban-set26#%'" | tr -d '[:space:]')"
+      if [[ "${IMPORT_MIC_SET_COUNT:-0}" -ge 7 ]]; then
+        date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_MIC_SET_MARKER"
+        ok "Importação MIC BAN Setembro/2026 concluída — ${IMPORT_MIC_SET_COUNT} contratos no banco (marcador criado, não roda de novo)"
+      else
+        warn "Importação MIC BAN Setembro rodou mas só encontrei ${IMPORT_MIC_SET_COUNT:-0} contratos — marcador NÃO criado, tentará novamente no próximo deploy"
+      fi
+    else
+      warn "Falha na importação MIC BAN Setembro (deploy continua) — veja o erro SQL acima"
+    fi
+  fi
+fi
+
 
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
 log "Backend: instalando deps + compilando TS…"
