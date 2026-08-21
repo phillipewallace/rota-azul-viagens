@@ -1244,6 +1244,14 @@ const ErpFinanceiro: React.FC = () => {
     const minIni = dates.reduce((m, d) => (!m || d.inicio < m) ? d.inicio : m, '');
     const maxFim = dates.reduce((m, d) => (!m || d.fim > m) ? d.fim : m, '');
 
+    // Busca os contratos completos para que o unificado (com ou sem validade)
+    // exiba descrição real, endereço da obra/evento e CNO — igual ao recibo
+    // unificado normal, que carrega os dados via contractsService.get.
+    const fulls = await Promise.all(
+      alvos.map(a => contractsService.get(a.contractId).catch(() => null)),
+    );
+    const custFull = fulls.find(Boolean)?.customerSnapshot || null;
+
     const input: UnifiedReceiptInput = {
       numero: 'AGUARDANDO',
       competencia: comp,
@@ -1252,7 +1260,7 @@ const ErpFinanceiro: React.FC = () => {
       dataEmissao: todayISO(),
       dataVencimento: nextDueDate(comp, first.diaVencimento || 10),
       company: companies.find(c => c.id === first.companyId) || { id: first.companyId },
-      customer: { 
+      customer: custFull || {
         id: first.customerId,
         name: first.customerName,
         document: (first as any).customerDocument,
@@ -1263,16 +1271,23 @@ const ErpFinanceiro: React.FC = () => {
         estado: (first as any).customerEstado,
         cep: (first as any).customerCep,
         telefone: (first as any).customerTelefone,
-        email: (first as any).customerEmail
+        email: (first as any).customerEmail,
       },
-      items: alvos.map(a => ({
-        contractId: a.contractId,
-        contractNumero: a.contractNumero || '',
-        descricao: (a as any).contractDescricaoCompleta || (a as any).contractDescricao || 'Locação',
-        enderecoObra: (a as any).contractEnderecoObra || (a as any).contractLocalEvento || '',
-        cno: (a as any).contractCno || '',
-        valor: Number(a.valorMensal) || 0,
-      })),
+      items: alvos.map((a, i) => {
+        const c: any = fulls[i] || {};
+        return {
+          contractId: a.contractId,
+          contractNumero: c.numero || a.contractNumero || '',
+          descricao: c.descricaoCompleta || c.descricao
+            || `Locação mensal — Contrato ${c.numero || a.contractNumero || ''}`.trim(),
+          enderecoObra: c.enderecoObra || c.localEvento
+            || (a as any).enderecoObra || (a as any).localEvento || '',
+          cno: c.cno || (a as any).cno || '',
+          valor: Number(a.valorMensal) || 0,
+          periodoInicio: dates[i].inicio,
+          periodoFim: dates[i].fim,
+        };
+      }),
       total: alvos.reduce((s, a) => s + (Number(a.valorMensal) || 0), 0),
       semValidade,
     };
