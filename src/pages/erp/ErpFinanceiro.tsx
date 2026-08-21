@@ -931,7 +931,8 @@ const ErpFinanceiro: React.FC = () => {
       const periodos = contracts.map((c) => computeCompetenciaPeriodo(c.dataInicio, competencia));
 
       // Persiste um recibo por contrato — cada um com SEU período de 30 dias.
-      // Coletamos o número retornado para exibir no PDF unificado.
+      // Coletamos os ids para aplicar a MESMA numeração a todo o grupo.
+      const gerados: { id: string; numero: string; numeroDisplay?: string | null }[] = [];
       const numeros: (string | null)[] = [];
       let okCount = 0, failCount = 0;
       for (let i = 0; i < arr.length; i++) {
@@ -945,6 +946,7 @@ const ErpFinanceiro: React.FC = () => {
             valor: Number(p.valorMensal),
             pago: true,
           });
+          gerados.push({ id: out.id, numero: out.numero, numeroDisplay: out.numeroDisplay });
           numeros.push(out.numeroDisplay || out.numero || null);
           okCount++;
         } catch {
@@ -953,13 +955,25 @@ const ErpFinanceiro: React.FC = () => {
         }
       }
 
+      // Numeração única do grupo: todos os recibos exibem o número do primeiro.
+      const numero = gerados.length
+        ? (gerados[0].numeroDisplay || gerados[0].numero)
+        : `UNIF-${todayISO()}`;
+      if (gerados.length) {
+        await Promise.all(
+          gerados.map(g =>
+            receiptsService.update(g.id, { numeroDisplay: numero }).catch(() => null),
+          ),
+        );
+      }
+
       const items = contracts.map((c, i) => ({
         contractNumero: c.numero,
         descricao: c.descricao || `Locação mensal — Contrato ${c.numero}`,
         enderecoObra: c.enderecoObra || c.localEvento || '',
         cno: c.cno || '',
         valor: Number(arr[i].valorMensal),
-        numeroRecibo: numeros[i],
+        numeroRecibo: numeros[i] ? numero : null,
         periodoInicio: periodos[i].inicio,
         periodoFim: periodos[i].fim,
       }));
@@ -970,8 +984,6 @@ const ErpFinanceiro: React.FC = () => {
       const fimCons = periodos.map(p => p.fim).sort().slice(-1)[0];
 
       // Gera UM PDF unificado
-      const now = new Date();
-      const numero = `UNIF-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
       await generateUnifiedReceiptPdf({
         numero,
         competencia,
