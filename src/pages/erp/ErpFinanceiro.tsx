@@ -328,16 +328,42 @@ const ErpFinanceiro: React.FC = () => {
   // Loads separados: pendentes NÃO dependem dos filtros da aba Recibos.
   // Isso evita que mexer em filtro de Recibos re-baixe (e às vezes zere) a lista
   // de Pendentes ao voltar para essa sub-aba.
+  const [mergedComps, setMergedComps] = useState<string[]>([]);
+
+  /** Competência do mês seguinte (YYYY-MM). */
+  const nextComp = (c: string) => {
+    const [y, m] = c.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    d.setMonth(d.getMonth() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+  /** Competência real do pendente (regra dos 5 pode mesclar meses futuros). */
+  const compOf = (p: PendingReceipt) => p.competencia || competencia;
+
   const loadPendentes = useCallback(async () => {
     const requestId = ++pendentesRequestRef.current;
     setPendentesLoading(true);
     try {
-      const p = await receiptsService.pending(competencia);
-      if (!mountedRef.current || requestId !== pendentesRequestRef.current) return;
-      setPendentes(p.pendentes);
+      // REGRA DOS 5: quando restam 5 ou menos cobranças pendentes na
+      // competência selecionada, o mês seguinte é liberado automaticamente.
+      // Em cadeia: se o mês seguinte também ficar com ≤5, libera o próximo
+      // (trava de segurança: no máximo 3 meses à frente).
+      const merged: PendingReceipt[] = [];
+      const extras: string[] = [];
+      let comp = competencia;
+      for (let depth = 0; depth < 3; depth++) {
+        const resp = await receiptsService.pending(comp);
+        if (!mountedRef.current || requestId !== pendentesRequestRef.current) return;
+        merged.push(...resp.pendentes.map(x => ({ ...x, competencia: comp })));
+        if (resp.pendentes.length > 5 || depth === 2) break;
+        comp = nextComp(comp);
+        extras.push(comp);
+      }
+      setPendentes(merged);
+      setMergedComps(extras);
       setSelected(prev => {
         if (prev.size === 0) return prev;
-        const valid = new Set(p.pendentes.map(item => item.contractId));
+        const valid = new Set(merged.map(item => item.contractId));
         const next = new Set(Array.from(prev).filter(id => valid.has(id)));
         return next.size === prev.size ? prev : next;
       });
@@ -646,7 +672,7 @@ const ErpFinanceiro: React.FC = () => {
     const aberto   = kpisRecibos?.aberto ?? 0;
     const vencidos = kpisRecibos?.vencido ?? 0;
     const vencidosCount = kpisRecibos?.qtdVencidos ?? 0;
-    const pendente = pendentes.reduce((a, p) => a + Number(p.valorMensal || 0), 0);
+    const pendente = pendentes.filter(p => compOf(p) === competencia).reduce((a, p) => a + Number(p.valorMensal || 0), 0);
     const previsto = recebido + aberto + pendente;
     const inadimp  = previsto > 0 ? (aberto + pendente) / previsto * 100 : 0;
     const ativosCount = kpisRecibos ? Math.max(0, kpisRecibos.total - kpisRecibos.qtdCancelados) : 0;
@@ -738,12 +764,13 @@ const ErpFinanceiro: React.FC = () => {
 
   // ===== ações =====
   const generateOne = async (
-    contractId: string, valor: number, opts?: { semPdf?: boolean; silent?: boolean }
+    contractId: string, valor: number, opts?: { semPdf?: boolean; silent?: boolean; comp?: string }
   ) => {
-    const out = await receiptsService.generate({ contractId, competencia, valor, pago: true });
+    const comp = opts?.comp || competencia;
+    const out = await receiptsService.generate({ contractId, competencia: comp, valor, pago: true });
     if (!opts?.semPdf) {
       try {
-        const list = await receiptsService.list({ competencia, contractId });
+        const list = await receiptsService.list({ competencia: comp, contractId });
         const r = list.find(x => x.id === out.id);
         if (r) await generateReceiptPdf(receiptForPdf(r));
       } catch { /* PDF best-effort */ }
@@ -764,7 +791,7 @@ const ErpFinanceiro: React.FC = () => {
           enderecoObra: opts.enderecoObra
         });
       } else {
-        await generateOne(p.contractId, Number(p.valorMensal), opts);
+        await generateOne(p.contractId, Number(p.valorMensal), { ...opts, comp: compOf(p) });
         await load();
       }
     } catch (e: any) { toast.error(e.message); }
@@ -834,7 +861,7 @@ const ErpFinanceiro: React.FC = () => {
     setWorking('__batch__');
     let ok = 0, fail = 0;
     for (const p of alvos) {
-      try { await generateOne(p.contractId, Number(p.valorMensal), { semPdf: true, silent: true }); ok++; }
+      try { await generateOne(p.contractId, Number(p.valorMensal), { semPdf: true, silent: true, comp: compOf(p) }); ok++; }
       catch { fail++; }
     }
     setSelected(new Set());
@@ -858,8 +885,7 @@ const ErpFinanceiro: React.FC = () => {
         if (!hay.includes(q)) return false;
       }
       if (pendVencFrom || pendVencTo || pendQuick !== 'none') {
-        const venc = dueDateInComp(competencia, Number(p.diaVencimento || 10));
-        if (!venc) return true;
+        const venc = dueDateInComp(compOf(p), Number(p.diaVencimento || 10));
         if (pendVencFrom && venc < pendVencFrom) return false;
         if (pendVencTo && venc > pendVencTo) return false;
         if (pendQuick === 'vencidos' && !(venc < t)) return false;
@@ -888,14 +914,15 @@ const ErpFinanceiro: React.FC = () => {
         'Competência', 'Dia venc.', 'Vencimento', 'Valor mensal',
       ];
       const rows = pendentesFiltrados.map(p => {
-        const venc = dueDateInComp(competencia, Number(p.diaVencimento || 10)) || '';
+        const pComp = compOf(p);
+        const venc = dueDateInComp(pComp, Number(p.diaVencimento || 10)) || '';
         return [
           p.contractNumero || '',
           p.customerName || '',
           p.customerDocument || '',
           p.companyRazaoSocial || '',
           p.companyCnpj || '',
-          competencia,
+          pComp,
           String(p.diaVencimento ?? ''),
           venc,
           Number(p.valorMensal || 0).toFixed(2).replace('.', ','),
@@ -915,11 +942,13 @@ const ErpFinanceiro: React.FC = () => {
     if (selected.size < 2) return null;
     const arr = pendentes.filter(p => selected.has(p.contractId));
     if (arr.length < 2) return null;
-    const cId = arr[0].companyId, kId = arr[0].customerId;
+    const cId = arr[0].companyId, kId = arr[0].customerId, cComp = compOf(arr[0]);
     if (!cId || !kId) return null;
-    if (!arr.every(p => p.companyId === cId && p.customerId === kId)) return null;
+    // Unificado exige mesma empresa, mesmo cliente E mesma competência
+    // (a regra dos 5 pode mesclar meses diferentes na lista).
+    if (!arr.every(p => p.companyId === cId && p.customerId === kId && compOf(p) === cComp)) return null;
     return { arr, companyId: cId };
-  }, [selected, pendentes]);
+  }, [selected, pendentes, competencia]);
 
   const gerarUnificado = async () => {
     if (!unifiedGroup) return;
@@ -938,8 +967,8 @@ const ErpFinanceiro: React.FC = () => {
       };
 
       // Período por contrato (30 dias) baseado no dataInicio de cada contrato
-      // e no MÊS de competência selecionado no topo do Financeiro.
-      const periodos = contracts.map((c) => computeCompetenciaPeriodo(c.dataInicio, competencia));
+      // e na competência REAL de cada pendente (regra dos 5 pode mesclar meses).
+      const periodos = contracts.map((c, i) => computeCompetenciaPeriodo(c.dataInicio, compOf(arr[i])));
 
       // Persiste um recibo por contrato — cada um com SEU período de 30 dias.
       // Coletamos os ids para aplicar a MESMA numeração a todo o grupo.
@@ -997,7 +1026,7 @@ const ErpFinanceiro: React.FC = () => {
       // Gera UM PDF unificado
       await generateUnifiedReceiptPdf({
         numero,
-        competencia,
+        competencia: compOf(arr[0]),
         periodoInicio: iniCons,
         periodoFim: fimCons,
         dataEmissao: todayISO(),
@@ -1012,7 +1041,7 @@ const ErpFinanceiro: React.FC = () => {
       setUnifOpen(false);
       await load();
       setActiveTab('emitidos');
-      if (failCount === 0) toast.success(`Recibo unificado gerado · ${okCount} contratos · ${formatComp(competencia)}`);
+      if (failCount === 0) toast.success(`Recibo unificado gerado · ${okCount} contratos · ${formatComp(compOf(arr[0]))}`);
       else toast.warning(`PDF gerado. ${okCount} recibos ok, ${failCount} falharam`);
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao gerar recibo unificado');
@@ -1236,11 +1265,11 @@ const ErpFinanceiro: React.FC = () => {
     if (alvos.length === 0) return;
     const first = alvos[0];
     
-    // Rótulo da competência padrão (YYYY-MM)
-    const comp = competencia; 
-    
+    // Competência padrão do grupo (regra dos 5 pode mesclar meses futuros)
+    const comp = compOf(first);
+
     // Período unificado padrão: do menor início ao maior fim dos itens
-    const dates = alvos.map(a => computeCompetenciaPeriodo(a.dataInicio, comp));
+    const dates = alvos.map(a => computeCompetenciaPeriodo(a.dataInicio, compOf(a)));
     const minIni = dates.reduce((m, d) => (!m || d.inicio < m) ? d.inicio : m, '');
     const maxFim = dates.reduce((m, d) => (!m || d.fim > m) ? d.fim : m, '');
 
@@ -1662,6 +1691,11 @@ const ErpFinanceiro: React.FC = () => {
                 {selected.size > 0
                   ? <span className="font-medium text-slate-700">{selected.size} selecionado(s)</span>
                   : 'Selecione contratos para gerar recibos em lote (marca como pagos, sem PDF).'}
+                {mergedComps.length > 0 && (
+                  <span className="ml-2 inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                    Regra dos 5: {mergedComps.map(formatComp).join(', ')} liberado(s) antecipadamente
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {selected.size > 0 && (
@@ -1738,8 +1772,11 @@ const ErpFinanceiro: React.FC = () => {
                           <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{p.companyRazaoSocial || '—'}</TableCell>
                           <TableCell className="text-xs">
                             <div className="flex flex-col leading-tight">
-                              <span className="tabular-nums">{D(dueDateInComp(competencia, Number(p.diaVencimento || 10)))}</span>
-                              <span className="text-[10px] text-muted-foreground">dia {p.diaVencimento}</span>
+                              <span className="tabular-nums">{D(dueDateInComp(compOf(p), Number(p.diaVencimento || 10)))}</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                dia {p.diaVencimento}
+                                {compOf(p) !== competencia ? ` · ${formatComp(compOf(p))}` : ''}
+                              </span>
                             </div>
                           </TableCell>
 
@@ -1762,16 +1799,16 @@ const ErpFinanceiro: React.FC = () => {
                             <GerarReciboPopover
                               pending={p}
                               working={working === p.contractId}
-                               onConfirm={(semValidade, dataVencimento, periodoOverride, cno, enderecoObra) => {
-                                 void gerar(p, { 
-                                   semValidade, 
-                                   dataVencimento, 
-                                   periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, competencia),
-                                   cno,
-                                   enderecoObra
-                                 });
-                               }}
-                              competencia={competencia}
+                                onConfirm={(semValidade, dataVencimento, periodoOverride, cno, enderecoObra) => {
+                                  void gerar(p, {
+                                    semValidade,
+                                    dataVencimento,
+                                    periodo: periodoOverride || computeCompetenciaPeriodo(p.dataInicio, compOf(p)),
+                                    cno,
+                                    enderecoObra
+                                  });
+                                }}
+                               competencia={compOf(p)}
                             >
                               <Button
                                 size="sm"
