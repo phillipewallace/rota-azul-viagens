@@ -248,28 +248,28 @@ export async function generateReceiptPdf(
 
 
   // ---------- Nota legal ----------
-  doc.setFillColor(252, 248, 232);
-  doc.roundedRect(M, afterY, W - 2 * M, 14, 1.5, 1.5, 'F');
-  doc.setTextColor(120, 90, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-  doc.text('NÃO INCIDÊNCIA DE ISSQN', M + 3, afterY + 5);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.text(
-    'Conforme Lei Complementar nº 116/2003 de 31/07/2003 — locação de bens móveis não está sujeita à incidência de ISSQN.',
-    M + 3, afterY + 10, { maxWidth: W - 2 * M - 6 }
-  );
-  afterY += 22;
+  if (!rec.semValidade) {
+    doc.setFillColor(252, 248, 232);
+    doc.roundedRect(M, afterY, W - 2 * M, 14, 1.5, 1.5, 'F');
+    doc.setTextColor(120, 90, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+    doc.text('NÃO INCIDÊNCIA DE ISSQN', M + 3, afterY + 5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    doc.text(
+      'Conforme Lei Complementar nº 116/2003 de 31/07/2003 — locação de bens móveis não está sujeita à incidência de ISSQN.',
+      M + 3, afterY + 10, { maxWidth: W - 2 * M - 6 }
+    );
+    afterY += 22;
+  }
 
   // ---------- Frase de quitação ----------
-  doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-  const txt = rec.semValidade
-    ? `Documento de controle interno referente à locação de bens móveis para ${cu.name || co.razaoSocial || ''}, ` +
-      `no valor de ${BRL(valor)}, referente ao período ${competenciaLabel}. ` +
-      `Este documento NÃO possui validade fiscal nem constitui quitação.`
-    : `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(valor)} ` +
+  if (!rec.semValidade) {
+    doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    const txt = `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(valor)} ` +
       `referente à locação de bens móveis referente ao período ${competenciaLabel}, ` +
       `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
-  const wrap = doc.splitTextToSize(txt, W - 2 * M);
-  doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
+    const wrap = doc.splitTextToSize(txt, W - 2 * M);
+    doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
+  }
 
   // ---------- Assinatura ----------
   if (afterY > H - 60) { doc.addPage(); afterY = 30; }
@@ -590,29 +590,29 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   afterY = (doc as any).lastAutoTable.finalY + 8;
 
   // ---------- Nota legal ----------
-  if (afterY > H - 80) { doc.addPage(); afterY = 20; }
-  doc.setFillColor(252, 248, 232);
-  doc.roundedRect(M, afterY, W - 2 * M, 14, 1.5, 1.5, 'F');
-  doc.setTextColor(120, 90, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-  doc.text('NÃO INCIDÊNCIA DE ISSQN', M + 3, afterY + 5);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.text(
-    'Conforme Lei Complementar nº 116/2003 de 31/07/2003 — locação de bens móveis não está sujeita à incidência de ISSQN.',
-    M + 3, afterY + 10, { maxWidth: W - 2 * M - 6 }
-  );
-  afterY += 22;
+  if (!input.semValidade) {
+    if (afterY > H - 80) { doc.addPage(); afterY = 20; }
+    doc.setFillColor(252, 248, 232);
+    doc.roundedRect(M, afterY, W - 2 * M, 14, 1.5, 1.5, 'F');
+    doc.setTextColor(120, 90, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+    doc.text('NÃO INCIDÊNCIA DE ISSQN', M + 3, afterY + 5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    doc.text(
+      'Conforme Lei Complementar nº 116/2003 de 31/07/2003 — locação de bens móveis não está sujeita à incidência de ISSQN.',
+      M + 3, afterY + 10, { maxWidth: W - 2 * M - 6 }
+    );
+    afterY += 22;
+  }
 
   // Quitação
-  doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-  const txt = input.semValidade
-    ? `Documento de controle interno referente à locação de bens móveis (${input.items.length} contrato(s)) ` +
-      `para ${cu.name || co.razaoSocial || ''}, no valor total de ${BRL(input.total)}, período ${compLabel}. ` +
-      `Este documento NÃO possui validade fiscal nem constitui quitação.`
-    : `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(input.total)} ` +
+  if (!input.semValidade) {
+    doc.setTextColor(40, 40, 40); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    const txt = `Recebi(emos) de ${cu.name || co.razaoSocial || ''} a quantia de ${BRL(input.total)} ` +
       `referente à locação de bens móveis (${input.items.length} contrato(s)) no período ${compLabel}, ` +
       `dando plena, geral e irrevogável quitação para nada mais ter que reclamar.`;
-  const wrap = doc.splitTextToSize(txt, W - 2 * M);
-  doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
+    const wrap = doc.splitTextToSize(txt, W - 2 * M);
+    doc.text(wrap, M, afterY); afterY += wrap.length * 5 + 14;
+  }
 
   // Assinatura
   if (afterY > H - 60) { doc.addPage(); afterY = 30; }
