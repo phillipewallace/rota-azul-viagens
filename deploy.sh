@@ -154,9 +154,7 @@ else
   fi
 fi
 
-# A importação agora é feita via migration SQL (database/migration-20260820-import-micban-agosto.sql)
-# para garantir injeção direta no banco durante o deploy sem depender do runtime Bun/Node.
-log "Verificação de importação via SQL migrations concluída no passo 4."
+# A importação MIC BAN Agosto/2026 roda no passo 4.1 (SQL direto, sem Bun/Node).
 
 ok "Backend compilado"
 
