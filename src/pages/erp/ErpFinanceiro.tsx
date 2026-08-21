@@ -1031,6 +1031,7 @@ const ErpFinanceiro: React.FC = () => {
             x.periodoFim === r.periodoFim &&
             (x.customerName || '') === (r.customerName || '') &&
             (x.companyRazaoSocial || '') === (r.companyRazaoSocial || '') &&
+            !!x.semValidade === !!r.semValidade &&
             x.status !== 'cancelado',
           )
         : [];
