@@ -91,6 +91,30 @@ sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA p
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${DB_USER};" >/dev/null 2>&1 || true
 ok "Schema + migrations aplicados (dados preservados)"
 
+# ─── 4.1) Importação MIC BAN Agosto/2026 (one-shot, idempotente) ─────────────
+IMPORT_SQL="${PROJECT_DIR}/database/import-micban-agosto.sql"
+IMPORT_OK_MARKER="${PROJECT_DIR}/database/.imported-micban-agosto"
+if [[ -f "$IMPORT_SQL" ]]; then
+  if [[ -f "$IMPORT_OK_MARKER" ]]; then
+    ok "Importação MIC BAN Agosto/2026 já aplicada ($(cat "$IMPORT_OK_MARKER")) — pulando"
+  else
+    log "Importando contratos MIC BAN Agosto/2026 no banco…"
+    if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$IMPORT_SQL"; then
+      IMPORT_COUNT="$(sudo -u postgres psql -d "${DB_NAME}" -tAc "SELECT COUNT(*) FROM public.erp_contracts WHERE COALESCE(observacoes,'') LIKE '%[import:micban-ago26#%'" | tr -d '[:space:]')"
+      if [[ "${IMPORT_COUNT:-0}" -ge 6 ]]; then
+        date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_OK_MARKER"
+        ok "Importação MIC BAN concluída — ${IMPORT_COUNT} contratos no banco (marcador criado, não roda de novo)"
+      else
+        warn "Importação rodou mas só encontrei ${IMPORT_COUNT:-0} contratos — marcador NÃO criado, tentará novamente no próximo deploy"
+      fi
+    else
+      warn "Falha na importação MIC BAN (deploy continua) — veja o erro SQL acima"
+    fi
+  fi
+fi
+
+
+
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
 log "Backend: instalando deps + compilando TS…"
 cd "${PROJECT_DIR}/backend"
@@ -130,9 +154,7 @@ else
   fi
 fi
 
-# A importação agora é feita via migration SQL (database/migration-20260820-import-micban-agosto.sql)
-# para garantir injeção direta no banco durante o deploy sem depender do runtime Bun/Node.
-log "Verificação de importação via SQL migrations concluída no passo 4."
+# A importação MIC BAN Agosto/2026 roda no passo 4.1 (SQL direto, sem Bun/Node).
 
 ok "Backend compilado"
 
