@@ -862,6 +862,7 @@ function ContractFormDialog({
       const payload = {
         ...form,
         osId: form.osId || null,
+        primeiraCompetencia: form.primeiraCompetencia || '',
         diaVencimento: Number(form.diaVencimento) || 10,
         valorMensal: Number(form.valorMensal) || 0,
         frete: Number(form.frete) || 0,
