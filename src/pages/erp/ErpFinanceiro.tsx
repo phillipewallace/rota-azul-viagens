@@ -3929,8 +3929,9 @@ const CancelDialog: React.FC<{
 };
 
 // ========================= EditVencimentoDialog =========================
-// Permite corrigir manualmente informações de um recibo já emitido (valor,
-// datas de emissão/vencimento, período de competência e número exibido).
+// Edição ampla de um recibo já emitido: datas, valores, numeração, dados do
+// cliente/empresa e descrição impressa. Tudo é gravado no snapshot do recibo
+// (o PDF lê o snapshot), exceto CNO/Endereço que também sincronizam o contrato.
 const EditVencimentoDialog: React.FC<{
   receipt: Receipt | null;
   onClose: () => void;
@@ -3944,19 +3945,47 @@ const EditVencimentoDialog: React.FC<{
   const [numeroDisplay, setNumeroDisplay] = useState('');
   const [cno, setCno] = useState('');
   const [enderecoObra, setEnderecoObra] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [contratoNumero, setContratoNumero] = useState('');
+  const [valorLocacao, setValorLocacao] = useState('');
+  const [freteIncluso, setFreteIncluso] = useState('');
+  const [cust, setCust] = useState<Record<string, string>>({});
+  const [comp, setComp] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!receipt) return;
+    const snap: any = receipt.snapshot || {};
+    const ct = snap.contract || {};
+    const cu = snap.customer || {};
+    const co = snap.company || {};
     setDataEmissao((receipt.dataEmissao || '').slice(0, 10));
     setDataVencimento((receipt.dataVencimento || '').slice(0, 10));
     setPeriodoInicio((receipt.periodoInicio || '').slice(0, 10));
     setPeriodoFim((receipt.periodoFim || '').slice(0, 10));
     setValor(String(Number(receipt.valor || 0)));
     setNumeroDisplay(receipt.numeroDisplay || '');
-    setCno(receipt.snapshot?.contract?.cno || '');
-    setEnderecoObra(receipt.snapshot?.contract?.enderecoObra || '');
+    setCno(ct.cno || '');
+    setEnderecoObra(ct.enderecoObra || '');
+    setDescricao(ct.descricao || '');
+    setContratoNumero(ct.numero || '');
+    setValorLocacao(String(Number(snap.valorLocacao ?? receipt.valor ?? 0)));
+    setFreteIncluso(String(Number(snap.freteIncluso || 0)));
+    setCust({
+      name: cu.name || '', document: cu.document || '', address: cu.address || '',
+      numero: cu.numero || '', bairro: cu.bairro || '', cidade: cu.cidade || '',
+      estado: cu.estado || '', cep: cu.cep || '',
+    });
+    setComp({
+      razaoSocial: co.razaoSocial || '', cnpj: co.cnpj || '',
+      inscricaoEstadual: co.inscricaoEstadual || '', endereco: co.endereco || '',
+      cidade: co.cidade || '', estado: co.estado || '', cep: co.cep || '',
+      telefone: co.telefone || '', email: co.email || '',
+      financeiroContato: co.financeiroContato || '',
+    });
   }, [receipt]);
+
+  const num = (s: string) => Number(String(s).replace(',', '.'));
 
   const salvar = async () => {
     if (!receipt) return;
@@ -3968,8 +3997,12 @@ const EditVencimentoDialog: React.FC<{
     if (periodoInicio && periodoFim && periodoFim < periodoInicio) {
       toast.error('Fim do período deve ser >= início'); return;
     }
-    const v = Number(String(valor).replace(',', '.'));
+    const v = num(valor);
+    const vl = num(valorLocacao);
+    const vf = freteIncluso === '' ? 0 : num(freteIncluso);
     if (!Number.isFinite(v) || v < 0) { toast.error('Valor inválido'); return; }
+    if (!Number.isFinite(vl) || vl < 0) { toast.error('Valor da locação inválido'); return; }
+    if (!Number.isFinite(vf) || vf < 0) { toast.error('Valor do frete inválido'); return; }
 
     const patch: any = {
       dataEmissao,
@@ -3980,6 +4013,12 @@ const EditVencimentoDialog: React.FC<{
       numeroDisplay: numeroDisplay.trim() || null,
       cno: cno.trim() || null,
       enderecoObra: enderecoObra.trim() || null,
+      descricao: descricao.trim() || null,
+      contratoNumero: contratoNumero.trim() || null,
+      valorLocacao: vl,
+      freteIncluso: vf,
+      customer: cust,
+      company: comp,
     };
     // Recalcula competência a partir do período/emissão para manter consistência.
     const compBase = periodoInicio || dataEmissao;
@@ -3999,70 +4038,113 @@ const EditVencimentoDialog: React.FC<{
     }
   };
 
+  const field = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    opts: { className?: string; placeholder?: string; type?: string } = {},
+  ) => (
+    <div className={`space-y-1 ${opts.className || ''}`}>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        type={opts.type} value={value} placeholder={opts.placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+
   return (
     <Dialog open={!!receipt} onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar recibo</DialogTitle>
           <DialogDescription>
-            Correções manuais no recibo <strong>{receipt?.numeroDisplay || receipt?.numero}</strong>.
-            O PDF refletirá as alterações ao regerar. Pagamento e status não são alterados aqui.
+            Todas as informações impressas no recibo <strong>{receipt?.numeroDisplay || receipt?.numero}</strong> podem
+            ser corrigidas aqui. O PDF refletirá as alterações ao baixar novamente.
+            Pagamento e status não são alterados neste modal.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 py-2 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor="edit-emissao">Data de emissão</Label>
-            <Input id="edit-emissao" type="date" value={dataEmissao} onChange={(e) => setDataEmissao(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="edit-venc">Data de vencimento</Label>
-            <Input id="edit-venc" type="date" value={dataVencimento} onChange={(e) => setDataVencimento(e.target.value)} />
-          </div>
+        <div className="space-y-5 py-2">
+          {/* Documento */}
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Documento</h4>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {field('Número exibido', numeroDisplay, setNumeroDisplay, { placeholder: receipt?.numero || '' })}
+              {field('Data de emissão', dataEmissao, setDataEmissao, { type: 'date' })}
+              {field('Data de vencimento', dataVencimento, setDataVencimento, { type: 'date' })}
+              {field('Início do período', periodoInicio, setPeriodoInicio, { type: 'date' })}
+              {field('Fim do período', periodoFim, setPeriodoFim, { type: 'date' })}
+              {field('Nº do contrato (impresso)', contratoNumero, setContratoNumero)}
+            </div>
+          </section>
 
-          <div className="space-y-1">
-            <Label htmlFor="edit-cno">CNO / Ordem de Compra</Label>
-            <Input
-              id="edit-cno"
-              value={cno}
-              onChange={(e) => setCno(e.target.value)}
-              placeholder="Número do CNO..."
-            />
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="edit-endereco">Endereço da Obra (Singular)</Label>
-            <Input
-              id="edit-endereco"
-              value={enderecoObra}
-              onChange={(e) => setEnderecoObra(e.target.value)}
-              placeholder="Endereço completo da obra..."
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="edit-pi">Início do período</Label>
-            <Input id="edit-pi" type="date" value={periodoInicio} onChange={(e) => setPeriodoInicio(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="edit-pf">Fim do período</Label>
-            <Input id="edit-pf" type="date" value={periodoFim} onChange={(e) => setPeriodoFim(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="edit-valor">Valor (R$)</Label>
-            <Input
-              id="edit-valor" type="number" min={0} step="0.01"
-              value={valor} onChange={(e) => setValor(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="edit-numdisp">Número exibido (opcional)</Label>
-            <Input
-              id="edit-numdisp"
-              value={numeroDisplay}
-              onChange={(e) => setNumeroDisplay(e.target.value)}
-              placeholder={receipt?.numero || ''}
-              maxLength={64}
-            />
-          </div>
+          {/* Serviço e valores */}
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Serviço e valores</h4>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Descrição do serviço</Label>
+              <Textarea
+                rows={3} value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                placeholder="Descrição que aparece na tabela de itens do recibo..."
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {field('Valor da locação (R$)', valorLocacao, (v) => {
+                setValorLocacao(v);
+                const t = num(v) + (freteIncluso === '' ? 0 : num(freteIncluso));
+                if (Number.isFinite(t)) setValor(String(t));
+              }, { type: 'number' })}
+              {field('Frete incluso (R$)', freteIncluso, (v) => {
+                setFreteIncluso(v);
+                const t = num(valorLocacao) + (v === '' ? 0 : num(v));
+                if (Number.isFinite(t)) setValor(String(t));
+              }, { type: 'number' })}
+              {field('Total da cobrança (R$)', valor, setValor, { type: 'number' })}
+            </div>
+          </section>
+
+          {/* Local de prestação */}
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Local de prestação / referências</h4>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {field('CNO / Ordem de Compra', cno, setCno)}
+              {field('Endereço da obra/evento', enderecoObra, setEnderecoObra, { className: 'sm:col-span-2' })}
+            </div>
+          </section>
+
+          {/* Cliente */}
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Dados do cliente (neste recibo)</h4>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {field('Nome / Razão social', cust.name || '', (v) => setCust({ ...cust, name: v }), { className: 'sm:col-span-2' })}
+              {field('CPF / CNPJ', cust.document || '', (v) => setCust({ ...cust, document: v }))}
+              {field('Endereço', cust.address || '', (v) => setCust({ ...cust, address: v }), { className: 'sm:col-span-2' })}
+              {field('Número', cust.numero || '', (v) => setCust({ ...cust, numero: v }))}
+              {field('Bairro', cust.bairro || '', (v) => setCust({ ...cust, bairro: v }))}
+              {field('Cidade', cust.cidade || '', (v) => setCust({ ...cust, cidade: v }))}
+              {field('UF', cust.estado || '', (v) => setCust({ ...cust, estado: v }))}
+              {field('CEP', cust.cep || '', (v) => setCust({ ...cust, cep: v }))}
+            </div>
+          </section>
+
+          {/* Empresa emissora */}
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold">Empresa emissora (neste recibo)</h4>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {field('Razão social', comp.razaoSocial || '', (v) => setComp({ ...comp, razaoSocial: v }), { className: 'sm:col-span-2' })}
+              {field('CNPJ', comp.cnpj || '', (v) => setComp({ ...comp, cnpj: v }))}
+              {field('Inscrição estadual', comp.inscricaoEstadual || '', (v) => setComp({ ...comp, inscricaoEstadual: v }))}
+              {field('Endereço', comp.endereco || '', (v) => setComp({ ...comp, endereco: v }), { className: 'sm:col-span-2' })}
+              {field('Cidade', comp.cidade || '', (v) => setComp({ ...comp, cidade: v }))}
+              {field('UF', comp.estado || '', (v) => setComp({ ...comp, estado: v }))}
+              {field('CEP', comp.cep || '', (v) => setComp({ ...comp, cep: v }))}
+              {field('Telefone', comp.telefone || '', (v) => setComp({ ...comp, telefone: v }))}
+              {field('E-mail', comp.email || '', (v) => setComp({ ...comp, email: v }))}
+              {field('Contato do financeiro', comp.financeiroContato || '', (v) => setComp({ ...comp, financeiroContato: v }))}
+            </div>
+          </section>
         </div>
 
         <DialogFooter>
@@ -4076,6 +4158,7 @@ const EditVencimentoDialog: React.FC<{
     </Dialog>
   );
 };
+
 
 // ============================================================
 // Gastos
