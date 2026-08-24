@@ -137,7 +137,7 @@ export interface Receipt {
   numeroDisplay?: string | null; // quando presente, prevalece na exibição/PDF
   semValidade?: boolean;         // recibo sem validade jurídica (controle interno)
   contractId: string;
-  competencia: string; // YYYY-MM (derivada do mês do periodoInicio quando houver)
+  competencia: string; // YYYY-MM da cobrança; independente do período exibido
   periodoInicio?: string | null; // YYYY-MM-DD — data inicial exata do período
   periodoFim?: string | null;    // YYYY-MM-DD — data final exata do período
   dataEmissao: string;
@@ -181,7 +181,7 @@ export interface PendingReceipt {
   enderecoObra?: string;
   localEvento?: string;
   /** Competência real do item — preenchida no frontend quando meses futuros
-   *  são mesclados pela "regra dos 5". Ausente = competência selecionada. */
+   *  são mesclados pela "regra dos 10". Ausente = competência selecionada. */
   competencia?: string;
 }
 export interface ReceiptsSummaryPoint {
