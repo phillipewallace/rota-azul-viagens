@@ -59,6 +59,8 @@ export interface Contract {
   descricao?: string;
   tipoContrato?: 'locacao' | 'evento' | 'obra';
   dataInicio: string;
+  /** Mês do 1º faturamento (YYYY-MM, opcional). Antes dele não fatura. */
+  primeiraCompetencia?: string | null;
   dataFim?: string | null;
   dataEvento?: string | null;
   dataRecolhimento?: string | null;
