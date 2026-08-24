@@ -239,6 +239,10 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   const competencia = (typeof comp === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(comp))
                     ? String(comp).slice(0, 7)
                     : (periodoInicio ? String(periodoInicio).slice(0, 7) : competenciaAtual());
+  const grupoRaw = (req.body || {}).numeroGrupo;
+  const numeroGrupo = (typeof grupoRaw === 'string' && grupoRaw.trim() && grupoRaw.trim().length <= 48)
+    ? grupoRaw.trim()
+    : null;
 
 
   const client = await pool.connect();
@@ -273,7 +277,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     // Unicidade é POR TIPO: recibo normal e "sem validade jurídica" podem
     // coexistir na mesma competência (migration-erp-receipts-sem-validade-unique).
     const existing = await client.query(
-      `SELECT id, numero, snapshot FROM erp_receipts
+      `SELECT id, numero, numero_display, snapshot FROM erp_receipts
         WHERE contract_id=$1 AND competencia=$2
           AND COALESCE(sem_validade, FALSE) = $3`,
       [contractId, competencia, !!semValidade]
@@ -388,10 +392,17 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
             SET valor=$2, pago=$3, snapshot=$4, data_vencimento=$5,
                 periodo_inicio = COALESCE($6, periodo_inicio),
                 periodo_fim    = COALESCE($7, periodo_fim),
+                 unified_group_id = $8,
+                 numero_display = CASE
+                   WHEN $8::uuid IS NOT NULL THEN COALESCE($9, numero_display)
+                   WHEN $10::boolean THEN REGEXP_REPLACE(numero, '^SV-', '')
+                   ELSE NULL
+                 END,
                 pdf_gerado_em=NOW()
           WHERE id=$1`,
         [existing.rows[0].id, valorFinal, !!pago, snapshot, dataVenc,
-         periodoInicio || null, periodoFim || null]
+          periodoInicio || null, periodoFim || null, unifiedGroupId || null,
+          numeroGrupo, !!semValidade]
       );
       await client.query(
         `INSERT INTO erp_receipt_billed_competences
@@ -415,11 +426,6 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     // `numero` interno recebe um sufixo /2, /3… só para respeitar a unicidade
     // técnica, enquanto `numero_display` (o que aparece no PDF/UI) é idêntico
     // para todos os recibos do grupo.
-    const grupoRaw = (req.body || {}).numeroGrupo;
-    const numeroGrupo = (typeof grupoRaw === 'string' && grupoRaw.trim() && grupoRaw.trim().length <= 48)
-      ? grupoRaw.trim()
-      : null;
-
     let numero: string;
     let numeroDisplay: string | null;
 
