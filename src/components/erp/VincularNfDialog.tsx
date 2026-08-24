@@ -122,7 +122,8 @@ export const VincularNfDialog: React.FC<Props> = ({
           <DialogDescription>
             Anexe a NF emitida no portal do governo. O contrato{' '}
             <span className="font-semibold text-foreground">{pending.contractNumero}</span>
-            {' '}será marcado como faturado nesta competência.
+            {' '}será marcado como faturado na competência{' '}
+            <span className="font-semibold text-foreground">{competencia.split('-').reverse().join('/')}</span>.
           </DialogDescription>
         </DialogHeader>
 
