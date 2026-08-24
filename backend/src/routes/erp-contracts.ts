@@ -24,6 +24,7 @@ const SELECT = `
   c.os_id AS "osId", c.origem, c.descricao,
   c.tipo_contrato AS "tipoContrato",
   c.data_inicio AS "dataInicio", c.data_fim AS "dataFim",
+  c.primeira_competencia AS "primeiraCompetencia",
   c.data_evento AS "dataEvento", c.data_recolhimento AS "dataRecolhimento",
   c.local_evento AS "localEvento", c.hora_entrega AS "horaEntrega",
   c.endereco_obra AS "enderecoObra", c.cno AS "cno",
@@ -142,6 +143,14 @@ router.post('/', async (req, res) => {
       customerSnap = cu.rows[0] || null;
     }
 
+    // Competência do 1º faturamento (opcional): normaliza para YYYY-MM.
+    const normComp = (v: any): string | null => {
+      const s = typeof v === 'string' ? v.trim() : '';
+      if (!s) return null;
+      const m = s.match(/^(\d{4})-(\d{2})/);
+      return m ? `${m[1]}-${m[2]}` : null;
+    };
+
     const ins = await client.query(
       `INSERT INTO erp_contracts
         (numero, company_id, customer_id, os_id, origem, descricao,
@@ -150,13 +159,14 @@ router.post('/', async (req, res) => {
          dia_vencimento, valor_mensal,
          renovacao_automatica, ativo, pdf_url, observacoes,
          company_snapshot, customer_snapshot, frete, endereco_obra, cno,
-         responsavel_nome, responsavel_telefone, responsavel_email)
+         responsavel_nome, responsavel_telefone, responsavel_email,
+         primeira_competencia)
        VALUES ($1,$2,$3,$4,COALESCE($5,'manual'),$6,
                COALESCE($7,'locacao'),$8,$9,
                $10,$11,$12,$13,$14,
                COALESCE($15,10),COALESCE($16,0),
                COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25,
-               $26,$27,$28)
+               $26,$27,$28,$29)
        RETURNING id, numero`,
       [numero, companyId, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
@@ -168,7 +178,8 @@ router.post('/', async (req, res) => {
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null, c.observacoes || null,
        companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0,
        c.enderecoObra || null, c.cno || null,
-       c.responsavelNome || null, c.responsavelTelefone || null, c.responsavelEmail || null]
+       c.responsavelNome || null, c.responsavelTelefone || null, c.responsavelEmail || null,
+       normComp(c.primeiraCompetencia)]
     );
 
     await client.query('COMMIT');
@@ -183,6 +194,15 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const c = req.body || {};
+    // Competência do 1º faturamento (opcional): normaliza para YYYY-MM.
+    // `undefined` = campo não enviado (mantém o valor atual); '' = limpar.
+    const primeiraComp = c.primeiraCompetencia === undefined
+      ? undefined
+      : (() => {
+          const s = typeof c.primeiraCompetencia === 'string' ? c.primeiraCompetencia.trim() : '';
+          const m = s.match(/^(\d{4})-(\d{2})/);
+          return m ? `${m[1]}-${m[2]}` : null;
+        })();
     await pool.query(
       `UPDATE erp_contracts SET
          company_id = COALESCE($2, company_id),
@@ -210,6 +230,7 @@ router.put('/:id', async (req, res) => {
          responsavel_nome     = $24,
          responsavel_telefone = $25,
          responsavel_email    = $26,
+         primeira_competencia = CASE WHEN $27::boolean THEN $28::text ELSE primeira_competencia END,
          -- [#7 alto] encerrado_em só muda quando $17 vem definido; null deixa intacto.
          encerrado_em = CASE
            WHEN $17::boolean IS NULL THEN encerrado_em
@@ -229,7 +250,8 @@ router.put('/:id', async (req, res) => {
        c.observacoes ?? null, c.motivoEncerramento ?? null,
        c.frete != null ? Number(c.frete) : null,
        c.enderecoObra ?? null, c.cno ?? null,
-       c.responsavelNome ?? null, c.responsavelTelefone ?? null, c.responsavelEmail ?? null]
+       c.responsavelNome ?? null, c.responsavelTelefone ?? null, c.responsavelEmail ?? null,
+       primeiraComp !== undefined, primeiraComp ?? null]
     );
     res.json({ ok: true });
   } catch (e: any) { sendError(res, e); }

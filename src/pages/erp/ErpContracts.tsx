@@ -775,6 +775,7 @@ function ContractFormDialog({
     companyId: '', customerId: '', osId: '',
     tipoContrato: 'locacao' as 'locacao' | 'evento' | 'obra',
     descricao: '', dataInicio: new Date().toISOString().slice(0, 10),
+    primeiraCompetencia: '',
     diaVencimento: 10, valorMensal: 0,
     frete: 0,
     renovacaoAutomatica: true, ativo: true,
@@ -811,6 +812,7 @@ function ContractFormDialog({
         tipoContrato: (editing.tipoContrato as any) || 'locacao',
         descricao: editing.descricao || '',
         dataInicio: (editing.dataInicio || '').slice(0, 10),
+        primeiraCompetencia: ((editing as any).primeiraCompetencia || '').slice(0, 7),
         diaVencimento: editing.diaVencimento,
         valorMensal: Number(editing.valorMensal),
         frete: Number(editing.frete || 0),
@@ -860,6 +862,7 @@ function ContractFormDialog({
       const payload = {
         ...form,
         osId: form.osId || null,
+        primeiraCompetencia: form.primeiraCompetencia || '',
         diaVencimento: Number(form.diaVencimento) || 10,
         valorMensal: Number(form.valorMensal) || 0,
         frete: Number(form.frete) || 0,
@@ -947,6 +950,21 @@ function ContractFormDialog({
                   return next;
                 });
               }} />
+          </div>
+          <div>
+            <Label className="text-xs flex items-center gap-1">
+              <Calendar className="h-3 w-3" /> 1º mês de faturamento (opcional)
+            </Label>
+            <Input
+              type="month"
+              value={form.primeiraCompetencia || ''}
+              onChange={(e) => setForm({ ...form, primeiraCompetencia: e.target.value })}
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Se preenchido, o contrato só aparece no Financeiro a partir desse mês —
+              competências anteriores não geram cobrança, mesmo com início antes.
+              Deixe vazio para faturar desde o início do contrato.
+            </p>
           </div>
           {form.tipoContrato !== 'evento' ? (
             <>

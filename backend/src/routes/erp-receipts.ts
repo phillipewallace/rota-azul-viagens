@@ -174,6 +174,11 @@ router.get('/pending', async (req, res) => {
         WHERE c.ativo = TRUE
           AND c.data_inicio <= (date_trunc('month', ($1 || '-01')::date)
                                 + INTERVAL '1 month - 1 day')::date
+          -- Mês do 1º faturamento (opcional): antes dessa competência o
+          -- contrato NÃO entra no faturamento, mesmo com início anterior.
+          AND (c.primeira_competencia IS NULL
+               OR c.primeira_competencia = ''
+               OR $1 >= c.primeira_competencia)
           -- Recibo "sem validade jurídica" é controle interno: NÃO tira o
           -- contrato da lista de pendentes do faturamento oficial.
           AND NOT EXISTS (
