@@ -828,7 +828,9 @@ const ErpFinanceiro: React.FC = () => {
     try {
       const out = await receiptsService.generate({
         contractId: p.contractId,
+        competencia: compOf(p),
         periodoInicio,
+
         periodoFim,
         valor: Number(p.valorMensal),
         pago: opts?.marcarPago ?? true,
