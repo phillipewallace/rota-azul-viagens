@@ -22,6 +22,7 @@ const SELECT = `
   r.cancelado_em AS "canceladoEm", r.motivo_cancelamento AS "motivoCancelamento",
   COALESCE(r.sem_validade, FALSE) AS "semValidade",
   r.numero_display AS "numeroDisplay",
+  r.unified_group_id AS "unifiedGroupId",
   c.numero AS "contractNumero",
   c.dia_vencimento AS "diaVencimento",
   c.valor_mensal AS "valorMensal",
@@ -211,13 +212,17 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   const {
     contractId, competencia: comp, valor, pago = true, regerar = false,
     periodoInicio, periodoFim, semValidade = false,
-    dataVencimento: dataVencimentoIn, cno, enderecoObra,
+    dataVencimento: dataVencimentoIn, cno, enderecoObra, unifiedGroupId,
   } = req.body || {};
   
   const user = (req as any).user?.username || (req as any).user?.nome;
   logger.finance('GENERATE', `Solicitação de geração de recibo por ${user}`, { contractId, competencia: comp, semValidade });
 
   if (!contractId) return res.status(400).json({ error: 'contractId obrigatório' });
+  if (unifiedGroupId !== undefined &&
+      (typeof unifiedGroupId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(unifiedGroupId))) {
+    return res.status(400).json({ error: 'unifiedGroupId inválido' });
+  }
 
   // Validação e normalização do período (DD/MM exato a exibir no recibo).
   const isISO = (s: any) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -443,11 +448,11 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       `INSERT INTO erp_receipts
           (numero, company_id, contract_id, competencia, data_emissao, data_vencimento,
           valor, pago, snapshot, pdf_gerado_em, periodo_inicio, periodo_fim,
-          sem_validade, numero_display)
-        VALUES ($1,$2,$3,$4,CURRENT_DATE,$5,$6,$7,$8,NOW(),$9,$10,$11,$12)
-       RETURNING id, numero, numero_display AS "numeroDisplay"`,
+          sem_validade, numero_display, unified_group_id)
+        VALUES ($1,$2,$3,$4,CURRENT_DATE,$5,$6,$7,$8,NOW(),$9,$10,$11,$12,$13)
+       RETURNING id, numero, numero_display AS "numeroDisplay", unified_group_id AS "unifiedGroupId"`,
       [numero, ct.company_id, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
-       periodoInicio || null, periodoFim || null, !!semValidade, numeroDisplay]
+       periodoInicio || null, periodoFim || null, !!semValidade, numeroDisplay, unifiedGroupId || null]
     );
 
     await client.query(
@@ -704,18 +709,24 @@ router.patch('/:id/pago', requireRole(...FIN_ROLES), async (req: any, res) => {
 
 // POST /:id/cancel — marca recibo como cancelado preservando histórico
 router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res) => {
+  const client = await pool.connect();
   try {
     const { motivo } = req.body || {};
     if (!motivo || !String(motivo).trim()) {
       return res.status(400).json({ error: 'motivo é obrigatório' });
     }
-    const cur = await pool.query('SELECT status FROM erp_receipts WHERE id=$1', [req.params.id]);
+    await client.query('BEGIN');
+    const cur = await client.query(
+      'SELECT status, unified_group_id FROM erp_receipts WHERE id=$1 FOR UPDATE',
+      [req.params.id],
+    );
     if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
     if (cur.rows[0].status === 'cancelado') {
       return res.status(409).json({ error: 'Recibo já está cancelado.' });
     }
     const actor = req.user?.username || req.user?.name || null;
-    await pool.query(
+    const groupId = cur.rows[0].unified_group_id;
+    const updated = await client.query(
       `UPDATE erp_receipts
           SET status = 'cancelado',
               pago = FALSE,
@@ -723,11 +734,16 @@ router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res) => {
               motivo_cancelamento = $2,
               updated_by = $3,
               updated_at = NOW()
-        WHERE id = $1`,
-      [req.params.id, String(motivo).trim(), actor]
+        WHERE (id = $1 OR ($4::uuid IS NOT NULL AND unified_group_id = $4::uuid))
+          AND status <> 'cancelado'`,
+      [req.params.id, String(motivo).trim(), actor, groupId]
     );
-    res.json({ ok: true });
-  } catch (e: any) { sendError(res, e); }
+    await client.query('COMMIT');
+    res.json({ ok: true, affected: updated.rowCount || 0, unified: !!groupId });
+  } catch (e: any) {
+    await client.query('ROLLBACK');
+    sendError(res, e);
+  } finally { client.release(); }
 });
 
 
@@ -735,15 +751,29 @@ router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res) => {
 // removendo-o para que a competência volte à lista de pendentes.
 // Uso típico: clique acidental no cancelar. Só funciona para status='cancelado'.
 router.post('/:id/reopen', requireRole(...FIN_ROLES), async (req, res) => {
+  const client = await pool.connect();
   try {
-    const cur = await pool.query('SELECT status FROM erp_receipts WHERE id=$1', [req.params.id]);
+    await client.query('BEGIN');
+    const cur = await client.query(
+      'SELECT status, unified_group_id FROM erp_receipts WHERE id=$1 FOR UPDATE',
+      [req.params.id],
+    );
     if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
     if (cur.rows[0].status !== 'cancelado') {
       return res.status(409).json({ error: 'Só é possível reabrir recibos cancelados.' });
     }
-    await pool.query('DELETE FROM erp_receipts WHERE id=$1', [req.params.id]);
-    res.json({ ok: true });
-  } catch (e: any) { sendError(res, e); }
+    const groupId = cur.rows[0].unified_group_id;
+    const deleted = await client.query(
+      `DELETE FROM erp_receipts
+        WHERE id = $1 OR ($2::uuid IS NOT NULL AND unified_group_id = $2::uuid)`,
+      [req.params.id, groupId],
+    );
+    await client.query('COMMIT');
+    res.json({ ok: true, affected: deleted.rowCount || 0, unified: !!groupId });
+  } catch (e: any) {
+    await client.query('ROLLBACK');
+    sendError(res, e);
+  } finally { client.release(); }
 });
 
 // GET /summary?months=12 — série mensal para gráfico

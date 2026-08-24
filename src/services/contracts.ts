@@ -135,6 +135,7 @@ export interface Receipt {
   id: string;
   numero: string;
   numeroDisplay?: string | null; // quando presente, prevalece na exibição/PDF
+  unifiedGroupId?: string | null; // presente somente quando o recibo pertence a um unificado
   semValidade?: boolean;         // recibo sem validade jurídica (controle interno)
   contractId: string;
   competencia: string; // YYYY-MM da cobrança; independente do período exibido
@@ -279,8 +280,10 @@ export const receiptsService = {
     enderecoObra?: string;
     /** Recibo unificado: reutiliza a MESMA numeração do grupo (não consome novo número). */
     numeroGrupo?: string;
+    /** Identidade persistente do grupo; não deve ser enviada em geração individual. */
+    unifiedGroupId?: string;
   }) =>
-    req<{ ok: true; id: string; numero: string; numeroDisplay?: string | null; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
+    req<{ ok: true; id: string; numero: string; numeroDisplay?: string | null; unifiedGroupId?: string | null; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
   /** Ajusta manualmente o vencimento de um recibo já emitido. */
   setVencimento: (id: string, dataVencimento: string | null) =>
     req<{ ok: true }>('PATCH', `/erp/receipts/${id}/vencimento`, { dataVencimento }),
@@ -298,9 +301,9 @@ export const receiptsService = {
   remove: (id: string, force = false) =>
     req<{ ok: true }>('DELETE', `/erp/receipts/${id}${force ? '?force=1' : ''}`),
   cancel: (id: string, motivo: string) =>
-    req<{ ok: true }>('POST', `/erp/receipts/${id}/cancel`, { motivo }),
+    req<{ ok: true; affected: number; unified: boolean }>('POST', `/erp/receipts/${id}/cancel`, { motivo }),
   reopen: (id: string) =>
-    req<{ ok: true }>('POST', `/erp/receipts/${id}/reopen`),
+    req<{ ok: true; affected: number; unified: boolean }>('POST', `/erp/receipts/${id}/reopen`),
   summary: (months = 12) =>
     req<{ series: ReceiptsSummaryPoint[] }>('GET', `/erp/receipts/summary?months=${months}`),
 };

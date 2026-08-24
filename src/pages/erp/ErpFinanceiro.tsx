@@ -1100,10 +1100,9 @@ const ErpFinanceiro: React.FC = () => {
       // gravada no momento da geração unificada) com outros recibos. Nunca
       // inferimos grupo por cliente/empresa/período — isso fazia recibos
       // gerados individualmente saírem como unificados.
-      const grupoNum = (r.numeroDisplay || '').trim();
-      const group = grupoNum
+      const group = r.unifiedGroupId
         ? recibos.filter(x =>
-            (x.numeroDisplay || '').trim() === grupoNum &&
+            x.unifiedGroupId === r.unifiedGroupId &&
             !!x.semValidade === !!r.semValidade &&
             x.status !== 'cancelado',
           )
@@ -1177,8 +1176,10 @@ const ErpFinanceiro: React.FC = () => {
     if (!ok) return;
     setWorking(r.id);
     try {
-      await receiptsService.reopen(r.id);
-      toast.success('Recibo removido — competência disponível para faturar novamente');
+      const result = await receiptsService.reopen(r.id);
+      toast.success(result.unified
+        ? `${result.affected} recibos do grupo removidos — competências disponíveis novamente`
+        : 'Recibo removido — competência disponível para faturar novamente');
       await load();
     } catch (e: any) { toast.error(e.message); }
     finally { setWorking(null); }
@@ -1361,6 +1362,7 @@ const ErpFinanceiro: React.FC = () => {
     setBatchWorking(true);
     try {
       const results = [];
+      const unifiedGroupId = crypto.randomUUID();
       // Apenas o primeiro recibo consome numeração; os demais reutilizam.
       let numeroGrupo: string | null = null;
       for (const it of input.items) {
@@ -1378,6 +1380,7 @@ const ErpFinanceiro: React.FC = () => {
           semValidade: !!input.semValidade,
           cno: it.cno || undefined,
           enderecoObra: it.enderecoObra || undefined,
+          unifiedGroupId,
           ...(numeroGrupo ? { numeroGrupo } : {}),
         });
         acknowledgeGenerated((it as any).contractId, input.competencia);
@@ -3886,8 +3889,10 @@ const CancelDialog: React.FC<{
     if (!motivo.trim()) { toast.error('Informe o motivo do cancelamento'); return; }
     setSaving(true);
     try {
-      await receiptsService.cancel(receipt.id, motivo.trim());
-      toast.success('Recibo cancelado');
+       const result = await receiptsService.cancel(receipt.id, motivo.trim());
+       toast.success(result.unified
+         ? `${result.affected} recibos do grupo unificado cancelados`
+         : 'Recibo cancelado');
       onCanceled();
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
@@ -3900,7 +3905,7 @@ const CancelDialog: React.FC<{
             <XCircle className="h-5 w-5" /> Cancelar recibo
           </DialogTitle>
           <DialogDescription>
-            Recibo <strong>{receipt.numero}</strong> será marcado como <strong>cancelado</strong>.
+            {receipt.unifiedGroupId ? 'Todo o grupo unificado' : <>Recibo <strong>{receipt.numero}</strong></>} será marcado como <strong>cancelado</strong>.
             O histórico e a numeração são preservados.
           </DialogDescription>
         </DialogHeader>
