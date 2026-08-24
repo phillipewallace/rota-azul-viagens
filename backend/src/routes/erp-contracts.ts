@@ -194,6 +194,15 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const c = req.body || {};
+    // Competência do 1º faturamento (opcional): normaliza para YYYY-MM.
+    // `undefined` = campo não enviado (mantém o valor atual); '' = limpar.
+    const primeiraComp = c.primeiraCompetencia === undefined
+      ? undefined
+      : (() => {
+          const s = typeof c.primeiraCompetencia === 'string' ? c.primeiraCompetencia.trim() : '';
+          const m = s.match(/^(\d{4})-(\d{2})/);
+          return m ? `${m[1]}-${m[2]}` : null;
+        })();
     await pool.query(
       `UPDATE erp_contracts SET
          company_id = COALESCE($2, company_id),
@@ -221,6 +230,7 @@ router.put('/:id', async (req, res) => {
          responsavel_nome     = $24,
          responsavel_telefone = $25,
          responsavel_email    = $26,
+         primeira_competencia = CASE WHEN $27::boolean THEN $28::text ELSE primeira_competencia END,
          -- [#7 alto] encerrado_em só muda quando $17 vem definido; null deixa intacto.
          encerrado_em = CASE
            WHEN $17::boolean IS NULL THEN encerrado_em
@@ -240,7 +250,8 @@ router.put('/:id', async (req, res) => {
        c.observacoes ?? null, c.motivoEncerramento ?? null,
        c.frete != null ? Number(c.frete) : null,
        c.enderecoObra ?? null, c.cno ?? null,
-       c.responsavelNome ?? null, c.responsavelTelefone ?? null, c.responsavelEmail ?? null]
+       c.responsavelNome ?? null, c.responsavelTelefone ?? null, c.responsavelEmail ?? null,
+       primeiraComp !== undefined, primeiraComp ?? null]
     );
     res.json({ ok: true });
   } catch (e: any) { sendError(res, e); }
