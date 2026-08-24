@@ -293,7 +293,7 @@ router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
 // ---------- UPDATE metadata ---------------------------------------------
 router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
   const body = req.body || {};
-  const { numero, dataEmissao, valor, formaPagamento } = body;
+  const { numero, dataEmissao, valor, formaPagamento, competencia } = body;
   const serieProvided = Object.prototype.hasOwnProperty.call(body, 'serie');
   const obsProvided   = Object.prototype.hasOwnProperty.call(body, 'observacoes');
   const formaProvided = Object.prototype.hasOwnProperty.call(body, 'formaPagamento');
@@ -301,6 +301,9 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
   // Validações defensivas antes de tocar em transação.
   if (dataEmissao && !isValidISODate(dataEmissao)) {
     return res.status(400).json({ error: 'Data de emissão inválida (use YYYY-MM-DD).' });
+  }
+  if (competencia !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(competencia))) {
+    return res.status(400).json({ error: 'Competência inválida (use YYYY-MM).' });
   }
   let valorNum: number | null = null;
   if (valor !== undefined && valor !== null) {
@@ -329,8 +332,8 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
     }
 
     let newComp: string | null = null;
-    if (dataEmissao) {
-      const comp = String(dataEmissao).slice(0, 7);
+    if (competencia !== undefined) {
+      const comp = String(competencia);
       if (comp !== cur.rows[0].competencia) {
         const dup = await client.query(
           `SELECT id, numero FROM erp_invoices
