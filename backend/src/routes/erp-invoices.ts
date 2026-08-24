@@ -216,43 +216,72 @@ router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
         return res.status(400).json({ error: 'Valor da NF inválido (deve ser um número ≥ 0).' });
       }
 
-      // Deriva competência do dataEmissao quando não informada.
-      const comp = competencia || String(dataEmissao).slice(0, 7);
-      if (!/^\d{4}-\d{2}$/.test(comp)) {
-        return res.status(400).json({ error: 'Competência inválida' });
-      }
-
-      // Impede duplicidade de NF ativa na mesma competência do contrato.
-      const dup = await pool.query(
-        `SELECT id, numero FROM erp_invoices
-          WHERE contract_id = $1 AND competencia = $2 AND status = 'ativa' LIMIT 1`,
-        [contractId, comp],
-      );
-      if (dup.rows[0]) {
-        return res.status(409).json({
-          error: `Já existe uma NF ativa (${dup.rows[0].numero}) nessa competência para este contrato.`,
-        });
+      // A competência enviada pela linha pendente é a fonte de verdade. A data
+      // de emissão pode pertencer a outro mês (faturamento antecipado).
+      const comp = typeof competencia === 'string' ? competencia.trim() : '';
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(comp)) {
+        return res.status(400).json({ error: 'Competência obrigatória e inválida (use YYYY-MM).' });
       }
 
       const url = `/uploads/invoices/${file.filename}`;
-      const r = await pool.query(
-        `INSERT INTO erp_invoices
-           (contract_id, competencia, numero, serie, data_emissao, valor,
-            forma_pagamento, observacoes,
-            pdf_url, pdf_original_filename, pdf_stored_filename, pdf_size_bytes,
-            created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-         RETURNING id`,
-        [
-          contractId, comp, String(numero).trim(), serie || null,
-          dataEmissao, valorNum,
-          formaPagamento || null, observacoes || null,
-          url, file.originalname, file.filename, file.size || null,
-          actor(req),
-        ],
-      );
-      keepFile = true;
-      res.json({ ok: true, id: r.rows[0].id });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const contract = await client.query(
+          'SELECT id FROM erp_contracts WHERE id=$1 FOR SHARE',
+          [contractId],
+        );
+        if (!contract.rows[0]) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Contrato não encontrado.' });
+        }
+
+        // Impede duplicidade de NF ativa na mesma competência do contrato.
+        const dup = await client.query(
+          `SELECT id, numero FROM erp_invoices
+            WHERE contract_id = $1 AND competencia = $2 AND status = 'ativa' LIMIT 1`,
+          [contractId, comp],
+        );
+        if (dup.rows[0]) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            error: `Já existe uma NF ativa (${dup.rows[0].numero}) nessa competência para este contrato.`,
+          });
+        }
+
+        const r = await client.query(
+          `INSERT INTO erp_invoices
+             (contract_id, competencia, numero, serie, data_emissao, valor,
+              forma_pagamento, observacoes,
+              pdf_url, pdf_original_filename, pdf_stored_filename, pdf_size_bytes,
+              created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+           RETURNING id`,
+          [
+            contractId, comp, String(numero).trim(), serie || null,
+            dataEmissao, valorNum,
+            formaPagamento || null, observacoes || null,
+            url, file.originalname, file.filename, file.size || null,
+            actor(req),
+          ],
+        );
+        await client.query(
+          `INSERT INTO erp_invoice_billed_competences
+             (invoice_id, contract_id, competencia, reconciled)
+           VALUES ($1, $2, $3, FALSE)
+           ON CONFLICT (invoice_id, competencia)
+           DO UPDATE SET contract_id=EXCLUDED.contract_id, reconciled=FALSE`,
+          [r.rows[0].id, contractId, comp],
+        );
+        await client.query('COMMIT');
+        keepFile = true;
+        res.json({ ok: true, id: r.rows[0].id, contractId, competencia: comp });
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw e;
+      } finally {
+        client.release();
+      }
     } catch (e: any) {
       return sendError(res, e, '[erp-invoices POST]');
     } finally {
@@ -264,7 +293,7 @@ router.post('/', requireRole(...FIN_ROLES), (req: any, res: any) => {
 // ---------- UPDATE metadata ---------------------------------------------
 router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
   const body = req.body || {};
-  const { numero, dataEmissao, valor, formaPagamento } = body;
+  const { numero, dataEmissao, valor, formaPagamento, competencia } = body;
   const serieProvided = Object.prototype.hasOwnProperty.call(body, 'serie');
   const obsProvided   = Object.prototype.hasOwnProperty.call(body, 'observacoes');
   const formaProvided = Object.prototype.hasOwnProperty.call(body, 'formaPagamento');
@@ -272,6 +301,9 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
   // Validações defensivas antes de tocar em transação.
   if (dataEmissao && !isValidISODate(dataEmissao)) {
     return res.status(400).json({ error: 'Data de emissão inválida (use YYYY-MM-DD).' });
+  }
+  if (competencia !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(String(competencia))) {
+    return res.status(400).json({ error: 'Competência inválida (use YYYY-MM).' });
   }
   let valorNum: number | null = null;
   if (valor !== undefined && valor !== null) {
@@ -300,8 +332,8 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
     }
 
     let newComp: string | null = null;
-    if (dataEmissao) {
-      const comp = String(dataEmissao).slice(0, 7);
+    if (competencia !== undefined) {
+      const comp = String(competencia);
       if (comp !== cur.rows[0].competencia) {
         const dup = await client.query(
           `SELECT id, numero FROM erp_invoices
@@ -347,6 +379,21 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req: any, res: any) => {
        newComp,
        actor(req)],
     );
+    if (newComp) {
+      await client.query(
+        `DELETE FROM erp_invoice_billed_competences
+          WHERE invoice_id=$1 AND competencia=$2`,
+        [req.params.id, cur.rows[0].competencia],
+      );
+      await client.query(
+        `INSERT INTO erp_invoice_billed_competences
+           (invoice_id, contract_id, competencia, reconciled)
+         VALUES ($1, $2, $3, FALSE)
+         ON CONFLICT (invoice_id, competencia)
+         DO UPDATE SET contract_id=EXCLUDED.contract_id, reconciled=FALSE`,
+        [req.params.id, cur.rows[0].contract_id, newComp],
+      );
+    }
     await client.query('COMMIT');
     res.json({ ok: true });
   } catch (e: any) {

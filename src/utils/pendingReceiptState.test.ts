@@ -30,4 +30,18 @@ describe('estado de pendências por contrato e competência', () => {
       'c2:2026-08',
     ]);
   });
+
+  it('remove uma NF futura sem remover o mesmo contrato no mês selecionado', () => {
+    const result = removeGeneratedPending(
+      [pending('c1', '2026-08'), pending('c1', '2026-09'), pending('c2', '2026-09')],
+      'c1',
+      '2026-09',
+      '2026-08',
+    );
+
+    expect(result.map(item => pendingReceiptKey(item, '2026-08'))).toEqual([
+      'c1:2026-08',
+      'c2:2026-09',
+    ]);
+  });
 });

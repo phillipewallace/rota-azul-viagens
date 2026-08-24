@@ -123,11 +123,12 @@ export const invoicesService = {
     fd.append('valor', String(data.valor));
     if (data.formaPagamento) fd.append('formaPagamento', data.formaPagamento);
     if (data.observacoes)    fd.append('observacoes', data.observacoes);
-    return reqUpload<{ ok: true; id: string }>('/erp/invoices', fd);
+    return reqUpload<{ ok: true; id: string; contractId: string; competencia: string }>('/erp/invoices', fd);
   },
   update: (id: string, data: Partial<{
     numero: string; serie: string; dataEmissao: string;
-    valor: number; formaPagamento: InvoiceFormaPagamento; observacoes: string;
+    competencia: string; valor: number;
+    formaPagamento: InvoiceFormaPagamento; observacoes: string;
   }>) => reqJson<{ ok: true }>('PATCH', `/erp/invoices/${id}`, data),
   replacePdf: (id: string, file: File) => {
     const fd = new FormData();

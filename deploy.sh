@@ -93,6 +93,11 @@ sudo -u postgres psql -d "${DB_NAME}" -tAc \
   | grep -qx t \
   || err "Migration de reconciliação dos recibos não foi aplicada"
 
+sudo -u postgres psql -d "${DB_NAME}" -tAc \
+  "SELECT to_regclass('public.erp_invoice_billed_competences') IS NOT NULL" \
+  | grep -qx t \
+  || err "Migration de reconciliação das notas fiscais não foi aplicada"
+
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO ${DB_USER};" >/dev/null
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${DB_USER};" >/dev/null
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${DB_USER};" >/dev/null 2>&1 || true

@@ -28,7 +28,7 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   pending: PendingReceipt | null;
   competencia: string;              // YYYY-MM da tela
-  onSuccess?: () => void;
+  onSuccess?: (result: { contractId: string; competencia: string }) => void;
 }
 
 const todayISO = () => {
@@ -89,7 +89,7 @@ export const VincularNfDialog: React.FC<Props> = ({
 
     setSaving(true);
     try {
-      await invoicesService.create({
+      const result = await invoicesService.create({
         file,
         contractId: pending.contractId,
         competencia,
@@ -102,7 +102,7 @@ export const VincularNfDialog: React.FC<Props> = ({
       });
       toast.success(`NF ${numero.trim()} vinculada ao contrato ${pending.contractNumero}`);
       onOpenChange(false);
-      onSuccess?.();
+      onSuccess?.({ contractId: result.contractId, competencia: result.competencia });
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao vincular nota fiscal');
     } finally {
@@ -122,7 +122,8 @@ export const VincularNfDialog: React.FC<Props> = ({
           <DialogDescription>
             Anexe a NF emitida no portal do governo. O contrato{' '}
             <span className="font-semibold text-foreground">{pending.contractNumero}</span>
-            {' '}será marcado como faturado nesta competência.
+            {' '}será marcado como faturado na competência{' '}
+            <span className="font-semibold text-foreground">{competencia.split('-').reverse().join('/')}</span>.
           </DialogDescription>
         </DialogHeader>
 
