@@ -1282,7 +1282,7 @@ const ErpFinanceiro: React.FC = () => {
     if (alvos.length === 0) return;
     const first = alvos[0];
     
-    // Competência padrão do grupo (regra dos 5 pode mesclar meses futuros)
+    // Competência padrão do grupo (regra dos 10 pode mesclar meses futuros)
     const comp = compOf(first);
 
     // Período unificado padrão: do menor início ao maior fim dos itens
