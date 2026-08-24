@@ -562,12 +562,66 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
     if (b.cno !== undefined) patch.cno = b.cno;
     if (b.enderecoObra !== undefined) patch.endereco_obra = b.enderecoObra;
 
+    // ---- Overrides livres do snapshot (edição ampla do recibo) ----
+    // Permitem corrigir qualquer texto impresso no PDF sem alterar o cadastro.
+    const str = (v: unknown, max = 300): string | null | undefined => {
+      if (v === undefined) return undefined;
+      if (v === null) return null;
+      if (typeof v !== 'string') return 'INVALID' as any;
+      const s = v.trim();
+      if (s.length > max) return 'INVALID' as any;
+      return s === '' ? null : s;
+    };
+    const CUSTOMER_FIELDS = ['name', 'document', 'address', 'numero', 'bairro', 'cidade', 'estado', 'cep'] as const;
+    const COMPANY_FIELDS = [
+      'razaoSocial', 'cnpj', 'inscricaoEstadual', 'endereco', 'cidade', 'estado',
+      'cep', 'telefone', 'email', 'financeiroContato',
+    ] as const;
+    const snapOverride: { contract: any; customer: any; company: any; root: any } =
+      { contract: {}, customer: {}, company: {}, root: {} };
+
+    const descricao = str(b.descricao, 2000);
+    if (descricao === 'INVALID') return res.status(400).json({ error: 'descricao inválida' });
+    if (descricao !== undefined) snapOverride.contract.descricao = descricao;
+
+    const contratoNumero = str(b.contratoNumero, 64);
+    if (contratoNumero === 'INVALID') return res.status(400).json({ error: 'contratoNumero inválido' });
+    if (contratoNumero !== undefined) snapOverride.contract.numero = contratoNumero;
+
+    if (b.customer && typeof b.customer === 'object') {
+      for (const f of CUSTOMER_FIELDS) {
+        const v = str((b.customer as any)[f], f === 'address' ? 400 : 200);
+        if (v === 'INVALID') return res.status(400).json({ error: `customer.${f} inválido` });
+        if (v !== undefined) snapOverride.customer[f] = v;
+      }
+    }
+    if (b.company && typeof b.company === 'object') {
+      for (const f of COMPANY_FIELDS) {
+        const v = str((b.company as any)[f], 300);
+        if (v === 'INVALID') return res.status(400).json({ error: `company.${f} inválido` });
+        if (v !== undefined) snapOverride.company[f] = v;
+      }
+    }
+    for (const f of ['valorLocacao', 'freteIncluso'] as const) {
+      if (b[f] !== undefined) {
+        const n = Number(b[f]);
+        if (!Number.isFinite(n) || n < 0) return res.status(400).json({ error: `${f} inválido` });
+        snapOverride.root[f] = n;
+      }
+    }
+    const hasSnapOverride =
+      Object.keys(snapOverride.contract).length > 0 ||
+      Object.keys(snapOverride.customer).length > 0 ||
+      Object.keys(snapOverride.company).length > 0 ||
+      Object.keys(snapOverride.root).length > 0;
+
     if (patch.periodo_inicio && patch.periodo_fim && patch.periodo_fim < patch.periodo_inicio) {
       return res.status(400).json({ error: 'periodoFim deve ser >= periodoInicio' });
     }
 
     const keys = Object.keys(patch);
-    if (keys.length === 0) return res.status(400).json({ error: 'Nada para atualizar' });
+    if (keys.length === 0 && !hasSnapOverride) return res.status(400).json({ error: 'Nada para atualizar' });
+
 
     const client = await pool.connect();
     try {
@@ -584,11 +638,12 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
         return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
       }
 
-      // Se houver alteração de CNO ou Endereço, atualizamos o snapshot e o contrato
-      if (patch.cno !== undefined || patch.endereco_obra !== undefined) {
+      // CNO/Endereço sincronizam com o contrato; os demais overrides ficam
+      // apenas no snapshot do recibo (o PDF lê o snapshot).
+      if (patch.cno !== undefined || patch.endereco_obra !== undefined || hasSnapOverride) {
         const snap = rec.snapshot || {};
-        const snapContract = snap.contract || {};
-        
+        const snapContract = { ...(snap.contract || {}) };
+
         if (patch.cno !== undefined) {
           snapContract.cno = patch.cno;
           await client.query('UPDATE erp_contracts SET cno = $2 WHERE id = $1', [rec.contract_id, patch.cno]);
@@ -597,15 +652,24 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
           snapContract.enderecoObra = patch.endereco_obra;
           await client.query('UPDATE erp_contracts SET endereco_obra = $2 WHERE id = $1', [rec.contract_id, patch.endereco_obra]);
         }
-        
+
+        Object.assign(snapContract, snapOverride.contract);
         snap.contract = snapContract;
+        snap.customer = { ...(snap.customer || {}), ...snapOverride.customer };
+        snap.company = { ...(snap.company || {}), ...snapOverride.company };
+        Object.assign(snap, snapOverride.root);
+
+        // Mantém o total coerente quando o usuário edita locação/frete
+        // e não informou um valor total explícito.
+        if (patch.valor === undefined && (snapOverride.root.valorLocacao !== undefined || snapOverride.root.freteIncluso !== undefined)) {
+          patch.valor = Number(snap.valorLocacao || 0) + Number(snap.freteIncluso || 0);
+        }
+
         patch.snapshot = snap;
-        
-        // Remove campos que não são colunas da tabela erp_receipts se necessário
-        // (cno e endereco_obra não existem na tabela, apenas no snapshot e no contrato)
         delete patch.cno;
         delete patch.endereco_obra;
       }
+
 
       const finalKeys = Object.keys(patch);
       if (finalKeys.length > 0) {
