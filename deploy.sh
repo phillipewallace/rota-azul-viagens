@@ -91,86 +91,6 @@ sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA p
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${DB_USER};" >/dev/null 2>&1 || true
 ok "Schema + migrations aplicados (dados preservados)"
 
-# ─── 4.1) Importação MIC BAN Agosto/2026 (one-shot, idempotente) ─────────────
-IMPORT_SQL="${PROJECT_DIR}/database/import-micban-agosto.sql"
-IMPORT_OK_MARKER="${PROJECT_DIR}/database/.imported-micban-agosto-v2"
-if [[ -f "$IMPORT_SQL" ]]; then
-  if [[ -f "$IMPORT_OK_MARKER" ]]; then
-    ok "Importação MIC BAN Agosto/2026 já aplicada ($(cat "$IMPORT_OK_MARKER")) — pulando"
-  else
-    log "Importando contratos MIC BAN Agosto/2026 no banco…"
-    if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$IMPORT_SQL"; then
-      IMPORT_COUNT="$(sudo -u postgres psql -d "${DB_NAME}" -tAc "SELECT COUNT(*) FROM public.erp_contracts WHERE COALESCE(observacoes,'') LIKE '%[import:micban-ago26#%'" | tr -d '[:space:]')"
-      if [[ "${IMPORT_COUNT:-0}" -ge 6 ]]; then
-        date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_OK_MARKER"
-        ok "Importação MIC BAN concluída — ${IMPORT_COUNT} contratos no banco (marcador criado, não roda de novo)"
-      else
-        warn "Importação rodou mas só encontrei ${IMPORT_COUNT:-0} contratos — marcador NÃO criado, tentará novamente no próximo deploy"
-      fi
-    else
-      warn "Falha na importação MIC BAN (deploy continua) — veja o erro SQL acima"
-    fi
-  fi
-fi
-
-# ─── 4.2) Importação DSR Setembro/2026 (one-shot, idempotente) ───────────────
-IMPORT_DSR_SQL="${PROJECT_DIR}/database/import-dsr-setembro.sql"
-# v2: reexecuta uma vez para vincular os clientes aos contratos já importados
-IMPORT_DSR_MARKER="${PROJECT_DIR}/database/.imported-dsr-set26-v3"
-if [[ -f "$IMPORT_DSR_SQL" ]]; then
-  if [[ -f "$IMPORT_DSR_MARKER" ]]; then
-    ok "Importação DSR Setembro/2026 já aplicada ($(cat "$IMPORT_DSR_MARKER")) — pulando"
-  else
-    log "Importando contratos DSR Setembro/2026 no banco…"
-    if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$IMPORT_DSR_SQL"; then
-      IMPORT_DSR_COUNT="$(sudo -u postgres psql -d "${DB_NAME}" -tAc "SELECT COUNT(*) FROM public.erp_contracts WHERE COALESCE(observacoes,'') LIKE '%[import:dsr-set26#%'" | tr -d '[:space:]')"
-      if [[ "${IMPORT_DSR_COUNT:-0}" -ge 29 ]]; then
-        date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_DSR_MARKER"
-        ok "Importação DSR Setembro/2026 concluída — ${IMPORT_DSR_COUNT} contratos no banco (marcador criado, não roda de novo)"
-      else
-        warn "Importação DSR rodou mas só encontrei ${IMPORT_DSR_COUNT:-0} contratos — marcador NÃO criado, tentará novamente no próximo deploy"
-      fi
-    else
-      warn "Falha na importação DSR (deploy continua) — veja o erro SQL acima"
-    fi
-  fi
-fi
-
-# ─── 4.3) Importação MIC BAN Setembro/2026 (one-shot, idempotente) ───────────
-IMPORT_MIC_SET_SQL="${PROJECT_DIR}/database/import-micban-setembro.sql"
-IMPORT_MIC_SET_MARKER="${PROJECT_DIR}/database/.imported-micban-set26-v2"
-if [[ -f "$IMPORT_MIC_SET_SQL" ]]; then
-  if [[ -f "$IMPORT_MIC_SET_MARKER" ]]; then
-    ok "Importação MIC BAN Setembro/2026 já aplicada ($(cat "$IMPORT_MIC_SET_MARKER")) — pulando"
-  else
-    log "Importando contratos MIC BAN Setembro/2026 no banco…"
-    if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$IMPORT_MIC_SET_SQL"; then
-      IMPORT_MIC_SET_COUNT="$(sudo -u postgres psql -d "${DB_NAME}" -tAc "SELECT COUNT(*) FROM public.erp_contracts WHERE COALESCE(observacoes,'') LIKE '%[import:micban-set26#%'" | tr -d '[:space:]')"
-      if [[ "${IMPORT_MIC_SET_COUNT:-0}" -ge 7 ]]; then
-        date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_MIC_SET_MARKER"
-        ok "Importação MIC BAN Setembro/2026 concluída — ${IMPORT_MIC_SET_COUNT} contratos no banco (marcador criado, não roda de novo)"
-      else
-        warn "Importação MIC BAN Setembro rodou mas só encontrei ${IMPORT_MIC_SET_COUNT:-0} contratos — marcador NÃO criado, tentará novamente no próximo deploy"
-      fi
-    else
-      warn "Falha na importação MIC BAN Setembro (deploy continua) — veja o erro SQL acima"
-    fi
-  fi
-fi
-
-# ─── 4.4) Correção de competência: importados valem a partir de Setembro/2026 ─
-# Idempotente (UPDATE com WHERE) — roda em todo deploy para corrigir também
-# contratos importados antes desta regra existir.
-FIX_COMP_SQL="${PROJECT_DIR}/database/fix-import-competencia-setembro.sql"
-if [[ -f "$FIX_COMP_SQL" ]]; then
-  if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$FIX_COMP_SQL"; then
-    ok "Gatilho de deploy rodado (datas originais preservadas)"
-  else
-    warn "Falha na correção de competência (deploy continua) — veja o erro SQL acima"
-  fi
-fi
-
-
 # ─── 5) Backend: deps + build ───────────────────────────────────────────────
 log "Backend: instalando deps + compilando TS…"
 cd "${PROJECT_DIR}/backend"
@@ -210,8 +130,6 @@ else
   fi
 fi
 
-# A importação MIC BAN Agosto/2026 roda no passo 4.1 (SQL direto, sem Bun/Node).
-
 ok "Backend compilado"
 
 # ─── 5.1) Diretório de uploads (logos, PDFs assinados, fotos) ───────────────
@@ -221,38 +139,6 @@ mkdir -p "${UPLOADS_DIR}/logos" "${UPLOADS_DIR}/photos" "${UPLOADS_DIR}/contract
 chown -R root:root "${UPLOADS_DIR}"
 chmod -R 755 "${UPLOADS_DIR}"
 ok "Uploads OK em ${UPLOADS_DIR}"
-
-# ─── 5.2) Importação one-shot dos ERPs legados (DSR + MIC BAN) ──────────────
-IMPORT_MARKER_V1="${PROJECT_DIR}/backend/scripts/.imported-legacy-erp"
-IMPORT_MARKER="${PROJECT_DIR}/backend/scripts/.imported-legacy-erp-v2"
-IMPORT_SCRIPT="${PROJECT_DIR}/backend/scripts/import-legacy-erp.js"
-CONVERT_SCRIPT="${PROJECT_DIR}/backend/scripts/convert-legacy-xlsx.py"
-LEGACY_DIR="${PROJECT_DIR}/backend/scripts/legacy-data"
-if [[ -f "$IMPORT_SCRIPT" && ! -f "$IMPORT_MARKER" ]]; then
-  if [[ -f "$CONVERT_SCRIPT" ]]; then
-    command -v python3 >/dev/null || { log "Instalando python3…"; apt-get install -y python3 python3-pip >/dev/null; }
-    if ! python3 -c "import pandas, openpyxl" 2>/dev/null; then
-      log "Instalando pandas + openpyxl…"
-      pip3 install --break-system-packages --quiet pandas openpyxl 2>/dev/null || pip3 install --quiet pandas openpyxl 2>/dev/null || warn "Falha instalando pandas"
-    fi
-    NEED_CONVERT=0
-    for pair in "DSR.xlsx:dsr.json" "MICBAN.xlsx:micban.json"; do
-      x="${LEGACY_DIR}/${pair%%:*}"; j="${LEGACY_DIR}/${pair##*:}"
-      [[ -f "$x" ]] || continue
-      [[ ! -f "$j" || "$x" -nt "$j" ]] && NEED_CONVERT=1
-    done
-    if [[ "$NEED_CONVERT" == "1" ]] && python3 -c "import pandas, openpyxl" 2>/dev/null; then
-      log "Convertendo XLSX legados → JSON enriquecido…"
-      python3 "$CONVERT_SCRIPT" || warn "convert-legacy-xlsx.py falhou"
-    fi
-  fi
-  log "Enriquecendo contratos legados (DSR + MIC BAN) com dados das Observações…"
-  if (cd "${PROJECT_DIR}/backend" && node scripts/import-legacy-erp.js --apply --update-existing); then
-    date -u +"%Y-%m-%dT%H:%M:%SZ" > "$IMPORT_MARKER"
-    rm -f "$IMPORT_MARKER_V1"
-    ok "Importação/enriquecimento concluído"
-  fi
-fi
 
 # ─── 6) Frontend: build + publicar ──────────────────────────────────────────
 log "Frontend: instalando deps + buildando (Vite)…"

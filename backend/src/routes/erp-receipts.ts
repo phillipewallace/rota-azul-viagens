@@ -152,6 +152,9 @@ router.get('/stats/kpis', async (req, res) => {
 router.get('/pending', async (req, res) => {
   try {
     const competencia = String((req.query as any).competencia || competenciaAtual());
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(competencia)) {
+      return res.status(400).json({ error: 'competência inválida (use YYYY-MM)' });
+    }
     // [#6 alto] usa o ÚLTIMO dia do mês da competência como corte (e não dia 28
     // fixo, que excluía contratos iniciados em 29/30/31).
     const r = await pool.query(
@@ -181,7 +184,7 @@ router.get('/pending', async (req, res) => {
                OR $1 >= c.primeira_competencia)
            -- Qualquer recibo gerado para a competência (normal ou sem
            -- validade jurídica) conclui a pendência daquele mês.
-          AND NOT EXISTS (
+           AND NOT EXISTS (
              SELECT 1 FROM erp_receipts r
               WHERE r.contract_id = c.id AND r.competencia = $1
           )
@@ -226,7 +229,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   // ela MANDA — o período (DD/MM) é só o texto exibido no recibo e pode começar
   // no mês anterior (ex.: ciclo 20/08–19/09 da competência 09/2026). Sem isso o
   // recibo caía na competência errada e o contrato seguia em "pendentes".
-  const competencia = (typeof comp === 'string' && /^\d{4}-\d{2}/.test(comp))
+  const competencia = (typeof comp === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(comp))
                     ? String(comp).slice(0, 7)
                     : (periodoInicio ? String(periodoInicio).slice(0, 7) : competenciaAtual());
 

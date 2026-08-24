@@ -25,7 +25,7 @@ interface OS {
   id: string;
   numero: string;
   customerName: string;
-  customerAddress: string;
+  customerAddress?: string;
   status: 'aberta' | 'despachada' | 'entregue' | 'recolhimento_solicitado' | 'fechada' | 'em_cliente' | 'recolhimento';
 }
 
@@ -367,7 +367,7 @@ const AppFuncionarios = () => {
                   <h4 className="font-black text-slate-800 text-lg leading-tight truncate mb-1">{os.customerName}</h4>
                   <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-1 flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-primary shrink-0" />
-                    {os.customerAddress}
+                    {os.customerAddress || 'Endereço de entrega não informado'}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center shrink-0 border border-slate-100">
@@ -425,13 +425,14 @@ const AppFuncionarios = () => {
               <div className="flex items-start gap-3 text-slate-500 bg-slate-50 p-4 rounded-3xl">
                 <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div className="flex-1 space-y-3">
-                  <span className="text-sm font-medium leading-relaxed block">{selectedOs.customerAddress}</span>
+                   <span className="text-sm font-medium leading-relaxed block">{selectedOs.customerAddress || 'Endereço de entrega não informado'}</span>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button 
                       size="sm" 
                       variant="outline" 
                       className="rounded-xl h-10 gap-2 font-bold text-[10px] uppercase border-slate-200"
-                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOs.customerAddress)}`, '_blank')}
+                     onClick={() => selectedOs.customerAddress && window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOs.customerAddress)}`, '_blank')}
+                     disabled={!selectedOs.customerAddress}
                     >
                       <Navigation className="h-3.5 w-3.5 text-primary" /> Rota
                     </Button>
