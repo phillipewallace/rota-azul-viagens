@@ -339,6 +339,8 @@ const ErpFinanceiro: React.FC = () => {
   };
   /** Competência real do pendente (regra dos 5 pode mesclar meses futuros). */
   const compOf = (p: PendingReceipt) => p.competencia || competencia;
+  /** Identidade do pendente: um contrato recorrente pode aparecer em mais de um mês. */
+  const pendingKey = (p: PendingReceipt) => `${p.contractId}:${compOf(p)}`;
 
   const loadPendentes = useCallback(async () => {
     const requestId = ++pendentesRequestRef.current;
@@ -374,7 +376,7 @@ const ErpFinanceiro: React.FC = () => {
       setMergedComps(extras);
       setSelected(prev => {
         if (prev.size === 0) return prev;
-        const valid = new Set(merged.map(item => item.contractId));
+        const valid = new Set(merged.map(item => `${item.contractId}:${item.competencia || competencia}`));
         const next = new Set(Array.from(prev).filter(id => valid.has(id)));
         return next.size === prev.size ? prev : next;
       });
@@ -867,7 +869,7 @@ const ErpFinanceiro: React.FC = () => {
 
   const gerarLote = async () => {
     if (selected.size === 0) return;
-    const alvos = pendentes.filter(p => selected.has(p.contractId));
+    const alvos = pendentes.filter(p => selected.has(pendingKey(p)));
     setWorking('__batch__');
     let ok = 0, fail = 0;
     for (const p of alvos) {
@@ -950,7 +952,7 @@ const ErpFinanceiro: React.FC = () => {
 
   const unifiedGroup = useMemo(() => {
     if (selected.size < 2) return null;
-    const arr = pendentes.filter(p => selected.has(p.contractId));
+    const arr = pendentes.filter(p => selected.has(pendingKey(p)));
     if (arr.length < 2) return null;
     const cId = arr[0].companyId, kId = arr[0].customerId, cComp = compOf(arr[0]);
     if (!cId || !kId) return null;
@@ -1162,16 +1164,16 @@ const ErpFinanceiro: React.FC = () => {
     finally { setWorking(null); }
   };
 
-  const toggleSel = (id: string) => {
+  const toggleSel = (key: string) => {
     setSelected(prev => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      n.has(key) ? n.delete(key) : n.add(key);
       return n;
     });
   };
   const toggleSelAll = () => {
-    const ids = pendentesFiltrados.map(p => p.contractId);
-    const allSelected = ids.length > 0 && ids.every(id => selected.has(id));
+    const ids = pendentesFiltrados.map(pendingKey);
+    const allSelected = ids.length > 0 && ids.every(key => selected.has(key));
     if (allSelected) {
       setSelected(prev => {
         const n = new Set(prev);
@@ -1273,7 +1275,7 @@ const ErpFinanceiro: React.FC = () => {
   const [unifPreview, setUnifPreview] = useState<UnifiedReceiptInput | null>(null);
 
   const handleUnifiedAction = async (semValidade: boolean) => {
-    const alvos = pendentes.filter(p => selected.has(p.contractId));
+    const alvos = pendentes.filter(p => selected.has(pendingKey(p)));
     if (alvos.length === 0) return;
     const first = alvos[0];
     
@@ -1744,7 +1746,7 @@ const ErpFinanceiro: React.FC = () => {
                         <Checkbox aria-label="Selecionar todos"
                           checked={
                             pendentesFiltrados.length > 0 &&
-                            pendentesFiltrados.every(p => selected.has(p.contractId))
+                            pendentesFiltrados.every(p => selected.has(pendingKey(p)))
                           }
                           onCheckedChange={toggleSelAll} />
                       </TableHead>
@@ -1771,13 +1773,13 @@ const ErpFinanceiro: React.FC = () => {
                       items={pendentesFiltrados}
                       colSpan={7}
                       estimateSize={56}
-                      getKey={(p) => p.contractId}
+                      getKey={pendingKey}
                       renderRow={(p) => (
-                        <TableRow key={p.contractId} data-state={selected.has(p.contractId) ? 'selected' : undefined}>
+                        <TableRow key={pendingKey(p)} data-state={selected.has(pendingKey(p)) ? 'selected' : undefined}>
                           <TableCell>
                             <Checkbox aria-label={`Selecionar ${p.contractNumero}`}
-                              checked={selected.has(p.contractId)}
-                              onCheckedChange={() => toggleSel(p.contractId)} />
+                              checked={selected.has(pendingKey(p))}
+                              onCheckedChange={() => toggleSel(pendingKey(p))} />
                           </TableCell>
                           <TableCell className="font-mono text-xs">{p.contractNumero}</TableCell>
                           <TableCell className="max-w-[200px] truncate">{p.customerName || '—'}</TableCell>
