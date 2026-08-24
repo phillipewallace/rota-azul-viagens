@@ -3024,8 +3024,9 @@ const ErpFinanceiro: React.FC = () => {
         open={!!nfDialogTarget}
         onOpenChange={(o) => { if (!o) setNfDialogTarget(null); }}
         pending={nfDialogTarget}
-        competencia={competencia}
-        onSuccess={async () => {
+        competencia={nfDialogTarget ? compOf(nfDialogTarget) : competencia}
+        onSuccess={async ({ contractId, competencia: billedComp }) => {
+          acknowledgeGenerated(contractId, billedComp);
           setNfDialogTarget(null);
           await Promise.all([loadPendentes(), loadInvoices()]);
           setActiveTab('notas');

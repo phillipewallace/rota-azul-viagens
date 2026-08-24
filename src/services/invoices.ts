@@ -123,7 +123,7 @@ export const invoicesService = {
     fd.append('valor', String(data.valor));
     if (data.formaPagamento) fd.append('formaPagamento', data.formaPagamento);
     if (data.observacoes)    fd.append('observacoes', data.observacoes);
-    return reqUpload<{ ok: true; id: string }>('/erp/invoices', fd);
+    return reqUpload<{ ok: true; id: string; contractId: string; competencia: string }>('/erp/invoices', fd);
   },
   update: (id: string, data: Partial<{
     numero: string; serie: string; dataEmissao: string;
