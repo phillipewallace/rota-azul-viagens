@@ -653,7 +653,16 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
           await client.query('UPDATE erp_contracts SET endereco_obra = $2 WHERE id = $1', [rec.contract_id, patch.endereco_obra]);
         }
 
+        // Mantém o período do snapshot coerente com as colunas do recibo.
+        if (patch.periodo_inicio !== undefined || patch.periodo_fim !== undefined) {
+          const per = { ...(snap.periodo || {}) };
+          if (patch.periodo_inicio !== undefined) per.inicio = patch.periodo_inicio;
+          if (patch.periodo_fim !== undefined) per.fim = patch.periodo_fim;
+          snap.periodo = (per.inicio || per.fim) ? per : null;
+        }
+
         Object.assign(snapContract, snapOverride.contract);
+
         snap.contract = snapContract;
         snap.customer = { ...(snap.customer || {}), ...snapOverride.customer };
         snap.company = { ...(snap.company || {}), ...snapOverride.company };
