@@ -66,6 +66,7 @@ import {
 } from '@/utils/receiptPdf';
 import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
+import { pendingReceiptKey, removeGeneratedPending } from '@/utils/pendingReceiptState';
 
 import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
@@ -340,12 +341,12 @@ const ErpFinanceiro: React.FC = () => {
   /** Competência real do pendente (regra dos 10 pode mesclar meses futuros). */
   const compOf = (p: PendingReceipt) => p.competencia || competencia;
   /** Identidade do pendente: um contrato recorrente pode aparecer em mais de um mês. */
-  const pendingKey = (p: PendingReceipt) => `${p.contractId}:${compOf(p)}`;
+  const pendingKey = (p: PendingReceipt) => pendingReceiptKey(p, competencia);
 
   /** Confirmação otimista: o item emitido desaparece sem esperar a recarga. */
   const acknowledgeGenerated = useCallback((contractId: string, comp: string) => {
     const key = `${contractId}:${comp}`;
-    setPendentes(prev => prev.filter(item => `${item.contractId}:${item.competencia || competencia}` !== key));
+    setPendentes(prev => removeGeneratedPending(prev, contractId, comp, competencia));
     setSelected(prev => {
       if (!prev.has(key)) return prev;
       const next = new Set(prev);
