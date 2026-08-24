@@ -638,11 +638,12 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
         return res.status(409).json({ error: 'Recibo cancelado — não pode ser editado.' });
       }
 
-      // Se houver alteração de CNO ou Endereço, atualizamos o snapshot e o contrato
-      if (patch.cno !== undefined || patch.endereco_obra !== undefined) {
+      // CNO/Endereço sincronizam com o contrato; os demais overrides ficam
+      // apenas no snapshot do recibo (o PDF lê o snapshot).
+      if (patch.cno !== undefined || patch.endereco_obra !== undefined || hasSnapOverride) {
         const snap = rec.snapshot || {};
-        const snapContract = snap.contract || {};
-        
+        const snapContract = { ...(snap.contract || {}) };
+
         if (patch.cno !== undefined) {
           snapContract.cno = patch.cno;
           await client.query('UPDATE erp_contracts SET cno = $2 WHERE id = $1', [rec.contract_id, patch.cno]);
@@ -651,15 +652,24 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
           snapContract.enderecoObra = patch.endereco_obra;
           await client.query('UPDATE erp_contracts SET endereco_obra = $2 WHERE id = $1', [rec.contract_id, patch.endereco_obra]);
         }
-        
+
+        Object.assign(snapContract, snapOverride.contract);
         snap.contract = snapContract;
+        snap.customer = { ...(snap.customer || {}), ...snapOverride.customer };
+        snap.company = { ...(snap.company || {}), ...snapOverride.company };
+        Object.assign(snap, snapOverride.root);
+
+        // Mantém o total coerente quando o usuário edita locação/frete
+        // e não informou um valor total explícito.
+        if (patch.valor === undefined && (snapOverride.root.valorLocacao !== undefined || snapOverride.root.freteIncluso !== undefined)) {
+          patch.valor = Number(snap.valorLocacao || 0) + Number(snap.freteIncluso || 0);
+        }
+
         patch.snapshot = snap;
-        
-        // Remove campos que não são colunas da tabela erp_receipts se necessário
-        // (cno e endereco_obra não existem na tabela, apenas no snapshot e no contrato)
         delete patch.cno;
         delete patch.endereco_obra;
       }
+
 
       const finalKeys = Object.keys(patch);
       if (finalKeys.length > 0) {
