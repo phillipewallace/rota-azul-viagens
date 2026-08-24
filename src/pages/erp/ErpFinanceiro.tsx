@@ -3953,16 +3953,36 @@ const EditVencimentoDialog: React.FC<{
   const [comp, setComp] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
+  // Normaliza qualquer formato vindo da API (Date, ISO com hora, 'YYYY-MM-DD')
+  // para o formato aceito por <input type="date">. Sem isso o campo vinha vazio
+  // e o save gravava período nulo — o recibo saía com "—".
+  const toDateInput = (v: unknown): string => {
+    if (!v) return '';
+    if (v instanceof Date) {
+      return isNaN(v.getTime())
+        ? ''
+        : `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+    }
+    const m = String(v).match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : '';
+  };
+  // Guarda os valores originais para só enviar período quando de fato mudar.
+  const [origPeriodo, setOrigPeriodo] = useState<{ ini: string; fim: string }>({ ini: '', fim: '' });
+
   useEffect(() => {
     if (!receipt) return;
     const snap: any = receipt.snapshot || {};
     const ct = snap.contract || {};
     const cu = snap.customer || {};
     const co = snap.company || {};
-    setDataEmissao((receipt.dataEmissao || '').slice(0, 10));
-    setDataVencimento((receipt.dataVencimento || '').slice(0, 10));
-    setPeriodoInicio((receipt.periodoInicio || '').slice(0, 10));
-    setPeriodoFim((receipt.periodoFim || '').slice(0, 10));
+    setDataEmissao(toDateInput(receipt.dataEmissao));
+    setDataVencimento(toDateInput(receipt.dataVencimento));
+    const pi = toDateInput(receipt.periodoInicio) || toDateInput(snap?.periodo?.inicio);
+    const pf = toDateInput(receipt.periodoFim) || toDateInput(snap?.periodo?.fim);
+    setPeriodoInicio(pi);
+    setPeriodoFim(pf);
+    setOrigPeriodo({ ini: pi, fim: pf });
+
     setValor(String(Number(receipt.valor || 0)));
     setNumeroDisplay(receipt.numeroDisplay || '');
     setCno(ct.cno || '');
