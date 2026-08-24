@@ -143,6 +143,14 @@ router.post('/', async (req, res) => {
       customerSnap = cu.rows[0] || null;
     }
 
+    // Competência do 1º faturamento (opcional): normaliza para YYYY-MM.
+    const normComp = (v: any): string | null => {
+      const s = typeof v === 'string' ? v.trim() : '';
+      if (!s) return null;
+      const m = s.match(/^(\d{4})-(\d{2})/);
+      return m ? `${m[1]}-${m[2]}` : null;
+    };
+
     const ins = await client.query(
       `INSERT INTO erp_contracts
         (numero, company_id, customer_id, os_id, origem, descricao,
@@ -151,13 +159,14 @@ router.post('/', async (req, res) => {
          dia_vencimento, valor_mensal,
          renovacao_automatica, ativo, pdf_url, observacoes,
          company_snapshot, customer_snapshot, frete, endereco_obra, cno,
-         responsavel_nome, responsavel_telefone, responsavel_email)
+         responsavel_nome, responsavel_telefone, responsavel_email,
+         primeira_competencia)
        VALUES ($1,$2,$3,$4,COALESCE($5,'manual'),$6,
                COALESCE($7,'locacao'),$8,$9,
                $10,$11,$12,$13,$14,
                COALESCE($15,10),COALESCE($16,0),
                COALESCE($17,TRUE),COALESCE($18,TRUE),$19,$20,$21,$22,COALESCE($23,0),$24,$25,
-               $26,$27,$28)
+               $26,$27,$28,$29)
        RETURNING id, numero`,
       [numero, companyId, c.customerId || null, c.osId || null,
        c.origem || null, c.descricao || null,
@@ -169,7 +178,8 @@ router.post('/', async (req, res) => {
        c.renovacaoAutomatica, c.ativo, c.pdfUrl || null, c.observacoes || null,
        companySnap, customerSnap, c.frete != null ? Number(c.frete) : 0,
        c.enderecoObra || null, c.cno || null,
-       c.responsavelNome || null, c.responsavelTelefone || null, c.responsavelEmail || null]
+       c.responsavelNome || null, c.responsavelTelefone || null, c.responsavelEmail || null,
+       normComp(c.primeiraCompetencia)]
     );
 
     await client.query('COMMIT');
