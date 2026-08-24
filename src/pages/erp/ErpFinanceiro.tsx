@@ -957,7 +957,7 @@ const ErpFinanceiro: React.FC = () => {
     const cId = arr[0].companyId, kId = arr[0].customerId, cComp = compOf(arr[0]);
     if (!cId || !kId) return null;
     // Unificado exige mesma empresa, mesmo cliente E mesma competência
-    // (a regra dos 5 pode mesclar meses diferentes na lista).
+    // (a regra dos 10 pode mesclar meses diferentes na lista).
     if (!arr.every(p => p.companyId === cId && p.customerId === kId && compOf(p) === cComp)) return null;
     return { arr, companyId: cId };
   }, [selected, pendentes, competencia]);
