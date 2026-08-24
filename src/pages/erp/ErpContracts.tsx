@@ -951,6 +951,21 @@ function ContractFormDialog({
                 });
               }} />
           </div>
+          <div>
+            <Label className="text-xs flex items-center gap-1">
+              <Calendar className="h-3 w-3" /> 1º mês de faturamento (opcional)
+            </Label>
+            <Input
+              type="month"
+              value={form.primeiraCompetencia || ''}
+              onChange={(e) => setForm({ ...form, primeiraCompetencia: e.target.value })}
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Se preenchido, o contrato só aparece no Financeiro a partir desse mês —
+              competências anteriores não geram cobrança, mesmo com início antes.
+              Deixe vazio para faturar desde o início do contrato.
+            </p>
+          </div>
           {form.tipoContrato !== 'evento' ? (
             <>
               <div>
