@@ -1711,7 +1711,7 @@ const ErpFinanceiro: React.FC = () => {
                   : 'Selecione contratos para gerar recibos em lote (marca como pagos, sem PDF).'}
                 {mergedComps.length > 0 && (
                   <span className="ml-2 inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                    Regra dos 5: {mergedComps.map(formatComp).join(', ')} liberado(s) antecipadamente
+                    Regra dos 10: {mergedComps.map(formatComp).join(', ')} liberado(s) antecipadamente
                   </span>
                 )}
               </div>
