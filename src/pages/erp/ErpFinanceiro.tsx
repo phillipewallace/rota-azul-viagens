@@ -337,7 +337,7 @@ const ErpFinanceiro: React.FC = () => {
     d.setMonth(d.getMonth() + 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   };
-  /** Competência real do pendente (regra dos 5 pode mesclar meses futuros). */
+  /** Competência real do pendente (regra dos 10 pode mesclar meses futuros). */
   const compOf = (p: PendingReceipt) => p.competencia || competencia;
   /** Identidade do pendente: um contrato recorrente pode aparecer em mais de um mês. */
   const pendingKey = (p: PendingReceipt) => `${p.contractId}:${compOf(p)}`;
@@ -346,9 +346,9 @@ const ErpFinanceiro: React.FC = () => {
     const requestId = ++pendentesRequestRef.current;
     setPendentesLoading(true);
     try {
-      // REGRA DOS 5: quando restam 5 ou menos cobranças pendentes na
+      // REGRA DOS 10: quando restam 10 ou menos cobranças pendentes na
       // competência selecionada, o mês seguinte é liberado automaticamente.
-      // Em cadeia: se o mês seguinte também ficar com ≤5, libera o próximo
+      // Em cadeia: se o mês seguinte também ficar com ≤10, libera o próximo
       // (trava de segurança: no máximo 3 meses à frente).
       const merged: PendingReceipt[] = [];
       const extras: string[] = [];
@@ -367,7 +367,7 @@ const ErpFinanceiro: React.FC = () => {
         
         // Se após filtrar sobraram itens de evento que foram barrados, ou se a lista
         // original já era grande, paramos a recursão.
-        if (resp.pendentes.length > 5 || depth === 2) break;
+        if (resp.pendentes.length > 10 || depth === 2) break;
         
         comp = nextComp(comp);
         extras.push(comp);
@@ -957,7 +957,7 @@ const ErpFinanceiro: React.FC = () => {
     const cId = arr[0].companyId, kId = arr[0].customerId, cComp = compOf(arr[0]);
     if (!cId || !kId) return null;
     // Unificado exige mesma empresa, mesmo cliente E mesma competência
-    // (a regra dos 5 pode mesclar meses diferentes na lista).
+    // (a regra dos 10 pode mesclar meses diferentes na lista).
     if (!arr.every(p => p.companyId === cId && p.customerId === kId && compOf(p) === cComp)) return null;
     return { arr, companyId: cId };
   }, [selected, pendentes, competencia]);
@@ -979,7 +979,7 @@ const ErpFinanceiro: React.FC = () => {
       };
 
       // Período por contrato (30 dias) baseado no dataInicio de cada contrato
-      // e na competência REAL de cada pendente (regra dos 5 pode mesclar meses).
+      // e na competência REAL de cada pendente (regra dos 10 pode mesclar meses).
       const periodos = contracts.map((c, i) => computeCompetenciaPeriodo(c.dataInicio, compOf(arr[i])));
 
       // Persiste um recibo por contrato — cada um com SEU período de 30 dias.
@@ -1282,7 +1282,7 @@ const ErpFinanceiro: React.FC = () => {
     if (alvos.length === 0) return;
     const first = alvos[0];
     
-    // Competência padrão do grupo (regra dos 5 pode mesclar meses futuros)
+    // Competência padrão do grupo (regra dos 10 pode mesclar meses futuros)
     const comp = compOf(first);
 
     // Período unificado padrão: do menor início ao maior fim dos itens
@@ -1711,7 +1711,7 @@ const ErpFinanceiro: React.FC = () => {
                   : 'Selecione contratos para gerar recibos em lote (marca como pagos, sem PDF).'}
                 {mergedComps.length > 0 && (
                   <span className="ml-2 inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                    Regra dos 5: {mergedComps.map(formatComp).join(', ')} liberado(s) antecipadamente
+                    Regra dos 10: {mergedComps.map(formatComp).join(', ')} liberado(s) antecipadamente
                   </span>
                 )}
               </div>
