@@ -24,6 +24,7 @@ const SELECT = `
   c.os_id AS "osId", c.origem, c.descricao,
   c.tipo_contrato AS "tipoContrato",
   c.data_inicio AS "dataInicio", c.data_fim AS "dataFim",
+  c.primeira_competencia AS "primeiraCompetencia",
   c.data_evento AS "dataEvento", c.data_recolhimento AS "dataRecolhimento",
   c.local_evento AS "localEvento", c.hora_entrega AS "horaEntrega",
   c.endereco_obra AS "enderecoObra", c.cno AS "cno",
