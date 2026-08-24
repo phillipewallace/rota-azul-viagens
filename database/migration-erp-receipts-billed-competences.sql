@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS erp_receipt_billed_competences (
   receipt_id UUID NOT NULL REFERENCES erp_receipts(id) ON DELETE CASCADE,
   reconciled BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (contract_id, competencia)
+  PRIMARY KEY (receipt_id, competencia)
 );
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON erp_receipt_billed_competences TO lipe;
@@ -21,12 +21,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON erp_receipt_billed_competences TO lipe;
 CREATE INDEX IF NOT EXISTS idx_erp_receipt_billed_competences_receipt
   ON erp_receipt_billed_competences(receipt_id);
 
+CREATE INDEX IF NOT EXISTS idx_erp_receipt_billed_competences_contract_comp
+  ON erp_receipt_billed_competences(contract_id, competencia);
+
 -- Todo recibo existente quita, no mínimo, a competência que está gravada nele.
 INSERT INTO erp_receipt_billed_competences
   (contract_id, competencia, receipt_id, reconciled)
 SELECT r.contract_id, r.competencia, r.id, FALSE
   FROM erp_receipts r
-ON CONFLICT (contract_id, competencia) DO NOTHING;
+ON CONFLICT (receipt_id, competencia) DO NOTHING;
 
 -- Reconciliação histórica: antes de a competência explícita ser obrigatória,
 -- ciclos atravessando meses eram salvos pelo mês de inicio. Para esses recibos
@@ -41,9 +44,13 @@ WITH reconciled AS (
     FROM erp_receipts r
    WHERE r.periodo_inicio IS NOT NULL
      AND r.periodo_fim IS NOT NULL
+     -- Limite da correção que tornou a competência explícita no backend.
+     -- Recibos posteriores podem legitimamente ter um ciclo que termina no
+     -- mês seguinte e não devem quitar esse mês futuro.
+     AND r.created_at < TIMESTAMPTZ '2026-08-24 11:59:17+00'
      AND r.competencia = TO_CHAR(r.periodo_inicio, 'YYYY-MM')
      AND TO_CHAR(r.periodo_fim, 'YYYY-MM') <> r.competencia
-  ON CONFLICT (contract_id, competencia) DO NOTHING
+  ON CONFLICT (receipt_id, competencia) DO NOTHING
   RETURNING 1
 )
 SELECT COUNT(*) AS historical_receipts_reconciled FROM reconciled;

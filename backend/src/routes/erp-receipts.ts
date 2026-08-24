@@ -390,8 +390,8 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
         `INSERT INTO erp_receipt_billed_competences
            (contract_id, competencia, receipt_id, reconciled)
          VALUES ($1, $2, $3, FALSE)
-         ON CONFLICT (contract_id, competencia)
-         DO UPDATE SET receipt_id = EXCLUDED.receipt_id, reconciled = FALSE`,
+         ON CONFLICT (receipt_id, competencia)
+         DO UPDATE SET contract_id = EXCLUDED.contract_id, reconciled = FALSE`,
         [contractId, competencia, existing.rows[0].id],
       );
       await client.query('COMMIT');
@@ -452,7 +452,7 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
       `INSERT INTO erp_receipt_billed_competences
          (contract_id, competencia, receipt_id, reconciled)
        VALUES ($1, $2, $3, FALSE)
-       ON CONFLICT (contract_id, competencia) DO NOTHING`,
+       ON CONFLICT (receipt_id, competencia) DO NOTHING`,
       [contractId, competencia, ins.rows[0].id],
     );
 
@@ -614,8 +614,8 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
           `INSERT INTO erp_receipt_billed_competences
              (contract_id, competencia, receipt_id, reconciled)
            VALUES ($1, $2, $3, FALSE)
-           ON CONFLICT (contract_id, competencia)
-           DO UPDATE SET receipt_id=EXCLUDED.receipt_id, reconciled=FALSE`,
+           ON CONFLICT (receipt_id, competencia)
+           DO UPDATE SET contract_id=EXCLUDED.contract_id, reconciled=FALSE`,
           [rec.contract_id, patch.competencia, req.params.id],
         );
       }
