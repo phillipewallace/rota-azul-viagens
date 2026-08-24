@@ -1002,6 +1002,7 @@ const ErpFinanceiro: React.FC = () => {
       const gerados: { id: string; numero: string; numeroDisplay?: string | null }[] = [];
       const numeros: (string | null)[] = [];
       let okCount = 0, failCount = 0;
+      const unifiedGroupId = crypto.randomUUID();
       // Número do grupo: só o PRIMEIRO recibo consome o contador; os demais
       // reutilizam a mesma numeração (não gastam 613, 614…).
       let numeroGrupo: string | null = null;
@@ -1017,6 +1018,7 @@ const ErpFinanceiro: React.FC = () => {
             periodoFim: per.fim,
             valor: Number(p.valorMensal),
             pago: true,
+            unifiedGroupId,
             ...(numeroGrupo ? { numeroGrupo } : {}),
           });
           gerados.push({ id: out.id, numero: out.numero, numeroDisplay: out.numeroDisplay });

@@ -720,8 +720,12 @@ router.post('/:id/cancel', requireRole(...FIN_ROLES), async (req: any, res) => {
       'SELECT status, unified_group_id FROM erp_receipts WHERE id=$1 FOR UPDATE',
       [req.params.id],
     );
-    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (!cur.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Recibo não encontrado' });
+    }
     if (cur.rows[0].status === 'cancelado') {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Recibo já está cancelado.' });
     }
     const actor = req.user?.username || req.user?.name || null;
@@ -758,8 +762,12 @@ router.post('/:id/reopen', requireRole(...FIN_ROLES), async (req, res) => {
       'SELECT status, unified_group_id FROM erp_receipts WHERE id=$1 FOR UPDATE',
       [req.params.id],
     );
-    if (!cur.rows[0]) return res.status(404).json({ error: 'Recibo não encontrado' });
+    if (!cur.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Recibo não encontrado' });
+    }
     if (cur.rows[0].status !== 'cancelado') {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Só é possível reabrir recibos cancelados.' });
     }
     const groupId = cur.rows[0].unified_group_id;
