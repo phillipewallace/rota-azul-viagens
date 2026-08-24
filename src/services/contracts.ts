@@ -264,7 +264,7 @@ export const receiptsService = {
 
   pending: (competencia?: string) =>
     req<{ competencia: string; pendentes: PendingReceipt[] }>(
-      'GET', `/erp/receipts/pending${competencia ? '?competencia=' + competencia : ''}`),
+      'GET', `/erp/receipts/pending${competencia ? '?competencia=' + encodeURIComponent(competencia) : ''}`),
   generate: (body: {
     contractId: string;
     competencia?: string;

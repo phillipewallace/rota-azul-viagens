@@ -37,7 +37,19 @@ router.get('/os', async (req, res) => {
 
         let query = `
             SELECT o.*, o.entregue_por_nome AS "entreguePorNome", o.recolhido_por_nome AS "recolhidoPorNome",
-                   cu.customer_name as "customerName", cu.address as "customerAddress",
+                   cu.customer_name as "customerName",
+                   COALESCE(
+                     NULLIF(BTRIM(o.endereco_entrega), ''),
+                     NULLIF(BTRIM(q.endereco_entrega), ''),
+                     NULLIF(CONCAT_WS(', ',
+                       NULLIF(BTRIM(cu.address), ''),
+                       NULLIF(BTRIM(cu.numero), ''),
+                       NULLIF(BTRIM(cu.complemento), ''),
+                       NULLIF(BTRIM(cu.bairro), ''),
+                       NULLIF(CONCAT_WS(' - ', NULLIF(BTRIM(cu.cidade), ''), NULLIF(BTRIM(cu.estado), '')), ''),
+                       CASE WHEN NULLIF(BTRIM(cu.cep), '') IS NOT NULL THEN 'CEP ' || BTRIM(cu.cep) END
+                     ), '')
+                   ) as "customerAddress",
                    q.responsavel_telefone as "customerPhone",
                    q.responsavel_nome as "responsavelNome",
                    q.responsavel_email as "responsavelEmail",
