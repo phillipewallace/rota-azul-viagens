@@ -987,6 +987,9 @@ const ErpFinanceiro: React.FC = () => {
       const gerados: { id: string; numero: string; numeroDisplay?: string | null }[] = [];
       const numeros: (string | null)[] = [];
       let okCount = 0, failCount = 0;
+      // Número do grupo: só o PRIMEIRO recibo consome o contador; os demais
+      // reutilizam a mesma numeração (não gastam 613, 614…).
+      let numeroGrupo: string | null = null;
       for (let i = 0; i < arr.length; i++) {
         const p = arr[i];
         const per = periodos[i];
@@ -999,9 +1002,11 @@ const ErpFinanceiro: React.FC = () => {
             periodoFim: per.fim,
             valor: Number(p.valorMensal),
             pago: true,
+            ...(numeroGrupo ? { numeroGrupo } : {}),
           });
           gerados.push({ id: out.id, numero: out.numero, numeroDisplay: out.numeroDisplay });
-          numeros.push(out.numeroDisplay || out.numero || null);
+          if (!numeroGrupo) numeroGrupo = out.numeroDisplay || out.numero;
+          numeros.push(numeroGrupo);
           okCount++;
         } catch {
           numeros.push(null);
@@ -1010,9 +1015,7 @@ const ErpFinanceiro: React.FC = () => {
       }
 
       // Numeração única do grupo: todos os recibos exibem o número do primeiro.
-      const numero = gerados.length
-        ? (gerados[0].numeroDisplay || gerados[0].numero)
-        : `UNIF-${todayISO()}`;
+      const numero = numeroGrupo || `UNIF-${todayISO()}`;
       if (gerados.length) {
         await Promise.all(
           gerados.map(g =>
@@ -1341,6 +1344,8 @@ const ErpFinanceiro: React.FC = () => {
     setBatchWorking(true);
     try {
       const results = [];
+      // Apenas o primeiro recibo consome numeração; os demais reutilizam.
+      let numeroGrupo: string | null = null;
       for (const it of input.items) {
         const per = (input.periodoInicio && input.periodoFim) 
           ? { inicio: input.periodoInicio, fim: input.periodoFim } 
@@ -1356,15 +1361,14 @@ const ErpFinanceiro: React.FC = () => {
           semValidade: !!input.semValidade,
           cno: it.cno || undefined,
           enderecoObra: it.enderecoObra || undefined,
+          ...(numeroGrupo ? { numeroGrupo } : {}),
         });
+        if (!numeroGrupo) numeroGrupo = r.numeroDisplay || r.numero;
         results.push(r);
       }
 
-      // Numeração unificada: TODOS os recibos do grupo passam a exibir o MESMO
-      // número (o do primeiro gerado). Assim, baixando qualquer um deles, o
-      // documento sai com a mesma numeração do PDF unificado.
-      const firstR = results[0];
-      const numeroUnificado = firstR.numeroDisplay || firstR.numero;
+      // Numeração unificada: TODOS os recibos do grupo exibem o MESMO número.
+      const numeroUnificado = numeroGrupo || results[0]?.numero || '';
       await Promise.all(
         results.map(r =>
           receiptsService.update(r.id, { numeroDisplay: numeroUnificado }).catch(() => null),

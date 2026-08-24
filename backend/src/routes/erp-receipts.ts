@@ -394,14 +394,40 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
     // Numeração: recibos "sem validade jurídica" têm contador próprio (REC_SV)
     // e são exibidos como "0001". Prefixamos internamente com "SV-" apenas
     // para preservar a UNIQUE(numero) sem contaminar o PDF/UI.
-    const docKey = semValidade ? 'REC_SV' : 'REC';
-    const numRes = await client.query(
-      `SELECT erp_next_doc_number($1, $2::uuid) AS num`,
-      [docKey, ct.company_id]
-    );
-    const rawNum = numRes.rows[0].num as string;
-    const numeroDisplay = semValidade ? rawNum : null;
-    const numero = semValidade ? `SV-${rawNum}` : rawNum;
+    //
+    // Recibo UNIFICADO: quando `numeroGrupo` vem no body, o recibo NÃO consome
+    // um novo número do contador — ele reutiliza a numeração do grupo. O
+    // `numero` interno recebe um sufixo /2, /3… só para respeitar a unicidade
+    // técnica, enquanto `numero_display` (o que aparece no PDF/UI) é idêntico
+    // para todos os recibos do grupo.
+    const grupoRaw = (req.body || {}).numeroGrupo;
+    const numeroGrupo = (typeof grupoRaw === 'string' && grupoRaw.trim() && grupoRaw.trim().length <= 48)
+      ? grupoRaw.trim()
+      : null;
+
+    let numero: string;
+    let numeroDisplay: string | null;
+
+    if (numeroGrupo) {
+      const base = semValidade ? `SV-${numeroGrupo}` : numeroGrupo;
+      const dup = await client.query(
+        `SELECT COUNT(*)::int AS n FROM erp_receipts
+          WHERE company_id = $1 AND (numero = $2 OR numero LIKE $2 || '/%')`,
+        [ct.company_id, base]
+      );
+      const n = dup.rows[0]?.n || 0;
+      numero = n === 0 ? base : `${base}/${n + 1}`;
+      numeroDisplay = numeroGrupo;
+    } else {
+      const docKey = semValidade ? 'REC_SV' : 'REC';
+      const numRes = await client.query(
+        `SELECT erp_next_doc_number($1, $2::uuid) AS num`,
+        [docKey, ct.company_id]
+      );
+      const rawNum = numRes.rows[0].num as string;
+      numeroDisplay = semValidade ? rawNum : null;
+      numero = semValidade ? `SV-${rawNum}` : rawNum;
+    }
 
     const ins = await client.query(
       `INSERT INTO erp_receipts
