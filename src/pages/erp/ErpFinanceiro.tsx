@@ -1095,19 +1095,20 @@ const ErpFinanceiro: React.FC = () => {
 
   const baixar = async (r: Receipt) => {
     try {
-      // Se este recibo faz parte de um grupo unificado (mesmo cliente + empresa
-      // + período exato), reconstruímos o MESMO PDF unificado a partir dos
-      // snapshots — assim qualquer recibo do grupo baixa o documento completo.
-      const group = (r.periodoInicio && r.periodoFim)
+      // Um recibo só é tratado como parte de um grupo UNIFICADO quando
+      // compartilha explicitamente o mesmo `numeroDisplay` (numeração de grupo
+      // gravada no momento da geração unificada) com outros recibos. Nunca
+      // inferimos grupo por cliente/empresa/período — isso fazia recibos
+      // gerados individualmente saírem como unificados.
+      const grupoNum = (r.numeroDisplay || '').trim();
+      const group = grupoNum
         ? recibos.filter(x =>
-            x.periodoInicio === r.periodoInicio &&
-            x.periodoFim === r.periodoFim &&
-            (x.customerName || '') === (r.customerName || '') &&
-            (x.companyRazaoSocial || '') === (r.companyRazaoSocial || '') &&
+            (x.numeroDisplay || '').trim() === grupoNum &&
             !!x.semValidade === !!r.semValidade &&
             x.status !== 'cancelado',
           )
         : [];
+
       if (group.length > 1) {
         const first = group[0].snapshot || {};
         const items = group.map(g => {
