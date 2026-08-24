@@ -367,7 +367,7 @@ const ErpFinanceiro: React.FC = () => {
         
         // Se após filtrar sobraram itens de evento que foram barrados, ou se a lista
         // original já era grande, paramos a recursão.
-        if (resp.pendentes.length > 5 || depth === 2) break;
+        if (resp.pendentes.length > 10 || depth === 2) break;
         
         comp = nextComp(comp);
         extras.push(comp);
