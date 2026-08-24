@@ -86,6 +86,13 @@ for mig in $(ls "${PROJECT_DIR}/database/"migration-*.sql 2>/dev/null | sort); d
 done
 shopt -u nullglob
 
+# Esta estrutura é obrigatória para o Financeiro identificar de forma
+# inequívoca as competências já faturadas, inclusive as históricas.
+sudo -u postgres psql -d "${DB_NAME}" -tAc \
+  "SELECT to_regclass('public.erp_receipt_billed_competences') IS NOT NULL" \
+  | grep -qx t \
+  || err "Migration de reconciliação dos recibos não foi aplicada"
+
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO ${DB_USER};" >/dev/null
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${DB_USER};" >/dev/null
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${DB_USER};" >/dev/null 2>&1 || true

@@ -182,11 +182,11 @@ router.get('/pending', async (req, res) => {
           AND (c.primeira_competencia IS NULL
                OR c.primeira_competencia = ''
                OR $1 >= c.primeira_competencia)
-           -- Qualquer recibo gerado para a competência (normal ou sem
-           -- validade jurídica) conclui a pendência daquele mês.
+           -- A competência quitada é registrada explicitamente, sem tentar
+           -- deduzi-la pelo período meramente descritivo do PDF.
            AND NOT EXISTS (
-             SELECT 1 FROM erp_receipts r
-              WHERE r.contract_id = c.id AND r.competencia = $1
+             SELECT 1 FROM erp_receipt_billed_competences bc
+              WHERE bc.contract_id = c.id AND bc.competencia = $1
           )
           -- Também considera "faturado" quando há NF ativa vinculada
           -- (fluxo: cliente paga por Nota Fiscal do portal do governo).
@@ -386,6 +386,14 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
         [existing.rows[0].id, valorFinal, !!pago, snapshot, dataVenc,
          periodoInicio || null, periodoFim || null]
       );
+      await client.query(
+        `INSERT INTO erp_receipt_billed_competences
+           (contract_id, competencia, receipt_id, reconciled)
+         VALUES ($1, $2, $3, FALSE)
+         ON CONFLICT (receipt_id, competencia)
+         DO UPDATE SET contract_id = EXCLUDED.contract_id, reconciled = FALSE`,
+        [contractId, competencia, existing.rows[0].id],
+      );
       await client.query('COMMIT');
       logger.success('FINANCE', `Recibo ${existing.rows[0].numero} REGERADO com sucesso por ${user}`);
       return res.json({ ok: true, id: existing.rows[0].id, numero: existing.rows[0].numero, regerado: true });
@@ -438,6 +446,14 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
        RETURNING id, numero, numero_display AS "numeroDisplay"`,
       [numero, ct.company_id, contractId, competencia, dataVenc, valorFinal, !!pago, snapshot,
        periodoInicio || null, periodoFim || null, !!semValidade, numeroDisplay]
+    );
+
+    await client.query(
+      `INSERT INTO erp_receipt_billed_competences
+         (contract_id, competencia, receipt_id, reconciled)
+       VALUES ($1, $2, $3, FALSE)
+       ON CONFLICT (receipt_id, competencia) DO NOTHING`,
+      [contractId, competencia, ins.rows[0].id],
     );
 
     await client.query('COMMIT');
@@ -544,7 +560,7 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
     try {
       await client.query('BEGIN');
       
-      const cur = await client.query('SELECT id, status, contract_id, snapshot FROM erp_receipts WHERE id=$1', [req.params.id]);
+      const cur = await client.query('SELECT id, status, contract_id, competencia, snapshot FROM erp_receipts WHERE id=$1', [req.params.id]);
       if (!cur.rows[0]) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Recibo não encontrado' });
@@ -585,6 +601,22 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
         await client.query(
           `UPDATE erp_receipts SET ${sets}, updated_at=NOW() WHERE id=$1`,
           [req.params.id, ...values],
+        );
+      }
+
+      if (patch.competencia !== undefined && patch.competencia !== rec.competencia) {
+        await client.query(
+          `DELETE FROM erp_receipt_billed_competences
+            WHERE receipt_id=$1 AND competencia=$2 AND reconciled=FALSE`,
+          [req.params.id, rec.competencia],
+        );
+        await client.query(
+          `INSERT INTO erp_receipt_billed_competences
+             (contract_id, competencia, receipt_id, reconciled)
+           VALUES ($1, $2, $3, FALSE)
+           ON CONFLICT (receipt_id, competencia)
+           DO UPDATE SET contract_id=EXCLUDED.contract_id, reconciled=FALSE`,
+          [rec.contract_id, patch.competencia, req.params.id],
         );
       }
       

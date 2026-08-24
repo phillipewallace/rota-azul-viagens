@@ -66,6 +66,7 @@ import {
 } from '@/utils/receiptPdf';
 import { generateMedicaoPdf } from '@/utils/medicaoPdf';
 import { formatDateBR, formatPeriodo } from '@/utils/dateFormat';
+import { pendingReceiptKey, removeGeneratedPending } from '@/utils/pendingReceiptState';
 
 import { confirmDialog } from '@/lib/confirm';
 // ========================= helpers =========================
@@ -340,7 +341,19 @@ const ErpFinanceiro: React.FC = () => {
   /** Competência real do pendente (regra dos 10 pode mesclar meses futuros). */
   const compOf = (p: PendingReceipt) => p.competencia || competencia;
   /** Identidade do pendente: um contrato recorrente pode aparecer em mais de um mês. */
-  const pendingKey = (p: PendingReceipt) => `${p.contractId}:${compOf(p)}`;
+  const pendingKey = (p: PendingReceipt) => pendingReceiptKey(p, competencia);
+
+  /** Confirmação otimista: o item emitido desaparece sem esperar a recarga. */
+  const acknowledgeGenerated = useCallback((contractId: string, comp: string) => {
+    const key = `${contractId}:${comp}`;
+    setPendentes(prev => removeGeneratedPending(prev, contractId, comp, competencia));
+    setSelected(prev => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }, [competencia]);
 
   const loadPendentes = useCallback(async () => {
     const requestId = ++pendentesRequestRef.current;
@@ -781,6 +794,7 @@ const ErpFinanceiro: React.FC = () => {
   ) => {
     const comp = opts?.comp || competencia;
     const out = await receiptsService.generate({ contractId, competencia: comp, valor, pago: true });
+    acknowledgeGenerated(contractId, comp);
     if (!opts?.semPdf) {
       try {
         const list = await receiptsService.list({ competencia: comp, contractId });
@@ -841,10 +855,11 @@ const ErpFinanceiro: React.FC = () => {
         cno: opts?.cno,
         enderecoObra: opts?.enderecoObra,
       });
+      acknowledgeGenerated(p.contractId, compOf(p));
       if (opts?.baixarPdf !== false) {
         try {
           const list = await receiptsService.list({
-            competencia: periodoInicio.slice(0, 7),
+            competencia: compOf(p),
             contractId: p.contractId,
           });
           const r = list.find(x => x.id === out.id);
@@ -1005,6 +1020,7 @@ const ErpFinanceiro: React.FC = () => {
             ...(numeroGrupo ? { numeroGrupo } : {}),
           });
           gerados.push({ id: out.id, numero: out.numero, numeroDisplay: out.numeroDisplay });
+          acknowledgeGenerated(p.contractId, compOf(p));
           if (!numeroGrupo) numeroGrupo = out.numeroDisplay || out.numero;
           numeros.push(numeroGrupo);
           okCount++;
@@ -1363,6 +1379,7 @@ const ErpFinanceiro: React.FC = () => {
           enderecoObra: it.enderecoObra || undefined,
           ...(numeroGrupo ? { numeroGrupo } : {}),
         });
+        acknowledgeGenerated((it as any).contractId, input.competencia);
         if (!numeroGrupo) numeroGrupo = r.numeroDisplay || r.numero;
         results.push(r);
       }
@@ -1791,10 +1808,12 @@ const ErpFinanceiro: React.FC = () => {
                           <TableCell className="text-xs">
                             <div className="flex flex-col leading-tight">
                               <span className="tabular-nums">{D(dueDateInComp(compOf(p), Number(p.diaVencimento || 10)))}</span>
-                              <span className="text-[10px] text-muted-foreground">
-                                dia {p.diaVencimento}
-                                {compOf(p) !== competencia ? ` · ${formatComp(compOf(p))}` : ''}
-                              </span>
+                              <span className="text-[10px] text-muted-foreground">dia {p.diaVencimento}</span>
+                              {compOf(p) !== competencia && (
+                                <Badge variant="outline" className="mt-1 w-fit text-[10px] font-semibold">
+                                  Próxima competência: {formatComp(compOf(p))}
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
 
