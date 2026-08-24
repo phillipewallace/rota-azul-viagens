@@ -179,12 +179,11 @@ router.get('/pending', async (req, res) => {
           AND (c.primeira_competencia IS NULL
                OR c.primeira_competencia = ''
                OR $1 >= c.primeira_competencia)
-          -- Recibo "sem validade jurídica" é controle interno: NÃO tira o
-          -- contrato da lista de pendentes do faturamento oficial.
+           -- Qualquer recibo gerado para a competência (normal ou sem
+           -- validade jurídica) conclui a pendência daquele mês.
           AND NOT EXISTS (
              SELECT 1 FROM erp_receipts r
               WHERE r.contract_id = c.id AND r.competencia = $1
-                AND COALESCE(r.sem_validade, FALSE) = FALSE
           )
           -- Também considera "faturado" quando há NF ativa vinculada
           -- (fluxo: cliente paga por Nota Fiscal do portal do governo).
