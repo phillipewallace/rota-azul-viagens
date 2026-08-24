@@ -4027,8 +4027,6 @@ const EditVencimentoDialog: React.FC<{
     const patch: any = {
       dataEmissao,
       dataVencimento: dataVencimento || null,
-      periodoInicio: periodoInicio || null,
-      periodoFim: periodoFim || null,
       valor: v,
       numeroDisplay: numeroDisplay.trim() || null,
       cno: cno.trim() || null,
@@ -4040,6 +4038,11 @@ const EditVencimentoDialog: React.FC<{
       customer: cust,
       company: comp,
     };
+    // Período: só envia se realmente mudou — evita apagar o período do recibo
+    // (que faria o PDF/listagem exibirem "—") quando o campo não foi tocado.
+    if (periodoInicio !== origPeriodo.ini) patch.periodoInicio = periodoInicio || null;
+    if (periodoFim !== origPeriodo.fim) patch.periodoFim = periodoFim || null;
+
     // Recalcula competência a partir do período/emissão para manter consistência.
     const compBase = periodoInicio || dataEmissao;
     if (compBase && /^\d{4}-\d{2}-\d{2}$/.test(compBase)) {
