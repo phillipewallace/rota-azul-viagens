@@ -337,7 +337,7 @@ const ErpFinanceiro: React.FC = () => {
     d.setMonth(d.getMonth() + 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   };
-  /** Competência real do pendente (regra dos 5 pode mesclar meses futuros). */
+  /** Competência real do pendente (regra dos 10 pode mesclar meses futuros). */
   const compOf = (p: PendingReceipt) => p.competencia || competencia;
   /** Identidade do pendente: um contrato recorrente pode aparecer em mais de um mês. */
   const pendingKey = (p: PendingReceipt) => `${p.contractId}:${compOf(p)}`;
@@ -346,9 +346,9 @@ const ErpFinanceiro: React.FC = () => {
     const requestId = ++pendentesRequestRef.current;
     setPendentesLoading(true);
     try {
-      // REGRA DOS 5: quando restam 5 ou menos cobranças pendentes na
+      // REGRA DOS 10: quando restam 10 ou menos cobranças pendentes na
       // competência selecionada, o mês seguinte é liberado automaticamente.
-      // Em cadeia: se o mês seguinte também ficar com ≤5, libera o próximo
+      // Em cadeia: se o mês seguinte também ficar com ≤10, libera o próximo
       // (trava de segurança: no máximo 3 meses à frente).
       const merged: PendingReceipt[] = [];
       const extras: string[] = [];
