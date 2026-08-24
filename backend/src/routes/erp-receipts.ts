@@ -223,10 +223,14 @@ router.post('/generate', requireRole(...FIN_ROLES), async (req, res) => {
   if (periodoInicio && periodoFim && periodoFim < periodoInicio) {
     return res.status(400).json({ error: 'periodoFim não pode ser anterior a periodoInicio' });
   }
-  // Competência (YYYY-MM) é derivada do mês do periodoInicio quando informado,
-  // preservando a unicidade por contrato+competência e a lógica de pendentes.
-  const competencia = periodoInicio ? String(periodoInicio).slice(0, 7)
-                    : (comp || competenciaAtual());
+  // Competência (YYYY-MM): quando o cliente informa `competencia` explicitamente,
+  // ela MANDA — o período (DD/MM) é só o texto exibido no recibo e pode começar
+  // no mês anterior (ex.: ciclo 20/08–19/09 da competência 09/2026). Sem isso o
+  // recibo caía na competência errada e o contrato seguia em "pendentes".
+  const competencia = (typeof comp === 'string' && /^\d{4}-\d{2}/.test(comp))
+                    ? String(comp).slice(0, 7)
+                    : (periodoInicio ? String(periodoInicio).slice(0, 7) : competenciaAtual());
+
 
   const client = await pool.connect();
   try {
