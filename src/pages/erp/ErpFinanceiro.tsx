@@ -979,7 +979,7 @@ const ErpFinanceiro: React.FC = () => {
       };
 
       // Período por contrato (30 dias) baseado no dataInicio de cada contrato
-      // e na competência REAL de cada pendente (regra dos 5 pode mesclar meses).
+      // e na competência REAL de cada pendente (regra dos 10 pode mesclar meses).
       const periodos = contracts.map((c, i) => computeCompetenciaPeriodo(c.dataInicio, compOf(arr[i])));
 
       // Persiste um recibo por contrato — cada um com SEU período de 30 dias.
