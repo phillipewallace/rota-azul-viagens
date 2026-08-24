@@ -277,6 +277,8 @@ export const receiptsService = {
     dataVencimento?: string; // YYYY-MM-DD — override manual do vencimento
     cno?: string;
     enderecoObra?: string;
+    /** Recibo unificado: reutiliza a MESMA numeração do grupo (não consome novo número). */
+    numeroGrupo?: string;
   }) =>
     req<{ ok: true; id: string; numero: string; numeroDisplay?: string | null; regerado?: boolean }>('POST', '/erp/receipts/generate', body),
   /** Ajusta manualmente o vencimento de um recibo já emitido. */
