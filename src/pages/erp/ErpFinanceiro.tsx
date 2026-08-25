@@ -1121,6 +1121,8 @@ const ErpFinanceiro: React.FC = () => {
             enderecoObra: ct.enderecoObra || ct.localEvento || '',
             cno: ct.cno || '',
             valor: Number(g.valor) || 0,
+            periodoInicio: g.periodoInicio || null,
+            periodoFim: g.periodoFim || null,
           };
         });
         const total = items.reduce((s, it) => s + it.valor, 0);
@@ -1129,8 +1131,8 @@ const ErpFinanceiro: React.FC = () => {
           // mesmo número exibido) — nunca o número interno "SV-...".
           numero: group[0].numeroDisplay || r.numeroDisplay || r.numero,
           competencia: r.competencia,
-          periodoInicio: r.periodoInicio,
-          periodoFim: r.periodoFim,
+          periodoInicio: null,
+          periodoFim: null,
           dataEmissao: r.dataEmissao,
           dataVencimento: r.dataVencimento || null,
           company: first.company || {},
@@ -1368,17 +1370,13 @@ const ErpFinanceiro: React.FC = () => {
       // Apenas o primeiro recibo consome numeração; os demais reutilizam.
       let numeroGrupo: string | null = null;
       for (const it of input.items) {
-        const per = (input.periodoInicio && input.periodoFim) 
-          ? { inicio: input.periodoInicio, fim: input.periodoFim } 
-          : undefined;
-        
         const r = await receiptsService.generate({
           contractId: (it as any).contractId,
           competencia: input.competencia,
           valor: it.valor,
           dataVencimento: input.dataVencimento || undefined,
-          periodoInicio: (it as any).periodoInicio || per?.inicio,
-          periodoFim: (it as any).periodoFim || per?.fim,
+          periodoInicio: (it as any).periodoInicio || undefined,
+          periodoFim: (it as any).periodoFim || undefined,
           semValidade: !!input.semValidade,
           cno: it.cno || undefined,
           enderecoObra: it.enderecoObra || undefined,
@@ -3613,8 +3611,6 @@ const UnifiedPreviewDialog: React.FC<{
 }> = ({ input, onClose, onConfirm, working }) => {
   const [dataEmissao, setDataEmissao] = useState('');
   const [dataVencimento, setDataVencimento] = useState('');
-  const [perIni, setPerIni] = useState('');
-  const [perFim, setPerFim] = useState('');
   const [obs, setObs] = useState('');
   const [items, setItems] = useState<any[]>([]);
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
@@ -3623,8 +3619,6 @@ const UnifiedPreviewDialog: React.FC<{
     if (!input) return;
     setDataEmissao(input.dataEmissao);
     setDataVencimento(input.dataVencimento || '');
-    setPerIni(input.periodoInicio || '');
-    setPerFim(input.periodoFim || '');
     setObs('');
     setItems(input.items || []);
     setEditingItemIdx(null);
@@ -3656,17 +3650,6 @@ const UnifiedPreviewDialog: React.FC<{
             <div>
               <Label className="text-xs">Data de Vencimento</Label>
               <Input type="date" value={dataVencimento} onChange={e => setDataVencimento(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Início do Período (Global)</Label>
-              <Input type="date" value={perIni} onChange={e => setPerIni(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">Fim do Período (Global)</Label>
-              <Input type="date" value={perFim} onChange={e => setPerFim(e.target.value)} />
             </div>
           </div>
 
@@ -3771,8 +3754,8 @@ const UnifiedPreviewDialog: React.FC<{
               ...input,
               dataEmissao,
               dataVencimento,
-              periodoInicio: perIni,
-              periodoFim: perFim,
+              periodoInicio: null,
+              periodoFim: null,
               items: items.map(it => ({
                 ...it,
                 // As edições já estão no estado 'items' devido ao updateItem
