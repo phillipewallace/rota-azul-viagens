@@ -186,9 +186,12 @@ router.get('/pending', async (req, res) => {
                OR $1 >= c.primeira_competencia)
            -- A competência quitada é registrada explicitamente, sem tentar
            -- deduzi-la pelo período meramente descritivo do PDF.
+           -- Recibos CANCELADOS não quitam a competência: ela volta a pendente.
            AND NOT EXISTS (
              SELECT 1 FROM erp_receipt_billed_competences bc
+               JOIN erp_receipts rr ON rr.id = bc.receipt_id
               WHERE bc.contract_id = c.id AND bc.competencia = $1
+                AND rr.status <> 'cancelado'
           )
           -- Também considera "faturado" quando há NF ativa explicitamente
           -- vinculada à competência (a emissão pode ocorrer em outro mês).
