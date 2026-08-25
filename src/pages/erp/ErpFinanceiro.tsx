@@ -3934,6 +3934,20 @@ const EditVencimentoDialog: React.FC<{
   const [freteIncluso, setFreteIncluso] = useState('');
   const [cust, setCust] = useState<Record<string, string>>({});
   const [comp, setComp] = useState<Record<string, string>>({});
+  const [unifiedItems, setUnifiedItems] = useState<Array<{
+    id: string;
+    numero: string;
+    contractNumero: string;
+    descricao: string;
+    periodoInicio: string;
+    periodoFim: string;
+    cno: string;
+    enderecoObra: string;
+    valor: string;
+    valorLocacao: string;
+    freteIncluso: string;
+  }>>([]);
+  const [unifiedLoading, setUnifiedLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Normaliza qualquer formato vindo da API (Date, ISO com hora, 'YYYY-MM-DD')
@@ -3951,6 +3965,28 @@ const EditVencimentoDialog: React.FC<{
   };
   // Guarda os valores originais para só enviar período quando de fato mudar.
   const [origPeriodo, setOrigPeriodo] = useState<{ ini: string; fim: string }>({ ini: '', fim: '' });
+
+  const receiptToUnifiedItem = (r: Receipt) => {
+    const snap: any = r.snapshot || {};
+    const ct = snap.contract || {};
+    const pi = toDateInput(r.periodoInicio) || toDateInput(snap?.periodo?.inicio);
+    const pf = toDateInput(r.periodoFim) || toDateInput(snap?.periodo?.fim);
+    const frete = Number(snap.freteIncluso || 0);
+    const locacao = Number(snap.valorLocacao ?? (Number(r.valor || 0) - frete));
+    return {
+      id: r.id,
+      numero: r.numeroDisplay || r.numero,
+      contractNumero: ct.numero || r.contractNumero || '',
+      descricao: ct.descricao || '',
+      periodoInicio: pi,
+      periodoFim: pf,
+      cno: ct.cno || '',
+      enderecoObra: ct.enderecoObra || ct.localEvento || '',
+      valor: String(Number(r.valor || 0)),
+      valorLocacao: String(Number.isFinite(locacao) ? Math.max(0, locacao) : Number(r.valor || 0)),
+      freteIncluso: String(frete),
+    };
+  };
 
   useEffect(() => {
     if (!receipt) return;
@@ -3986,9 +4022,47 @@ const EditVencimentoDialog: React.FC<{
       telefone: co.telefone || '', email: co.email || '',
       financeiroContato: co.financeiroContato || '',
     });
+    setUnifiedItems([receiptToUnifiedItem(receipt)]);
   }, [receipt]);
 
+  useEffect(() => {
+    if (!receipt?.unifiedGroupId) {
+      setUnifiedLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setUnifiedLoading(true);
+    receiptsService.list({ unifiedGroupId: receipt.unifiedGroupId, semValidade: !!receipt.semValidade })
+      .then((rows) => {
+        if (cancelled) return;
+        const ativos = rows.filter(r => r.status !== 'cancelado');
+        const ordered = ativos.length > 0 ? ativos : rows;
+        setUnifiedItems(ordered.map(receiptToUnifiedItem));
+      })
+      .catch(() => {
+        if (!cancelled) setUnifiedItems([receiptToUnifiedItem(receipt)]);
+      })
+      .finally(() => {
+        if (!cancelled) setUnifiedLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [receipt?.id, receipt?.unifiedGroupId, receipt?.semValidade]);
+
   const num = (s: string) => Number(String(s).replace(',', '.'));
+  const isUnifiedEdit = !!receipt?.unifiedGroupId && unifiedItems.length > 1;
+  const updateUnifiedItem = (id: string, field: string, value: string) => {
+    setUnifiedItems(prev => prev.map(it => {
+      if (it.id !== id) return it;
+      const next = { ...it, [field]: value };
+      if (field === 'valorLocacao' || field === 'freteIncluso') {
+        const loc = field === 'valorLocacao' ? num(value) : num(next.valorLocacao);
+        const fre = field === 'freteIncluso' ? (value === '' ? 0 : num(value)) : (next.freteIncluso === '' ? 0 : num(next.freteIncluso));
+        const total = loc + fre;
+        if (Number.isFinite(total)) next.valor = String(total);
+      }
+      return next;
+    }));
+  };
 
   const salvar = async () => {
     if (!receipt) return;
@@ -3999,6 +4073,22 @@ const EditVencimentoDialog: React.FC<{
     if (periodoFim && !isDate(periodoFim)) { toast.error('Fim do período inválido'); return; }
     if (periodoInicio && periodoFim && periodoFim < periodoInicio) {
       toast.error('Fim do período deve ser >= início'); return;
+    }
+    if (isUnifiedEdit) {
+      for (const it of unifiedItems) {
+        if (!isDate(it.periodoInicio) || !isDate(it.periodoFim)) {
+          toast.error(`Informe o período completo do contrato ${it.contractNumero || it.numero}`); return;
+        }
+        if (it.periodoFim < it.periodoInicio) {
+          toast.error(`Fim do período deve ser >= início no contrato ${it.contractNumero || it.numero}`); return;
+        }
+        const iv = num(it.valor);
+        const il = num(it.valorLocacao);
+        const iff = it.freteIncluso === '' ? 0 : num(it.freteIncluso);
+        if (!Number.isFinite(iv) || iv < 0 || !Number.isFinite(il) || il < 0 || !Number.isFinite(iff) || iff < 0) {
+          toast.error(`Valor inválido no contrato ${it.contractNumero || it.numero}`); return;
+        }
+      }
     }
     const v = num(valor);
     const vl = num(valorLocacao);
@@ -4034,7 +4124,29 @@ const EditVencimentoDialog: React.FC<{
 
     setBusy(true);
     try {
-      await receiptsService.update(receipt.id, patch);
+      if (isUnifiedEdit) {
+        const shared: any = {
+          dataEmissao,
+          dataVencimento: dataVencimento || null,
+          numeroDisplay: numeroDisplay.trim() || null,
+          customer: cust,
+          company: comp,
+        };
+        await Promise.all(unifiedItems.map((it) => receiptsService.update(it.id, {
+          ...shared,
+          valor: num(it.valor),
+          periodoInicio: it.periodoInicio,
+          periodoFim: it.periodoFim,
+          cno: it.cno.trim() || null,
+          enderecoObra: it.enderecoObra.trim() || null,
+          descricao: it.descricao.trim() || null,
+          contratoNumero: it.contractNumero.trim() || null,
+          valorLocacao: num(it.valorLocacao),
+          freteIncluso: it.freteIncluso === '' ? 0 : num(it.freteIncluso),
+        } as any)));
+      } else {
+        await receiptsService.update(receipt.id, patch);
+      }
       toast.success('Recibo atualizado');
       await onSaved();
     } catch (e: any) {
@@ -4079,14 +4191,14 @@ const EditVencimentoDialog: React.FC<{
               {field('Número exibido', numeroDisplay, setNumeroDisplay, { placeholder: receipt?.numero || '' })}
               {field('Data de emissão', dataEmissao, setDataEmissao, { type: 'date' })}
               {field('Data de vencimento', dataVencimento, setDataVencimento, { type: 'date' })}
-              {field('Início do período', periodoInicio, setPeriodoInicio, { type: 'date' })}
-              {field('Fim do período', periodoFim, setPeriodoFim, { type: 'date' })}
-              {field('Nº do contrato (impresso)', contratoNumero, setContratoNumero)}
+              {!isUnifiedEdit && field('Início do período', periodoInicio, setPeriodoInicio, { type: 'date' })}
+              {!isUnifiedEdit && field('Fim do período', periodoFim, setPeriodoFim, { type: 'date' })}
+              {!isUnifiedEdit && field('Nº do contrato (impresso)', contratoNumero, setContratoNumero)}
             </div>
           </section>
 
           {/* Serviço e valores */}
-          <section className="space-y-2">
+          {!isUnifiedEdit && <section className="space-y-2">
             <h4 className="text-sm font-semibold">Serviço e valores</h4>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Descrição do serviço</Label>
@@ -4109,16 +4221,57 @@ const EditVencimentoDialog: React.FC<{
               }, { type: 'number' })}
               {field('Total da cobrança (R$)', valor, setValor, { type: 'number' })}
             </div>
-          </section>
+          </section>}
+
+          {isUnifiedEdit && (
+            <section className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-sm font-semibold">Contratos do recibo unificado</h4>
+                {unifiedLoading && <span className="text-xs text-muted-foreground">Carregando grupo…</span>}
+              </div>
+              <div className="space-y-3">
+                {unifiedItems.map((it) => (
+                  <div key={it.id} className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-foreground">Contrato {it.contractNumero || '—'}</p>
+                        <p className="text-[11px] text-muted-foreground">Recibo {it.numero}</p>
+                      </div>
+                      <span className="text-xs font-semibold text-emerald-700 shrink-0">{BRL(num(it.valor))}</span>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {field('Início do período', it.periodoInicio, (v) => updateUnifiedItem(it.id, 'periodoInicio', v), { type: 'date' })}
+                      {field('Fim do período', it.periodoFim, (v) => updateUnifiedItem(it.id, 'periodoFim', v), { type: 'date' })}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Descrição do serviço</Label>
+                      <Textarea
+                        rows={2}
+                        value={it.descricao}
+                        onChange={(e) => updateUnifiedItem(it.id, 'descricao', e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {field('Valor da locação (R$)', it.valorLocacao, (v) => updateUnifiedItem(it.id, 'valorLocacao', v), { type: 'number' })}
+                      {field('Frete incluso (R$)', it.freteIncluso, (v) => updateUnifiedItem(it.id, 'freteIncluso', v), { type: 'number' })}
+                      {field('Total deste contrato (R$)', it.valor, (v) => updateUnifiedItem(it.id, 'valor', v), { type: 'number' })}
+                      {field('CNO / Ordem de Compra', it.cno, (v) => updateUnifiedItem(it.id, 'cno', v))}
+                      {field('Endereço da obra/evento', it.enderecoObra, (v) => updateUnifiedItem(it.id, 'enderecoObra', v), { className: 'sm:col-span-2' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Local de prestação */}
-          <section className="space-y-2">
+          {!isUnifiedEdit && <section className="space-y-2">
             <h4 className="text-sm font-semibold">Local de prestação / referências</h4>
             <div className="grid gap-3 sm:grid-cols-3">
               {field('CNO / Ordem de Compra', cno, setCno)}
               {field('Endereço da obra/evento', enderecoObra, setEnderecoObra, { className: 'sm:col-span-2' })}
             </div>
-          </section>
+          </section>}
 
           {/* Cliente */}
           <section className="space-y-2">
