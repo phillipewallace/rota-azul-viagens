@@ -554,9 +554,10 @@ export async function generateUnifiedReceiptPdf(input: UnifiedReceiptInput) {
   afterY += 4;
 
   // Linha "Competência / Vencimento / Total"
-  const compLabel = (input.periodoInicio || input.periodoFim)
-    ? formatPeriodo(input.periodoInicio, input.periodoFim, formatComp(input.competencia))
-    : formatComp(input.competencia);
+  // Em recibo unificado, o período pertence a cada contrato e já aparece na
+  // tabela de itens. O rodapé deve mostrar apenas a competência para não
+  // sugerir um período global aplicado a todos.
+  const compLabel = formatComp(input.competencia);
   autoTable(doc, {
     startY: afterY,
     head: [['Competência', 'Vencimento', 'Total da Cobrança']],

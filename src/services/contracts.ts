@@ -193,13 +193,23 @@ export interface ReceiptsSummaryPoint {
   resultado: number;
 }
 export const receiptsService = {
-  list: (params?: { contractId?: string; competencia?: string; pago?: boolean; from?: string; to?: string }) => {
+  list: (params?: {
+    contractId?: string;
+    competencia?: string;
+    pago?: boolean;
+    from?: string;
+    to?: string;
+    semValidade?: boolean;
+    unifiedGroupId?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params?.contractId) q.set('contractId', params.contractId);
     if (params?.competencia) q.set('competencia', params.competencia);
     if (params?.pago !== undefined) q.set('pago', String(params.pago));
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
+    if (params?.semValidade !== undefined) q.set('semValidade', String(params.semValidade));
+    if (params?.unifiedGroupId) q.set('unifiedGroupId', params.unifiedGroupId);
     const s = q.toString();
     return req<Receipt[]>('GET', `/erp/receipts${s ? '?' + s : ''}`);
   },
@@ -296,6 +306,14 @@ export const receiptsService = {
     valor?: number;
     numeroDisplay?: string | null;
     competencia?: string;
+    cno?: string | null;
+    enderecoObra?: string | null;
+    descricao?: string | null;
+    contratoNumero?: string | null;
+    valorLocacao?: number;
+    freteIncluso?: number;
+    customer?: Record<string, string>;
+    company?: Record<string, string>;
   }) =>
     req<{ ok: true }>('PATCH', `/erp/receipts/${id}`, patch),
   remove: (id: string, force = false) =>

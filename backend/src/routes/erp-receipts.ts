@@ -42,11 +42,12 @@ router.get('/', async (req, res) => {
     const {
       contractId, competencia, pago, from, to,
       status, companyId, search, semValidade,
-      dateBase, vencidoAte, venceAte,
+      dateBase, vencidoAte, venceAte, unifiedGroupId,
     } = req.query as Record<string, string | undefined>;
     const conds: string[] = [];
     const params: unknown[] = [];
     if (contractId) { params.push(contractId); conds.push(`r.contract_id = $${params.length}`); }
+    if (unifiedGroupId) { params.push(unifiedGroupId); conds.push(`r.unified_group_id = $${params.length}`); }
     if (competencia) { params.push(competencia); conds.push(`r.competencia = $${params.length}`); }
     if (pago === 'true')  conds.push(`r.pago = TRUE`);
     if (pago === 'false') conds.push(`r.pago = FALSE`);
@@ -640,7 +641,9 @@ router.patch('/:id', requireRole(...FIN_ROLES), async (req, res) => {
 
       // CNO/Endereço sincronizam com o contrato; os demais overrides ficam
       // apenas no snapshot do recibo (o PDF lê o snapshot).
-      if (patch.cno !== undefined || patch.endereco_obra !== undefined || hasSnapOverride) {
+      if (patch.cno !== undefined || patch.endereco_obra !== undefined ||
+          patch.periodo_inicio !== undefined || patch.periodo_fim !== undefined ||
+          hasSnapOverride) {
         const snap = rec.snapshot || {};
         const snapContract = { ...(snap.contract || {}) };
 
