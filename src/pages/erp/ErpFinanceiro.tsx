@@ -4049,7 +4049,7 @@ const EditVencimentoDialog: React.FC<{
   }, [receipt?.id, receipt?.unifiedGroupId, receipt?.semValidade]);
 
   const num = (s: string) => Number(String(s).replace(',', '.'));
-  const isUnifiedEdit = !!receipt?.unifiedGroupId && unifiedItems.length > 1;
+  const isUnifiedEdit = !!receipt?.unifiedGroupId;
   const updateUnifiedItem = (id: string, field: string, value: string) => {
     setUnifiedItems(prev => prev.map(it => {
       if (it.id !== id) return it;
@@ -4066,6 +4066,9 @@ const EditVencimentoDialog: React.FC<{
 
   const salvar = async () => {
     if (!receipt) return;
+    if (receipt.unifiedGroupId && unifiedLoading) {
+      toast.error('Aguarde carregar os contratos do recibo unificado'); return;
+    }
     const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
     if (!isDate(dataEmissao)) { toast.error('Data de emissão inválida'); return; }
     if (dataVencimento && !isDate(dataVencimento)) { toast.error('Data de vencimento inválida'); return; }
@@ -4237,7 +4240,7 @@ const EditVencimentoDialog: React.FC<{
                         <p className="text-xs font-semibold text-foreground">Contrato {it.contractNumero || '—'}</p>
                         <p className="text-[11px] text-muted-foreground">Recibo {it.numero}</p>
                       </div>
-                      <span className="text-xs font-semibold text-emerald-700 shrink-0">{BRL(num(it.valor))}</span>
+                      <span className="text-xs font-semibold text-primary shrink-0">{BRL(num(it.valor))}</span>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {field('Início do período', it.periodoInicio, (v) => updateUnifiedItem(it.id, 'periodoInicio', v), { type: 'date' })}

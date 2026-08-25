@@ -306,6 +306,14 @@ export const receiptsService = {
     valor?: number;
     numeroDisplay?: string | null;
     competencia?: string;
+    cno?: string | null;
+    enderecoObra?: string | null;
+    descricao?: string | null;
+    contratoNumero?: string | null;
+    valorLocacao?: number;
+    freteIncluso?: number;
+    customer?: Record<string, string>;
+    company?: Record<string, string>;
   }) =>
     req<{ ok: true }>('PATCH', `/erp/receipts/${id}`, patch),
   remove: (id: string, force = false) =>
