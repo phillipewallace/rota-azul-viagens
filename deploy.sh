@@ -98,6 +98,23 @@ sudo -u postgres psql -d "${DB_NAME}" -tAc \
   | grep -qx t \
   || err "Migration de reconciliação das notas fiscais não foi aplicada"
 
+# ─── 4.5) Importação one-shot: contratos PARAOPEBA (setembro/2026) ──────────
+# Roda UMA única vez; a marca de sucesso impede duplicatas em deploys futuros.
+PARAOPEBA_SQL="${PROJECT_DIR}/database/import-paraopeba-setembro.sql"
+PARAOPEBA_MARK="${PROJECT_DIR}/database/.imported-paraopeba-set26"
+if [ -f "$PARAOPEBA_SQL" ] && [ ! -f "$PARAOPEBA_MARK" ]; then
+  log "Importando contratos PARAOPEBA (setembro/2026)…"
+  if sudo -u postgres psql -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$PARAOPEBA_SQL"; then
+    date -u +%FT%TZ > "$PARAOPEBA_MARK"
+    ok "Contratos PARAOPEBA importados (one-shot concluído)"
+  else
+    warn "Falha na importação PARAOPEBA — nenhuma marca gravada, tentará no próximo deploy"
+  fi
+else
+  log "Importação PARAOPEBA já executada anteriormente — pulando"
+fi
+
+
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO ${DB_USER};" >/dev/null
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${DB_USER};" >/dev/null
 sudo -u postgres psql -d "${DB_NAME}" -c "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${DB_USER};" >/dev/null 2>&1 || true
