@@ -133,6 +133,10 @@ function AppShell() {
           <Route path="/funcionarios" element={<Protected><FuncionariosAdmin /></Protected>} />
           <Route path="/sanitarios" element={<Protected><Sanitarios /></Protected>} />
           <Route path="/rotas-concluidas" element={<Protected><CompletedRoutes /></Protected>} />
+          <Route path="/carretinhas" element={<Protected><Carretinhas /></Protected>} />
+          <Route path="/checklists" element={<Protected><Checklists /></Protected>} />
+          <Route path="/gestao-interna" element={<Protected><InternalManagement /></Protected>} />
+          <Route path="/mobile-menu" element={<Protected><MobileMenu /></Protected>} />
 
           <Route path="/erp" element={<Protected><ErpLayout /></Protected>}>
             <Route index element={<ErpDashboard />} />
